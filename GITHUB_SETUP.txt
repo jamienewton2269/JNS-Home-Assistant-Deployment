@@ -1,4 +1,4 @@
-JNS v4.2.3 GitHub repository settings
+JNS v4.3.0-beta.1 GitHub repository settings
 
 Repository:
 https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment

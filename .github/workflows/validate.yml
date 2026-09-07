@@ -30,7 +30,7 @@ jobs:
           category: integration
 
   local-static:
-    name: Local static checks
+    name: Local static and security checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -39,5 +39,9 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-      - name: Run repository checks
+      - name: Verify repository
         run: python tools/verify_repository.py
+      - name: Run security self-test
+        run: python tools/security_selftest.py
+      - name: Run beta engine self-test
+        run: python tools/beta_selftest.py

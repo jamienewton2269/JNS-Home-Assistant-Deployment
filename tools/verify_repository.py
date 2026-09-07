@@ -9,16 +9,19 @@ CC = ROOT / "custom_components" / "jns_deployment"
 required = [
     ROOT / "hacs.json",
     ROOT / "LICENSE",
-    ROOT / "brand" / "icon.png",
     CC / "brand" / "icon.png",
     CC / "brand" / "logo.png",
     CC / "manifest.json",
     CC / "__init__.py",
     CC / "config_flow.py",
     CC / "deployment.py",
+    CC / "diagnostics.py",
     CC / "services.yaml",
     CC / "strings.json",
     CC / "translations" / "en.json",
+    ROOT / "tools" / "security_selftest.py",
+    ROOT / "tools" / "beta_selftest.py",
+    ROOT / "BETA_TEST_PLAN.md",
 ]
 
 for path in required:
@@ -36,30 +39,31 @@ for json_file in (
 manifest = json.loads(
     (CC / "manifest.json").read_text(encoding="utf-8")
 )
-
 keys = list(manifest)
 expected_keys = ["domain", "name"] + sorted(
     key for key in keys if key not in {"domain", "name"}
 )
-
 if keys != expected_keys:
     raise SystemExit(
-        "Manifest keys are not in Hassfest order. "
-        f"Expected {expected_keys}; got {keys}"
+        f"Manifest key order invalid. Expected {expected_keys}; got {keys}"
     )
 
-if manifest.get("version") != "4.2.3":
+if manifest.get("version") != "4.3.0-beta.1":
     raise SystemExit(
         f"Unexpected integration version: {manifest.get('version')!r}"
     )
-
+if manifest.get("iot_class") != "local_push":
+    raise SystemExit("Manifest IoT class must be local_push")
 if manifest.get("codeowners") != ["@jamienewton2269"]:
     raise SystemExit("Unexpected codeowners")
 
-if manifest.get("iot_class") != "local_push":
+const_text = (CC / "const.py").read_text(encoding="utf-8")
+if '"custom_components/"' in const_text.split("ALLOWED_ROOTS =", 1)[1].split(")", 1)[0]:
     raise SystemExit(
-        f"Unexpected IoT class: {manifest.get('iot_class')!r}"
+        "Unsigned format-1 package policy must not allow custom_components/"
     )
+if "FORMAT_PLATFORM_UPDATE = 2" not in const_text:
+    raise SystemExit("Platform-update format is missing")
 
 license_text = (ROOT / "LICENSE").read_text(encoding="utf-8")
 if "IN NO EVENT SHALL THE" not in license_text:
@@ -68,7 +72,6 @@ if "IN NO EVENT SHALL THE" not in license_text:
 workflow = (
     ROOT / ".github" / "workflows" / "validate.yml"
 ).read_text(encoding="utf-8")
-
 for required_action in (
     "actions/checkout@v7",
     "actions/setup-python@v7",
@@ -76,9 +79,7 @@ for required_action in (
     "hacs/action@main",
 ):
     if required_action not in workflow:
-        raise SystemExit(
-            f"Workflow missing required action: {required_action}"
-        )
+        raise SystemExit(f"Workflow missing {required_action}")
 
 with tempfile.TemporaryDirectory() as tempdir:
     tempdir = Path(tempdir)
@@ -89,23 +90,16 @@ with tempfile.TemporaryDirectory() as tempdir:
             doraise=True,
         )
 
-cache_dirs = list(ROOT.rglob("__pycache__"))
-if cache_dirs:
-    raise SystemExit(
-        f"Python cache directory must not be committed: {cache_dirs[0]}"
-    )
+if list(ROOT.rglob("__pycache__")):
+    raise SystemExit("Python cache directories must not be committed")
+if list(ROOT.rglob("*.pyc")):
+    raise SystemExit("Python bytecode must not be committed")
 
-bytecode_files = list(ROOT.rglob("*.pyc"))
-if bytecode_files:
-    raise SystemExit(
-        f"Python bytecode must not be committed: {bytecode_files[0]}"
-    )
-
-print("JNS v4.2.3 repository static validation: PASS")
-print("Manifest ordering: PASS")
-print("Integration version: PASS")
-print("IoT class: PASS")
+print("JNS v4.3.0-beta.1 repository static validation: PASS")
+print("Manifest ordering/version/IoT class: PASS")
+print("Unsigned package target policy: PASS")
+print("Platform-update format presence: PASS")
 print("MIT licence completeness: PASS")
-print("Local integration brand assets: PASS")
+print("Brand assets: PASS")
 print("GitHub Action versions: PASS")
 print("Python compilation: PASS")

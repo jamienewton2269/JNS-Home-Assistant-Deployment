@@ -1,40 +1,155 @@
-validate_package:
-  name: Validate JNS deployment package
-  description: Validate a package in the JNS inbox without changing Home Assistant.
+status:
+  name: JNS status
+  description: Return platform version, paths, transaction state and recovery status.
+
+list_inbox_packages:
+  name: List JNS inbox packages
+  description: Return all ZIP packages in /config/jns/inbox and their current validation status.
+
+plan_package:
+  name: Plan JNS deployment
+  description: Validate a package and report which targets would be created, replaced or left unchanged.
   fields:
     package:
       name: Package
-      description: ZIP filename located in /config/jns/inbox.
       required: true
       selector:
         text:
-    dry_run:
-      name: Dry run
-      description: Validation never installs files.
-      default: true
+
+validate_package:
+  name: Validate JNS deployment package
+  description: Validate package structure, target policy and hashes without changing Home Assistant.
+  fields:
+    package:
+      name: Package
+      required: true
       selector:
-        boolean:
+        text:
 
 install_package:
   name: Install JNS deployment package
-  description: Validate, stage, back up and transactionally install a JNS package.
+  description: Transactionally deploy a validated package and optionally run Home Assistant's configuration validation.
   fields:
     package:
       name: Package
-      description: ZIP filename located in /config/jns/inbox.
       required: true
       selector:
         text:
     dry_run:
       name: Dry run
-      description: Validate without committing files.
       default: false
+      selector:
+        boolean:
+    check_config:
+      name: Check Home Assistant configuration
+      description: If the post-install Home Assistant configuration check fails, JNS automatically rolls the transaction back.
+      default: true
       selector:
         boolean:
 
 rollback_transaction:
   name: Roll back JNS transaction
-  description: Restore files saved by a previous JNS deployment transaction.
+  description: Restore the state recorded before a committed JNS package transaction.
+  fields:
+    transaction_id:
+      name: Transaction ID
+      required: true
+      selector:
+        text:
+    force:
+      name: Force rollback
+      description: Bypass post-deployment drift protection. Use only after reviewing changed files.
+      default: false
+      selector:
+        boolean:
+    check_config:
+      name: Check Home Assistant configuration
+      default: true
+      selector:
+        boolean:
+
+recover_interrupted_transaction:
+  name: Recover interrupted JNS transaction
+  description: Restore pre-transaction state for a transaction detected as interrupted after a restart/power loss.
+  fields:
+    transaction_id:
+      name: Transaction ID
+      required: true
+      selector:
+        text:
+
+list_transactions:
+  name: List JNS transactions
+  description: Return recent transaction summaries.
+  fields:
+    limit:
+      name: Limit
+      default: 50
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+
+get_transaction:
+  name: Get JNS transaction
+  description: Return the complete stored transaction record.
+  fields:
+    transaction_id:
+      name: Transaction ID
+      required: true
+      selector:
+        text:
+
+list_installed_packages:
+  name: List installed JNS packages
+  description: Return the latest active committed transaction for each package id.
+
+validate_platform_update:
+  name: Validate JNS platform update
+  description: Validate a format-2 JNS self-update using an explicitly trusted full-archive SHA-256.
+  fields:
+    package:
+      name: Package
+      description: ZIP filename in /config/jns/platform_updates.
+      required: true
+      selector:
+        text:
+    expected_sha256:
+      name: Trusted archive SHA-256
+      description: SHA-256 obtained through a trusted/out-of-band release channel.
+      required: true
+      selector:
+        text:
+    dry_run:
+      name: Dry run
+      default: true
+      selector:
+        boolean:
+
+install_platform_update:
+  name: Install JNS platform update
+  description: Replace the complete JNS integration tree after explicit archive-hash validation. Restart is required.
+  fields:
+    package:
+      name: Package
+      required: true
+      selector:
+        text:
+    expected_sha256:
+      name: Trusted archive SHA-256
+      required: true
+      selector:
+        text:
+    dry_run:
+      name: Dry run
+      default: false
+      selector:
+        boolean:
+
+rollback_platform_update:
+  name: Roll back JNS platform update
+  description: Restore the complete integration tree backed up by a platform-update transaction. Restart is required.
   fields:
     transaction_id:
       name: Transaction ID

@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "package_id": "jns_beta_test",
+  "name": "JNS v4.3.0 Beta Test Package",
+  "version": "1.0.0",
+  "files": [
+    {
+      "source": "payload/jns_beta_test_package.yaml",
+      "target": "packages/jns_beta_test_package.yaml",
+      "sha256": "7d52cd8e9ebbf4498dbe63eaac54cb36e01345de639fcab28720c185a001258d"
+    }
+  ]
+}
