@@ -1,4 +1,4 @@
-# JNS Home Assistant Deployment Platform v4.2.2
+# JNS Home Assistant Deployment Platform v4.2.3
 
 JNS is a Home Assistant deployment, configuration and rollback layer designed to sit above normal Home Assistant/HACS installation mechanisms.
 
