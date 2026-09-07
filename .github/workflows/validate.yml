@@ -39,5 +39,5 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-      - name: Compile and validate repository
+      - name: Run repository checks
         run: python tools/verify_repository.py

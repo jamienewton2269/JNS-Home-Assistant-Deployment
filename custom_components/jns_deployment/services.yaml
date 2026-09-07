@@ -1,6 +1,6 @@
 validate_package:
   name: Validate JNS deployment package
-  description: Validate a package in /config/jns/inbox without changing Home Assistant.
+  description: Validate a package in the JNS inbox without changing Home Assistant.
   fields:
     package:
       name: Package
@@ -10,7 +10,7 @@ validate_package:
         text:
     dry_run:
       name: Dry run
-      description: Retained for service compatibility. Validation never installs files.
+      description: Validation never installs files.
       default: true
       selector:
         boolean:
@@ -27,7 +27,7 @@ install_package:
         text:
     dry_run:
       name: Dry run
-      description: Validate and stage logically without committing files.
+      description: Validate without committing files.
       default: false
       selector:
         boolean:

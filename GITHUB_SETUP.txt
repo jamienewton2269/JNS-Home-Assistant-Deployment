@@ -1,0 +1,20 @@
+JNS v4.2.2 GitHub repository settings
+
+Repository:
+https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment
+
+Description:
+Transactional deployment, validation and rollback platform for Home Assistant, installable via HACS.
+
+Topics:
+home-assistant
+hacs
+custom-component
+deployment
+rollback
+
+Ensure:
+- Repository is Public
+- Issues are enabled
+- Default branch is main
+- GitHub Actions are enabled
