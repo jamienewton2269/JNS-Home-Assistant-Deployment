@@ -1,0 +1,14 @@
+{
+  "title": "JNS Home Assistant Deployment Platform",
+  "config": {
+    "step": {
+      "user": {
+        "title": "JNS Deployment Platform",
+        "description": "Enable the local JNS transactional deployment executor."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Only one JNS Deployment Platform instance is supported."
+    }
+  }
+}

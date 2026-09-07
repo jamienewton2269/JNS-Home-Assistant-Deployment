@@ -1,0 +1,43 @@
+validate_package:
+  name: Validate JNS deployment package
+  description: Validate a package in /config/jns/inbox without changing Home Assistant.
+  fields:
+    package:
+      name: Package
+      description: ZIP filename located in /config/jns/inbox.
+      required: true
+      selector:
+        text:
+    dry_run:
+      name: Dry run
+      description: Retained for service compatibility. Validation never installs files.
+      default: true
+      selector:
+        boolean:
+
+install_package:
+  name: Install JNS deployment package
+  description: Validate, stage, back up and transactionally install a JNS package.
+  fields:
+    package:
+      name: Package
+      description: ZIP filename located in /config/jns/inbox.
+      required: true
+      selector:
+        text:
+    dry_run:
+      name: Dry run
+      description: Validate and stage logically without committing files.
+      default: false
+      selector:
+        boolean:
+
+rollback_transaction:
+  name: Roll back JNS transaction
+  description: Restore files saved by a previous JNS deployment transaction.
+  fields:
+    transaction_id:
+      name: Transaction ID
+      required: true
+      selector:
+        text:

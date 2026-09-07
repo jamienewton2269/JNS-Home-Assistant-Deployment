@@ -1,0 +1,4 @@
+input_boolean:
+  jns_test_flag:
+    name: JNS Test Flag
+    icon: mdi:flask-outline

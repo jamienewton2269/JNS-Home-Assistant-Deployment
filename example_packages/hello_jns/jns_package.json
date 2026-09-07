@@ -1,0 +1,12 @@
+{
+  "format": 1,
+  "name": "JNS v4.2 Test Package",
+  "version": "1.0.0",
+  "files": [
+    {
+      "source": "payload/jns_test_package.yaml",
+      "target": "packages/jns_test_package.yaml",
+      "sha256": "d2bf890fca799b4de07197715191e9f0c8d71280b817b05ee329499963284be2"
+    }
+  ]
+}
