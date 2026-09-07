@@ -1,5 +1,5 @@
 DOMAIN = "jns_deployment"
-VERSION = "4.2.0"
+VERSION = "4.2.1"
 
 CONF_INBOX = "inbox_path"
 CONF_STAGING = "staging_path"

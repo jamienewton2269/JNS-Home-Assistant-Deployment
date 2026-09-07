@@ -1,0 +1,14 @@
+GitHub repository settings required by HACS
+
+Description:
+Transactional deployment, validation and rollback platform for Home Assistant, installable via HACS.
+
+Topics:
+home-assistant
+hacs
+custom-component
+deployment
+rollback
+
+Issues:
+Enabled

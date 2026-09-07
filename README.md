@@ -1,4 +1,4 @@
-# JNS Home Assistant Deployment Platform v4.2
+# JNS Home Assistant Deployment Platform v4.2.1
 
 JNS is a deployment/configuration/rollback layer for Home Assistant. This repository
 contains the HACS-installable Home Assistant integration and the local transactional
@@ -108,9 +108,22 @@ JNS fires:
 - `jns_deployment_deployment_failed`
 - `jns_deployment_rollback_result`
 
+## Required GitHub repository metadata
+
+Set the repository description to:
+
+`Transactional deployment, validation and rollback platform for Home Assistant, installable via HACS.`
+
+Add these topics:
+
+`home-assistant`, `hacs`, `custom-component`, `deployment`, `rollback`
+
+Keep GitHub Issues enabled.
+
+
 ## GitHub publishing
 
-Replace `YOUR_GITHUB_USERNAME` in
+Replace `jamienewton2269` in
 `custom_components/jns_deployment/manifest.json` before publishing.
 
 Suggested repository name:
