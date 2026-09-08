@@ -277,7 +277,7 @@ with tempfile.TemporaryDirectory() as tempdir:
     else:
         raise AssertionError("Tampered audit log was accepted")
 
-print("JNS v5.0.0 production self-test: PASS")
+print("JNS v5.0.1 production self-test: PASS")
 print("Trusted Ed25519 signed config package: PASS")
 print("Untrusted publisher rejection: PASS")
 print("Tampered payload rejection: PASS")

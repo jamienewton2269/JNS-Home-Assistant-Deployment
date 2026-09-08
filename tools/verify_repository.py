@@ -15,6 +15,7 @@ required = [
     CC / "brand" / "logo.png",
     CC / "manifest.json",
     CC / "__init__.py",
+    CC / "ha_config_check.py",
     CC / "config_flow.py",
     CC / "deployment.py",
     CC / "security.py",
@@ -29,6 +30,7 @@ required = [
     ROOT / "tools" / "jns_sign_package.py",
     ROOT / "tools" / "jns_build_platform_update.py",
     ROOT / "tools" / "production_selftest.py",
+    ROOT / "tools" / "config_check_semantics_selftest.py",
 ]
 for path in required:
     if not path.is_file():
@@ -51,7 +53,7 @@ if keys != expected_keys:
     raise SystemExit(
         f"Manifest key order invalid. Expected {expected_keys}; got {keys}"
     )
-if manifest.get("version") != "5.0.0":
+if manifest.get("version") != "5.0.1":
     raise SystemExit("Unexpected integration version")
 if manifest.get("iot_class") != "local_push":
     raise SystemExit("Manifest IoT class must be local_push")
@@ -95,7 +97,7 @@ if list(ROOT.rglob("__pycache__")):
 if list(ROOT.rglob("*.pyc")):
     raise SystemExit("Python bytecode must not be committed")
 
-print("JNS v5.0.0 repository static validation: PASS")
+print("JNS v5.0.1 repository static validation: PASS")
 print("Manifest ordering/version/IoT class: PASS")
 print("Mandatory signed-package policy: PASS")
 print("Signing/key/recovery tooling present: PASS")

@@ -1,4 +1,4 @@
-# JNS Home Assistant Deployment Platform v5.0.0
+# JNS Home Assistant Deployment Platform v5.0.1
 
 JNS v5 is the production security baseline for signed, transactional Home Assistant configuration deployment and JNS platform self-updates.
 

@@ -45,3 +45,5 @@ jobs:
         run: python tools/verify_repository.py
       - name: Run production security self-test
         run: python tools/production_selftest.py
+      - name: Run Home Assistant config-check regression test
+        run: python tools/config_check_semantics_selftest.py

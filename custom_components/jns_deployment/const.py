@@ -1,5 +1,5 @@
 DOMAIN = "jns_deployment"
-VERSION = "5.0.0"
+VERSION = "5.0.1"
 
 DEFAULT_INBOX = "jns/inbox"
 DEFAULT_STAGING = "jns/staging"

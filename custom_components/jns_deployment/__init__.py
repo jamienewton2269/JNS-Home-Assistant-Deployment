@@ -31,6 +31,7 @@ from .const import (
     VERSION,
 )
 from .deployment import DeploymentError, DeploymentManager
+from .ha_config_check import summarize_config_check_result
 
 SERVICE_STATUS = "status"
 SERVICE_LIST_PUBLISHERS = "list_trusted_publishers"
@@ -113,14 +114,16 @@ async def _executor_call(
         raise HomeAssistantError(f"JNS filesystem operation failed: {exc}") from exc
 
 
-async def _check_config(hass: HomeAssistant) -> str | None:
+async def _check_config(hass: HomeAssistant) -> dict[str, Any]:
     try:
-        errors = await conf_util.async_check_ha_config_file(hass)
+        result = await conf_util.async_check_ha_config_file(hass)
+        return summarize_config_check_result(result)
+    except HomeAssistantError:
+        raise
     except Exception as exc:
         raise HomeAssistantError(
             f"Home Assistant configuration validation failed unexpectedly: {exc}"
         ) from exc
-    return str(errors) if errors else None
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -159,21 +162,22 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             )
             if result.get("installed") and call.data.get("check_config", True):
                 try:
-                    errors = await _check_config(hass)
+                    check_result = await _check_config(hass)
                 except Exception:
                     await _executor_call(
                         hass, manager.rollback_transaction, result["transaction_id"], False
                     )
                     raise
-                if errors:
+                if check_result["status"] == "failed":
                     await _executor_call(
                         hass, manager.rollback_transaction, result["transaction_id"], False
                     )
                     raise ServiceValidationError(
                         "Home Assistant configuration validation failed. "
-                        f"JNS rolled back transaction {result['transaction_id']}: {errors}"
+                        f"JNS rolled back transaction {result['transaction_id']}: "
+                        + "; ".join(check_result["errors"])
                     )
-                result["home_assistant_config_check"] = {"status": "passed"}
+                result["home_assistant_config_check"] = check_result
             elif result.get("installed"):
                 result["home_assistant_config_check"] = {"status": "skipped"}
             hass.bus.async_fire(f"{DOMAIN}_deployment_result", result)
@@ -199,11 +203,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 call.data.get("force", False),
             )
             if call.data.get("check_config", True):
-                errors = await _check_config(hass)
-                result["home_assistant_config_check"] = {
-                    "status": "passed" if not errors else "failed",
-                    "errors": errors,
-                }
+                result["home_assistant_config_check"] = await _check_config(hass)
             hass.bus.async_fire(f"{DOMAIN}_rollback_result", result)
             return result if call.return_response else None
 
