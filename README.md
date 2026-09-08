@@ -1,119 +1,89 @@
-# JNS Home Assistant Deployment Platform v4.3.0-beta.1
+# JNS Home Assistant Deployment Platform v5.0.0
 
-JNS is a transactional deployment, validation, recovery and rollback layer for
-Home Assistant. The beta is intended for controlled live testing.
+JNS v5 is the production security baseline for signed, transactional Home Assistant configuration deployment and JNS platform self-updates.
 
-## Beta capabilities
+## Production trust model
 
-### Package workflow
+All deployable packages must be **Ed25519 signed by a trusted publisher**. JNS verifies the exact manifest signature, trusted publisher scope, every payload SHA-256, archive policy and target policy before any live file is changed.
 
-1. Transfer a package by standard SSH/SFTP to `/config/jns/inbox`.
-2. `list_inbox_packages` discovers and validates available packages.
-3. `plan_package` reports create/replace/unchanged targets.
-4. `validate_package` verifies package structure, policy and SHA-256 values.
-5. `install_package` stages, verifies, backs up and commits the transaction.
-6. Home Assistant's own configuration validation runs by default after commit.
-7. If Home Assistant configuration validation fails, JNS automatically rolls the
-   transaction back.
-8. Transactions can be inspected and rolled back later.
+Private publisher keys stay off Home Assistant. Home Assistant stores only trusted public keys in:
 
-### Security policy
+`/config/jns/trust/publishers.json`
 
-Unsigned format-1 packages may write only:
+## Trust bootstrap
 
-- `packages/` — YAML
-- `themes/` — YAML
-- `www/jns/` — static web content
-
-They cannot deploy executable Python or write to `custom_components/`.
-
-JNS rejects traversal paths, duplicate members/targets, undeclared files, special
-files/symlinks, encrypted ZIP members, disallowed extensions, oversized archives,
-excessive compression ratios and SHA-256 mismatches.
-
-### Recovery
-
-Transaction intent is persisted before each live file replacement. Transactions left
-in `staging` or `committing` state are marked `interrupted` when JNS next loads.
-`recover_interrupted_transaction` explicitly restores the recorded pre-transaction
-state.
-
-### Rollback drift protection
-
-Normal rollback refuses to overwrite a target changed after JNS installed it. A
-`force: true` rollback is available only as an explicit operator decision.
-
-### Platform self-update
-
-Beta adds format-2 platform updates under:
-
-`/config/jns/platform_updates`
-
-A platform update can replace only the complete
-`custom_components/jns_deployment/` tree and requires the operator to supply an
-explicit expected SHA-256 for the entire archive. The internal files are also
-individually hash checked and all Python is compiled before commit.
-
-This is a controlled beta trust model, not a substitute for publisher signatures.
-A signed publisher-key format remains planned for production.
-
-After a platform update, restart Home Assistant. The new version confirms the pending
-update only after its config entry loads successfully.
-
-## Home Assistant actions
-
-- `jns_deployment.status`
-- `jns_deployment.list_inbox_packages`
-- `jns_deployment.plan_package`
-- `jns_deployment.validate_package`
-- `jns_deployment.install_package`
-- `jns_deployment.rollback_transaction`
-- `jns_deployment.recover_interrupted_transaction`
-- `jns_deployment.list_transactions`
-- `jns_deployment.get_transaction`
-- `jns_deployment.list_installed_packages`
-- `jns_deployment.validate_platform_update`
-- `jns_deployment.install_platform_update`
-- `jns_deployment.rollback_platform_update`
-
-Expected package/security failures use Home Assistant `ServiceValidationError`, so the
-Actions UI reports the actual failure rather than a generic Unknown error.
-
-## Directories
-
-- `/config/jns/inbox`
-- `/config/jns/staging`
-- `/config/jns/backups`
-- `/config/jns/state`
-- `/config/jns/platform_updates`
-
-## Installation / beta upgrade
-
-Install through HACS from:
-
-`https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment`
-
-The current v4.2.4 build intentionally cannot deploy executable integration code, so
-the **first upgrade from v4.2.4 to this beta must be performed through HACS/GitHub**.
-Once beta is installed, later JNS builds can be tested through the trusted-hash
-platform-update action.
-
-## Local tests
+On a trusted workstation:
 
 ```bash
-python tools/verify_repository.py
-python tools/security_selftest.py
-python tools/beta_selftest.py
+python tools/jns_keygen.py --publisher-id jns-production --name "JNS Production Publisher"
+python tools/jns_make_trust_store.py \
+  --public-key jns_keys/jns-production.public.json \
+  --scope config --scope platform \
+  --output publishers.json
 ```
 
-All three run in GitHub Actions.
+Copy only `publishers.json` to `/config/jns/trust/publishers.json` using SSH/SFTP. Never copy the `.private.pem` key to Home Assistant.
 
-## Beta limitations
+## Signing a configuration package
 
-- Platform self-update uses operator-supplied archive SHA-256 rather than publisher
-  signatures.
-- If a platform update is installed and the replacement integration cannot load at
-  all after restart, recovery requires HACS or SSH/manual restoration from the
-  transaction backup.
-- Normal package deployment is file-oriented; dependency-aware ordering and a richer
-  native frontend are future work.
+```bash
+python tools/jns_sign_package.py \
+  --input unsigned_package.zip \
+  --output signed_package.zip \
+  --private-key jns_keys/jns-production.private.pem \
+  --publisher-id jns-production \
+  --type config_package \
+  --package-id my_package
+```
+
+Transfer the signed ZIP to `/config/jns/inbox`.
+
+## Production workflow
+
+`SFTP -> inbox -> publisher signature -> SHA-256 -> plan -> dry run -> install -> HA config check -> transaction/audit`
+
+Actions include status, trusted publisher listing, audit verification, inbox discovery, planning, validation, install, quarantine, rollback, interrupted recovery, transaction history, installed package inventory and signed platform updates.
+
+## Security controls
+
+v5 includes mandatory signatures, publisher scopes, package path/extension allow-lists, symlink/special-file rejection, undeclared file rejection, ZIP size/compression-ratio protection, disk-space reserve checks, durable atomic writes, transaction backups, post-commit hash checks, file/process locking, drift-protected rollback, interrupted transaction recovery, signed platform updates, stable emergency recovery and a tamper-evident hash-chained audit log.
+
+Unsigned v4 packages are intentionally rejected.
+
+## Platform updates
+
+Platform publishers require the `platform` scope. Build a future update with:
+
+```bash
+python tools/jns_build_platform_update.py \
+  --repo . \
+  --private-key jns_keys/jns-production.private.pem \
+  --publisher-id jns-production \
+  --from-version 5.0.0 \
+  --to-version 5.0.1 \
+  --output JNS_Platform_5.0.1.zip
+```
+
+Transfer it to `/config/jns/platform_updates`, validate/dry-run/install, then restart Home Assistant.
+
+## Emergency recovery
+
+A stable standalone recovery utility is copied to:
+
+`/config/jns/recovery/jns_emergency_recover.py`
+
+Example:
+
+```bash
+python3 /config/jns/recovery/jns_emergency_recover.py \
+  --config /config \
+  --transaction TRANSACTION_ID
+```
+
+Then restart Home Assistant.
+
+## Upgrade from v4.x
+
+Use HACS for the v4.x -> v5.0.0 transition. Once v5 is installed and publisher trust is bootstrapped, future JNS platform updates can use signed platform packages.
+
+See `PRODUCTION_ACCEPTANCE.md` before enabling unattended deployment.

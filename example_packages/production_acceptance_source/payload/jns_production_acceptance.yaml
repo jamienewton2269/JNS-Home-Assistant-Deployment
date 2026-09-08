@@ -1,0 +1,4 @@
+input_boolean:
+  jns_production_acceptance_flag:
+    name: JNS Production Acceptance Flag
+    icon: mdi:shield-check

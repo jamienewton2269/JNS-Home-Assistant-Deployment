@@ -1,24 +1,5 @@
-# JNS v4.3.0-beta.1 Security Tests
+# JNS v5.0.0 Security Testing
 
-CI runs both `security_selftest.py` and `beta_selftest.py`.
+Production CI generates ephemeral Ed25519 keys and verifies trusted signed package acceptance, untrusted publisher rejection, payload tamper rejection, unsigned-package rejection, signed platform update/rollback and audit-chain tamper detection.
 
-The negative package set verifies rejection of:
-- modified payload hashes;
-- path traversal;
-- undeclared archive members;
-- executable-code targets in ordinary packages;
-- symlink/special files;
-- duplicate targets;
-- excessive compression ratios.
-
-The beta self-test additionally verifies:
-- package discovery and planning;
-- install/active-package inventory/rollback;
-- interrupted transaction recovery;
-- trusted-hash platform-update validation;
-- complete integration-tree replacement;
-- post-restart confirmation state;
-- platform rollback.
-
-Live beta testing should continue to verify that all expected rejections leave
-`/config/packages` and committed transaction state unchanged.
+`PRODUCTION_ACCEPTANCE.md` defines the additional live Home Assistant tests required before unattended deployment.

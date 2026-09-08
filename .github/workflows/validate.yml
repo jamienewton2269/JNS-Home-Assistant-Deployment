@@ -29,8 +29,8 @@ jobs:
         with:
           category: integration
 
-  local-static:
-    name: Local static and security checks
+  production-tests:
+    name: Production static and security checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -38,10 +38,10 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.13"
+          python-version: "3.14"
+      - name: Install crypto test dependency
+        run: python -m pip install "cryptography==48.0.1"
       - name: Verify repository
         run: python tools/verify_repository.py
-      - name: Run security self-test
-        run: python tools/security_selftest.py
-      - name: Run beta engine self-test
-        run: python tools/beta_selftest.py
+      - name: Run production security self-test
+        run: python tools/production_selftest.py

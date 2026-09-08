@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "package_id": "jns_production_acceptance",
+  "name": "JNS Production Acceptance Package",
+  "version": "1.0.0",
+  "files": [
+    {
+      "source": "payload/jns_production_acceptance.yaml",
+      "target": "packages/jns_production_acceptance.yaml",
+      "sha256": "afa6dcec3e59d9c4e998b024c27228c31cd488a2c6766ccacb3bbecd355bdf3d"
+    }
+  ]
+}
