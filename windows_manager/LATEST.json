@@ -1,0 +1,11 @@
+{
+  "product": "JNS Home Assistant Windows Management Console",
+  "latest_version": "5.3.0",
+  "status": "production_reference",
+  "reference_branch": "wmc-v5.3.0-reference",
+  "reference_date": "2026-09-16",
+  "source_zip_sha256": "4da400ae91cd1e6f933442a621ede1b15ca1ec9a500aa07010a1c50fb9366903",
+  "manager_source_sha256": "7f68a3c35a5b9001a26b9a82c19691610368aeb218515e4ab81a5d6e4912e06c",
+  "target_platform": "JNS Home Assistant Deployment Platform v5.0.1",
+  "secure_transfer_gateway": "JNS Secure Transfer Gateway v0.2.2"
+}
