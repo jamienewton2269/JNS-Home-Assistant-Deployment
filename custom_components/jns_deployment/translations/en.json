@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "JNS Deployment Platform",
-        "description": "Configure the JNS deployment transport. JNS will register this GitHub repository as a Home Assistant App repository, install JNS Secure SFTP, restrict it to SFTP-only access, and use it only to deliver signed deployment packages.",
+        "description": "Configure the JNS deployment transport. JNS will register this GitHub repository as a Home Assistant App repository, install JNS Secure SFTP, restrict it to SFTP-only access, and use it only to deliver signed deployment packages.\n\nLast provisioning result: {provision_error}",
         "data": {
           "sftp_password": "Deployment SFTP password"
         },
@@ -15,7 +15,7 @@
     },
     "error": {
       "invalid_password": "Use a password of at least 24 characters without line breaks.",
-      "cannot_provision_sftp": "Home Assistant Supervisor could not provision JNS Secure SFTP. Check Supervisor and App logs."
+      "cannot_provision_sftp": "JNS Secure SFTP provisioning failed. The exact stage and Supervisor error are shown above."
     },
     "abort": {
       "single_instance_allowed": "Only one JNS Deployment Platform instance is supported.",
@@ -26,7 +26,7 @@
     "step": {
       "init": {
         "title": "JNS Secure SFTP",
-        "description": "Repair or rotate the JNS deployment transport password. {password_state}",
+        "description": "Repair or rotate the JNS deployment transport password. {password_state}\n\nLast provisioning result: {provision_error}",
         "data": {
           "sftp_password": "New SFTP password (optional)"
         },
@@ -37,7 +37,7 @@
     },
     "error": {
       "invalid_password": "Use a password of at least 24 characters without line breaks.",
-      "cannot_provision_sftp": "Home Assistant Supervisor could not provision JNS Secure SFTP. Check Supervisor and App logs."
+      "cannot_provision_sftp": "JNS Secure SFTP provisioning failed. The exact stage and Supervisor error are shown above."
     },
     "abort": {
       "supervisor_required": "JNS automatic SFTP bootstrap requires Home Assistant OS/Supervisor."
