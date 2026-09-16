@@ -1,14 +1,11 @@
-# Upgrade to JNS v5.0.0
+# Production upgrade to JNS v5.4.1
 
-For v4.x -> v5.0.0, use HACS. Do not weaken v4.2.4's protection that blocks unsigned executable `custom_components/` deployment.
+1. Update **JNS Home Assistant Deployment Platform** through HACS.
+2. Restart Home Assistant.
+3. Open **Settings → Devices & services → JNS Home Assistant Deployment Platform → Configure**.
+4. Enter a unique deployment-only SFTP password of at least 24 characters and save.
+5. Confirm the JNS Secure SFTP App is installed/running and TCP 2222 is reachable only from the intended management LAN/VPN.
+6. Put the same host/user/password into Windows Management Console v5.4 and run its connection test.
+7. Continue package management with Deploy / Update / Repair / Uninstall.
 
-1. Push v5.0.0 to GitHub.
-2. Confirm Hassfest, HACS and production CI are green.
-3. Update/redownload JNS through HACS.
-4. Restart Home Assistant.
-5. Confirm `jns_deployment.status` reports `5.0.0`.
-6. Generate publisher keys offline.
-7. Copy only `publishers.json` to `/config/jns/trust/`.
-8. Verify `list_trusted_publishers` and run production acceptance tests.
-
-Future v5.x updates should use signed platform updates with a publisher granted only `platform` scope.
+Do not enable unsigned package deployment and do not expose the SFTP port directly to the public Internet.

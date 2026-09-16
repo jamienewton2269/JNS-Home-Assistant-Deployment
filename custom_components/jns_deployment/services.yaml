@@ -12,7 +12,7 @@ verify_audit_log:
 
 list_inbox_packages:
   name: List signed JNS inbox packages
-  description: Return ZIP packages in /config/jns/inbox and their signature/validation state.
+  description: Return ZIP packages in /config/jns/sftp/incoming and their signature/validation state.
 
 plan_package:
   name: Plan signed JNS deployment
@@ -166,3 +166,34 @@ rollback_platform_update:
       required: true
       selector:
         text:
+
+uninstall_package:
+  name: Uninstall managed package
+  description: Transactionally uninstall a JNS-managed package with drift protection.
+  fields:
+    package_id:
+      required: true
+      selector:
+        text:
+    force:
+      required: false
+      default: false
+      selector:
+        boolean:
+    check_config:
+      required: false
+      default: true
+      selector:
+        boolean:
+
+sftp_status:
+  name: JNS Secure SFTP status
+  description: Return companion SFTP app status without exposing credentials.
+
+repair_sftp:
+  name: Repair JNS Secure SFTP
+  description: Reinstall/reconfigure/start the JNS SFTP app using the stored transport password.
+
+update_sftp:
+  name: Update JNS Secure SFTP
+  description: Explicitly update the JNS SFTP app and re-apply the safe transport configuration.

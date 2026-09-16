@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import voluptuous as vol
+from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import (
     HomeAssistant,
@@ -29,6 +30,16 @@ from .const import (
     DEFAULT_TRUST,
     DOMAIN,
     VERSION,
+    CONF_SFTP_ADDON_SLUG,
+    CONF_SFTP_CREATED_BY_INTEGRATION,
+    CONF_SFTP_PASSWORD,
+)
+from .addon import (
+    SftpProvisioningError,
+    async_ensure_sftp_app,
+    async_sftp_status,
+    async_uninstall_sftp_app,
+    async_update_sftp_app,
 )
 from .deployment import DeploymentError, DeploymentManager
 from .ha_config_check import summarize_config_check_result
@@ -46,9 +57,13 @@ SERVICE_RECOVER = "recover_interrupted_transaction"
 SERVICE_LIST_TRANSACTIONS = "list_transactions"
 SERVICE_GET_TRANSACTION = "get_transaction"
 SERVICE_LIST_INSTALLED = "list_installed_packages"
+SERVICE_UNINSTALL = "uninstall_package"
 SERVICE_VALIDATE_PLATFORM = "validate_platform_update"
 SERVICE_INSTALL_PLATFORM = "install_platform_update"
 SERVICE_ROLLBACK_PLATFORM = "rollback_platform_update"
+SERVICE_SFTP_STATUS = "sftp_status"
+SERVICE_REPAIR_SFTP = "repair_sftp"
+SERVICE_UPDATE_SFTP = "update_sftp"
 
 PACKAGE_SCHEMA = vol.Schema({vol.Required("package"): cv.string})
 INSTALL_SCHEMA = vol.Schema(
@@ -72,6 +87,7 @@ ROLLBACK_SCHEMA = vol.Schema(
     }
 )
 TRANSACTION_SCHEMA = vol.Schema({vol.Required("transaction_id"): cv.string})
+UNINSTALL_SCHEMA = vol.Schema({vol.Required("package_id"): cv.string, vol.Optional("force", default=False): cv.boolean, vol.Optional("check_config", default=True): cv.boolean})
 LIST_SCHEMA = vol.Schema(
     {
         vol.Optional("limit", default=50): vol.All(
@@ -234,6 +250,17 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     async def handle_list_installed(call: ServiceCall) -> ServiceResponse:
         return await _executor_call(hass, _get_manager(hass).list_installed_packages)
 
+    async def handle_uninstall(call: ServiceCall) -> ServiceResponse | None:
+        manager = _get_manager(hass)
+        async with _get_async_lock(hass):
+            result = await _executor_call(
+                hass, manager.uninstall_package, call.data["package_id"], call.data.get("force", False)
+            )
+            if call.data.get("check_config", True):
+                result["home_assistant_config_check"] = await _check_config(hass)
+            hass.bus.async_fire(f"{DOMAIN}_uninstall_result", result)
+            return result if call.return_response else None
+
     async def handle_validate_platform(call: ServiceCall) -> ServiceResponse:
         return await _executor_call(
             hass,
@@ -264,6 +291,33 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             hass.bus.async_fire(f"{DOMAIN}_platform_rollback_result", result)
             return result if call.return_response else None
 
+    async def handle_sftp_status(call: ServiceCall) -> ServiceResponse:
+        return await async_sftp_status(hass)
+
+    async def _stored_sftp_password() -> str:
+        entries = hass.config_entries.async_entries(DOMAIN)
+        if not entries or not (password := entries[0].data.get(CONF_SFTP_PASSWORD)):
+            raise ServiceValidationError(
+                "JNS Secure SFTP is not configured. Open the JNS integration options first."
+            )
+        return password
+
+    async def handle_repair_sftp(call: ServiceCall) -> ServiceResponse | None:
+        try:
+            result = await async_ensure_sftp_app(hass, await _stored_sftp_password())
+        except SftpProvisioningError as exc:
+            raise ServiceValidationError(str(exc)) from exc
+        return result.as_dict() if call.return_response else None
+
+    async def handle_update_sftp(call: ServiceCall) -> ServiceResponse | None:
+        try:
+            result = await async_update_sftp_app(
+                hass, await _stored_sftp_password()
+            )
+        except SftpProvisioningError as exc:
+            raise ServiceValidationError(str(exc)) from exc
+        return result if call.return_response else None
+
     read_services = (
         (SERVICE_STATUS, handle_status, vol.Schema({})),
         (SERVICE_LIST_PUBLISHERS, handle_publishers, vol.Schema({})),
@@ -275,6 +329,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         (SERVICE_GET_TRANSACTION, handle_get_transaction, TRANSACTION_SCHEMA),
         (SERVICE_LIST_INSTALLED, handle_list_installed, vol.Schema({})),
         (SERVICE_VALIDATE_PLATFORM, handle_validate_platform, PLATFORM_SCHEMA),
+        (SERVICE_SFTP_STATUS, handle_sftp_status, vol.Schema({})),
     )
     for service, handler, schema in read_services:
         hass.services.async_register(
@@ -290,8 +345,11 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         (SERVICE_QUARANTINE, handle_quarantine, QUARANTINE_SCHEMA),
         (SERVICE_ROLLBACK, handle_rollback, ROLLBACK_SCHEMA),
         (SERVICE_RECOVER, handle_recover, TRANSACTION_SCHEMA),
+        (SERVICE_UNINSTALL, handle_uninstall, UNINSTALL_SCHEMA),
         (SERVICE_INSTALL_PLATFORM, handle_install_platform, PLATFORM_SCHEMA),
         (SERVICE_ROLLBACK_PLATFORM, handle_rollback_platform, TRANSACTION_SCHEMA),
+        (SERVICE_REPAIR_SFTP, handle_repair_sftp, vol.Schema({})),
+        (SERVICE_UPDATE_SFTP, handle_update_sftp, vol.Schema({})),
     )
     for service, handler, schema in write_services:
         hass.services.async_register(
@@ -301,6 +359,13 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             schema=schema,
             supports_response=SupportsResponse.OPTIONAL,
         )
+    return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate pre-v5.4 config entries without blocking the deployment engine."""
+    if entry.version < 2:
+        hass.config_entries.async_update_entry(entry, version=2)
     return True
 
 
@@ -327,7 +392,49 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         manager.confirm_pending_platform_update,
         VERSION,
     )
+
+    password = entry.data.get(CONF_SFTP_PASSWORD)
+    if password and "hassio" in hass.config.components:
+        try:
+            result = await async_ensure_sftp_app(hass, password)
+        except SftpProvisioningError:
+            persistent_notification.async_create(
+                hass,
+                "JNS Secure SFTP could not be provisioned. Open Settings → Devices & services → JNS Deployment Platform → Configure, then save the transport password again. Check Supervisor/App logs if it still fails.",
+                title="JNS deployment transport needs attention",
+                notification_id=f"{DOMAIN}_sftp_setup",
+            )
+        else:
+            persistent_notification.async_dismiss(hass, f"{DOMAIN}_sftp_setup")
+            if entry.data.get(CONF_SFTP_ADDON_SLUG) != result.addon_slug:
+                hass.config_entries.async_update_entry(
+                    entry,
+                    data={**entry.data, CONF_SFTP_ADDON_SLUG: result.addon_slug},
+                )
+    elif "hassio" in hass.config.components:
+        persistent_notification.async_create(
+            hass,
+            "Configure the JNS Deployment Platform integration to provision JNS Secure SFTP. Existing deployments remain available, but the simplified package transport is not ready yet.",
+            title="Configure JNS Secure SFTP",
+            notification_id=f"{DOMAIN}_sftp_setup",
+        )
     return True
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Remove the companion SFTP app only when JNS originally installed it."""
+    persistent_notification.async_dismiss(hass, f"{DOMAIN}_sftp_setup")
+    if not entry.data.get(CONF_SFTP_CREATED_BY_INTEGRATION, False):
+        return
+    addon_slug = entry.data.get(CONF_SFTP_ADDON_SLUG)
+    if not addon_slug or "hassio" not in hass.config.components:
+        return
+    try:
+        await async_uninstall_sftp_app(hass, addon_slug)
+    except SftpProvisioningError:
+        # Removing the integration should not become impossible because an app
+        # is already missing/unavailable. Supervisor logs retain the detail.
+        return
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

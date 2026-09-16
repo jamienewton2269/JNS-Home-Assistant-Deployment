@@ -1,0 +1,112 @@
+#!/command/with-contenv bashio
+set -euo pipefail
+
+USERNAME="$(bashio::config 'username')"
+PASSWORD="$(bashio::config 'password')"
+PASSWORD_AUTH="$(bashio::config 'password_authentication')"
+CHROOT_ROOT="/homeassistant/jns/sftp"
+INCOMING="${CHROOT_ROOT}/incoming"
+AUTHORIZED_KEYS="/data/authorized_keys"
+SSHD_CONFIG="/etc/ssh/sshd_config"
+
+if [[ ! "${USERNAME}" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
+  bashio::log.fatal "Invalid SFTP username. Use lowercase letters, digits, underscore or hyphen."
+  exit 1
+fi
+if [[ "${USERNAME}" == "root" ]]; then
+  bashio::log.fatal "The JNS SFTP account must not be root."
+  exit 1
+fi
+
+# Create a dedicated account with no interactive shell.
+if ! getent group jnssftp >/dev/null 2>&1; then
+  addgroup -S jnssftp
+fi
+if ! id "${USERNAME}" >/dev/null 2>&1; then
+  adduser -S -D -H -h / -s /sbin/nologin -G jnssftp "${USERNAME}"
+fi
+
+# Chroot requirements: every component above the writable inbox must be owned
+# by root and must not be writable by the SFTP user. Only /incoming is writable.
+mkdir -p "${CHROOT_ROOT}" "${INCOMING}"
+chown root:root /homeassistant/jns "${CHROOT_ROOT}"
+chmod 0755 /homeassistant/jns "${CHROOT_ROOT}"
+chown "${USERNAME}":jnssftp "${INCOMING}"
+chmod 0700 "${INCOMING}"
+
+# Persist server identity across app restarts/updates.
+if [[ ! -s /data/ssh_host_ed25519_key ]]; then
+  ssh-keygen -q -t ed25519 -N '' -f /data/ssh_host_ed25519_key
+fi
+if [[ ! -s /data/ssh_host_rsa_key ]]; then
+  ssh-keygen -q -t rsa -b 3072 -N '' -f /data/ssh_host_rsa_key
+fi
+chmod 0600 /data/ssh_host_*_key
+
+: > "${AUTHORIZED_KEYS}"
+if bashio::config.has_value 'authorized_keys'; then
+  while IFS= read -r key; do
+    [[ -n "${key}" ]] && printf '%s\n' "${key}" >> "${AUTHORIZED_KEYS}"
+  done < <(bashio::config 'authorized_keys')
+fi
+chmod 0600 "${AUTHORIZED_KEYS}"
+chown "${USERNAME}":jnssftp "${AUTHORIZED_KEYS}"
+
+if [[ "${PASSWORD_AUTH}" == "true" ]]; then
+  if [[ -z "${PASSWORD}" ]]; then
+    bashio::log.fatal "password_authentication is enabled but no password is configured."
+    exit 1
+  fi
+  printf '%s:%s\n' "${USERNAME}" "${PASSWORD}" | chpasswd
+  PASS_AUTH=yes
+else
+  passwd -l "${USERNAME}" >/dev/null 2>&1 || true
+  PASS_AUTH=no
+fi
+
+if [[ "${PASS_AUTH}" == "no" && ! -s "${AUTHORIZED_KEYS}" ]]; then
+  bashio::log.fatal "No authentication method is configured. Enable password authentication or add an authorized key."
+  exit 1
+fi
+
+cat > "${SSHD_CONFIG}" <<EOF_CONFIG
+Port 22
+AddressFamily any
+ListenAddress 0.0.0.0
+ListenAddress ::
+Protocol 2
+HostKey /data/ssh_host_ed25519_key
+HostKey /data/ssh_host_rsa_key
+PasswordAuthentication ${PASS_AUTH}
+PubkeyAuthentication yes
+AuthorizedKeysFile /data/authorized_keys
+PermitEmptyPasswords no
+PermitRootLogin no
+KbdInteractiveAuthentication no
+ChallengeResponseAuthentication no
+UsePAM no
+X11Forwarding no
+AllowAgentForwarding no
+AllowTcpForwarding no
+GatewayPorts no
+PermitTunnel no
+PermitUserEnvironment no
+MaxAuthTries 4
+LoginGraceTime 30
+ClientAliveInterval 60
+ClientAliveCountMax 3
+LogLevel INFO
+Subsystem sftp internal-sftp
+AllowUsers ${USERNAME}
+
+Match User ${USERNAME}
+    ChrootDirectory ${CHROOT_ROOT}
+    ForceCommand internal-sftp -d /incoming -u 0077
+    DisableForwarding yes
+EOF_CONFIG
+
+/usr/sbin/sshd -t -f "${SSHD_CONFIG}"
+
+bashio::log.info "JNS Secure SFTP ready: user=${USERNAME}, client root=/, writable directory=/incoming"
+bashio::log.info "Transport is SFTP-only; no shell, forwarding, tunnel or root login is available."
+exec /usr/sbin/sshd -D -e -f "${SSHD_CONFIG}"

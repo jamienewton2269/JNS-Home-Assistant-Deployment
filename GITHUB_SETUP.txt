@@ -1,20 +1,6 @@
-JNS v5.0.0 GitHub repository settings
+JNS v5.4.1 GitHub/HACS bootstrap
 
-Repository:
-https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment
+HACS custom repository category: Integration
+Repository: https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment
 
-Description:
-Transactional deployment, validation and rollback platform for Home Assistant, installable via HACS.
-
-Topics:
-home-assistant
-hacs
-custom-component
-deployment
-rollback
-
-Ensure:
-- Repository is Public
-- Issues are enabled
-- Default branch is main
-- GitHub Actions are enabled
+The same repository is also a Home Assistant Supervisor App repository via repository.yaml. The HACS-installed integration registers it automatically during JNS Secure SFTP provisioning.

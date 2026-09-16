@@ -1,6 +1,9 @@
 {
   "domain": "jns_deployment",
   "name": "JNS Home Assistant Deployment Platform",
+  "after_dependencies": [
+    "hassio"
+  ],
   "codeowners": [
     "@jamienewton2269"
   ],
@@ -12,5 +15,5 @@
   "issue_tracker": "https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/issues",
   "requirements": [],
   "single_config_entry": true,
-  "version": "5.0.1"
+  "version": "5.4.1"
 }
