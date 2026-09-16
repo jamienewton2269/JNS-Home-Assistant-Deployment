@@ -25,6 +25,8 @@ from .audit import AuditError, AuditLog
 from .const import (
     CONFIG_ALLOWED_EXTENSIONS,
     CONFIG_ALLOWED_ROOTS,
+    INTEGRATION_ALLOWED_EXTENSIONS,
+    INTEGRATION_DOMAIN_RE,
     MAX_COMPRESSION_RATIO,
     MAX_MEMBER_BYTES,
     MAX_MEMBER_COUNT,
@@ -95,6 +97,21 @@ class DeploymentManager:
             self.recovery_dir,
         ):
             path.mkdir(parents=True, exist_ok=True)
+
+        # v5.1.2 isolates transport from deployment state.  The SFTP-only app
+        # is chrooted to /config/jns/sftp and writes directly to /incoming,
+        # which is this directory.  Migrate any legacy inbox ZIPs once so an
+        # upgrade does not strand packages uploaded by v5.1.1 or earlier.
+        legacy_inbox = (self.config_root / "jns/inbox").resolve()
+        if legacy_inbox != self.inbox and legacy_inbox.is_dir():
+            for legacy_package in legacy_inbox.glob("*.zip"):
+                destination = self.inbox / legacy_package.name
+                if not destination.exists():
+                    try:
+                        os.replace(legacy_package, destination)
+                    except OSError:
+                        shutil.copy2(legacy_package, destination)
+                        legacy_package.unlink(missing_ok=True)
 
         self.trust = TrustStore(self.trust_dir)
         self.audit = AuditLog(self.audit_dir)
@@ -498,21 +515,151 @@ class DeploymentManager:
             f"Allowed roots: {', '.join(CONFIG_ALLOWED_ROOTS)}"
         )
 
+    @staticmethod
+    def _integration_domain(manifest: dict[str, Any]) -> str:
+        domain = str(manifest.get("integration_domain", "")).strip()
+        if not re.fullmatch(INTEGRATION_DOMAIN_RE, domain):
+            raise DeploymentError(
+                "integration_package requires integration_domain beginning 'jns_' and containing only lowercase letters, digits and underscores."
+            )
+        if domain == PLATFORM_DOMAIN:
+            raise DeploymentError(
+                "The JNS deployment platform cannot be replaced by a normal integration_package; use the privileged platform_update workflow."
+            )
+        return domain
+
+    def _validate_integration_target(self, target: str, manifest: dict[str, Any]) -> None:
+        domain = self._integration_domain(manifest)
+        prefix = f"custom_components/{domain}/"
+        if target.startswith(prefix):
+            suffix = PurePosixPath(target).suffix.lower()
+            if suffix not in INTEGRATION_ALLOWED_EXTENSIONS:
+                raise DeploymentError(
+                    f"Target file type is not permitted under {prefix}: {target}"
+                )
+            return
+        self._validate_config_target(target)
+
+    def _read_installable_metadata(self, archive: zipfile.ZipFile):
+        try:
+            peek = json.loads(archive.read(PACKAGE_MANIFEST).decode("utf-8"))
+        except Exception as exc:
+            raise DeploymentError("Package manifest is invalid JSON.") from exc
+        package_type = str(peek.get("type", "config_package"))
+        if package_type not in {"config_package", "integration_package"}:
+            raise DeploymentError(
+                f"Package type {package_type!r} is not deployable through the normal package workflow."
+            )
+        manifest, fingerprint = self._read_signed_metadata(
+            archive, package_type, "config"
+        )
+        if package_type == "integration_package":
+            domain = self._integration_domain(manifest)
+            validator = lambda target: self._validate_integration_target(target, manifest)
+        else:
+            domain = None
+            validator = self._validate_config_target
+        return manifest, fingerprint, package_type, domain, validator
+
+    def _validate_integration_payload(
+        self, archive: zipfile.ZipFile, manifest: dict[str, Any], validated: list[ValidatedFile]
+    ) -> None:
+        if str(manifest.get("type")) != "integration_package":
+            return
+        domain = self._integration_domain(manifest)
+        target_to_source = {item.target_rel: item.source_member for item in validated}
+        required = {
+            f"custom_components/{domain}/__init__.py",
+            f"custom_components/{domain}/manifest.json",
+        }
+        missing = sorted(required - set(target_to_source))
+        if missing:
+            raise DeploymentError(
+                "Managed integration package is missing required target(s): " + ", ".join(missing)
+            )
+        manifest_target = f"custom_components/{domain}/manifest.json"
+        try:
+            embedded = json.loads(archive.read(target_to_source[manifest_target]).decode("utf-8"))
+        except Exception as exc:
+            raise DeploymentError("Embedded Home Assistant integration manifest.json is invalid.") from exc
+        if embedded.get("domain") != domain:
+            raise DeploymentError(
+                f"Embedded integration domain {embedded.get('domain')!r} does not match declared {domain!r}."
+            )
+        for item in validated:
+            if item.target_rel.startswith(f"custom_components/{domain}/") and item.target_rel.endswith(".py"):
+                try:
+                    compile(archive.read(item.source_member).decode("utf-8"), item.target_rel, "exec")
+                except Exception as exc:
+                    raise DeploymentError(
+                        f"Integration Python validation failed for {item.target_rel}: {exc}"
+                    ) from exc
+
+    def _package_transaction_records(self, package_id: str) -> list[tuple[Path, dict[str, Any]]]:
+        # Transaction directory names contain a random suffix, so lexicographic
+        # ordering is not chronological when two operations occur in the same
+        # second.  Use a nanosecond sequence recorded by v5.1.2 and fall back to
+        # the durable transaction-record mtime for older records.
+        ordered=[]
+        for directory in (path for path in self.backups.iterdir() if path.is_dir()):
+            record_path=directory / TRANSACTION_RECORD
+            if not record_path.is_file():
+                continue
+            try:
+                record=json.loads(record_path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if record.get("package_id") == package_id and record.get("kind") in {"package_install", "package_uninstall"}:
+                try:
+                    order=int(record.get("created_ns") or record_path.stat().st_mtime_ns)
+                except Exception:
+                    order=0
+                ordered.append((order, directory.name, directory, record))
+        ordered.sort(key=lambda item:(item[0], item[1]))
+        return [(directory, record) for _order, _name, directory, record in ordered]
+
+    def _active_install_record(self, package_id: str):
+        records=self._package_transaction_records(package_id)
+        lifecycle=[(d,r) for d,r in records if r.get("status") in {"committed", "rolled_back"} and not (r.get("status")=="rolled_back")]
+        if not lifecycle:
+            return None
+        directory, record=lifecycle[-1]
+        if record.get("kind") == "package_uninstall":
+            return None
+        return directory, record
+
+    def _baseline_for_target(self, package_id: str, target: str):
+        for directory, record in self._package_transaction_records(package_id):
+            if record.get("kind") != "package_install" or record.get("status") not in {"committed", "rolled_back"}:
+                continue
+            if record.get("status") == "rolled_back":
+                continue
+            for item in record.get("files", []):
+                if item.get("target") != target or item.get("action") == "remove_stale":
+                    continue
+                action=item.get("action")
+                if action == "create":
+                    return {"mode":"absent"}
+                if action == "replace":
+                    backup=directory / target
+                    return {"mode":"restore", "backup":backup, "sha256":item.get("backup_sha256")}
+                if action == "unchanged":
+                    return {"mode":"preserve", "sha256":item.get("installed_sha256")}
+        return {"mode":"absent"}
+
     def validate_package(self, package_name: str) -> dict[str, Any]:
         package = self._archive_path(self.inbox, package_name)
         package_sha256 = self._sha256_file(package)
         with self._open_archive(package) as archive:
             self._validate_zip_metadata(archive)
-            manifest, fingerprint = self._read_signed_metadata(
-                archive, "config_package", "config"
-            )
+            manifest, fingerprint, package_type, domain, validator = self._read_installable_metadata(archive)
             package_id = self._package_id(manifest)
-            validated = self._validate_declared_files(
-                archive, manifest, self._validate_config_target
-            )
+            validated = self._validate_declared_files(archive, manifest, validator)
+            self._validate_integration_payload(archive, manifest, validated)
         return {
             "ok": True,
-            "kind": "config_package",
+            "kind": package_type,
+            "package_type": package_type,
             "signed": True,
             "package": package_name,
             "package_id": package_id,
@@ -521,6 +668,8 @@ class DeploymentManager:
             "publisher_fingerprint_sha256": fingerprint,
             "name": manifest["name"],
             "version": manifest["version"],
+            "integration_domain": domain,
+            "requires_restart": bool(manifest.get("requires_restart", package_type == "integration_package")),
             "file_count": len(validated),
             "files": [asdict(item) for item in validated],
         }
@@ -551,11 +700,27 @@ class DeploymentManager:
                     "size": item["size"],
                 }
             )
+        active = self._active_install_record(validation["package_id"])
+        new_targets = {item["target_rel"] for item in validation["files"]}
+        if active:
+            _active_dir, active_record = active
+            for old_item in active_record.get("files", []):
+                target = old_item.get("target")
+                expected = old_item.get("installed_sha256")
+                if not target or not expected or target in new_targets or old_item.get("action") == "remove_stale":
+                    continue
+                live = (self.config_root / target).resolve()
+                current = self._sha256_file(live) if live.is_file() else None
+                action = "remove_stale" if current == expected else "blocked_stale_drift"
+                changes.append({
+                    "target": target, "action": action, "current_sha256": current,
+                    "new_sha256": None, "size": live.stat().st_size if live.is_file() else 0,
+                })
         return {
             **validation,
             "changes": changes,
             "change_count": sum(
-                1 for item in changes if item["action"] in {"create", "replace"}
+                1 for item in changes if item["action"] in {"create", "replace", "remove_stale"}
             ),
             "blocked_count": sum(
                 1 for item in changes if item["action"].startswith("blocked_")
@@ -609,7 +774,11 @@ class DeploymentManager:
                 "publisher_fingerprint_sha256": plan["publisher_fingerprint_sha256"],
                 "name": plan["name"],
                 "version": plan["version"],
+                "package_type": plan.get("package_type", "config_package"),
+                "integration_domain": plan.get("integration_domain"),
+                "requires_restart": bool(plan.get("requires_restart")),
                 "created_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "created_ns": time.time_ns(),
                 "files": [],
                 "status": "staging",
             }
@@ -627,12 +796,9 @@ class DeploymentManager:
             try:
                 with self._open_archive(package) as archive:
                     self._validate_zip_metadata(archive)
-                    manifest, _ = self._read_signed_metadata(
-                        archive, "config_package", "config"
-                    )
-                    self._validate_declared_files(
-                        archive, manifest, self._validate_config_target
-                    )
+                    manifest, _, package_type, _domain, validator = self._read_installable_metadata(archive)
+                    validated_now = self._validate_declared_files(archive, manifest, validator)
+                    self._validate_integration_payload(archive, manifest, validated_now)
                     for entry in manifest["files"]:
                         target = self._safe_posix_path(entry["target"])
                         staged = (stage_root / target).resolve()
@@ -702,6 +868,43 @@ class DeploymentManager:
                         item["installed_sha256"] = installed_hash
                         self._write_json_atomic(transaction_path, transaction)
 
+                # Remove files owned by the previous version but no longer declared by this version.
+                active = self._active_install_record(plan["package_id"])
+                if active:
+                    _active_dir, active_record = active
+                    new_targets = {self._safe_posix_path(entry["target"]) for entry in manifest["files"]}
+                    for old_item in active_record.get("files", []):
+                        target = old_item.get("target")
+                        expected = old_item.get("installed_sha256")
+                        if not target or not expected or target in new_targets or old_item.get("action") == "remove_stale":
+                            continue
+                        target = self._safe_posix_path(target)
+                        live = (self.config_root / target).resolve()
+                        if not live.is_file() or self._sha256_file(live) != expected:
+                            raise DeploymentError(f"Refusing to remove stale managed file with drift: {target}")
+                        backup = (backup_root / target).resolve()
+                        self._copy_file_durable(live, backup)
+                        item = {
+                            "target": target, "action": "remove_stale",
+                            "previously_existed": True, "backup_sha256": self._sha256_file(backup),
+                            "installed_sha256": None,
+                        }
+                        transaction["files"].append(item)
+                        baseline = self._baseline_for_target(plan["package_id"], target)
+                        if baseline.get("mode") == "restore":
+                            base = Path(baseline["backup"])
+                            if not base.is_file():
+                                raise DeploymentError(f"Baseline backup missing for stale target: {target}")
+                            self._copy_file_durable(base, live)
+                            item["installed_sha256"] = self._sha256_file(live)
+                        elif baseline.get("mode") == "preserve":
+                            # It pre-dated JNS with identical bytes; leave it in place.
+                            item["installed_sha256"] = self._sha256_file(live)
+                        else:
+                            live.unlink()
+                            self._fsync_dir(live.parent)
+                        self._write_json_atomic(transaction_path, transaction)
+
                 transaction["status"] = "committed"
                 transaction["committed_utc"] = time.strftime(
                     "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
@@ -729,6 +932,8 @@ class DeploymentManager:
                     "name": plan["name"],
                     "version": plan["version"],
                     "publisher_id": plan["publisher_id"],
+                    "package_type": plan.get("package_type", "config_package"),
+                    "requires_restart": bool(plan.get("requires_restart")),
                     "file_count": len(transaction["files"]),
                     "changed_count": changed_count,
                 }
@@ -781,8 +986,8 @@ class DeploymentManager:
     ) -> dict[str, Any]:
         with self._exclusive_operation():
             record = self._read_transaction(transaction_id)
-            if record.get("kind") != "package_install":
-                raise DeploymentError("This transaction is not a normal package installation.")
+            if record.get("kind") not in {"package_install", "package_uninstall"}:
+                raise DeploymentError("This transaction is not a normal package install/uninstall transaction.")
             if record.get("status") == "rolled_back":
                 raise DeploymentError("Transaction is already rolled back.")
             if record.get("status") != "committed":
@@ -801,11 +1006,15 @@ class DeploymentManager:
                 if self.config_root not in live.parents:
                     raise DeploymentError(f"Rollback target escaped config root: {target}")
                 installed_hash = item.get("installed_sha256")
-                if live.is_file() and installed_hash and not force:
-                    if self._sha256_file(live) != installed_hash:
+                if not force:
+                    if installed_hash and live.is_file() and self._sha256_file(live) != installed_hash:
                         raise DeploymentError(
                             f"Refusing rollback because {target} changed after deployment. "
                             "Use force only after review."
+                        )
+                    if item.get("post_absent") and live.exists():
+                        raise DeploymentError(
+                            f"Refusing rollback because {target} was recreated after uninstall. Use force only after review."
                         )
                 if item.get("previously_existed"):
                     backup = (tx_root / target).resolve()
@@ -985,15 +1194,146 @@ class DeploymentManager:
         return self._read_transaction(transaction_id)
 
     def list_installed_packages(self) -> dict[str, Any]:
-        active: dict[str, dict[str, Any]] = {}
-        for item in self.list_transactions(100)["transactions"]:
-            package_id = item.get("package_id")
-            if not package_id or package_id in active:
+        package_ids=set()
+        for directory in self.backups.iterdir():
+            if not directory.is_dir():
                 continue
-            if item.get("kind") == "package_install" and item.get("status") == "committed":
-                active[package_id] = item
-        packages = sorted(active.values(), key=lambda item: str(item.get("name", "")).lower())
+            rp=directory / TRANSACTION_RECORD
+            if not rp.is_file():
+                continue
+            try:
+                rec=json.loads(rp.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if rec.get("package_id"):
+                package_ids.add(str(rec["package_id"]))
+        packages=[]
+        for package_id in sorted(package_ids):
+            active=self._active_install_record(package_id)
+            if not active:
+                continue
+            _directory, record=active
+            missing=[]; drifted=[]; checked=0
+            for item in record.get("files", []):
+                if item.get("action") == "remove_stale" or not item.get("installed_sha256"):
+                    continue
+                checked += 1
+                target=self._safe_posix_path(item["target"])
+                live=(self.config_root / target).resolve()
+                if not live.is_file():
+                    missing.append(target)
+                elif self._sha256_file(live) != item.get("installed_sha256"):
+                    drifted.append(target)
+            integrity="healthy" if not missing and not drifted else ("missing" if missing and not drifted else "drifted")
+            packages.append({
+                "transaction_id": record.get("transaction_id"),
+                "package": record.get("package"),
+                "package_id": package_id,
+                "publisher_id": record.get("publisher_id"),
+                "name": record.get("name"),
+                "version": record.get("version"),
+                "package_type": record.get("package_type", "config_package"),
+                "integration_domain": record.get("integration_domain"),
+                "requires_restart": bool(record.get("requires_restart")),
+                "integrity": integrity,
+                "checked_files": checked,
+                "missing_files": missing,
+                "drifted_files": drifted,
+                "created_utc": record.get("created_utc"),
+                "committed_utc": record.get("committed_utc"),
+            })
+        packages.sort(key=lambda item: str(item.get("name", "")).lower())
         return {"count": len(packages), "packages": packages}
+
+    def uninstall_package(self, package_id: str, force: bool = False) -> dict[str, Any]:
+        with self._exclusive_operation():
+            self._require_audit_integrity()
+            package_id=self._package_id({"package_id":package_id, "name":package_id})
+            active=self._active_install_record(package_id)
+            if not active:
+                raise DeploymentError(f"Package is not installed: {package_id}")
+            active_dir, record=active
+            active_files=[item for item in record.get("files", []) if item.get("installed_sha256") and item.get("action") != "remove_stale"]
+            # Preflight drift check before creating a transaction.
+            for item in active_files:
+                target=self._safe_posix_path(item["target"])
+                live=(self.config_root / target).resolve()
+                expected=item.get("installed_sha256")
+                if not live.is_file():
+                    if not force:
+                        raise DeploymentError(f"Refusing uninstall because managed file is missing: {target}")
+                elif expected and self._sha256_file(live) != expected and not force:
+                    raise DeploymentError(f"Refusing uninstall because managed file drifted: {target}")
+
+            transaction_id=time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + "-" + uuid.uuid4().hex[:10]
+            backup_root=(self.backups / transaction_id).resolve()
+            backup_root.mkdir(parents=True, exist_ok=False)
+            transaction_path=backup_root / TRANSACTION_RECORD
+            tx={
+                "transaction_id":transaction_id, "kind":"package_uninstall",
+                "package_id":package_id, "package":record.get("package"),
+                "publisher_id":record.get("publisher_id"), "name":record.get("name"),
+                "version":record.get("version"), "package_type":record.get("package_type", "config_package"),
+                "integration_domain":record.get("integration_domain"),
+                "requires_restart":bool(record.get("requires_restart")),
+                "created_utc":time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "created_ns":time.time_ns(),
+                "files":[], "status":"committing",
+            }
+            self._write_json_atomic(transaction_path, tx)
+            self._audit("package_uninstall_started", {"transaction_id":transaction_id,"package_id":package_id})
+            try:
+                for item in active_files:
+                    target=self._safe_posix_path(item["target"])
+                    live=(self.config_root / target).resolve()
+                    existed=live.is_file()
+                    backup=backup_root / target
+                    backup_sha=None
+                    if existed:
+                        self._copy_file_durable(live, backup); backup_sha=self._sha256_file(backup)
+                    txitem={"target":target,"action":"uninstall","previously_existed":existed,"backup_sha256":backup_sha,"installed_sha256":None,"post_absent":False}
+                    tx["files"].append(txitem); self._write_json_atomic(transaction_path,tx)
+                    baseline=self._baseline_for_target(package_id,target)
+                    mode=baseline.get("mode")
+                    if mode == "restore":
+                        base=Path(baseline["backup"])
+                        if not base.is_file():
+                            raise DeploymentError(f"Baseline backup missing for {target}")
+                        self._copy_file_durable(base, live); txitem["installed_sha256"]=self._sha256_file(live)
+                    elif mode == "preserve":
+                        # The file existed with identical bytes before JNS first managed it; leave it.
+                        if not live.is_file() and baseline.get("sha256"):
+                            raise DeploymentError(f"Cannot preserve missing pre-existing file {target}")
+                        txitem["installed_sha256"]=self._sha256_file(live) if live.is_file() else None
+                    else:
+                        if live.is_file():
+                            live.unlink(); self._fsync_dir(live.parent)
+                        txitem["post_absent"]=True
+                    self._write_json_atomic(transaction_path,tx)
+                tx["status"]="committed"; tx["committed_utc"]=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                self._write_json_atomic(transaction_path,tx)
+                self._audit("package_uninstall_committed", {"transaction_id":transaction_id,"package_id":package_id,"file_count":len(tx["files"])})
+                # Clean now-empty managed integration directories only.
+                domain=record.get("integration_domain")
+                if domain:
+                    root=(self.config_root / "custom_components" / str(domain)).resolve()
+                    if root.is_dir():
+                        for directory in sorted((p for p in root.rglob("*") if p.is_dir()), key=lambda p:len(p.parts), reverse=True):
+                            try: directory.rmdir()
+                            except OSError: pass
+                        try: root.rmdir()
+                        except OSError: pass
+                return {"ok":True,"kind":"package_uninstall","transaction_id":transaction_id,"package_id":package_id,"name":record.get("name"),"version":record.get("version"),"requires_restart":bool(record.get("requires_restart")),"removed_count":len(tx["files"])}
+            except Exception:
+                # restore everything changed so far
+                for item in reversed(tx.get("files", [])):
+                    target=item["target"]; live=(self.config_root/target).resolve(); backup=backup_root/target
+                    if item.get("previously_existed") and backup.is_file():
+                        self._copy_file_durable(backup, live)
+                    elif live.is_file():
+                        live.unlink(); self._fsync_dir(live.parent)
+                tx["status"]="rolled_back_after_failure"; self._write_json_atomic(transaction_path,tx)
+                raise
 
     # ----- signed platform updater -----
 
