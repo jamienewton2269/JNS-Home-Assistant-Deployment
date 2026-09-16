@@ -1,7 +1,18 @@
 DOMAIN = "jns_deployment"
-VERSION = "5.0.1"
+VERSION = "5.4.1"
 
-DEFAULT_INBOX = "jns/inbox"
+DEFAULT_INBOX = "jns/sftp/incoming"
+
+# HACS bootstrap / Supervisor-managed transport
+JNS_REPOSITORY_URL = "https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment"
+SFTP_APP_SLUG = "jns_secure_sftp"
+SFTP_APP_NAME = "JNS Secure SFTP"
+SFTP_APP_PORT = 2222
+SFTP_USERNAME = "jnstransfer"
+SFTP_MIN_PASSWORD_LENGTH = 24
+CONF_SFTP_PASSWORD = "sftp_password"
+CONF_SFTP_ADDON_SLUG = "sftp_addon_slug"
+CONF_SFTP_CREATED_BY_INTEGRATION = "sftp_created_by_integration"
 DEFAULT_STAGING = "jns/staging"
 DEFAULT_BACKUPS = "jns/backups"
 DEFAULT_STATE = "jns/state"
@@ -47,6 +58,12 @@ CONFIG_ALLOWED_EXTENSIONS = {
     },
 }
 
+
+INTEGRATION_DOMAIN_RE = r"^jns_[a-z0-9_]{1,59}$"
+INTEGRATION_ALLOWED_EXTENSIONS = {
+    ".py", ".json", ".yaml", ".yml", ".png", ".svg", ".ico", ".jpg", ".jpeg", ".webp",
+}
+
 PLATFORM_DOMAIN = "jns_deployment"
 PLATFORM_TARGET_ROOT = "custom_components/jns_deployment/"
 PLATFORM_REQUIRED_TARGETS = {
@@ -59,5 +76,7 @@ PLATFORM_REQUIRED_TARGETS = {
     "custom_components/jns_deployment/audit.py",
     "custom_components/jns_deployment/recovery_tool.py",
     "custom_components/jns_deployment/diagnostics.py",
+    "custom_components/jns_deployment/addon.py",
+    "custom_components/jns_deployment/ha_config_check.py",
     "custom_components/jns_deployment/services.yaml",
 }

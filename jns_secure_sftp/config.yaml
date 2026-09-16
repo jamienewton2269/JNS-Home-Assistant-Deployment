@@ -1,0 +1,31 @@
+name: JNS Secure SFTP
+version: "0.3.1"
+slug: jns_secure_sftp
+description: Standards-based SFTP-only transport for the JNS Deployment Platform.
+url: https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment
+startup: services
+boot: auto
+init: false
+arch:
+  - amd64
+  - aarch64
+ports:
+  22/tcp: 2222
+watchdog: tcp://[HOST]:[PORT:22]
+ports_description:
+  22/tcp: JNS SFTP transport (LAN/VPN only)
+map:
+  - type: homeassistant_config
+    read_only: false
+    path: /homeassistant
+options:
+  username: jnstransfer
+  password: ""
+  authorized_keys: []
+  password_authentication: true
+schema:
+  username: str
+  password: password
+  authorized_keys:
+    - str
+  password_authentication: bool

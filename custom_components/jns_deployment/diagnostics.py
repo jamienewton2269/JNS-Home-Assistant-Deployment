@@ -6,6 +6,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN, VERSION
+from .addon import async_sftp_status
 from .deployment import DeploymentManager
 
 
@@ -23,6 +24,7 @@ async def async_get_config_entry_diagnostics(
         "version": VERSION,
         "loaded": True,
         "status": status,
+        "sftp": await async_sftp_status(hass),
         "publishers": publishers,
         "transactions": transactions,
     }

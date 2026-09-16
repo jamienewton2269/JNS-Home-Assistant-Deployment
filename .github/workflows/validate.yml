@@ -40,9 +40,20 @@ jobs:
         with:
           python-version: "3.14"
       - name: Install crypto test dependency
-        run: python -m pip install "cryptography==48.0.1"
+        run: python -m pip install "cryptography==48.0.1" "PyYAML==6.0.2"
       - name: Verify repository
         run: python tools/verify_repository.py
+      - name: Validate app repository YAML
+        run: |
+          python - <<'PY'
+          import pathlib, yaml
+          for path in (pathlib.Path("repository.yaml"), pathlib.Path("jns_secure_sftp/config.yaml")):
+              with path.open(encoding="utf-8") as handle:
+                  data = yaml.safe_load(handle)
+              assert isinstance(data, dict)
+          PY
+      - name: Validate SFTP startup script
+        run: bash -n jns_secure_sftp/rootfs/etc/services.d/sshd/run
       - name: Run production security self-test
         run: python tools/production_selftest.py
       - name: Run Home Assistant config-check regression test

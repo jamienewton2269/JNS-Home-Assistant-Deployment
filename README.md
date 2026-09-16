@@ -1,89 +1,24 @@
-# JNS Home Assistant Deployment Platform v5.0.1
+# JNS Home Assistant Deployment Platform v5.4.1
 
-JNS v5 is the production security baseline for signed, transactional Home Assistant configuration deployment and JNS platform self-updates.
+HACS-installed, signed-package deployment and lifecycle management for Home Assistant.
 
-## Production trust model
+## Production bootstrap
 
-All deployable packages must be **Ed25519 signed by a trusted publisher**. JNS verifies the exact manifest signature, trusted publisher scope, every payload SHA-256, archive policy and target policy before any live file is changed.
+1. Add this repository to HACS as a custom **Integration** repository and install **JNS Home Assistant Deployment Platform**.
+2. Restart Home Assistant.
+3. Add/configure the JNS integration in **Settings → Devices & services** and enter a unique deployment-only SFTP password (minimum 24 characters).
+4. On Home Assistant OS/Supervisor, JNS registers this same repository as an App repository, installs **JNS Secure SFTP**, configures it as SFTP-only on host port `2222`, and starts it.
+5. Configure the JNS Windows Management Console with the Home Assistant host, port `2222`, user `jnstransfer`, and the same password.
+6. Use **Deploy / Update / Repair / Uninstall**. Package signatures, hashes, path policy, configuration checks and transactions remain authoritative.
 
-Private publisher keys stay off Home Assistant. Home Assistant stores only trusted public keys in:
+## Security model
 
-`/config/jns/trust/publishers.json`
+SFTP is deliberately only the encrypted delivery channel. A file arriving in `/config/jns/sftp/incoming` is not trusted merely because SFTP accepted it. Deployable packages require the JNS format-3 Ed25519 signature and SHA-256 integrity records, a trusted publisher/scope, permitted destinations and the deployment transaction checks.
 
-## Trust bootstrap
+JNS Secure SFTP provides no interactive shell, forwarding, tunnels or root login. The SFTP account is chrooted to the deployment inbox. Keep TCP 2222 restricted to the management LAN/VPN.
 
-On a trusted workstation:
+## Existing installations
 
-```bash
-python tools/jns_keygen.py --publisher-id jns-production --name "JNS Production Publisher"
-python tools/jns_make_trust_store.py \
-  --public-key jns_keys/jns-production.public.json \
-  --scope config --scope platform \
-  --output publishers.json
-```
+HACS upgrades the integration code. Existing config entries are migrated without disabling the deployment executor. If the SFTP password has not yet been configured, JNS posts a Home Assistant notification and the integration **Configure** flow provisions the companion app.
 
-Copy only `publishers.json` to `/config/jns/trust/publishers.json` using SSH/SFTP. Never copy the `.private.pem` key to Home Assistant.
-
-## Signing a configuration package
-
-```bash
-python tools/jns_sign_package.py \
-  --input unsigned_package.zip \
-  --output signed_package.zip \
-  --private-key jns_keys/jns-production.private.pem \
-  --publisher-id jns-production \
-  --type config_package \
-  --package-id my_package
-```
-
-Transfer the signed ZIP to `/config/jns/inbox`.
-
-## Production workflow
-
-`SFTP -> inbox -> publisher signature -> SHA-256 -> plan -> dry run -> install -> HA config check -> transaction/audit`
-
-Actions include status, trusted publisher listing, audit verification, inbox discovery, planning, validation, install, quarantine, rollback, interrupted recovery, transaction history, installed package inventory and signed platform updates.
-
-## Security controls
-
-v5 includes mandatory signatures, publisher scopes, package path/extension allow-lists, symlink/special-file rejection, undeclared file rejection, ZIP size/compression-ratio protection, disk-space reserve checks, durable atomic writes, transaction backups, post-commit hash checks, file/process locking, drift-protected rollback, interrupted transaction recovery, signed platform updates, stable emergency recovery and a tamper-evident hash-chained audit log.
-
-Unsigned v4 packages are intentionally rejected.
-
-## Platform updates
-
-Platform publishers require the `platform` scope. Build a future update with:
-
-```bash
-python tools/jns_build_platform_update.py \
-  --repo . \
-  --private-key jns_keys/jns-production.private.pem \
-  --publisher-id jns-production \
-  --from-version 5.0.0 \
-  --to-version 5.0.1 \
-  --output JNS_Platform_5.0.1.zip
-```
-
-Transfer it to `/config/jns/platform_updates`, validate/dry-run/install, then restart Home Assistant.
-
-## Emergency recovery
-
-A stable standalone recovery utility is copied to:
-
-`/config/jns/recovery/jns_emergency_recover.py`
-
-Example:
-
-```bash
-python3 /config/jns/recovery/jns_emergency_recover.py \
-  --config /config \
-  --transaction TRANSACTION_ID
-```
-
-Then restart Home Assistant.
-
-## Upgrade from v4.x
-
-Use HACS for the v4.x -> v5.0.0 transition. Once v5 is installed and publisher trust is bootstrapped, future JNS platform updates can use signed platform packages.
-
-See `PRODUCTION_ACCEPTANCE.md` before enabling unattended deployment.
+See `RELEASE_NOTES_v5.4.1.md`, `SECURITY.md`, and `PRODUCTION_UPGRADE.md` for more detail.

@@ -125,7 +125,7 @@ with tempfile.TemporaryDirectory() as tempdir:
 
     manager = DeploymentManager(
         config,
-        "jns/inbox",
+        "jns/sftp/incoming",
         "jns/staging",
         "jns/backups",
         "jns/state",
@@ -137,7 +137,7 @@ with tempfile.TemporaryDirectory() as tempdir:
     )
 
     payload = b"input_boolean:\n  production_test:\n    name: Production Test\n"
-    config_zip = config / "jns" / "inbox" / "signed.zip"
+    config_zip = config / "jns" / "sftp" / "incoming" / "signed.zip"
     signed_zip(
         config_zip,
         private_key,
@@ -158,9 +158,8 @@ with tempfile.TemporaryDirectory() as tempdir:
     manager.rollback_transaction(install["transaction_id"])
     assert not target.exists()
 
-    # Untrusted publisher.
     attacker_key = Ed25519PrivateKey.generate()
-    bad_zip = config / "jns" / "inbox" / "unknown.zip"
+    bad_zip = config / "jns" / "sftp" / "incoming" / "unknown.zip"
     signed_zip(
         bad_zip,
         attacker_key,
@@ -175,8 +174,7 @@ with tempfile.TemporaryDirectory() as tempdir:
     else:
         raise AssertionError("Untrusted publisher was accepted")
 
-    # Tampered payload after a valid signature.
-    tamper_zip = config / "jns" / "inbox" / "tampered.zip"
+    tamper_zip = config / "jns" / "sftp" / "incoming" / "tampered.zip"
     signed_zip(
         tamper_zip,
         private_key,
@@ -198,8 +196,7 @@ with tempfile.TemporaryDirectory() as tempdir:
     else:
         raise AssertionError("Tampered payload was accepted")
 
-    # Unsigned package.
-    unsigned = config / "jns" / "inbox" / "unsigned.zip"
+    unsigned = config / "jns" / "sftp" / "incoming" / "unsigned.zip"
     with zipfile.ZipFile(unsigned, "w") as archive:
         archive.writestr(
             "jns_package.json",
@@ -220,7 +217,6 @@ with tempfile.TemporaryDirectory() as tempdir:
     else:
         raise AssertionError("Unsigned package was accepted")
 
-    # Platform update.
     platform_files = {
         "__init__.py": b"# new init\n",
         "const.py": b'VERSION = "5.0.1"\n',
@@ -231,6 +227,8 @@ with tempfile.TemporaryDirectory() as tempdir:
         "services.yaml": b"status:\n  name: Status\n",
         "recovery_tool.py": b"# recovery\n",
         "diagnostics.py": b"# diagnostics\n",
+        "addon.py": b"# addon bootstrap\n",
+        "ha_config_check.py": b"# config check\n",
         "manifest.json": (
             json.dumps({"domain": "jns_deployment", "name": "JNS", "version": "5.0.1"})
             + "\n"
@@ -263,7 +261,6 @@ with tempfile.TemporaryDirectory() as tempdir:
         encoding="utf-8"
     ) == "# original\n"
 
-    # Audit tamper detection.
     audit_path = config / "jns" / "audit" / "audit.jsonl"
     lines = audit_path.read_text(encoding="utf-8").splitlines()
     record = json.loads(lines[0])
@@ -277,7 +274,7 @@ with tempfile.TemporaryDirectory() as tempdir:
     else:
         raise AssertionError("Tampered audit log was accepted")
 
-print("JNS v5.0.1 production self-test: PASS")
+print("JNS v5.4.1 production self-test: PASS")
 print("Trusted Ed25519 signed config package: PASS")
 print("Untrusted publisher rejection: PASS")
 print("Tampered payload rejection: PASS")
