@@ -58,7 +58,7 @@ if keys != expected_keys:
     raise SystemExit(
         f"Manifest key order invalid. Expected {expected_keys}; got {keys}"
     )
-if manifest.get("version") != "5.4.1":
+if manifest.get("version") != "5.4.2":
     raise SystemExit("Unexpected integration version")
 if manifest.get("iot_class") != "local_push":
     raise SystemExit("Manifest IoT class must be local_push")
@@ -69,6 +69,7 @@ if manifest.get("requirements") != []:
 
 const_text = (CC / "const.py").read_text(encoding="utf-8")
 for required_text in (
+    'VERSION = "5.4.2"',
     "SIGNED_PACKAGE_FORMAT = 3",
     "ALLOW_UNSIGNED_PACKAGES = False",
     'SIGNATURE_ALGORITHM = "ed25519"',
@@ -125,7 +126,7 @@ if list(ROOT.rglob("__pycache__")):
 if list(ROOT.rglob("*.pyc")):
     raise SystemExit("Python bytecode must not be committed")
 
-print("JNS v5.4.1 repository static validation: PASS")
+print("JNS v5.4.2 repository static validation: PASS")
 print("Manifest ordering/version/IoT class: PASS")
 print("Mandatory signed-package policy: PASS")
 print("Signing/key/recovery tooling present: PASS")
