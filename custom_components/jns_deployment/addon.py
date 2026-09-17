@@ -109,7 +109,7 @@ async def _async_find_repository(hass: HomeAssistant):
 
 
 async def _async_wait_for_repository(hass: HomeAssistant):
-    """Wait for Supervisor to finish indexing a newly added repository."""
+    """Wait for Supervisor to finish indexing a newly added or reloaded repository."""
     loop = asyncio.get_running_loop()
     deadline = loop.time() + _REPOSITORY_READY_TIMEOUT
     last_error: BaseException | None = None
@@ -126,20 +126,28 @@ async def _async_wait_for_repository(hass: HomeAssistant):
         raise _provisioning_error("repository_discovery", last_error)
     raise SftpProvisioningError(
         "repository_discovery",
-        "Timed out waiting for Supervisor to expose the JNS app repository after registration.",
+        "Timed out waiting for Supervisor to expose the JNS app repository.",
     )
 
 
 async def async_ensure_repository(hass: HomeAssistant):
-    """Ensure the JNS GitHub repo is also registered as a Supervisor app repo."""
+    """Ensure the JNS GitHub repo is registered and freshly indexed by Supervisor."""
+    client = get_supervisor_client(hass)
     try:
         repository = await _async_find_repository(hass)
     except SupervisorError as err:
         raise _provisioning_error("repository_list", err) from err
-    if repository is not None:
-        return repository, False
 
-    client = get_supervisor_client(hass)
+    if repository is not None:
+        # The JNS app definition can change independently of the HACS integration.
+        # Force a store refresh so an existing Supervisor repository sees the
+        # newest app version/image metadata before install, repair or update.
+        try:
+            await client.store.reload()
+        except SupervisorError as err:
+            _LOGGER.warning("Supervisor store reload for JNS repository failed: %s", err)
+        return await _async_wait_for_repository(hass), False
+
     try:
         await client.store.add_repository(StoreAddRepository(repository=JNS_REPOSITORY_URL))
     except SupervisorError as err:
@@ -153,8 +161,6 @@ async def async_ensure_repository(hass: HomeAssistant):
         return repository, False
 
     # Repository registration and store indexing can complete asynchronously.
-    # Ask for a reload, but do not assume the reload response means the app is
-    # immediately queryable; the readiness poll below is the authority.
     try:
         await client.store.reload()
     except SupervisorError as err:
