@@ -58,7 +58,7 @@ if keys != expected_keys:
     raise SystemExit(
         f"Manifest key order invalid. Expected {expected_keys}; got {keys}"
     )
-if manifest.get("version") != "5.4.2":
+if manifest.get("version") != "5.4.3":
     raise SystemExit("Unexpected integration version")
 if manifest.get("iot_class") != "local_push":
     raise SystemExit("Manifest IoT class must be local_push")
@@ -69,7 +69,7 @@ if manifest.get("requirements") != []:
 
 const_text = (CC / "const.py").read_text(encoding="utf-8")
 for required_text in (
-    'VERSION = "5.4.2"',
+    'VERSION = "5.4.3"',
     "SIGNED_PACKAGE_FORMAT = 3",
     "ALLOW_UNSIGNED_PACKAGES = False",
     'SIGNATURE_ALGORITHM = "ed25519"',
@@ -91,8 +91,9 @@ for required_action in (
 
 app_config = (ROOT / "jns_secure_sftp" / "config.yaml").read_text(encoding="utf-8")
 for required_text in (
-    'version: "0.3.1"',
+    'version: "0.3.2"',
     "slug: jns_secure_sftp",
+    "image: ghcr.io/jamienewton2269/jns-secure-sftp",
     "22/tcp: 2222",
     "type: homeassistant_config",
     "password_authentication: true",
@@ -126,11 +127,12 @@ if list(ROOT.rglob("__pycache__")):
 if list(ROOT.rglob("*.pyc")):
     raise SystemExit("Python bytecode must not be committed")
 
-print("JNS v5.4.2 repository static validation: PASS")
+print("JNS v5.4.3 repository static validation: PASS")
 print("Manifest ordering/version/IoT class: PASS")
 print("Mandatory signed-package policy: PASS")
 print("Signing/key/recovery tooling present: PASS")
 print("Brand/HACS workflow assets: PASS")
 print("Python compilation: PASS")
 print("Supervisor companion-app repository assets: PASS")
+print("SFTP prebuilt image declaration: PASS")
 print("SFTP transport hardening static checks: PASS")
