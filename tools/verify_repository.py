@@ -93,7 +93,7 @@ app_config = (ROOT / "jns_secure_sftp" / "config.yaml").read_text(encoding="utf-
 for required_text in (
     'version: "0.3.2"',
     "slug: jns_secure_sftp",
-    "image: ghcr.io/jamienewton2269/jns-secure-sftp",
+    "image: ghcr.io/jamienewton2269/{arch}-jns-secure-sftp",
     "22/tcp: 2222",
     "type: homeassistant_config",
     "password_authentication: true",
