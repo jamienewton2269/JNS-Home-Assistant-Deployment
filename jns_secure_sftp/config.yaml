@@ -9,7 +9,7 @@ init: false
 arch:
   - amd64
   - aarch64
-image: ghcr.io/jamienewton2269/jns-secure-sftp
+image: ghcr.io/jamienewton2269/{arch}-jns-secure-sftp
 ports:
   22/tcp: 2222
 watchdog: tcp://[HOST]:[PORT:22]
