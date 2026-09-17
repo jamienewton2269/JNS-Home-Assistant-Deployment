@@ -15,7 +15,6 @@ permissions:
 
 env:
   IMAGE_NAME: jns-secure-sftp
-  ARCHITECTURES: '["amd64","aarch64"]'
   VERSION: "0.3.2"
 
 jobs:
@@ -42,18 +41,3 @@ jobs:
           push: "true"
           version: ${{ env.VERSION }}
           context: ./jns_secure_sftp
-
-  manifest:
-    name: Publish multi-arch manifest
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Publish multi-arch manifest
-        uses: home-assistant/builder/actions/publish-multi-arch-manifest@4de35182ce1e329181bffcbcc84d33db5e2c7e10
-        with:
-          architectures: ${{ env.ARCHITECTURES }}
-          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
-          image-name: ${{ env.IMAGE_NAME }}
-          image-tags: |
-            ${{ env.VERSION }}
-            latest
