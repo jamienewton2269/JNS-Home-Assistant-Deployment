@@ -1,5 +1,5 @@
 name: JNS Secure SFTP
-version: "0.3.1"
+version: "0.3.2"
 slug: jns_secure_sftp
 description: Standards-based SFTP-only transport for the JNS Deployment Platform.
 url: https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment
@@ -9,6 +9,7 @@ init: false
 arch:
   - amd64
   - aarch64
+image: ghcr.io/jamienewton2269/jns-secure-sftp
 ports:
   22/tcp: 2222
 watchdog: tcp://[HOST]:[PORT:22]
