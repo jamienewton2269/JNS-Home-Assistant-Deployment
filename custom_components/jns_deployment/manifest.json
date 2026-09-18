@@ -2,7 +2,8 @@
   "domain": "jns_deployment",
   "name": "JNS Home Assistant Deployment Platform",
   "after_dependencies": [
-    "hassio"
+    "hassio",
+    "http"
   ],
   "codeowners": [
     "@jamienewton2269"
