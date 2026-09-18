@@ -4,43 +4,49 @@
     "step": {
       "user": {
         "title": "JNS Deployment Platform",
-        "description": "Configure the JNS deployment transport. JNS will register this GitHub repository as a Home Assistant App repository, install JNS Secure SFTP, restrict it to SFTP-only access, and use it only to deliver signed deployment packages.\n\nLast provisioning result: {provision_error}",
-        "data": {
-          "sftp_password": "Deployment SFTP password"
-        },
-        "data_description": {
-          "sftp_password": "Use a unique password of at least 24 characters. This is transport authentication only; JNS package signatures remain mandatory."
-        }
+        "description": "Install the JNS deployment service. No shared SFTP password is required. After setup, open Configure and create a one-time code to enrol each management PC."
       }
-    },
-    "error": {
-      "invalid_password": "Use a password of at least 24 characters without line breaks.",
-      "cannot_provision_sftp": "JNS Secure SFTP provisioning failed. The exact stage and Supervisor error are shown above."
     },
     "abort": {
       "single_instance_allowed": "Only one JNS Deployment Platform instance is supported.",
-      "supervisor_required": "JNS automatic SFTP bootstrap requires Home Assistant OS/Supervisor."
+      "supervisor_required": "JNS management-PC enrolment requires Home Assistant OS/Supervisor."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "JNS Secure SFTP",
-        "description": "Repair or rotate the JNS deployment transport password. {password_state}\n\nLast provisioning result: {provision_error}",
+        "title": "JNS management-PC security"
+      },
+      "enroll_pc": {
+        "title": "Enrol a new management PC",
+        "description": "Create a single-use enrolment capability for a management PC. Continue only while you are physically/administratively approving a new JNS workstation."
+      },
+      "enrollment_code": {
+        "title": "Management-PC enrolment code",
+        "description": "Enter this code in the new JNS Windows console: {enrollment_code}\n\nIt expires in about {ttl_minutes} minutes and can be used once. Only public SSH/signing keys are sent to Home Assistant."
+      },
+      "management_pcs": {
+        "title": "Manage JNS management PCs",
+        "description": "Enrolled PCs: {pc_summary}\n\nLegacy SFTP keys: {legacy_key_count}; legacy publisher present: {legacy_publisher}. Legacy credentials cannot be removed until an enrolled PC has completed commissioning.",
         "data": {
-          "sftp_password": "New SFTP password (optional)"
-        },
-        "data_description": {
-          "sftp_password": "Leave blank to keep the stored password, or enter a new password of at least 24 characters."
+          "action": "Action"
+        }
+      },
+      "legacy_transport": {
+        "title": "Legacy transport recovery",
+        "description": "Recovery-only compatibility for pre-v5.5 installations. Normal v5.5 operation uses per-PC SSH keys and no shared SFTP password.\n\nLast provisioning result: {provision_error}",
+        "data": {
+          "sftp_password": "Legacy SFTP password"
         }
       }
     },
     "error": {
       "invalid_password": "Use a password of at least 24 characters without line breaks.",
-      "cannot_provision_sftp": "JNS Secure SFTP provisioning failed. The exact stage and Supervisor error are shown above."
+      "cannot_provision_sftp": "JNS Secure SFTP provisioning failed. The exact stage and Supervisor error are shown above.",
+      "management_action_failed": "The management-PC action could not be completed. Check Home Assistant logs and commissioning state."
     },
     "abort": {
-      "supervisor_required": "JNS automatic SFTP bootstrap requires Home Assistant OS/Supervisor."
+      "supervisor_required": "JNS management-PC enrolment requires Home Assistant OS/Supervisor."
     }
   }
 }

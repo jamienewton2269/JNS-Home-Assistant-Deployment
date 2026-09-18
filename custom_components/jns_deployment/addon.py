@@ -31,7 +31,13 @@ _MAX_DETAIL_LENGTH = 500
 class SftpProvisioningError(RuntimeError):
     """Raised when the JNS SFTP companion app cannot be provisioned."""
 
-    def __init__(self, stage: str, detail: str) -> None:
+    def __init__(self, stage: str, detail: str | None = None) -> None:
+        # Backward-compatible one-argument construction is retained for
+        # enrollment-specific call sites while v5.4.3-style failures carry a
+        # precise Supervisor stage and sanitized detail.
+        if detail is None:
+            detail = stage
+            stage = "sftp"
         self.stage = stage
         self.detail = _safe_detail(detail)
         super().__init__(f"{stage}: {self.detail}")
@@ -139,9 +145,8 @@ async def async_ensure_repository(hass: HomeAssistant):
         raise _provisioning_error("repository_list", err) from err
 
     if repository is not None:
-        # The JNS app definition can change independently of the HACS integration.
-        # Force a store refresh so an existing Supervisor repository sees the
-        # newest app version/image metadata before install, repair or update.
+        # v5.4.3 production fix: app metadata can change independently of the
+        # HACS integration. Force a Supervisor store refresh before using it.
         try:
             await client.store.reload()
         except SupervisorError as err:
@@ -160,7 +165,6 @@ async def async_ensure_repository(hass: HomeAssistant):
             raise _provisioning_error("repository_add", err) from err
         return repository, False
 
-    # Repository registration and store indexing can complete asynchronously.
     try:
         await client.store.reload()
     except SupervisorError as err:
@@ -174,9 +178,7 @@ def addon_slug_for_repository(repository: Any) -> str:
     """Return the Supervisor-scoped slug for JNS Secure SFTP."""
     repository_slug = str(getattr(repository, "slug", "")).strip()
     if not repository_slug:
-        raise SftpProvisioningError(
-            "repository_metadata", "Supervisor returned an invalid JNS repository slug."
-        )
+        raise SftpProvisioningError("repository_metadata", "Supervisor returned an invalid JNS repository slug.")
     return f"{repository_slug}_{SFTP_APP_SLUG}"
 
 
@@ -184,12 +186,17 @@ def _manager(hass: HomeAssistant, addon_slug: str) -> AddonManager:
     return AddonManager(hass, _LOGGER, SFTP_APP_NAME, addon_slug)
 
 
-def _desired_config(password: str) -> dict[str, Any]:
+def _desired_config(
+    password: str = "",
+    *,
+    authorized_keys: list[str] | None = None,
+    password_authentication: bool = True,
+) -> dict[str, Any]:
     return {
         "username": SFTP_USERNAME,
         "password": password,
-        "authorized_keys": [],
-        "password_authentication": True,
+        "authorized_keys": list(authorized_keys or []),
+        "password_authentication": bool(password_authentication),
     }
 
 
@@ -215,6 +222,149 @@ async def _async_wait_for_app(hass: HomeAssistant, addon_slug: str):
         "app_discovery",
         "Timed out waiting for JNS Secure SFTP to become available in the Supervisor app store.",
     )
+
+
+async def async_existing_authorized_keys(hass: HomeAssistant) -> list[str]:
+    """Return current SFTP authorized keys without exposing any password."""
+    try:
+        repository = await _async_find_repository(hass)
+        if repository is None:
+            return []
+        addon_slug = addon_slug_for_repository(repository)
+        installed = await get_supervisor_client(hass).addons.addon_info(addon_slug)
+        options = installed.options if isinstance(installed.options, dict) else {}
+        keys = options.get("authorized_keys", [])
+        return [str(item).strip() for item in keys if str(item).strip()] if isinstance(keys, list) else []
+    except (AddonError, SupervisorError, SftpProvisioningError):
+        return []
+
+
+async def async_apply_management_keys(
+    hass: HomeAssistant, authorized_keys: list[str]
+) -> SftpProvisionResult:
+    """Provision JNS SFTP in public-key-only mode for enrolled management PCs."""
+    clean = sorted({str(item).strip() for item in authorized_keys if str(item).strip()})
+    if not clean:
+        raise SftpProvisioningError(
+            "app_configure",
+            "At least one enrolled management-PC SSH public key is required.",
+        )
+
+    repository, repository_added = await async_ensure_repository(hass)
+    addon_slug = addon_slug_for_repository(repository)
+    manager = _manager(hass, addon_slug)
+    info = await _async_wait_for_app(hass, addon_slug)
+    created = info.state is AddonState.NOT_INSTALLED
+
+    if created:
+        try:
+            await manager.async_install_addon()
+        except (AddonError, SupervisorError) as err:
+            raise _provisioning_error("app_install", err) from err
+
+    client = get_supervisor_client(hass)
+    try:
+        installed = await client.addons.addon_info(addon_slug)
+        old_options = installed.options if isinstance(installed.options, dict) else {}
+        desired_config = _desired_config(
+            str(old_options.get("password", "")),
+            authorized_keys=clean,
+            password_authentication=False,
+        )
+        desired_network = {"22/tcp": SFTP_APP_PORT}
+        changed = (
+            installed.options != desired_config
+            or installed.boot is not AddonBoot.AUTO
+            or installed.auto_update is not False
+            or installed.network != desired_network
+        )
+        if changed:
+            await client.addons.set_addon_options(
+                addon_slug,
+                AddonsOptions(
+                    config=desired_config,
+                    boot=AddonBoot.AUTO,
+                    auto_update=False,
+                    network=desired_network,
+                ),
+            )
+    except (AddonError, SupervisorError) as err:
+        raise _provisioning_error("app_configure", err) from err
+
+    try:
+        info = await manager.async_get_addon_info()
+        if info.state is AddonState.NOT_RUNNING:
+            await manager.async_start_addon()
+        elif info.state is AddonState.RUNNING and changed:
+            await manager.async_restart_addon()
+        info = await manager.async_get_addon_info()
+    except (AddonError, SupervisorError) as err:
+        raise _provisioning_error("app_start", err) from err
+
+    if info.state is not AddonState.RUNNING:
+        raise SftpProvisioningError(
+            "app_start",
+            f"Supervisor completed provisioning but reported state '{info.state.value}'.",
+        )
+
+    return SftpProvisionResult(
+        addon_slug=addon_slug,
+        repository_added=repository_added,
+        addon_installed=info.state is not AddonState.NOT_INSTALLED,
+        addon_created=created,
+        running=info.state is AddonState.RUNNING,
+        version=info.version,
+        update_available=info.update_available,
+    )
+
+
+async def async_disable_management_transport(hass: HomeAssistant) -> dict[str, Any]:
+    """Clear all management-PC keys and stop SFTP when no credential remains.
+
+    This is the fail-closed path used after revoking the final enrolled/legacy
+    management credential.  A stopped SFTP app with an empty key set cannot
+    accidentally preserve access for a revoked workstation.
+    """
+    try:
+        repository = await _async_find_repository(hass)
+        if repository is None:
+            return {"installed": False, "running": False, "authorized_key_count": 0}
+        addon_slug = addon_slug_for_repository(repository)
+        manager = _manager(hass, addon_slug)
+        info = await manager.async_get_addon_info()
+        if info.state is AddonState.NOT_INSTALLED:
+            return {"installed": False, "running": False, "authorized_key_count": 0}
+        client = get_supervisor_client(hass)
+        installed = await client.addons.addon_info(addon_slug)
+        old_options = installed.options if isinstance(installed.options, dict) else {}
+        desired_config = _desired_config(
+            str(old_options.get("password", "")),
+            authorized_keys=[],
+            password_authentication=False,
+        )
+        desired_network = {"22/tcp": SFTP_APP_PORT}
+        if (installed.options != desired_config or installed.boot is not AddonBoot.AUTO
+                or installed.auto_update is not False or installed.network != desired_network):
+            await client.addons.set_addon_options(
+                addon_slug,
+                AddonsOptions(
+                    config=desired_config,
+                    boot=AddonBoot.AUTO,
+                    auto_update=False,
+                    network=desired_network,
+                ),
+            )
+        info = await manager.async_get_addon_info()
+        if info.state is AddonState.RUNNING:
+            await manager.async_stop_addon()
+        return {
+            "installed": True,
+            "running": False,
+            "authorized_key_count": 0,
+            "addon_slug": addon_slug,
+        }
+    except (AddonError, SupervisorError) as err:
+        raise _provisioning_error("app_disable", err) from err
 
 
 async def _async_apply_options(
@@ -314,6 +464,9 @@ async def async_sftp_status(hass: HomeAssistant) -> dict[str, Any]:
             }
         addon_slug = addon_slug_for_repository(repository)
         info = await _manager(hass, addon_slug).async_get_addon_info()
+        installed = await get_supervisor_client(hass).addons.addon_info(addon_slug)
+        options = installed.options if isinstance(installed.options, dict) else {}
+        keys = options.get("authorized_keys", []) if isinstance(options, dict) else []
         return {
             "repository_present": True,
             "repository_slug": repository.slug,
@@ -325,6 +478,8 @@ async def async_sftp_status(hass: HomeAssistant) -> dict[str, Any]:
             "update_available": info.update_available,
             "host_port": SFTP_APP_PORT,
             "username": SFTP_USERNAME,
+            "password_authentication": bool(options.get("password_authentication", True)),
+            "authorized_key_count": len(keys) if isinstance(keys, list) else 0,
         }
     except (AddonError, SupervisorError, SftpProvisioningError) as err:
         payload: dict[str, Any] = {
@@ -371,5 +526,5 @@ async def async_uninstall_sftp_app(hass: HomeAssistant, addon_slug: str) -> None
         if info.state is AddonState.RUNNING:
             await manager.async_stop_addon()
         await manager.async_uninstall_addon()
-    except AddonError as err:
+    except (AddonError, SupervisorError) as err:
         raise _provisioning_error("app_uninstall", err) from err

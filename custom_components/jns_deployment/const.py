@@ -1,5 +1,5 @@
 DOMAIN = "jns_deployment"
-VERSION = "5.4.3"
+VERSION = "5.5.0"
 
 DEFAULT_INBOX = "jns/sftp/incoming"
 
@@ -78,5 +78,6 @@ PLATFORM_REQUIRED_TARGETS = {
     "custom_components/jns_deployment/diagnostics.py",
     "custom_components/jns_deployment/addon.py",
     "custom_components/jns_deployment/ha_config_check.py",
+    "custom_components/jns_deployment/management_pc.py",
     "custom_components/jns_deployment/services.yaml",
 }

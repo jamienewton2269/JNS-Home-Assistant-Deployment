@@ -158,6 +158,7 @@ with tempfile.TemporaryDirectory() as tempdir:
     manager.rollback_transaction(install["transaction_id"])
     assert not target.exists()
 
+    # Untrusted publisher.
     attacker_key = Ed25519PrivateKey.generate()
     bad_zip = config / "jns" / "sftp" / "incoming" / "unknown.zip"
     signed_zip(
@@ -174,6 +175,7 @@ with tempfile.TemporaryDirectory() as tempdir:
     else:
         raise AssertionError("Untrusted publisher was accepted")
 
+    # Tampered payload after a valid signature.
     tamper_zip = config / "jns" / "sftp" / "incoming" / "tampered.zip"
     signed_zip(
         tamper_zip,
@@ -196,6 +198,7 @@ with tempfile.TemporaryDirectory() as tempdir:
     else:
         raise AssertionError("Tampered payload was accepted")
 
+    # Unsigned package.
     unsigned = config / "jns" / "sftp" / "incoming" / "unsigned.zip"
     with zipfile.ZipFile(unsigned, "w") as archive:
         archive.writestr(
@@ -217,6 +220,7 @@ with tempfile.TemporaryDirectory() as tempdir:
     else:
         raise AssertionError("Unsigned package was accepted")
 
+    # Platform update.
     platform_files = {
         "__init__.py": b"# new init\n",
         "const.py": b'VERSION = "5.0.1"\n',
@@ -229,6 +233,7 @@ with tempfile.TemporaryDirectory() as tempdir:
         "diagnostics.py": b"# diagnostics\n",
         "addon.py": b"# addon bootstrap\n",
         "ha_config_check.py": b"# config check\n",
+        "management_pc.py": b"# management pc enrollment\n",
         "manifest.json": (
             json.dumps({"domain": "jns_deployment", "name": "JNS", "version": "5.0.1"})
             + "\n"
@@ -261,6 +266,7 @@ with tempfile.TemporaryDirectory() as tempdir:
         encoding="utf-8"
     ) == "# original\n"
 
+    # Audit tamper detection.
     audit_path = config / "jns" / "audit" / "audit.jsonl"
     lines = audit_path.read_text(encoding="utf-8").splitlines()
     record = json.loads(lines[0])
@@ -274,7 +280,7 @@ with tempfile.TemporaryDirectory() as tempdir:
     else:
         raise AssertionError("Tampered audit log was accepted")
 
-print("JNS v5.4.1 production self-test: PASS")
+print("JNS v5.5.0 production self-test: PASS")
 print("Trusted Ed25519 signed config package: PASS")
 print("Untrusted publisher rejection: PASS")
 print("Tampered payload rejection: PASS")

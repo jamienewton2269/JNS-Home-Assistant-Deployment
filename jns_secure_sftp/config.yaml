@@ -1,5 +1,5 @@
 name: JNS Secure SFTP
-version: "0.3.2"
+version: "0.4.0"
 slug: jns_secure_sftp
 description: Standards-based SFTP-only transport for the JNS Deployment Platform.
 url: https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment
