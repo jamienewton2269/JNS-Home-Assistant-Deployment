@@ -43,6 +43,12 @@ if [[ ! -s /data/ssh_host_rsa_key ]]; then
 fi
 chmod 0600 /data/ssh_host_*_key
 
+# Export only the server PUBLIC key into the shared JNS area so an approved
+# management-PC enrollment can pin the SSH server identity without TOFU.
+ssh-keygen -y -f /data/ssh_host_ed25519_key | awk '{print "ssh-ed25519 " $1}' > "${CHROOT_ROOT}/server_host_ed25519.pub"
+chown root:root "${CHROOT_ROOT}/server_host_ed25519.pub"
+chmod 0644 "${CHROOT_ROOT}/server_host_ed25519.pub"
+
 : > "${AUTHORIZED_KEYS}"
 if bashio::config.has_value 'authorized_keys'; then
   while IFS= read -r key; do

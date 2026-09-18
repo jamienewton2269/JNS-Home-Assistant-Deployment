@@ -43,6 +43,7 @@ from .addon import (
 )
 from .deployment import DeploymentError, DeploymentManager
 from .ha_config_check import summarize_config_check_result
+from .management_pc import EnrollmentView, ManagementPCRegistry
 
 SERVICE_STATUS = "status"
 SERVICE_LIST_PUBLISHERS = "list_trusted_publishers"
@@ -64,6 +65,11 @@ SERVICE_ROLLBACK_PLATFORM = "rollback_platform_update"
 SERVICE_SFTP_STATUS = "sftp_status"
 SERVICE_REPAIR_SFTP = "repair_sftp"
 SERVICE_UPDATE_SFTP = "update_sftp"
+SERVICE_BEGIN_PC_ENROLLMENT = "begin_management_pc_enrollment"
+SERVICE_LIST_MANAGEMENT_PCS = "list_management_pcs"
+SERVICE_COMMISSION_MANAGEMENT_PC = "commission_management_pc"
+SERVICE_REVOKE_MANAGEMENT_PC = "revoke_management_pc"
+SERVICE_REVOKE_LEGACY_PC_CREDENTIALS = "revoke_legacy_pc_credentials"
 
 PACKAGE_SCHEMA = vol.Schema({vol.Required("package"): cv.string})
 INSTALL_SCHEMA = vol.Schema(
@@ -102,6 +108,8 @@ PLATFORM_SCHEMA = vol.Schema(
     }
 )
 
+DEVICE_SCHEMA = vol.Schema({vol.Required("device_id"): cv.string})
+
 
 def _get_manager(hass: HomeAssistant) -> DeploymentManager:
     manager = hass.data.get(DOMAIN, {}).get("manager")
@@ -115,6 +123,13 @@ def _get_async_lock(hass: HomeAssistant) -> asyncio.Lock:
     if not isinstance(lock, asyncio.Lock):
         raise ServiceValidationError("JNS asynchronous operation lock is unavailable.")
     return lock
+
+
+def _get_management_registry(hass: HomeAssistant) -> ManagementPCRegistry:
+    registry = hass.data.get(DOMAIN, {}).get("management_registry")
+    if not isinstance(registry, ManagementPCRegistry):
+        raise ServiceValidationError("JNS management-PC registry is unavailable.")
+    return registry
 
 
 async def _executor_call(
@@ -143,6 +158,13 @@ async def _check_config(hass: HomeAssistant) -> dict[str, Any]:
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    registry = domain_data.get("management_registry")
+    if not isinstance(registry, ManagementPCRegistry):
+        registry = ManagementPCRegistry(hass)
+        domain_data["management_registry"] = registry
+        hass.http.register_view(EnrollmentView(registry))
+
     async def handle_status(call: ServiceCall) -> ServiceResponse:
         return await _executor_call(hass, _get_manager(hass).get_status, VERSION)
 
@@ -318,6 +340,45 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             raise ServiceValidationError(str(exc)) from exc
         return result if call.return_response else None
 
+    async def handle_begin_pc_enrollment(call: ServiceCall) -> ServiceResponse:
+        registry = _get_management_registry(hass)
+        try:
+            await registry.require_admin(call.context.user_id)
+        except PermissionError as exc:
+            raise ServiceValidationError(str(exc)) from exc
+        return await registry.create_enrollment_session()
+
+    async def handle_list_management_pcs(call: ServiceCall) -> ServiceResponse:
+        registry = _get_management_registry(hass)
+        try:
+            await registry.require_write_authorized(call.context.user_id)
+        except PermissionError as exc:
+            raise ServiceValidationError(str(exc)) from exc
+        return await registry.list_pcs()
+
+    async def handle_commission_management_pc(call: ServiceCall) -> ServiceResponse:
+        registry = _get_management_registry(hass)
+        try:
+            return await registry.mark_commissioned(call.context.user_id)
+        except PermissionError as exc:
+            raise ServiceValidationError(str(exc)) from exc
+
+    async def handle_revoke_management_pc(call: ServiceCall) -> ServiceResponse:
+        registry = _get_management_registry(hass)
+        try:
+            await registry.require_admin(call.context.user_id)
+            return await registry.revoke_pc(call.data["device_id"])
+        except (PermissionError, ValueError) as exc:
+            raise ServiceValidationError(str(exc)) from exc
+
+    async def handle_revoke_legacy_pc_credentials(call: ServiceCall) -> ServiceResponse:
+        registry = _get_management_registry(hass)
+        try:
+            await registry.require_admin(call.context.user_id)
+            return await registry.revoke_legacy()
+        except (PermissionError, ValueError) as exc:
+            raise ServiceValidationError(str(exc)) from exc
+
     read_services = (
         (SERVICE_STATUS, handle_status, vol.Schema({})),
         (SERVICE_LIST_PUBLISHERS, handle_publishers, vol.Schema({})),
@@ -330,6 +391,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         (SERVICE_LIST_INSTALLED, handle_list_installed, vol.Schema({})),
         (SERVICE_VALIDATE_PLATFORM, handle_validate_platform, PLATFORM_SCHEMA),
         (SERVICE_SFTP_STATUS, handle_sftp_status, vol.Schema({})),
+        (SERVICE_LIST_MANAGEMENT_PCS, handle_list_management_pcs, vol.Schema({})),
+        (SERVICE_BEGIN_PC_ENROLLMENT, handle_begin_pc_enrollment, vol.Schema({})),
+        (SERVICE_COMMISSION_MANAGEMENT_PC, handle_commission_management_pc, vol.Schema({})),
     )
     for service, handler, schema in read_services:
         hass.services.async_register(
@@ -350,12 +414,23 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         (SERVICE_ROLLBACK_PLATFORM, handle_rollback_platform, TRANSACTION_SCHEMA),
         (SERVICE_REPAIR_SFTP, handle_repair_sftp, vol.Schema({})),
         (SERVICE_UPDATE_SFTP, handle_update_sftp, vol.Schema({})),
+        (SERVICE_REVOKE_MANAGEMENT_PC, handle_revoke_management_pc, DEVICE_SCHEMA),
+        (SERVICE_REVOKE_LEGACY_PC_CREDENTIALS, handle_revoke_legacy_pc_credentials, vol.Schema({})),
     )
+    admin_only_services = {SERVICE_REVOKE_MANAGEMENT_PC, SERVICE_REVOKE_LEGACY_PC_CREDENTIALS}
     for service, handler, schema in write_services:
+        async def guarded_handler(call: ServiceCall, _handler=handler, _service=service):
+            registry = _get_management_registry(hass)
+            if _service not in admin_only_services:
+                try:
+                    await registry.require_write_authorized(call.context.user_id)
+                except PermissionError as exc:
+                    raise ServiceValidationError(str(exc)) from exc
+            return await _handler(call)
         hass.services.async_register(
             DOMAIN,
             service,
-            handler,
+            guarded_handler,
             schema=schema,
             supports_response=SupportsResponse.OPTIONAL,
         )
@@ -364,8 +439,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate pre-v5.4 config entries without blocking the deployment engine."""
-    if entry.version < 2:
-        hass.config_entries.async_update_entry(entry, version=2)
+    if entry.version < 3:
+        hass.config_entries.async_update_entry(entry, version=3)
     return True
 
 
@@ -393,31 +468,43 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         VERSION,
     )
 
-    password = entry.data.get(CONF_SFTP_PASSWORD)
-    if password and "hassio" in hass.config.components:
+    if "hassio" in hass.config.components:
+        registry = _get_management_registry(hass)
         try:
-            result = await async_ensure_sftp_app(hass, password)
+            transport_state = await registry.ensure_transport_policy()
         except SftpProvisioningError:
-            persistent_notification.async_create(
-                hass,
-                "JNS Secure SFTP could not be provisioned. Open Settings → Devices & services → JNS Deployment Platform → Configure, then save the transport password again. Check Supervisor/App logs if it still fails.",
-                title="JNS deployment transport needs attention",
-                notification_id=f"{DOMAIN}_sftp_setup",
-            )
-        else:
+            transport_state = {"mode": "unconfigured"}
+
+        # Existing public keys win over the pre-v5.5 shared-password setting.
+        # This preserves the old PC during migration and prevents a restart from
+        # silently switching an enrolled installation back to password auth.
+        if transport_state.get("mode") == "publickey":
             persistent_notification.async_dismiss(hass, f"{DOMAIN}_sftp_setup")
-            if entry.data.get(CONF_SFTP_ADDON_SLUG) != result.addon_slug:
-                hass.config_entries.async_update_entry(
-                    entry,
-                    data={**entry.data, CONF_SFTP_ADDON_SLUG: result.addon_slug},
+        else:
+            password = entry.data.get(CONF_SFTP_PASSWORD)
+            if password:
+                try:
+                    result = await async_ensure_sftp_app(hass, password)
+                except SftpProvisioningError:
+                    persistent_notification.async_create(
+                        hass,
+                        "JNS Secure SFTP legacy recovery could not be provisioned. Use JNS Deployment Platform → Configure → Enrol a new management PC, or use Legacy transport recovery only if needed.",
+                        title="JNS deployment transport needs attention",
+                        notification_id=f"{DOMAIN}_sftp_setup",
+                    )
+                else:
+                    if entry.data.get(CONF_SFTP_ADDON_SLUG) != result.addon_slug:
+                        hass.config_entries.async_update_entry(
+                            entry,
+                            data={**entry.data, CONF_SFTP_ADDON_SLUG: result.addon_slug},
+                        )
+            else:
+                persistent_notification.async_create(
+                    hass,
+                    "Enrol a JNS management PC from Settings → Devices & services → JNS Deployment Platform → Configure. The first approved PC will provision key-only SFTP automatically.",
+                    title="Enrol a JNS management PC",
+                    notification_id=f"{DOMAIN}_sftp_setup",
                 )
-    elif "hassio" in hass.config.components:
-        persistent_notification.async_create(
-            hass,
-            "Configure the JNS Deployment Platform integration to provision JNS Secure SFTP. Existing deployments remain available, but the simplified package transport is not ready yet.",
-            title="Configure JNS Secure SFTP",
-            notification_id=f"{DOMAIN}_sftp_setup",
-        )
     return True
 
 

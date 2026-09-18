@@ -186,6 +186,7 @@ uninstall_package:
       selector:
         boolean:
 
+
 sftp_status:
   name: JNS Secure SFTP status
   description: Return companion SFTP app status without exposing credentials.
@@ -197,3 +198,29 @@ repair_sftp:
 update_sftp:
   name: Update JNS Secure SFTP
   description: Explicitly update the JNS SFTP app and re-apply the safe transport configuration.
+
+begin_management_pc_enrollment:
+  name: Begin management-PC enrollment
+  description: Create a single-use, short-lived enrollment code. Administrator only.
+
+list_management_pcs:
+  name: List JNS management PCs
+  description: Return enrolled management-PC identities, commissioning state and legacy credential status.
+
+commission_management_pc:
+  name: Mark management PC commissioned
+  description: Mark the calling enrolled PC commissioned after it has successfully completed the deployment/rollback test.
+
+revoke_management_pc:
+  name: Revoke management PC
+  description: Revoke one enrolled PC's HA identity, SFTP key and config signing publisher. Administrator only.
+  fields:
+    device_id:
+      name: Device ID
+      required: true
+      selector:
+        text:
+
+revoke_legacy_pc_credentials:
+  name: Revoke legacy management-PC credentials
+  description: Remove pre-v5.5 SFTP authorized keys and the legacy jns-config-production publisher only after a new enrolled PC is commissioned. Administrator only.

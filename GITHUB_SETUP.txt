@@ -1,6 +1,12 @@
-JNS v5.4.1 GitHub/HACS bootstrap
+JNS v5.5.0 GitHub/HACS publication notes
 
-HACS custom repository category: Integration
 Repository: https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment
 
-The same repository is also a Home Assistant Supervisor App repository via repository.yaml. The HACS-installed integration registers it automatically during JNS Secure SFTP provisioning.
+Publish the repository root with:
+- custom_components/jns_deployment version 5.5.0
+- jns_secure_sftp version 0.4.0
+- hacs.json / brand assets / security docs
+
+HACS remains an approved bootstrap/update path for the integration. Existing live v5.4 credentials must remain authorized during the v5.5 migration until a replacement management PC has successfully completed the v5.5 commissioning deploy+rollback test.
+
+Do not publish private signing keys, HA tokens, SFTP private keys or enrollment codes.

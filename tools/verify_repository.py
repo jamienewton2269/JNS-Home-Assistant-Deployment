@@ -24,6 +24,7 @@ required = [
     CC / "diagnostics.py",
     CC / "addon.py",
     CC / "services.yaml",
+    CC / "management_pc.py",
     CC / "strings.json",
     CC / "translations" / "en.json",
     ROOT / "tools" / "jns_keygen.py",
@@ -35,6 +36,7 @@ required = [
     ROOT / "repository.yaml",
     ROOT / "jns_secure_sftp" / "config.yaml",
     ROOT / "jns_secure_sftp" / "Dockerfile",
+    ROOT / ".github" / "workflows" / "build_sftp_app.yml",
     ROOT / "jns_secure_sftp" / "rootfs" / "etc" / "services.d" / "sshd" / "run",
 ]
 for path in required:
@@ -58,7 +60,7 @@ if keys != expected_keys:
     raise SystemExit(
         f"Manifest key order invalid. Expected {expected_keys}; got {keys}"
     )
-if manifest.get("version") != "5.4.3":
+if manifest.get("version") != "5.5.0":
     raise SystemExit("Unexpected integration version")
 if manifest.get("iot_class") != "local_push":
     raise SystemExit("Manifest IoT class must be local_push")
@@ -69,7 +71,7 @@ if manifest.get("requirements") != []:
 
 const_text = (CC / "const.py").read_text(encoding="utf-8")
 for required_text in (
-    'VERSION = "5.4.3"',
+    'VERSION = "5.5.0"',
     "SIGNED_PACKAGE_FORMAT = 3",
     "ALLOW_UNSIGNED_PACKAGES = False",
     'SIGNATURE_ALGORITHM = "ed25519"',
@@ -89,9 +91,10 @@ for required_action in (
     if required_action not in workflow:
         raise SystemExit(f"Workflow missing {required_action}")
 
+
 app_config = (ROOT / "jns_secure_sftp" / "config.yaml").read_text(encoding="utf-8")
 for required_text in (
-    'version: "0.3.2"',
+    'version: "0.4.0"',
     "slug: jns_secure_sftp",
     "image: ghcr.io/jamienewton2269/{arch}-jns-secure-sftp",
     "22/tcp: 2222",
@@ -101,6 +104,31 @@ for required_text in (
     if required_text not in app_config:
         raise SystemExit(f"JNS SFTP app config missing: {required_text}")
 
+image_workflow = (ROOT / ".github" / "workflows" / "build_sftp_app.yml").read_text(encoding="utf-8")
+for required_text in (
+    'VERSION: "0.4.0"',
+    'matrix:',
+    'arch: [amd64, aarch64]',
+    'ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-${{ env.IMAGE_NAME }}',
+    'home-assistant/builder/actions/build-image@',
+):
+    if required_text not in image_workflow:
+        raise SystemExit(f"JNS SFTP image workflow missing: {required_text}")
+
+addon_text = (CC / "addon.py").read_text(encoding="utf-8")
+for required_text in (
+    "_REPOSITORY_READY_TIMEOUT = 60.0",
+    "_APP_READY_TIMEOUT = 120.0",
+    'await client.store.reload()',
+    'await _async_wait_for_repository(hass)',
+    'await _async_wait_for_app(hass, addon_slug)',
+    'raise _provisioning_error("app_install", err)',
+    'raise _provisioning_error("app_configure", err)',
+    'raise _provisioning_error("app_start", err)',
+):
+    if required_text not in addon_text:
+        raise SystemExit(f"v5.4.3 Supervisor/SFTP production fix missing: {required_text}")
+
 run_script = (
     ROOT / "jns_secure_sftp" / "rootfs" / "etc" / "services.d" / "sshd" / "run"
 ).read_text(encoding="utf-8")
@@ -109,6 +137,7 @@ for required_text in (
     "DisableForwarding yes",
     "PermitRootLogin no",
     "ChrootDirectory",
+    "server_host_ed25519.pub",
 ):
     if required_text not in run_script:
         raise SystemExit(f"JNS SFTP hardening missing: {required_text}")
@@ -127,12 +156,14 @@ if list(ROOT.rglob("__pycache__")):
 if list(ROOT.rglob("*.pyc")):
     raise SystemExit("Python bytecode must not be committed")
 
-print("JNS v5.4.3 repository static validation: PASS")
+print("JNS v5.5.0 repository static validation: PASS")
 print("Manifest ordering/version/IoT class: PASS")
 print("Mandatory signed-package policy: PASS")
 print("Signing/key/recovery tooling present: PASS")
 print("Brand/HACS workflow assets: PASS")
 print("Python compilation: PASS")
+
 print("Supervisor companion-app repository assets: PASS")
-print("SFTP prebuilt image declaration: PASS")
+print("v5.4.3 Supervisor readiness/diagnostic fixes preserved: PASS")
+print("v5.4.3 prebuilt architecture-specific SFTP image path preserved: PASS")
 print("SFTP transport hardening static checks: PASS")

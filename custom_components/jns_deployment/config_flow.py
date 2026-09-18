@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 import voluptuous as vol
@@ -8,12 +7,7 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers import selector
 
-from .addon import (
-    SftpProvisionResult,
-    SftpProvisioningError,
-    async_ensure_sftp_app,
-    validate_sftp_password,
-)
+from .addon import SftpProvisioningError, async_ensure_sftp_app, validate_sftp_password
 from .const import (
     CONF_SFTP_ADDON_SLUG,
     CONF_SFTP_CREATED_BY_INTEGRATION,
@@ -24,13 +18,12 @@ from .const import (
 )
 
 
-def _password_schema(*, required: bool) -> vol.Schema:
-    key = vol.Required(CONF_SFTP_PASSWORD) if required else vol.Optional(CONF_SFTP_PASSWORD)
-    return vol.Schema({key: selector.TextSelector({"type": "password"})})
-
-
 def _supervisor_available(flow: config_entries.ConfigFlow | config_entries.OptionsFlow) -> bool:
     return "hassio" in flow.hass.config.components
+
+
+def _registry(flow: config_entries.ConfigFlow | config_entries.OptionsFlow):
+    return flow.hass.data[DOMAIN]["management_registry"]
 
 
 def _error_text(err: SftpProvisioningError | None) -> str:
@@ -40,105 +33,115 @@ def _error_text(err: SftpProvisioningError | None) -> str:
 
 
 class JNSDeploymentConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    VERSION = 2
+    """v5.5 bootstrap contains no shared deployment password.
 
-    def __init__(self) -> None:
-        self._pending_password: str | None = None
-        self._provision_task: asyncio.Task[SftpProvisionResult] | None = None
-        self._provision_result: SftpProvisionResult | None = None
-        self._show_provision_error = False
-        self._last_provision_error: SftpProvisioningError | None = None
+    After the integration is added, the administrator creates a one-time
+    management-PC enrollment code from Configure. The approved PC then supplies
+    its public SSH/signing keys and receives its own revocable HA identity.
+    """
+
+    VERSION = 3
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         if self._async_current_entries():
             return self.async_abort(reason="single_instance_allowed")
         if not _supervisor_available(self):
             return self.async_abort(reason="supervisor_required")
-
-        errors: dict[str, str] = {}
-        if self._show_provision_error:
-            errors["base"] = "cannot_provision_sftp"
-            self._show_provision_error = False
-
         if user_input is not None:
-            password = user_input[CONF_SFTP_PASSWORD]
-            try:
-                validate_sftp_password(password)
-            except ValueError:
-                errors[CONF_SFTP_PASSWORD] = "invalid_password"
-            else:
-                self._pending_password = password
-                self._last_provision_error = None
-                self._provision_task = self.hass.async_create_task(
-                    async_ensure_sftp_app(self.hass, password),
-                    "provision JNS Secure SFTP",
-                )
-                return await self.async_step_provision_sftp()
-
-        return self.async_show_form(
-            step_id="user",
-            data_schema=_password_schema(required=True),
-            errors=errors,
-            description_placeholders={
-                "provision_error": _error_text(self._last_provision_error)
-            },
-        )
-
-    async def async_step_provision_sftp(self, user_input: dict[str, Any] | None = None):
-        if self._provision_task is None:
-            return await self.async_step_user()
-        if not self._provision_task.done():
-            return self.async_show_progress(
-                step_id="provision_sftp",
-                progress_action="provision_sftp",
-                progress_task=self._provision_task,
+            return self.async_create_entry(
+                title="JNS Deployment Platform",
+                data={
+                    "sftp_username": SFTP_USERNAME,
+                    "sftp_port": SFTP_APP_PORT,
+                    "enrollment_mode": True,
+                },
             )
-        try:
-            self._provision_result = await self._provision_task
-        except SftpProvisioningError as err:
-            self._last_provision_error = err
-            self._provision_task = None
-            self._show_provision_error = True
-            return self.async_show_progress_done(next_step_id="user")
-        self._provision_task = None
-        return self.async_show_progress_done(next_step_id="finish")
-
-    async def async_step_finish(self, user_input: dict[str, Any] | None = None):
-        if self._pending_password is None or self._provision_result is None:
-            return await self.async_step_user()
-        result = self._provision_result
-        return self.async_create_entry(
-            title="JNS Deployment Platform",
-            data={
-                CONF_SFTP_PASSWORD: self._pending_password,
-                CONF_SFTP_ADDON_SLUG: result.addon_slug,
-                CONF_SFTP_CREATED_BY_INTEGRATION: result.addon_created,
-                "sftp_username": SFTP_USERNAME,
-                "sftp_port": SFTP_APP_PORT,
-            },
-        )
+        return self.async_show_form(step_id="user", data_schema=vol.Schema({}))
 
     @staticmethod
     @callback
-    def async_get_options_flow(
-        config_entry: config_entries.ConfigEntry,
-    ) -> config_entries.OptionsFlow:
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
         return JNSDeploymentOptionsFlow(config_entry)
 
 
 class JNSDeploymentOptionsFlow(config_entries.OptionsFlow):
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         self._entry = config_entry
+        self._last_session: dict[str, Any] | None = None
         self._last_provision_error: SftpProvisioningError | None = None
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         if not _supervisor_available(self):
             return self.async_abort(reason="supervisor_required")
+        return self.async_show_menu(
+            step_id="init",
+            menu_options=["enroll_pc", "management_pcs", "legacy_transport"],
+        )
 
+    async def async_step_enroll_pc(self, user_input: dict[str, Any] | None = None):
+        if user_input is None:
+            return self.async_show_form(step_id="enroll_pc", data_schema=vol.Schema({}))
+        self._last_session = await _registry(self).create_enrollment_session()
+        return await self.async_step_enrollment_code()
+
+    async def async_step_enrollment_code(self, user_input: dict[str, Any] | None = None):
+        if user_input is not None:
+            return await self.async_step_init()
+        session = self._last_session or await _registry(self).create_enrollment_session()
+        return self.async_show_form(
+            step_id="enrollment_code",
+            data_schema=vol.Schema({}),
+            description_placeholders={
+                "enrollment_code": session["code"],
+                "ttl_minutes": str(max(1, int(session["ttl_seconds"]) // 60)),
+            },
+        )
+
+    async def async_step_management_pcs(self, user_input: dict[str, Any] | None = None):
+        registry = _registry(self)
+        state = await registry.list_pcs()
+        active = [pc for pc in state["pcs"] if pc.get("status") == "active"]
+        choices = {
+            str(pc["device_id"]): f"{pc.get('device_name') or pc['device_id']} — {'commissioned' if pc.get('commissioned_at') else 'not commissioned'}"
+            for pc in active
+        }
         errors: dict[str, str] = {}
         if user_input is not None:
-            supplied = user_input.get(CONF_SFTP_PASSWORD, "")
-            password = supplied or self._entry.data.get(CONF_SFTP_PASSWORD, "")
+            action = str(user_input.get("action", "none"))
+            try:
+                if action.startswith("revoke:"):
+                    await registry.revoke_pc(action.split(":", 1)[1])
+                elif action == "revoke_legacy":
+                    await registry.revoke_legacy()
+                else:
+                    return await self.async_step_init()
+            except (ValueError, PermissionError):
+                errors["base"] = "management_action_failed"
+            else:
+                return await self.async_step_management_pcs(None)
+
+        actions = {"none": "Return without changes"}
+        actions.update({f"revoke:{did}": f"Revoke {label}" for did, label in choices.items()})
+        if state.get("legacy_sftp_key_count") or state.get("legacy_publisher_present"):
+            actions["revoke_legacy"] = "Revoke legacy pre-v5.5 PC credentials (only after commissioning)"
+        summary = "; ".join(choices.values()) if choices else "No enrolled management PCs yet"
+        return self.async_show_form(
+            step_id="management_pcs",
+            data_schema=vol.Schema({vol.Required("action", default="none"): vol.In(actions)}),
+            errors=errors,
+            description_placeholders={
+                "pc_summary": summary,
+                "legacy_key_count": str(state.get("legacy_sftp_key_count", 0)),
+                "legacy_publisher": "yes" if state.get("legacy_publisher_present") else "no",
+            },
+        )
+
+    async def async_step_legacy_transport(self, user_input: dict[str, Any] | None = None):
+        """Recovery-only compatibility path while migrating existing v5.4 installs."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            supplied = str(user_input.get(CONF_SFTP_PASSWORD, ""))
+            password = supplied or str(self._entry.data.get(CONF_SFTP_PASSWORD, ""))
             try:
                 validate_sftp_password(password)
                 result = await async_ensure_sftp_app(self.hass, password)
@@ -149,9 +152,7 @@ class JNSDeploymentOptionsFlow(config_entries.OptionsFlow):
                 errors["base"] = "cannot_provision_sftp"
             else:
                 self._last_provision_error = None
-                old_created = bool(
-                    self._entry.data.get(CONF_SFTP_CREATED_BY_INTEGRATION, False)
-                )
+                old_created = bool(self._entry.data.get(CONF_SFTP_CREATED_BY_INTEGRATION, False))
                 self.hass.config_entries.async_update_entry(
                     self._entry,
                     data={
@@ -163,18 +164,13 @@ class JNSDeploymentOptionsFlow(config_entries.OptionsFlow):
                         "sftp_port": SFTP_APP_PORT,
                     },
                 )
-                return self.async_create_entry(title="", data={})
+                return await self.async_step_init()
 
         return self.async_show_form(
-            step_id="init",
-            data_schema=_password_schema(required=CONF_SFTP_PASSWORD not in self._entry.data),
+            step_id="legacy_transport",
+            data_schema=vol.Schema({vol.Optional(CONF_SFTP_PASSWORD): selector.TextSelector({"type": "password"})}),
             errors=errors,
             description_placeholders={
-                "password_state": (
-                    "A password is already stored; leave this field blank to keep it."
-                    if self._entry.data.get(CONF_SFTP_PASSWORD)
-                    else "Enter a new deployment-only SFTP password."
-                ),
                 "provision_error": _error_text(self._last_provision_error),
             },
         )
