@@ -49,7 +49,7 @@ async def async_existing_authorized_keys(_hass):
 
 async def async_apply_management_keys(_hass, keys):
     applied_key_sets.append(list(keys))
-    return types.SimpleNamespace()
+    return types.SimpleNamespace(host_port=2223)
 
 async def async_disable_management_transport(_hass):
     global disabled_count
@@ -73,6 +73,7 @@ const = types.ModuleType(pkg_name + ".const")
 const.DOMAIN = "jns_deployment"
 const.DEFAULT_TRUST = "jns/trust"
 const.TRUST_STORE_FILE = "publishers.json"
+const.SFTP_APP_PORT = 2222
 sys.modules[pkg_name + ".const"] = const
 
 spec = importlib.util.spec_from_file_location(pkg_name + ".management_pc", SOURCE)
@@ -175,6 +176,7 @@ async def main():
         assert enrolled["refresh_token"].startswith("refresh-token-")
         assert enrolled["access_token_expires_in"] == 1800
         assert enrolled["sftp_host_fingerprint"].startswith("SHA256:")
+        assert enrolled["sftp_port"] == 2223, "selected SFTP migration port must reach the Windows Manager"
 
         # One-time capability must not be reusable.
         try:
@@ -214,6 +216,6 @@ async def main():
         trust_data = json.loads(trust.read_text())
         assert all(p.get("id") != enrolled["publisher_id"] for p in trust_data["publishers"])
 
-    print("JNS v5.5.3 management-PC enrollment security self-test: PASS")
+    print("JNS v5.5.4 management-PC enrollment security self-test: PASS")
 
 asyncio.run(main())

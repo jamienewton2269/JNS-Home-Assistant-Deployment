@@ -22,6 +22,7 @@ from .const import (
     JNS_REPOSITORY_URL,
     SFTP_APP_NAME,
     SFTP_APP_PORT,
+    SFTP_APP_PORT_CANDIDATES,
     SFTP_APP_SLUG,
     SFTP_MIN_PASSWORD_LENGTH,
     SFTP_USERNAME,
@@ -62,6 +63,7 @@ class SftpProvisionResult:
     running: bool
     version: str | None
     update_available: bool
+    host_port: int
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -72,7 +74,7 @@ class SftpProvisionResult:
             "running": self.running,
             "version": self.version,
             "update_available": self.update_available,
-            "host_port": SFTP_APP_PORT,
+            "host_port": self.host_port,
             "username": SFTP_USERNAME,
         }
 
@@ -263,31 +265,32 @@ async def _async_addon_snapshot(
     )
 
 
-async def _async_addon_options(
+async def _async_addon_info_data(
     hass: HomeAssistant, addon_slug: str
 ) -> dict[str, Any]:
-    """Read installed app options from Supervisor's permitted info endpoint.
-
-    Supervisor's /addons/<slug>/options/config endpoint is intentionally
-    app-self-only and returns HTTP 403 to Home Assistant Core. The ordinary
-    /addons/<slug>/info endpoint is permitted for Core and includes the options
-    mapping. Read that endpoint as raw response data so JNS also avoids strict
-    installed-add-on model parsing when older/transitional payloads omit fields.
-    """
+    """Return raw Supervisor app info without strict model deserialization."""
     client = get_supervisor_client(hass)
     raw_client = getattr(client, "_client", None)
     if raw_client is None:
         raise SftpProvisioningError(
-            "app_options_read",
+            "app_info_read",
             "Home Assistant Supervisor client does not expose raw response access.",
         )
     result = await raw_client.get(f"addons/{addon_slug}/info")
     data = getattr(result, "data", None)
     if not isinstance(data, dict):
         raise SftpProvisioningError(
-            "app_options_read",
-            "Supervisor returned invalid JNS Secure SFTP app information.",
+            "app_info_read",
+            "Supervisor returned invalid app information.",
         )
+    return dict(data)
+
+
+async def _async_addon_options(
+    hass: HomeAssistant, addon_slug: str
+) -> dict[str, Any]:
+    """Read installed app options from Supervisor's permitted info endpoint."""
+    data = await _async_addon_info_data(hass, addon_slug)
     options = data.get("options", {})
     if options is None:
         return {}
@@ -297,6 +300,80 @@ async def _async_addon_options(
             "Supervisor returned invalid JNS Secure SFTP app options.",
         )
     return dict(options)
+
+
+async def _async_addon_host_port(
+    hass: HomeAssistant, addon_slug: str
+) -> int | None:
+    """Return the configured external host port for app TCP/22 when present."""
+    data = await _async_addon_info_data(hass, addon_slug)
+    network = data.get("network", {})
+    if not isinstance(network, dict):
+        return None
+    value = network.get("22/tcp")
+    if value in (None, ""):
+        return None
+    try:
+        port = int(value)
+    except (TypeError, ValueError):
+        return None
+    return port if 1 <= port <= 65535 else None
+
+
+async def _async_select_sftp_host_port(
+    hass: HomeAssistant, addon_slug: str
+) -> int:
+    """Pick a free Supervisor host port while preserving existing apps.
+
+    The legacy JNS Secure Transfer Gateway normally owns TCP/2222. During
+    migration it must remain available until the new management PC has passed
+    commissioning, so the new JNS Secure SFTP app automatically moves to the
+    first free port in the reserved JNS migration range instead of displacing
+    the legacy gateway.
+    """
+    client = get_supervisor_client(hass)
+    used: dict[int, str] = {}
+
+    for addon in await client.addons.list():
+        other_slug = str(getattr(addon, "slug", "")).strip()
+        if not other_slug or other_slug == addon_slug:
+            continue
+        try:
+            data = await _async_addon_info_data(hass, other_slug)
+        except SupervisorError as err:
+            raise _provisioning_error("port_discovery", err) from err
+        except SftpProvisioningError:
+            raise
+
+        network = data.get("network", {})
+        if not isinstance(network, dict):
+            continue
+        for host_port in network.values():
+            if host_port in (None, ""):
+                continue
+            try:
+                port = int(host_port)
+            except (TypeError, ValueError):
+                continue
+            if 1 <= port <= 65535:
+                used[port] = other_slug
+
+    for port in SFTP_APP_PORT_CANDIDATES:
+        if port not in used:
+            if port != SFTP_APP_PORT:
+                owner = used.get(SFTP_APP_PORT, "another Home Assistant app")
+                _LOGGER.warning(
+                    "JNS Secure SFTP default port %s is already reserved by %s; using %s during migration",
+                    SFTP_APP_PORT,
+                    owner,
+                    port,
+                )
+            return port
+
+    raise SftpProvisioningError(
+        "port_discovery",
+        "No free JNS SFTP host port is available in the migration range 2222-2232.",
+    )
 
 
 async def _async_wait_for_app(
@@ -383,6 +460,7 @@ async def async_apply_management_keys(
     info = await _async_wait_for_app(hass, addon_slug)
     created = info.state is AddonState.NOT_INSTALLED
     client = get_supervisor_client(hass)
+    host_port = await _async_select_sftp_host_port(hass, addon_slug)
 
     if created:
         try:
@@ -404,7 +482,7 @@ async def async_apply_management_keys(
                 ),
                 boot=AddonBoot.AUTO,
                 auto_update=False,
-                network={"22/tcp": SFTP_APP_PORT},
+                network={"22/tcp": host_port},
             ),
         )
     except SupervisorError as err:
@@ -434,6 +512,7 @@ async def async_apply_management_keys(
         running=True,
         version=info.version,
         update_available=info.update_available,
+        host_port=host_port,
     )
 
 
@@ -449,6 +528,9 @@ async def async_disable_management_transport(hass: HomeAssistant) -> dict[str, A
             return {"installed": False, "running": False, "authorized_key_count": 0}
 
         client = get_supervisor_client(hass)
+        host_port = await _async_addon_host_port(hass, addon_slug)
+        if host_port is None:
+            host_port = await _async_select_sftp_host_port(hass, addon_slug)
         old_options = await _async_addon_options(hass, addon_slug)
         if not isinstance(old_options, dict):
             old_options = {}
@@ -462,7 +544,7 @@ async def async_disable_management_transport(hass: HomeAssistant) -> dict[str, A
                 ),
                 boot=AddonBoot.AUTO,
                 auto_update=False,
-                network={"22/tcp": SFTP_APP_PORT},
+                network={"22/tcp": host_port},
             ),
         )
         if info.state is AddonState.RUNNING:
@@ -472,18 +554,19 @@ async def async_disable_management_transport(hass: HomeAssistant) -> dict[str, A
             "running": False,
             "authorized_key_count": 0,
             "addon_slug": addon_slug,
+            "host_port": host_port,
         }
     except SupervisorError as err:
         raise _provisioning_error("app_disable", err) from err
 
 
 async def _async_apply_options(
-    hass: HomeAssistant, addon_slug: str, password: str
+    hass: HomeAssistant, addon_slug: str, password: str, host_port: int
 ) -> bool:
     """Apply exact transport options and return True when a restart is needed."""
     client = get_supervisor_client(hass)
     desired_config = _desired_config(password)
-    desired_network = {"22/tcp": SFTP_APP_PORT}
+    desired_network = {"22/tcp": host_port}
     await client.addons.set_addon_options(
         addon_slug,
         AddonsOptions(
@@ -515,6 +598,7 @@ async def async_ensure_sftp_app(
     info = await _async_wait_for_app(hass, addon_slug)
     created = info.state is AddonState.NOT_INSTALLED
     client = get_supervisor_client(hass)
+    host_port = await _async_select_sftp_host_port(hass, addon_slug)
 
     if created:
         try:
@@ -523,7 +607,7 @@ async def async_ensure_sftp_app(
             raise _provisioning_error("app_install", err) from err
 
     try:
-        await _async_apply_options(hass, addon_slug, password)
+        await _async_apply_options(hass, addon_slug, password, host_port)
     except SupervisorError as err:
         raise _provisioning_error("app_configure", err) from err
 
@@ -551,6 +635,7 @@ async def async_ensure_sftp_app(
         running=True,
         version=info.version,
         update_available=info.update_available,
+        host_port=host_port,
     )
 
 
@@ -569,7 +654,11 @@ async def async_sftp_status(hass: HomeAssistant) -> dict[str, Any]:
         addon_slug = addon_slug_for_repository(repository)
         info = await _async_addon_snapshot(hass, addon_slug)
         options: dict[str, Any] = {}
+        host_port = SFTP_APP_PORT
         if info.state is not AddonState.NOT_INSTALLED:
+            configured_port = await _async_addon_host_port(hass, addon_slug)
+            if configured_port is not None:
+                host_port = configured_port
             raw_options = await _async_addon_options(hass, addon_slug)
             if isinstance(raw_options, dict):
                 options = raw_options
@@ -583,7 +672,7 @@ async def async_sftp_status(hass: HomeAssistant) -> dict[str, Any]:
             "state": info.state.value,
             "version": info.version,
             "update_available": info.update_available,
-            "host_port": SFTP_APP_PORT,
+            "host_port": host_port,
             "username": SFTP_USERNAME,
             "password_authentication": bool(options.get("password_authentication", True)),
             "authorized_key_count": len(keys) if isinstance(keys, list) else 0,
