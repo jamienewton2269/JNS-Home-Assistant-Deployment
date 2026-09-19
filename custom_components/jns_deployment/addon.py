@@ -328,7 +328,7 @@ async def async_existing_authorized_keys(hass: HomeAssistant) -> list[str]:
             return []
         keys = options.get("authorized_keys", [])
         return [str(item).strip() for item in keys if str(item).strip()] if isinstance(keys, list) else []
-    except (AddonError, SupervisorError, SftpProvisioningError):
+    except (SupervisorError, SftpProvisioningError):
         return []
 
 
@@ -345,51 +345,44 @@ async def async_apply_management_keys(
 
     repository, repository_added = await async_ensure_repository(hass)
     addon_slug = addon_slug_for_repository(repository)
-    manager = _manager(hass, addon_slug)
     info = await _async_wait_for_app(hass, addon_slug)
     created = info.state is AddonState.NOT_INSTALLED
+    client = get_supervisor_client(hass)
 
     if created:
         try:
-            await manager.async_install_addon()
-        except (AddonError, SupervisorError) as err:
+            await client.store.install_addon(addon_slug)
+        except SupervisorError as err:
             raise _provisioning_error("app_install", err) from err
 
-    client = get_supervisor_client(hass)
     try:
         old_options = await client.addons.addon_config(addon_slug)
         if not isinstance(old_options, dict):
             old_options = {}
-        desired_config = _desired_config(
-            str(old_options.get("password", "")),
-            authorized_keys=clean,
-            password_authentication=False,
-        )
-        desired_network = {"22/tcp": SFTP_APP_PORT}
-        # Re-assert the complete safe transport policy. This deliberately
-        # avoids the full installed add-on info model because strict schema
-        # validation can reject transitional Supervisor responses.
         await client.addons.set_addon_options(
             addon_slug,
             AddonsOptions(
-                config=desired_config,
+                config=_desired_config(
+                    str(old_options.get("password", "")),
+                    authorized_keys=clean,
+                    password_authentication=False,
+                ),
                 boot=AddonBoot.AUTO,
                 auto_update=False,
-                network=desired_network,
+                network={"22/tcp": SFTP_APP_PORT},
             ),
         )
-        changed = True
-    except (AddonError, SupervisorError) as err:
+    except SupervisorError as err:
         raise _provisioning_error("app_configure", err) from err
 
     try:
-        info = await manager.async_get_addon_info()
-        if info.state is AddonState.NOT_RUNNING:
-            await manager.async_start_addon()
-        elif info.state is AddonState.RUNNING and changed:
-            await manager.async_restart_addon()
-        info = await manager.async_get_addon_info()
-    except (AddonError, SupervisorError) as err:
+        info = await _async_addon_snapshot(hass, addon_slug)
+        if info.state is AddonState.RUNNING:
+            await client.addons.restart_addon(addon_slug)
+        else:
+            await client.addons.start_addon(addon_slug)
+        info = await _async_wait_for_running(hass, addon_slug)
+    except SupervisorError as err:
         raise _provisioning_error("app_start", err) from err
 
     if info.state is not AddonState.RUNNING:
@@ -401,59 +394,51 @@ async def async_apply_management_keys(
     return SftpProvisionResult(
         addon_slug=addon_slug,
         repository_added=repository_added,
-        addon_installed=info.state is not AddonState.NOT_INSTALLED,
+        addon_installed=True,
         addon_created=created,
-        running=info.state is AddonState.RUNNING,
+        running=True,
         version=info.version,
         update_available=info.update_available,
     )
 
 
 async def async_disable_management_transport(hass: HomeAssistant) -> dict[str, Any]:
-    """Clear all management-PC keys and stop SFTP when no credential remains.
-
-    This is the fail-closed path used after revoking the final enrolled/legacy
-    management credential.  A stopped SFTP app with an empty key set cannot
-    accidentally preserve access for a revoked workstation.
-    """
+    """Clear all management-PC keys and stop SFTP when no credential remains."""
     try:
         repository = await _async_find_repository(hass)
         if repository is None:
             return {"installed": False, "running": False, "authorized_key_count": 0}
         addon_slug = addon_slug_for_repository(repository)
-        manager = _manager(hass, addon_slug)
-        info = await manager.async_get_addon_info()
+        info = await _async_addon_snapshot(hass, addon_slug)
         if info.state is AddonState.NOT_INSTALLED:
             return {"installed": False, "running": False, "authorized_key_count": 0}
+
         client = get_supervisor_client(hass)
         old_options = await client.addons.addon_config(addon_slug)
         if not isinstance(old_options, dict):
             old_options = {}
-        desired_config = _desired_config(
-            str(old_options.get("password", "")),
-            authorized_keys=[],
-            password_authentication=False,
-        )
-        desired_network = {"22/tcp": SFTP_APP_PORT}
         await client.addons.set_addon_options(
             addon_slug,
             AddonsOptions(
-                config=desired_config,
+                config=_desired_config(
+                    str(old_options.get("password", "")),
+                    authorized_keys=[],
+                    password_authentication=False,
+                ),
                 boot=AddonBoot.AUTO,
                 auto_update=False,
-                network=desired_network,
+                network={"22/tcp": SFTP_APP_PORT},
             ),
         )
-        info = await manager.async_get_addon_info()
         if info.state is AddonState.RUNNING:
-            await manager.async_stop_addon()
+            await client.addons.stop_addon(addon_slug)
         return {
             "installed": True,
             "running": False,
             "authorized_key_count": 0,
             "addon_slug": addon_slug,
         }
-    except (AddonError, SupervisorError) as err:
+    except SupervisorError as err:
         raise _provisioning_error("app_disable", err) from err
 
 
