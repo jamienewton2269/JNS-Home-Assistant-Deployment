@@ -114,6 +114,9 @@ class FakeHass:
         self.config = FakeConfig(root)
         self.auth = FakeAuth()
 
+    async def async_add_executor_job(self, func, *args):
+        return func(*args)
+
 def ssh_pair():
     key = Ed25519PrivateKey.generate()
     pub = key.public_key().public_bytes(serialization.Encoding.OpenSSH, serialization.PublicFormat.OpenSSH).decode("ascii")
@@ -204,6 +207,6 @@ async def main():
         trust_data = json.loads(trust.read_text())
         assert all(p.get("id") != enrolled["publisher_id"] for p in trust_data["publishers"])
 
-    print("JNS v5.5.1 management-PC enrollment security self-test: PASS")
+    print("JNS v5.5.2 management-PC enrollment security self-test: PASS")
 
 asyncio.run(main())
