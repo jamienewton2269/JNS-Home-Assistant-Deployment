@@ -6,8 +6,15 @@ import logging
 from typing import Any
 
 from aiohasupervisor import SupervisorError
-from aiohasupervisor.models import AddonBoot, AddonsOptions, StoreAddRepository
-from homeassistant.components.hassio import AddonError, AddonManager, AddonState
+from aiohasupervisor.models import (
+    AddonBoot,
+    AddonState as SupervisorAddonState,
+    AddonsOptions,
+    PartialBackupOptions,
+    StoreAddonUpdate,
+    StoreAddRepository,
+)
+from homeassistant.components.hassio import AddonState
 from homeassistant.components.hassio.handler import get_supervisor_client
 from homeassistant.core import HomeAssistant
 
@@ -24,6 +31,7 @@ _LOGGER = logging.getLogger(__name__)
 
 _REPOSITORY_READY_TIMEOUT = 60.0
 _APP_READY_TIMEOUT = 120.0
+_APP_START_TIMEOUT = 60.0
 _POLL_INTERVAL = 2.0
 _MAX_DETAIL_LENGTH = 500
 
@@ -67,6 +75,16 @@ class SftpProvisionResult:
             "host_port": SFTP_APP_PORT,
             "username": SFTP_USERNAME,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class _AddonSnapshot:
+    """Minimal Supervisor app state without InstalledAddonComplete parsing."""
+
+    available: bool
+    state: AddonState
+    version: str | None
+    update_available: bool
 
 
 def _safe_detail(value: object) -> str:
@@ -182,10 +200,6 @@ def addon_slug_for_repository(repository: Any) -> str:
     return f"{repository_slug}_{SFTP_APP_SLUG}"
 
 
-def _manager(hass: HomeAssistant, addon_slug: str) -> AddonManager:
-    return AddonManager(hass, _LOGGER, SFTP_APP_NAME, addon_slug)
-
-
 def _desired_config(
     password: str = "",
     *,
@@ -200,19 +214,69 @@ def _desired_config(
     }
 
 
-async def _async_wait_for_app(hass: HomeAssistant, addon_slug: str):
+async def _async_addon_snapshot(
+    hass: HomeAssistant, addon_slug: str
+) -> _AddonSnapshot:
+    """Read only the Supervisor fields JNS needs.
+
+    Home Assistant 2026.9 can return installed add-on payloads without the
+    legacy hostname field. The full InstalledAddonComplete model treats that
+    field as mandatory, so JNS uses list models for operational state.
+    """
+    client = get_supervisor_client(hass)
+    store_entry = next(
+        (addon for addon in await client.store.addons_list() if addon.slug == addon_slug),
+        None,
+    )
+    if store_entry is None:
+        return _AddonSnapshot(False, AddonState.NOT_INSTALLED, None, False)
+    if not store_entry.installed:
+        return _AddonSnapshot(
+            bool(store_entry.available),
+            AddonState.NOT_INSTALLED,
+            store_entry.version,
+            bool(store_entry.update_available),
+        )
+
+    installed = next(
+        (addon for addon in await client.addons.list() if addon.slug == addon_slug),
+        None,
+    )
+    if installed is None:
+        return _AddonSnapshot(
+            bool(store_entry.available),
+            AddonState.NOT_RUNNING,
+            store_entry.version,
+            bool(store_entry.update_available),
+        )
+
+    state = (
+        AddonState.RUNNING
+        if installed.state is SupervisorAddonState.STARTED
+        else AddonState.NOT_RUNNING
+    )
+    return _AddonSnapshot(
+        bool(store_entry.available),
+        state,
+        installed.version or store_entry.version,
+        bool(installed.update_available),
+    )
+
+
+async def _async_wait_for_app(
+    hass: HomeAssistant, addon_slug: str
+) -> _AddonSnapshot:
     """Wait until the repository app is queryable and available for install."""
     loop = asyncio.get_running_loop()
     deadline = loop.time() + _APP_READY_TIMEOUT
     last_error: BaseException | None = None
-    manager = _manager(hass, addon_slug)
 
     while loop.time() < deadline:
         try:
-            info = await manager.async_get_addon_info()
+            info = await _async_addon_snapshot(hass, addon_slug)
             if info.state is not AddonState.NOT_INSTALLED or info.available:
                 return info
-        except (AddonError, SupervisorError) as err:
+        except SupervisorError as err:
             last_error = err
         await asyncio.sleep(_POLL_INTERVAL)
 
@@ -222,6 +286,21 @@ async def _async_wait_for_app(hass: HomeAssistant, addon_slug: str):
         "app_discovery",
         "Timed out waiting for JNS Secure SFTP to become available in the Supervisor app store.",
     )
+
+
+async def _async_wait_for_running(
+    hass: HomeAssistant, addon_slug: str
+) -> _AddonSnapshot:
+    """Wait for an installed JNS SFTP app to report running."""
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + _APP_START_TIMEOUT
+    last = await _async_addon_snapshot(hass, addon_slug)
+    while loop.time() < deadline:
+        if last.state is AddonState.RUNNING:
+            return last
+        await asyncio.sleep(_POLL_INTERVAL)
+        last = await _async_addon_snapshot(hass, addon_slug)
+    return last
 
 
 async def async_existing_authorized_keys(hass: HomeAssistant) -> list[str]:
