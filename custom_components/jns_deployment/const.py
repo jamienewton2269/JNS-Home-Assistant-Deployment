@@ -1,5 +1,5 @@
 DOMAIN = "jns_deployment"
-VERSION = "5.5.3"
+VERSION = "5.5.4"
 
 DEFAULT_INBOX = "jns/sftp/incoming"
 
@@ -8,6 +8,7 @@ JNS_REPOSITORY_URL = "https://github.com/jamienewton2269/JNS-Home-Assistant-Depl
 SFTP_APP_SLUG = "jns_secure_sftp"
 SFTP_APP_NAME = "JNS Secure SFTP"
 SFTP_APP_PORT = 2222
+SFTP_APP_PORT_CANDIDATES = tuple(range(2222, 2233))
 SFTP_USERNAME = "jnstransfer"
 SFTP_MIN_PASSWORD_LENGTH = 24
 CONF_SFTP_PASSWORD = "sftp_password"
