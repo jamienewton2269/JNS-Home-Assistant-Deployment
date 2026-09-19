@@ -478,29 +478,29 @@ async def async_ensure_sftp_app(
     except SupervisorError as err:
         raise _provisioning_error("repository", err) from err
 
-    manager = _manager(hass, addon_slug)
     info = await _async_wait_for_app(hass, addon_slug)
     created = info.state is AddonState.NOT_INSTALLED
+    client = get_supervisor_client(hass)
 
     if created:
         try:
-            await manager.async_install_addon()
-        except (AddonError, SupervisorError) as err:
+            await client.store.install_addon(addon_slug)
+        except SupervisorError as err:
             raise _provisioning_error("app_install", err) from err
 
     try:
-        options_changed = await _async_apply_options(hass, addon_slug, password)
-    except (AddonError, SupervisorError) as err:
+        await _async_apply_options(hass, addon_slug, password)
+    except SupervisorError as err:
         raise _provisioning_error("app_configure", err) from err
 
     try:
-        info = await manager.async_get_addon_info()
-        if info.state is AddonState.NOT_RUNNING:
-            await manager.async_start_addon()
-        elif info.state is AddonState.RUNNING and options_changed:
-            await manager.async_restart_addon()
-        info = await manager.async_get_addon_info()
-    except (AddonError, SupervisorError) as err:
+        info = await _async_addon_snapshot(hass, addon_slug)
+        if info.state is AddonState.RUNNING:
+            await client.addons.restart_addon(addon_slug)
+        else:
+            await client.addons.start_addon(addon_slug)
+        info = await _async_wait_for_running(hass, addon_slug)
+    except SupervisorError as err:
         raise _provisioning_error("app_start", err) from err
 
     if info.state is not AddonState.RUNNING:
@@ -512,9 +512,9 @@ async def async_ensure_sftp_app(
     return SftpProvisionResult(
         addon_slug=addon_slug,
         repository_added=repository_added,
-        addon_installed=info.state is not AddonState.NOT_INSTALLED,
+        addon_installed=True,
         addon_created=created,
-        running=info.state is AddonState.RUNNING,
+        running=True,
         version=info.version,
         update_available=info.update_available,
     )
@@ -533,10 +533,12 @@ async def async_sftp_status(hass: HomeAssistant) -> dict[str, Any]:
                 "username": SFTP_USERNAME,
             }
         addon_slug = addon_slug_for_repository(repository)
-        info = await _manager(hass, addon_slug).async_get_addon_info()
-        options = await get_supervisor_client(hass).addons.addon_config(addon_slug)
-        if not isinstance(options, dict):
-            options = {}
+        info = await _async_addon_snapshot(hass, addon_slug)
+        options: dict[str, Any] = {}
+        if info.state is not AddonState.NOT_INSTALLED:
+            raw_options = await get_supervisor_client(hass).addons.addon_config(addon_slug)
+            if isinstance(raw_options, dict):
+                options = raw_options
         keys = options.get("authorized_keys", [])
         return {
             "repository_present": True,
@@ -552,7 +554,7 @@ async def async_sftp_status(hass: HomeAssistant) -> dict[str, Any]:
             "password_authentication": bool(options.get("password_authentication", True)),
             "authorized_key_count": len(keys) if isinstance(keys, list) else 0,
         }
-    except (AddonError, SupervisorError, SftpProvisioningError) as err:
+    except (SupervisorError, SftpProvisioningError) as err:
         payload: dict[str, Any] = {
             "repository_present": False,
             "installed": False,
@@ -572,30 +574,42 @@ async def async_update_sftp_app(hass: HomeAssistant, password: str) -> dict[str,
     validate_sftp_password(password)
     repository, _ = await async_ensure_repository(hass)
     addon_slug = addon_slug_for_repository(repository)
-    manager = _manager(hass, addon_slug)
     try:
         info = await _async_wait_for_app(hass, addon_slug)
         if info.state is AddonState.NOT_INSTALLED:
             return (await async_ensure_sftp_app(hass, password)).as_dict()
+
+        client = get_supervisor_client(hass)
         if info.update_available:
-            await manager.async_update_addon()
+            await client.store.addon_availability(addon_slug)
+            await client.backups.partial_backup(
+                PartialBackupOptions(
+                    name=f"addon_{addon_slug}_{info.version}",
+                    addons={addon_slug},
+                )
+            )
+            await client.store.update_addon(
+                addon_slug, StoreAddonUpdate(backup=False)
+            )
+
         result = await async_ensure_sftp_app(hass, password)
         return result.as_dict()
     except SftpProvisioningError:
         raise
-    except (AddonError, SupervisorError) as err:
+    except SupervisorError as err:
         raise _provisioning_error("app_update", err) from err
 
 
 async def async_uninstall_sftp_app(hass: HomeAssistant, addon_slug: str) -> None:
     """Remove the companion app when it was created by this config entry."""
-    manager = _manager(hass, addon_slug)
     try:
-        info = await manager.async_get_addon_info()
+        info = await _async_addon_snapshot(hass, addon_slug)
         if info.state is AddonState.NOT_INSTALLED:
             return
+        client = get_supervisor_client(hass)
         if info.state is AddonState.RUNNING:
-            await manager.async_stop_addon()
-        await manager.async_uninstall_addon()
-    except (AddonError, SupervisorError) as err:
+            await client.addons.stop_addon(addon_slug)
+        await client.addons.uninstall_addon(addon_slug)
+    except SupervisorError as err:
         raise _provisioning_error("app_uninstall", err) from err
+
