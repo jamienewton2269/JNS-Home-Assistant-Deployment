@@ -81,6 +81,12 @@ class ManagementPCRegistry:
     def _save_registry(self, data: dict[str, Any]) -> None:
         _atomic_write_json(self.registry_path, data)
 
+    async def _async_load_registry(self) -> dict[str, Any]:
+        return await self.hass.async_add_executor_job(self._load_registry)
+
+    async def _async_save_registry(self, data: dict[str, Any]) -> None:
+        await self.hass.async_add_executor_job(self._save_registry, data)
+
     def _load_sessions(self) -> dict[str, Any]:
         if not self.sessions_path.is_file():
             return {"schema": 1, "sessions": []}
@@ -95,10 +101,16 @@ class ManagementPCRegistry:
     def _save_sessions(self, data: dict[str, Any]) -> None:
         _atomic_write_json(self.sessions_path, data)
 
+    async def _async_load_sessions(self) -> dict[str, Any]:
+        return await self.hass.async_add_executor_job(self._load_sessions)
+
+    async def _async_save_sessions(self, data: dict[str, Any]) -> None:
+        await self.hass.async_add_executor_job(self._save_sessions, data)
+
     async def create_enrollment_session(self) -> dict[str, Any]:
         async with self._lock:
             now = int(time.time())
-            sessions = self._load_sessions()
+            sessions = await self._async_load_sessions()
             sessions["sessions"] = [
                 x for x in sessions["sessions"]
                 if isinstance(x, dict) and int(x.get("expires_at", 0)) > now and not x.get("used")
@@ -114,7 +126,7 @@ class ManagementPCRegistry:
                 "expires_at": expires,
                 "used": False,
             })
-            self._save_sessions(sessions)
+            await self._async_save_sessions(sessions)
             return {"code": display, "expires_at": expires, "ttl_seconds": ENROLLMENT_TTL}
 
     async def _consume_code(self, code: str) -> bool:
@@ -192,6 +204,15 @@ class ManagementPCRegistry:
         ]
         _atomic_write_json(self.trust_path, data)
 
+    async def _async_load_trust_json(self) -> dict[str, Any]:
+        return await self.hass.async_add_executor_job(self._load_trust_json)
+
+    async def _async_upsert_publisher(self, publisher: dict[str, Any]) -> None:
+        await self.hass.async_add_executor_job(self._upsert_publisher, publisher)
+
+    async def _async_remove_publisher(self, publisher_id: str) -> None:
+        await self.hass.async_add_executor_job(self._remove_publisher, publisher_id)
+
     async def _sync_sftp_authorized_keys(self, registry: dict[str, Any], *, capture_existing: bool = False) -> dict[str, Any]:
         existing = await async_existing_authorized_keys(self.hass) if capture_existing else []
         known = {
@@ -223,12 +244,15 @@ class ManagementPCRegistry:
             return {"public_key": "", "fingerprint": ""}
         return {"public_key": line, "fingerprint": fp}
 
+    async def _async_sftp_server_identity(self) -> dict[str, str]:
+        return await self.hass.async_add_executor_job(self._sftp_server_identity)
+
     async def ensure_transport_policy(self) -> dict[str, Any]:
         """Preserve pre-v5.5 authorized keys and enforce key-only transport when keys exist."""
         async with self._lock:
-            registry = self._load_registry()
+            registry = await self._async_load_registry()
             registry = await self._sync_sftp_authorized_keys(registry, capture_existing=True)
-            self._save_registry(registry)
+            await self._async_save_registry(registry)
             active_count = sum(
                 1 for pc in registry.get("pcs", [])
                 if isinstance(pc, dict) and pc.get("status") == "active" and pc.get("ssh_public_key")
@@ -299,8 +323,8 @@ class ManagementPCRegistry:
                     if not (isinstance(pc, dict) and pc.get("device_id") == device_id)
                 ] + [record]
                 registry = await self._sync_sftp_authorized_keys(registry, capture_existing=True)
-                self._save_registry(registry)
-                self._upsert_publisher({
+                await self._async_save_registry(registry)
+                await self._async_upsert_publisher({
                     "id": publisher_id,
                     "name": f"JNS Config Production - {device_name}",
                     "public_key": signing_b64,
@@ -330,7 +354,7 @@ class ManagementPCRegistry:
         # window to export its stable host public key to the shared JNS area.
         identity = {"public_key": "", "fingerprint": ""}
         for _ in range(20):
-            identity = self._sftp_server_identity()
+            identity = await self._async_sftp_server_identity()
             if identity["fingerprint"]:
                 break
             await asyncio.sleep(0.25)
@@ -351,7 +375,7 @@ class ManagementPCRegistry:
         }
 
     async def list_pcs(self) -> dict[str, Any]:
-        data = self._load_registry()
+        data = await self._async_load_registry()
         pcs = []
         for pc in data.get("pcs", []):
             if not isinstance(pc, dict):
@@ -363,13 +387,14 @@ class ManagementPCRegistry:
                     "ssh_fingerprint", "publisher_role", "publisher_id", "signing_fingerprint_sha256",
                 )
             })
+        trust_data = await self._async_load_trust_json()
         return {
             "count": len(pcs),
             "pcs": pcs,
             "legacy_sftp_key_count": len(data.get("legacy_sftp_keys", [])),
             "legacy_publisher_present": any(
                 isinstance(p, dict) and p.get("id") == PUBLISHER_ROLE
-                for p in self._load_trust_json().get("publishers", [])
+                for p in trust_data.get("publishers", [])
             ),
         }
 
@@ -426,7 +451,7 @@ class ManagementPCRegistry:
                 if user is not None:
                     await self.hass.auth.async_remove_user(user)
             if publisher_id:
-                self._remove_publisher(publisher_id)
+                await self._async_remove_publisher(publisher_id)
             registry = await self._sync_sftp_authorized_keys(registry)
             self._save_registry(registry)
             return {"device_id": device_id, "revoked": True}
@@ -444,7 +469,7 @@ class ManagementPCRegistry:
             registry["legacy_sftp_keys"] = []
             registry = await self._sync_sftp_authorized_keys(registry)
             self._save_registry(registry)
-            self._remove_publisher(PUBLISHER_ROLE)
+            await self._async_remove_publisher(PUBLISHER_ROLE)
             return {"legacy_sftp_keys_removed": removed_keys, "legacy_publisher_removed": True}
 
 
