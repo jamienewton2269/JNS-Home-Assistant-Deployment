@@ -18,7 +18,12 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 
-from .addon import (\n    SftpProvisioningError,\n    async_apply_management_keys,\n    async_disable_management_transport,\n    async_existing_authorized_keys,\n)
+from .addon import (
+    SftpProvisioningError,
+    async_apply_management_keys,
+    async_disable_management_transport,
+    async_existing_authorized_keys,
+)
 from .const import DOMAIN, DEFAULT_TRUST, TRUST_STORE_FILE
 
 _LOGGER = logging.getLogger(__name__)
