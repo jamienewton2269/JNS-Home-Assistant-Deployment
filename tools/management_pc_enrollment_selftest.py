@@ -207,6 +207,6 @@ async def main():
         trust_data = json.loads(trust.read_text())
         assert all(p.get("id") != enrolled["publisher_id"] for p in trust_data["publishers"])
 
-    print("JNS v5.5.2 management-PC enrollment security self-test: PASS")
+    print("JNS v5.5.3 management-PC enrollment security self-test: PASS")
 
 asyncio.run(main())
