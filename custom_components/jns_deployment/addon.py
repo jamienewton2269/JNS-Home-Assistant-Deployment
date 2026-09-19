@@ -225,14 +225,28 @@ async def _async_wait_for_app(hass: HomeAssistant, addon_slug: str):
 
 
 async def async_existing_authorized_keys(hass: HomeAssistant) -> list[str]:
-    """Return current SFTP authorized keys without exposing any password."""
+    """Return current SFTP authorized keys without exposing any password.
+
+    Use the installed-app list and dedicated options/config endpoint instead of
+    deserializing the full add-on info model. Supervisor may return store-like
+    data without installed-only fields such as hostname while an app is not
+    installed or still settling, which must not abort PC enrollment.
+    """
     try:
         repository = await _async_find_repository(hass)
         if repository is None:
             return []
         addon_slug = addon_slug_for_repository(repository)
-        installed = await get_supervisor_client(hass).addons.addon_info(addon_slug)
-        options = installed.options if isinstance(installed.options, dict) else {}
+        client = get_supervisor_client(hass)
+        installed = next(
+            (addon for addon in await client.addons.list() if addon.slug == addon_slug),
+            None,
+        )
+        if installed is None:
+            return []
+        options = await client.addons.addon_config(addon_slug)
+        if not isinstance(options, dict):
+            return []
         keys = options.get("authorized_keys", [])
         return [str(item).strip() for item in keys if str(item).strip()] if isinstance(keys, list) else []
     except (AddonError, SupervisorError, SftpProvisioningError):
@@ -264,30 +278,28 @@ async def async_apply_management_keys(
 
     client = get_supervisor_client(hass)
     try:
-        installed = await client.addons.addon_info(addon_slug)
-        old_options = installed.options if isinstance(installed.options, dict) else {}
+        old_options = await client.addons.addon_config(addon_slug)
+        if not isinstance(old_options, dict):
+            old_options = {}
         desired_config = _desired_config(
             str(old_options.get("password", "")),
             authorized_keys=clean,
             password_authentication=False,
         )
         desired_network = {"22/tcp": SFTP_APP_PORT}
-        changed = (
-            installed.options != desired_config
-            or installed.boot is not AddonBoot.AUTO
-            or installed.auto_update is not False
-            or installed.network != desired_network
+        # Re-assert the complete safe transport policy. This deliberately
+        # avoids the full installed add-on info model because strict schema
+        # validation can reject transitional Supervisor responses.
+        await client.addons.set_addon_options(
+            addon_slug,
+            AddonsOptions(
+                config=desired_config,
+                boot=AddonBoot.AUTO,
+                auto_update=False,
+                network=desired_network,
+            ),
         )
-        if changed:
-            await client.addons.set_addon_options(
-                addon_slug,
-                AddonsOptions(
-                    config=desired_config,
-                    boot=AddonBoot.AUTO,
-                    auto_update=False,
-                    network=desired_network,
-                ),
-            )
+        changed = True
     except (AddonError, SupervisorError) as err:
         raise _provisioning_error("app_configure", err) from err
 
@@ -335,25 +347,24 @@ async def async_disable_management_transport(hass: HomeAssistant) -> dict[str, A
         if info.state is AddonState.NOT_INSTALLED:
             return {"installed": False, "running": False, "authorized_key_count": 0}
         client = get_supervisor_client(hass)
-        installed = await client.addons.addon_info(addon_slug)
-        old_options = installed.options if isinstance(installed.options, dict) else {}
+        old_options = await client.addons.addon_config(addon_slug)
+        if not isinstance(old_options, dict):
+            old_options = {}
         desired_config = _desired_config(
             str(old_options.get("password", "")),
             authorized_keys=[],
             password_authentication=False,
         )
         desired_network = {"22/tcp": SFTP_APP_PORT}
-        if (installed.options != desired_config or installed.boot is not AddonBoot.AUTO
-                or installed.auto_update is not False or installed.network != desired_network):
-            await client.addons.set_addon_options(
-                addon_slug,
-                AddonsOptions(
-                    config=desired_config,
-                    boot=AddonBoot.AUTO,
-                    auto_update=False,
-                    network=desired_network,
-                ),
-            )
+        await client.addons.set_addon_options(
+            addon_slug,
+            AddonsOptions(
+                config=desired_config,
+                boot=AddonBoot.AUTO,
+                auto_update=False,
+                network=desired_network,
+            ),
+        )
         info = await manager.async_get_addon_info()
         if info.state is AddonState.RUNNING:
             await manager.async_stop_addon()
@@ -372,26 +383,21 @@ async def _async_apply_options(
 ) -> bool:
     """Apply exact transport options and return True when a restart is needed."""
     client = get_supervisor_client(hass)
-    installed = await client.addons.addon_info(addon_slug)
+    await client.addons.addon_config(addon_slug)
     desired_config = _desired_config(password)
     desired_network = {"22/tcp": SFTP_APP_PORT}
-    changed = (
-        installed.options != desired_config
-        or installed.boot is not AddonBoot.AUTO
-        or installed.auto_update is not False
-        or installed.network != desired_network
+    await client.addons.set_addon_options(
+        addon_slug,
+        AddonsOptions(
+            config=desired_config,
+            boot=AddonBoot.AUTO,
+            auto_update=False,
+            network=desired_network,
+        ),
     )
-    if changed:
-        await client.addons.set_addon_options(
-            addon_slug,
-            AddonsOptions(
-                config=desired_config,
-                boot=AddonBoot.AUTO,
-                auto_update=False,
-                network=desired_network,
-            ),
-        )
-    return changed
+    # Re-applying network/boot policy may require a restart even when the
+    # rendered app options themselves are unchanged.
+    return True
 
 
 async def async_ensure_sftp_app(
@@ -464,9 +470,10 @@ async def async_sftp_status(hass: HomeAssistant) -> dict[str, Any]:
             }
         addon_slug = addon_slug_for_repository(repository)
         info = await _manager(hass, addon_slug).async_get_addon_info()
-        installed = await get_supervisor_client(hass).addons.addon_info(addon_slug)
-        options = installed.options if isinstance(installed.options, dict) else {}
-        keys = options.get("authorized_keys", []) if isinstance(options, dict) else []
+        options = await get_supervisor_client(hass).addons.addon_config(addon_slug)
+        if not isinstance(options, dict):
+            options = {}
+        keys = options.get("authorized_keys", [])
         return {
             "repository_present": True,
             "repository_slug": repository.slug,
