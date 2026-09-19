@@ -136,7 +136,7 @@ class ManagementPCRegistry:
         digest = _sha256_hex(normalized.encode("ascii"))
         async with self._lock:
             now = int(time.time())
-            sessions = self._load_sessions()
+            sessions = await self._async_load_sessions()
             matched = False
             retained: list[dict[str, Any]] = []
             for item in sessions["sessions"]:
@@ -149,7 +149,7 @@ class ManagementPCRegistry:
                     matched = True
                 retained.append(item)
             sessions["sessions"] = retained
-            self._save_sessions(sessions)
+            await self._async_save_sessions(sessions)
             return matched
 
     @staticmethod
@@ -279,7 +279,7 @@ class ManagementPCRegistry:
         publisher_id = f"{PUBLISHER_ROLE}.{device_id.replace('-', '')[:12]}"
 
         async with self._lock:
-            registry = self._load_registry()
+            registry = await self._async_load_registry()
             existing_pc = next((
                 pc for pc in registry["pcs"]
                 if isinstance(pc, dict) and pc.get("device_id") == device_id and pc.get("status") == "active"
@@ -411,7 +411,7 @@ class ManagementPCRegistry:
         user = await self.hass.auth.async_get_user(user_id)
         if user is not None and user.is_admin:
             return
-        registry = self._load_registry()
+        registry = await self._async_load_registry()
         if any(
             isinstance(pc, dict)
             and pc.get("status") == "active"
@@ -425,7 +425,7 @@ class ManagementPCRegistry:
         if not user_id:
             raise PermissionError("Authenticated JNS management identity required")
         async with self._lock:
-            registry = self._load_registry()
+            registry = await self._async_load_registry()
             matched = None
             for pc in registry.get("pcs", []):
                 if isinstance(pc, dict) and pc.get("status") == "active" and pc.get("ha_user_id") == user_id:
@@ -434,12 +434,12 @@ class ManagementPCRegistry:
                     break
             if not matched:
                 raise PermissionError("Caller is not an enrolled JNS management PC")
-            self._save_registry(registry)
+            await self._async_save_registry(registry)
             return {"device_id": matched["device_id"], "commissioned": True, "commissioned_at": matched["commissioned_at"]}
 
     async def revoke_pc(self, device_id: str) -> dict[str, Any]:
         async with self._lock:
-            registry = self._load_registry()
+            registry = await self._async_load_registry()
             target = next((pc for pc in registry.get("pcs", []) if isinstance(pc, dict) and pc.get("device_id") == device_id), None)
             if not target:
                 raise ValueError("Unknown management PC")
@@ -453,12 +453,12 @@ class ManagementPCRegistry:
             if publisher_id:
                 await self._async_remove_publisher(publisher_id)
             registry = await self._sync_sftp_authorized_keys(registry)
-            self._save_registry(registry)
+            await self._async_save_registry(registry)
             return {"device_id": device_id, "revoked": True}
 
     async def revoke_legacy(self) -> dict[str, Any]:
         async with self._lock:
-            registry = self._load_registry()
+            registry = await self._async_load_registry()
             commissioned = [
                 pc for pc in registry.get("pcs", [])
                 if isinstance(pc, dict) and pc.get("status") == "active" and pc.get("commissioned_at")
@@ -468,7 +468,7 @@ class ManagementPCRegistry:
             removed_keys = len(registry.get("legacy_sftp_keys", []))
             registry["legacy_sftp_keys"] = []
             registry = await self._sync_sftp_authorized_keys(registry)
-            self._save_registry(registry)
+            await self._async_save_registry(registry)
             await self._async_remove_publisher(PUBLISHER_ROLE)
             return {"legacy_sftp_keys_removed": removed_keys, "legacy_publisher_removed": True}
 
