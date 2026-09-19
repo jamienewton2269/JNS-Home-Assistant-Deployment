@@ -60,7 +60,7 @@ if keys != expected_keys:
     raise SystemExit(
         f"Manifest key order invalid. Expected {expected_keys}; got {keys}"
     )
-if manifest.get("version") != "5.5.1":
+if manifest.get("version") != "5.5.2":
     raise SystemExit("Unexpected integration version")
 if manifest.get("iot_class") != "local_push":
     raise SystemExit("Manifest IoT class must be local_push")
@@ -71,7 +71,7 @@ if manifest.get("requirements") != []:
 
 const_text = (CC / "const.py").read_text(encoding="utf-8")
 for required_text in (
-    'VERSION = "5.5.1"',
+    'VERSION = "5.5.2"',
     "SIGNED_PACKAGE_FORMAT = 3",
     "ALLOW_UNSIGNED_PACKAGES = False",
     'SIGNATURE_ALGORITHM = "ed25519"',
@@ -119,15 +119,38 @@ addon_text = (CC / "addon.py").read_text(encoding="utf-8")
 for required_text in (
     "_REPOSITORY_READY_TIMEOUT = 60.0",
     "_APP_READY_TIMEOUT = 120.0",
+    "_APP_START_TIMEOUT = 60.0",
     'await client.store.reload()',
     'await _async_wait_for_repository(hass)',
     'await _async_wait_for_app(hass, addon_slug)',
+    'await _async_addon_snapshot(hass, addon_slug)',
+    'await client.addons.addon_config(addon_slug)',
     'raise _provisioning_error("app_install", err)',
     'raise _provisioning_error("app_configure", err)',
     'raise _provisioning_error("app_start", err)',
 ):
     if required_text not in addon_text:
-        raise SystemExit(f"v5.4.3 Supervisor/SFTP production fix missing: {required_text}")
+        raise SystemExit(f"Supervisor/SFTP production fix missing: {required_text}")
+for forbidden_text in (
+    "async_get_addon_info",
+    ".addons.addon_info(",
+    "InstalledAddonComplete",
+):
+    if forbidden_text in addon_text:
+        raise SystemExit(f"Strict Supervisor installed-add-on parsing returned: {forbidden_text}")
+
+management_text = (CC / "management_pc.py").read_text(encoding="utf-8")
+if "async_add_executor_job" not in management_text:
+    raise SystemExit("Management-PC registry file I/O must use Home Assistant executor jobs")
+
+config_flow_text = (CC / "config_flow.py").read_text(encoding="utf-8")
+for label in (
+    "Enrol a new management PC",
+    "Manage JNS management PCs",
+    "Legacy transport recovery",
+):
+    if label not in config_flow_text:
+        raise SystemExit(f"Management security menu label missing: {label}")
 
 run_script = (
     ROOT / "jns_secure_sftp" / "rootfs" / "etc" / "services.d" / "sshd" / "run"
@@ -156,7 +179,7 @@ if list(ROOT.rglob("__pycache__")):
 if list(ROOT.rglob("*.pyc")):
     raise SystemExit("Python bytecode must not be committed")
 
-print("JNS v5.5.1 repository static validation: PASS")
+print("JNS v5.5.2 repository static validation: PASS")
 print("Manifest ordering/version/IoT class: PASS")
 print("Mandatory signed-package policy: PASS")
 print("Signing/key/recovery tooling present: PASS")
