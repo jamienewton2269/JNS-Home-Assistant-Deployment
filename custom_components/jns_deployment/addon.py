@@ -220,7 +220,7 @@ async def _async_addon_snapshot(
     """Read only the Supervisor fields JNS needs.
 
     Home Assistant 2026.9 can return installed add-on payloads without the
-    legacy hostname field. The full InstalledAddonComplete model treats that
+    legacy hostname field. The full installed-add-on model treats that
     field as mandatory, so JNS uses list models for operational state.
     """
     client = get_supervisor_client(hass)
