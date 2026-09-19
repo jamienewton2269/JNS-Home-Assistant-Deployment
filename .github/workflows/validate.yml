@@ -58,3 +58,5 @@ jobs:
         run: python tools/production_selftest.py
       - name: Run Home Assistant config-check regression test
         run: python tools/config_check_semantics_selftest.py
+      - name: Run management-PC enrollment security self-test
+        run: python tools/management_pc_enrollment_selftest.py
