@@ -343,8 +343,8 @@ async def async_existing_authorized_keys(hass: HomeAssistant) -> list[str]:
     """Return current SFTP authorized keys without exposing any password.
 
     Read the permitted Supervisor app-info response without deserializing the
-    strict full installed-add-on model. This preserves legacy authorized keys
-    during enrollment without using the app-self-only options/config endpoint.
+    strict full installed-add-on model. If an installed app's options cannot be
+    read, fail closed so enrollment cannot accidentally overwrite legacy keys.
     """
     try:
         repository = await _async_find_repository(hass)
@@ -359,12 +359,12 @@ async def async_existing_authorized_keys(hass: HomeAssistant) -> list[str]:
         if installed is None:
             return []
         options = await _async_addon_options(hass, addon_slug)
-        if not isinstance(options, dict):
-            return []
         keys = options.get("authorized_keys", [])
         return [str(item).strip() for item in keys if str(item).strip()] if isinstance(keys, list) else []
-    except (SupervisorError, SftpProvisioningError):
-        return []
+    except SftpProvisioningError:
+        raise
+    except SupervisorError as err:
+        raise _provisioning_error("app_options_read", err) from err
 
 
 async def async_apply_management_keys(
