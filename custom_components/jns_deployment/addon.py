@@ -263,6 +263,42 @@ async def _async_addon_snapshot(
     )
 
 
+async def _async_addon_options(
+    hass: HomeAssistant, addon_slug: str
+) -> dict[str, Any]:
+    """Read installed app options from Supervisor's permitted info endpoint.
+
+    Supervisor's /addons/<slug>/options/config endpoint is intentionally
+    app-self-only and returns HTTP 403 to Home Assistant Core. The ordinary
+    /addons/<slug>/info endpoint is permitted for Core and includes the options
+    mapping. Read that endpoint as raw response data so JNS also avoids strict
+    installed-add-on model parsing when older/transitional payloads omit fields.
+    """
+    client = get_supervisor_client(hass)
+    raw_client = getattr(client, "_client", None)
+    if raw_client is None:
+        raise SftpProvisioningError(
+            "app_options_read",
+            "Home Assistant Supervisor client does not expose raw response access.",
+        )
+    result = await raw_client.get(f"addons/{addon_slug}/info")
+    data = getattr(result, "data", None)
+    if not isinstance(data, dict):
+        raise SftpProvisioningError(
+            "app_options_read",
+            "Supervisor returned invalid JNS Secure SFTP app information.",
+        )
+    options = data.get("options", {})
+    if options is None:
+        return {}
+    if not isinstance(options, dict):
+        raise SftpProvisioningError(
+            "app_options_read",
+            "Supervisor returned invalid JNS Secure SFTP app options.",
+        )
+    return dict(options)
+
+
 async def _async_wait_for_app(
     hass: HomeAssistant, addon_slug: str
 ) -> _AddonSnapshot:
@@ -306,10 +342,9 @@ async def _async_wait_for_running(
 async def async_existing_authorized_keys(hass: HomeAssistant) -> list[str]:
     """Return current SFTP authorized keys without exposing any password.
 
-    Use the installed-app list and dedicated options/config endpoint instead of
-    deserializing the full add-on info model. Supervisor may return store-like
-    data without installed-only fields such as hostname while an app is not
-    installed or still settling, which must not abort PC enrollment.
+    Read the permitted Supervisor app-info response without deserializing the
+    strict full installed-add-on model. If an installed app's options cannot be
+    read, fail closed so enrollment cannot accidentally overwrite legacy keys.
     """
     try:
         repository = await _async_find_repository(hass)
@@ -323,13 +358,13 @@ async def async_existing_authorized_keys(hass: HomeAssistant) -> list[str]:
         )
         if installed is None:
             return []
-        options = await client.addons.addon_config(addon_slug)
-        if not isinstance(options, dict):
-            return []
+        options = await _async_addon_options(hass, addon_slug)
         keys = options.get("authorized_keys", [])
         return [str(item).strip() for item in keys if str(item).strip()] if isinstance(keys, list) else []
-    except (SupervisorError, SftpProvisioningError):
-        return []
+    except SftpProvisioningError:
+        raise
+    except SupervisorError as err:
+        raise _provisioning_error("app_options_read", err) from err
 
 
 async def async_apply_management_keys(
@@ -356,7 +391,7 @@ async def async_apply_management_keys(
             raise _provisioning_error("app_install", err) from err
 
     try:
-        old_options = await client.addons.addon_config(addon_slug)
+        old_options = await _async_addon_options(hass, addon_slug)
         if not isinstance(old_options, dict):
             old_options = {}
         await client.addons.set_addon_options(
@@ -414,7 +449,7 @@ async def async_disable_management_transport(hass: HomeAssistant) -> dict[str, A
             return {"installed": False, "running": False, "authorized_key_count": 0}
 
         client = get_supervisor_client(hass)
-        old_options = await client.addons.addon_config(addon_slug)
+        old_options = await _async_addon_options(hass, addon_slug)
         if not isinstance(old_options, dict):
             old_options = {}
         await client.addons.set_addon_options(
@@ -447,7 +482,6 @@ async def _async_apply_options(
 ) -> bool:
     """Apply exact transport options and return True when a restart is needed."""
     client = get_supervisor_client(hass)
-    await client.addons.addon_config(addon_slug)
     desired_config = _desired_config(password)
     desired_network = {"22/tcp": SFTP_APP_PORT}
     await client.addons.set_addon_options(
@@ -536,7 +570,7 @@ async def async_sftp_status(hass: HomeAssistant) -> dict[str, Any]:
         info = await _async_addon_snapshot(hass, addon_slug)
         options: dict[str, Any] = {}
         if info.state is not AddonState.NOT_INSTALLED:
-            raw_options = await get_supervisor_client(hass).addons.addon_config(addon_slug)
+            raw_options = await _async_addon_options(hass, addon_slug)
             if isinstance(raw_options, dict):
                 options = raw_options
         keys = options.get("authorized_keys", [])

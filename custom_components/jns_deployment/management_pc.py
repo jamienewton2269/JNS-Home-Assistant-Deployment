@@ -18,7 +18,12 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 
-from .addon import async_apply_management_keys, async_disable_management_transport, async_existing_authorized_keys
+from .addon import (
+    SftpProvisioningError,
+    async_apply_management_keys,
+    async_disable_management_transport,
+    async_existing_authorized_keys,
+)
 from .const import DOMAIN, DEFAULT_TRUST, TRUST_STORE_FILE
 
 _LOGGER = logging.getLogger(__name__)
@@ -493,6 +498,17 @@ class EnrollmentView(HomeAssistantView):
         except ValueError as exc:
             _LOGGER.warning("JNS management PC enrollment rejected: %s", exc)
             return self.json({"error": str(exc)}, status_code=400, headers={"Cache-Control": "no-store"})
+        except SftpProvisioningError as exc:
+            _LOGGER.error(
+                "JNS management PC enrollment transport stage failed: %s: %s",
+                exc.stage,
+                exc.detail,
+            )
+            return self.json(
+                {"error": f"{exc.stage}: {exc.detail}"},
+                status_code=503,
+                headers={"Cache-Control": "no-store"},
+            )
         except Exception:
             _LOGGER.exception("JNS management PC enrollment failed")
             return self.json({"error": "enrollment_failed"}, status_code=500, headers={"Cache-Control": "no-store"})

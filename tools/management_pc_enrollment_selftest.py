@@ -56,7 +56,14 @@ async def async_disable_management_transport(_hass):
     disabled_count += 1
     return {"running": False, "authorized_key_count": 0}
 
+class SftpProvisioningError(RuntimeError):
+    def __init__(self, stage="sftp", detail="test"):
+        self.stage = stage
+        self.detail = detail
+        super().__init__(f"{stage}: {detail}")
+
 addon = types.ModuleType(pkg_name + ".addon")
+addon.SftpProvisioningError = SftpProvisioningError
 addon.async_existing_authorized_keys = async_existing_authorized_keys
 addon.async_apply_management_keys = async_apply_management_keys
 addon.async_disable_management_transport = async_disable_management_transport
@@ -207,6 +214,6 @@ async def main():
         trust_data = json.loads(trust.read_text())
         assert all(p.get("id") != enrolled["publisher_id"] for p in trust_data["publishers"])
 
-    print("JNS v5.5.2 management-PC enrollment security self-test: PASS")
+    print("JNS v5.5.3 management-PC enrollment security self-test: PASS")
 
 asyncio.run(main())
