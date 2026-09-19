@@ -75,7 +75,11 @@ class JNSDeploymentOptionsFlow(config_entries.OptionsFlow):
             return self.async_abort(reason="supervisor_required")
         return self.async_show_menu(
             step_id="init",
-            menu_options=["enroll_pc", "management_pcs", "legacy_transport"],
+            menu_options={
+                "enroll_pc": "Enrol a new management PC",
+                "management_pcs": "Manage JNS management PCs",
+                "legacy_transport": "Legacy transport recovery",
+            },
         )
 
     async def async_step_enroll_pc(self, user_input: dict[str, Any] | None = None):
