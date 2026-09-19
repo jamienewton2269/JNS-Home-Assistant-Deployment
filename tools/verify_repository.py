@@ -60,7 +60,7 @@ if keys != expected_keys:
     raise SystemExit(
         f"Manifest key order invalid. Expected {expected_keys}; got {keys}"
     )
-if manifest.get("version") != "5.5.2":
+if manifest.get("version") != "5.5.3":
     raise SystemExit("Unexpected integration version")
 if manifest.get("iot_class") != "local_push":
     raise SystemExit("Manifest IoT class must be local_push")
@@ -71,7 +71,7 @@ if manifest.get("requirements") != []:
 
 const_text = (CC / "const.py").read_text(encoding="utf-8")
 for required_text in (
-    'VERSION = "5.5.2"',
+    'VERSION = "5.5.3"',
     "SIGNED_PACKAGE_FORMAT = 3",
     "ALLOW_UNSIGNED_PACKAGES = False",
     'SIGNATURE_ALGORITHM = "ed25519"',
@@ -124,7 +124,8 @@ for required_text in (
     'await _async_wait_for_repository(hass)',
     'await _async_wait_for_app(hass, addon_slug)',
     'await _async_addon_snapshot(hass, addon_slug)',
-    'await client.addons.addon_config(addon_slug)',
+    'await _async_addon_options(hass, addon_slug)',
+    'f"addons/{addon_slug}/info"',
     'raise _provisioning_error("app_install", err)',
     'raise _provisioning_error("app_configure", err)',
     'raise _provisioning_error("app_start", err)',
@@ -134,6 +135,7 @@ for required_text in (
 for forbidden_text in (
     "async_get_addon_info",
     ".addons.addon_info(",
+    ".addons.addon_config(",
     "InstalledAddonComplete",
 ):
     if forbidden_text in addon_text:
@@ -179,7 +181,7 @@ if list(ROOT.rglob("__pycache__")):
 if list(ROOT.rglob("*.pyc")):
     raise SystemExit("Python bytecode must not be committed")
 
-print("JNS v5.5.2 repository static validation: PASS")
+print("JNS v5.5.3 repository static validation: PASS")
 print("Manifest ordering/version/IoT class: PASS")
 print("Mandatory signed-package policy: PASS")
 print("Signing/key/recovery tooling present: PASS")
