@@ -648,7 +648,7 @@ async def async_sftp_status(hass: HomeAssistant) -> dict[str, Any]:
                 "repository_present": False,
                 "installed": False,
                 "running": False,
-                "host_port": host_port,
+                "host_port": SFTP_APP_PORT,
                 "username": SFTP_USERNAME,
             }
         addon_slug = addon_slug_for_repository(repository)
@@ -672,7 +672,7 @@ async def async_sftp_status(hass: HomeAssistant) -> dict[str, Any]:
             "state": info.state.value,
             "version": info.version,
             "update_available": info.update_available,
-            "host_port": SFTP_APP_PORT,
+            "host_port": host_port,
             "username": SFTP_USERNAME,
             "password_authentication": bool(options.get("password_authentication", True)),
             "authorized_key_count": len(keys) if isinstance(keys, list) else 0,
