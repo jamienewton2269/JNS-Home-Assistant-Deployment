@@ -24,7 +24,7 @@ from .addon import (
     async_disable_management_transport,
     async_existing_authorized_keys,
 )
-from .const import DOMAIN, DEFAULT_TRUST, TRUST_STORE_FILE
+from .const import DOMAIN, DEFAULT_TRUST, SFTP_APP_PORT, TRUST_STORE_FILE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -232,11 +232,14 @@ class ManagementPCRegistry:
         registry["legacy_sftp_keys"] = legacy
         active = sorted({*known, *legacy})
         if active:
-            await async_apply_management_keys(self.hass, active)
+            result = await async_apply_management_keys(self.hass, active)
+            registry["sftp_port"] = int(result.host_port)
         else:
             # Fail closed: revoking the final key must not leave a stale
             # authorized_keys entry active inside a still-running SFTP app.
-            await async_disable_management_transport(self.hass)
+            result = await async_disable_management_transport(self.hass)
+            if result.get("host_port"):
+                registry["sftp_port"] = int(result["host_port"])
         return registry
 
     def _sftp_server_identity(self) -> dict[str, str]:
@@ -371,7 +374,7 @@ class ManagementPCRegistry:
             "publisher_role": PUBLISHER_ROLE,
             "signing_fingerprint_sha256": signing_fp,
             "sftp_username": "jnstransfer",
-            "sftp_port": 2222,
+            "sftp_port": int(registry.get("sftp_port") or SFTP_APP_PORT),
             "sftp_host_public_key": identity["public_key"],
             "sftp_host_fingerprint": identity["fingerprint"],
             "access_token": access,
