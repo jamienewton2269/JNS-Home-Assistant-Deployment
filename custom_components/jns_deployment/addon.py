@@ -272,7 +272,7 @@ async def _async_addon_options(
     app-self-only and returns HTTP 403 to Home Assistant Core. The ordinary
     /addons/<slug>/info endpoint is permitted for Core and includes the options
     mapping. Read that endpoint as raw response data so JNS also avoids strict
-    InstalledAddonComplete parsing when older/transitional payloads omit fields.
+    installed-add-on model parsing when older/transitional payloads omit fields.
     """
     client = get_supervisor_client(hass)
     raw_client = getattr(client, "_client", None)
