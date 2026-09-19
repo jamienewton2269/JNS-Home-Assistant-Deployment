@@ -60,7 +60,7 @@ if keys != expected_keys:
     raise SystemExit(
         f"Manifest key order invalid. Expected {expected_keys}; got {keys}"
     )
-if manifest.get("version") != "5.5.3":
+if manifest.get("version") != "5.5.4":
     raise SystemExit("Unexpected integration version")
 if manifest.get("iot_class") != "local_push":
     raise SystemExit("Manifest IoT class must be local_push")
@@ -71,10 +71,11 @@ if manifest.get("requirements") != []:
 
 const_text = (CC / "const.py").read_text(encoding="utf-8")
 for required_text in (
-    'VERSION = "5.5.3"',
+    'VERSION = "5.5.4"',
     "SIGNED_PACKAGE_FORMAT = 3",
     "ALLOW_UNSIGNED_PACKAGES = False",
     'SIGNATURE_ALGORITHM = "ed25519"',
+    "SFTP_APP_PORT_CANDIDATES = tuple(range(2222, 2233))",
 ):
     if required_text not in const_text:
         raise SystemExit(f"Missing production constant: {required_text}")
@@ -125,6 +126,8 @@ for required_text in (
     'await _async_wait_for_app(hass, addon_slug)',
     'await _async_addon_snapshot(hass, addon_slug)',
     'await _async_addon_options(hass, addon_slug)',
+    'await _async_select_sftp_host_port(hass, addon_slug)',
+    'SFTP_APP_PORT_CANDIDATES',
     'f"addons/{addon_slug}/info"',
     'raise _provisioning_error("app_install", err)',
     'raise _provisioning_error("app_configure", err)',
@@ -146,6 +149,8 @@ for required_text in (
     "async_add_executor_job",
     "except SftpProvisioningError as exc:",
     "status_code=503",
+    'registry["sftp_port"] = int(result.host_port)',
+    '"sftp_port": int(registry.get("sftp_port") or SFTP_APP_PORT)',
 ):
     if required_text not in management_text:
         raise SystemExit(f"Management-PC enrollment safeguard missing: {required_text}")
@@ -186,7 +191,7 @@ if list(ROOT.rglob("__pycache__")):
 if list(ROOT.rglob("*.pyc")):
     raise SystemExit("Python bytecode must not be committed")
 
-print("JNS v5.5.3 repository static validation: PASS")
+print("JNS v5.5.4 repository static validation: PASS")
 print("Manifest ordering/version/IoT class: PASS")
 print("Mandatory signed-package policy: PASS")
 print("Signing/key/recovery tooling present: PASS")
