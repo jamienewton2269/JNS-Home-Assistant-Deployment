@@ -40,7 +40,7 @@ jobs:
         with:
           python-version: "3.14"
       - name: Install crypto test dependency
-        run: python -m pip install "cryptography==48.0.1" "PyYAML==6.0.2"
+        run: python -m pip install "cryptography==48.0.1" "PyYAML==6.0.2" "aiohttp>=3.12,<4"
       - name: Verify repository
         run: python tools/verify_repository.py
       - name: Validate app repository YAML
@@ -58,3 +58,5 @@ jobs:
         run: python tools/production_selftest.py
       - name: Run Home Assistant config-check regression test
         run: python tools/config_check_semantics_selftest.py
+      - name: Run management-PC enrollment security self-test
+        run: python tools/management_pc_enrollment_selftest.py

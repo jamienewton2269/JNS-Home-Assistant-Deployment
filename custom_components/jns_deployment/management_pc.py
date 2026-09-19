@@ -260,17 +260,17 @@ class ManagementPCRegistry:
                 pc for pc in registry["pcs"]
                 if isinstance(pc, dict) and pc.get("device_id") == device_id and pc.get("status") == "active"
             ), None)
+            old_user = None
             if existing_pc is not None:
                 if (str(existing_pc.get("ssh_public_key", "")).strip() != ssh_public or
                         str(existing_pc.get("signing_public_key", "")).strip() != signing_b64):
                     raise ValueError("This management PC id is already enrolled with different public keys")
-                # Retry-safe enrollment: a fresh administrator-approved code may
-                # rotate only the HA token identity for the same device keys.
+                # Keep the existing HA identity valid until replacement
+                # enrollment has completed. This prevents a failed retry from
+                # invalidating an already-enrolled management PC.
                 old_user_id = existing_pc.get("ha_user_id")
                 if old_user_id:
                     old_user = await self.hass.auth.async_get_user(str(old_user_id))
-                    if old_user is not None:
-                        await self.hass.auth.async_remove_user(old_user)
 
             user = await self.hass.auth.async_create_system_user(
                 f"JNS Management PC - {device_name}", local_only=True
@@ -278,36 +278,53 @@ class ManagementPCRegistry:
             refresh = await self.hass.auth.async_create_refresh_token(user)
             access = self.hass.auth.async_create_access_token(refresh, remote_ip)
 
-            record = {
-                "device_id": device_id,
-                "device_name": device_name,
-                "status": "active",
-                "created_at": int(time.time()),
-                "commissioned_at": None,
-                "ha_user_id": user.id,
-                "refresh_token_id": refresh.id,
-                "ssh_public_key": ssh_public,
-                "ssh_fingerprint": _openssh_fingerprint(ssh_public),
-                "publisher_role": PUBLISHER_ROLE,
-                "publisher_id": publisher_id,
-                "signing_public_key": signing_b64,
-                "signing_fingerprint_sha256": signing_fp,
-            }
-            registry["pcs"] = [
-                pc for pc in registry["pcs"]
-                if not (isinstance(pc, dict) and pc.get("device_id") == device_id)
-            ] + [record]
-            registry = await self._sync_sftp_authorized_keys(registry, capture_existing=True)
-            self._save_registry(registry)
-            self._upsert_publisher({
-                "id": publisher_id,
-                "name": f"JNS Config Production - {device_name}",
-                "public_key": signing_b64,
-                "fingerprint_sha256": signing_fp,
-                "scopes": ["config"],
-                "enabled": True,
-                "management_pc_id": device_id,
-            })
+            try:
+                record = {
+                    "device_id": device_id,
+                    "device_name": device_name,
+                    "status": "active",
+                    "created_at": int(time.time()),
+                    "commissioned_at": None,
+                    "ha_user_id": user.id,
+                    "refresh_token_id": refresh.id,
+                    "ssh_public_key": ssh_public,
+                    "ssh_fingerprint": _openssh_fingerprint(ssh_public),
+                    "publisher_role": PUBLISHER_ROLE,
+                    "publisher_id": publisher_id,
+                    "signing_public_key": signing_b64,
+                    "signing_fingerprint_sha256": signing_fp,
+                }
+                registry["pcs"] = [
+                    pc for pc in registry["pcs"]
+                    if not (isinstance(pc, dict) and pc.get("device_id") == device_id)
+                ] + [record]
+                registry = await self._sync_sftp_authorized_keys(registry, capture_existing=True)
+                self._save_registry(registry)
+                self._upsert_publisher({
+                    "id": publisher_id,
+                    "name": f"JNS Config Production - {device_name}",
+                    "public_key": signing_b64,
+                    "fingerprint_sha256": signing_fp,
+                    "scopes": ["config"],
+                    "enabled": True,
+                    "management_pc_id": device_id,
+                })
+            except Exception:
+                # A failed enrollment must not leave a usable orphan token
+                # identity behind. The single-use enrollment capability remains
+                # consumed, so the administrator must explicitly issue a fresh
+                # code before retrying.
+                try:
+                    await self.hass.auth.async_remove_user(user)
+                except Exception:
+                    _LOGGER.exception("Failed to remove incomplete JNS management PC identity")
+                raise
+
+            if old_user is not None and old_user.id != user.id:
+                try:
+                    await self.hass.auth.async_remove_user(old_user)
+                except Exception:
+                    _LOGGER.exception("Failed to retire previous JNS management PC identity")
 
         # The app may have restarted while applying the key. Give it a short
         # window to export its stable host public key to the shared JNS area.
