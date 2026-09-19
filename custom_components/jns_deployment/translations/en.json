@@ -15,7 +15,12 @@
   "options": {
     "step": {
       "init": {
-        "title": "JNS management-PC security"
+        "title": "JNS management-PC security",
+        "menu_options": {
+          "enroll_pc": "Enrol a new management PC",
+          "management_pcs": "Manage JNS management PCs",
+          "legacy_transport": "Legacy transport recovery"
+        }
       },
       "enroll_pc": {
         "title": "Enrol a new management PC",
