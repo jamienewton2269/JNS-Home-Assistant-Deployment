@@ -79,7 +79,7 @@ class SftpProvisionResult:
 
 @dataclass(frozen=True, slots=True)
 class _AddonSnapshot:
-    """Minimal Supervisor app state without InstalledAddonComplete parsing."""
+    """Minimal Supervisor app state without strict full-model parsing."""
 
     available: bool
     state: AddonState
