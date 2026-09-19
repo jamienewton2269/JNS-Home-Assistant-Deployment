@@ -142,8 +142,13 @@ for forbidden_text in (
         raise SystemExit(f"Strict Supervisor installed-add-on parsing returned: {forbidden_text}")
 
 management_text = (CC / "management_pc.py").read_text(encoding="utf-8")
-if "async_add_executor_job" not in management_text:
-    raise SystemExit("Management-PC registry file I/O must use Home Assistant executor jobs")
+for required_text in (
+    "async_add_executor_job",
+    "except SftpProvisioningError as exc:",
+    "status_code=503",
+):
+    if required_text not in management_text:
+        raise SystemExit(f"Management-PC enrollment safeguard missing: {required_text}")
 
 config_flow_text = (CC / "config_flow.py").read_text(encoding="utf-8")
 for label in (
