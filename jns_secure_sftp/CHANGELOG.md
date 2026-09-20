@@ -4,7 +4,7 @@
 
 - Fixes public-key-only startup when exactly one management-PC SSH key is configured.
 - Uses a newline-safe bashio list read pattern so the final authorized key is never dropped.
-- Logs only the configured public-key count; key contents and private credentials are never logged.
+- Does not log authorized-key contents or private credentials.
 
 ## 0.4.0
 
