@@ -1,5 +1,5 @@
 DOMAIN = "jns_deployment"
-VERSION = "5.5.4"
+VERSION = "5.5.5"
 
 DEFAULT_INBOX = "jns/sftp/incoming"
 
