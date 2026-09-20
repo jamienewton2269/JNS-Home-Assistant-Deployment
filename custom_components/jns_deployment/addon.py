@@ -444,6 +444,29 @@ async def async_existing_authorized_keys(hass: HomeAssistant) -> list[str]:
         raise _provisioning_error("app_options_read", err) from err
 
 
+async def _async_update_installed_sftp_app(
+    hass: HomeAssistant, addon_slug: str, info: _AddonSnapshot
+) -> _AddonSnapshot:
+    """Update an installed JNS SFTP app before applying transport policy."""
+    if info.state is AddonState.NOT_INSTALLED or not info.update_available:
+        return info
+    client = get_supervisor_client(hass)
+    try:
+        await client.store.addon_availability(addon_slug)
+        await client.backups.partial_backup(
+            PartialBackupOptions(
+                name=f"addon_{addon_slug}_{info.version}",
+                addons={addon_slug},
+            )
+        )
+        await client.store.update_addon(
+            addon_slug, StoreAddonUpdate(backup=False)
+        )
+        return await _async_wait_for_app(hass, addon_slug)
+    except SupervisorError as err:
+        raise _provisioning_error("app_update", err) from err
+
+
 async def async_apply_management_keys(
     hass: HomeAssistant, authorized_keys: list[str]
 ) -> SftpProvisionResult:
@@ -467,6 +490,8 @@ async def async_apply_management_keys(
             await client.store.install_addon(addon_slug)
         except SupervisorError as err:
             raise _provisioning_error("app_install", err) from err
+    else:
+        info = await _async_update_installed_sftp_app(hass, addon_slug, info)
 
     try:
         old_options = await _async_addon_options(hass, addon_slug)
@@ -605,6 +630,8 @@ async def async_ensure_sftp_app(
             await client.store.install_addon(addon_slug)
         except SupervisorError as err:
             raise _provisioning_error("app_install", err) from err
+    else:
+        info = await _async_update_installed_sftp_app(hass, addon_slug, info)
 
     try:
         await _async_apply_options(hass, addon_slug, password, host_port)

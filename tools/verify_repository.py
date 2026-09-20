@@ -60,7 +60,7 @@ if keys != expected_keys:
     raise SystemExit(
         f"Manifest key order invalid. Expected {expected_keys}; got {keys}"
     )
-if manifest.get("version") != "5.5.4":
+if manifest.get("version") != "5.5.5":
     raise SystemExit("Unexpected integration version")
 if manifest.get("iot_class") != "local_push":
     raise SystemExit("Manifest IoT class must be local_push")
@@ -71,7 +71,7 @@ if manifest.get("requirements") != []:
 
 const_text = (CC / "const.py").read_text(encoding="utf-8")
 for required_text in (
-    'VERSION = "5.5.4"',
+    'VERSION = "5.5.5"',
     "SIGNED_PACKAGE_FORMAT = 3",
     "ALLOW_UNSIGNED_PACKAGES = False",
     'SIGNATURE_ALGORITHM = "ed25519"',
@@ -95,7 +95,7 @@ for required_action in (
 
 app_config = (ROOT / "jns_secure_sftp" / "config.yaml").read_text(encoding="utf-8")
 for required_text in (
-    'version: "0.4.1"',
+    'version: "0.4.2"',
     "slug: jns_secure_sftp",
     "image: ghcr.io/jamienewton2269/{arch}-jns-secure-sftp",
     "22/tcp: 2222",
@@ -107,7 +107,7 @@ for required_text in (
 
 image_workflow = (ROOT / ".github" / "workflows" / "build_sftp_app.yml").read_text(encoding="utf-8")
 for required_text in (
-    'VERSION: "0.4.1"',
+    'VERSION: "0.4.2"',
     'matrix:',
     'arch: [amd64, aarch64]',
     'ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-${{ env.IMAGE_NAME }}',
@@ -127,6 +127,7 @@ for required_text in (
     'await _async_addon_snapshot(hass, addon_slug)',
     'await _async_addon_options(hass, addon_slug)',
     'await _async_select_sftp_host_port(hass, addon_slug)',
+    'await _async_update_installed_sftp_app(hass, addon_slug, info)',
     'SFTP_APP_PORT_CANDIDATES',
     'f"addons/{addon_slug}/info"',
     'raise _provisioning_error("app_install", err)',
@@ -174,11 +175,15 @@ for required_text in (
     "ChrootDirectory",
     "server_host_ed25519.pub",
     'done <<< "$(bashio::config \'authorized_keys\')"',
+    'RANDOM_PASSWORD="$(head -c 48 /dev/urandom | base64 | tr -d \'\\n\')"',
+    'PasswordAuthentication ${PASS_AUTH}',
 ):
     if required_text not in run_script:
         raise SystemExit(f"JNS SFTP hardening/startup fix missing: {required_text}")
 if "done < <(bashio::config 'authorized_keys')" in run_script:
     raise SystemExit("JNS SFTP single-key regression returned: unsafe process-substitution reader")
+if 'passwd -l "${USERNAME}"' in run_script:
+    raise SystemExit("JNS SFTP public-key account must not be shadow-locked")
 
 with tempfile.TemporaryDirectory() as tempdir:
     tempdir = Path(tempdir)
@@ -194,7 +199,7 @@ if list(ROOT.rglob("__pycache__")):
 if list(ROOT.rglob("*.pyc")):
     raise SystemExit("Python bytecode must not be committed")
 
-print("JNS v5.5.4 repository static validation: PASS")
+print("JNS v5.5.5 repository static validation: PASS")
 print("Manifest ordering/version/IoT class: PASS")
 print("Mandatory signed-package policy: PASS")
 print("Signing/key/recovery tooling present: PASS")

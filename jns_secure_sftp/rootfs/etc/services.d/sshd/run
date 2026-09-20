@@ -66,7 +66,14 @@ if [[ "${PASSWORD_AUTH}" == "true" ]]; then
   printf '%s:%s\n' "${USERNAME}" "${PASSWORD}" | chpasswd
   PASS_AUTH=yes
 else
-  passwd -l "${USERNAME}" >/dev/null 2>&1 || true
+  # Keep the Unix account usable for public-key authentication while making
+  # password login cryptographically unavailable. OpenSSH rejects pubkey
+  # authentication for a locked shadow account before it evaluates
+  # AuthorizedKeysFile, so do not use `passwd -l` here. Instead assign an
+  # unrecorded high-entropy password and disable SSH password authentication.
+  RANDOM_PASSWORD="$(head -c 48 /dev/urandom | base64 | tr -d '\n')"
+  printf '%s:%s\n' "${USERNAME}" "${RANDOM_PASSWORD}" | chpasswd
+  unset RANDOM_PASSWORD
   PASS_AUTH=no
 fi
 

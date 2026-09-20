@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.2
+
+- Fixes public-key authentication being rejected because the dedicated Unix account was shadow-locked.
+- Keeps SSH password authentication disabled while assigning an unrecorded high-entropy local password so OpenSSH can evaluate the authorized key.
+- Existing SFTP host keys and authorized management-PC keys remain unchanged.
+
+
 ## 0.4.1
 
 - Fixes public-key-only startup when exactly one management-PC SSH key is configured.
