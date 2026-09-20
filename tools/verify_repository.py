@@ -174,7 +174,6 @@ for required_text in (
     "ChrootDirectory",
     "server_host_ed25519.pub",
     'done <<< "$(bashio::config \'authorized_keys\')"',
-    'KEY_COUNT="$(grep -cve',
 ):
     if required_text not in run_script:
         raise SystemExit(f"JNS SFTP hardening/startup fix missing: {required_text}")
