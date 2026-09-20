@@ -15,7 +15,7 @@ permissions:
 
 env:
   IMAGE_NAME: jns-secure-sftp
-  VERSION: "0.4.1"
+  VERSION: "0.4.2"
 
 jobs:
   build:
