@@ -1,4 +1,4 @@
-# JNS Secure SFTP 0.4.0
+# JNS Secure SFTP 0.4.1
 
 A deliberately small Home Assistant App used only to transport JNS deployment packages.
 

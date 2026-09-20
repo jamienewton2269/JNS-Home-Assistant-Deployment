@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1
+
+- Fixes public-key-only startup when exactly one management-PC SSH key is configured.
+- Uses a newline-safe bashio list read pattern so the final authorized key is never dropped.
+- Does not log authorized-key contents or private credentials.
+
 ## 0.4.0
 
 - Adds v5.5 per-management-PC enrollment support.

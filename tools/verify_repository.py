@@ -95,7 +95,7 @@ for required_action in (
 
 app_config = (ROOT / "jns_secure_sftp" / "config.yaml").read_text(encoding="utf-8")
 for required_text in (
-    'version: "0.4.0"',
+    'version: "0.4.1"',
     "slug: jns_secure_sftp",
     "image: ghcr.io/jamienewton2269/{arch}-jns-secure-sftp",
     "22/tcp: 2222",
@@ -107,7 +107,7 @@ for required_text in (
 
 image_workflow = (ROOT / ".github" / "workflows" / "build_sftp_app.yml").read_text(encoding="utf-8")
 for required_text in (
-    'VERSION: "0.4.0"',
+    'VERSION: "0.4.1"',
     'matrix:',
     'arch: [amd64, aarch64]',
     'ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-${{ env.IMAGE_NAME }}',
@@ -173,9 +173,12 @@ for required_text in (
     "PermitRootLogin no",
     "ChrootDirectory",
     "server_host_ed25519.pub",
+    'done <<< "$(bashio::config \'authorized_keys\')"',
 ):
     if required_text not in run_script:
-        raise SystemExit(f"JNS SFTP hardening missing: {required_text}")
+        raise SystemExit(f"JNS SFTP hardening/startup fix missing: {required_text}")
+if "done < <(bashio::config 'authorized_keys')" in run_script:
+    raise SystemExit("JNS SFTP single-key regression returned: unsafe process-substitution reader")
 
 with tempfile.TemporaryDirectory() as tempdir:
     tempdir = Path(tempdir)
