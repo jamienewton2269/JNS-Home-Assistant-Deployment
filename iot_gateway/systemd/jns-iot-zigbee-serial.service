@@ -1,0 +1,26 @@
+[Unit]
+Description=JNS IoT Gateway Zigbee Serial Bridge
+Documentation=https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/jns-iot-gateway/ser2net-zigbee.yaml
+
+[Service]
+Type=simple
+User=jns-ser2net
+Group=jns-ser2net
+SupplementaryGroups=dialout
+ExecStart=/usr/sbin/ser2net -n -c /etc/jns-iot-gateway/ser2net-zigbee.yaml -P /run/jns-iot-zigbee-serial.pid
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/run
+DevicePolicy=auto
+MemoryMax=96M
+TasksMax=32
+
+[Install]
+WantedBy=multi-user.target
