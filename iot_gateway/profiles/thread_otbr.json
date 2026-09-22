@@ -1,0 +1,10 @@
+{
+  "id": "thread_otbr",
+  "version": 1,
+  "status": "planned",
+  "description": "Future OpenThread Border Router profile using a dedicated Thread radio.",
+  "modules": ["thread_otbr"],
+  "hardware": {"requires": ["ieee802154_thread_radio"], "ownership": "exclusive"},
+  "conflicts": ["zigbee_serial", "zigbee2mqtt"],
+  "integration": {"home_assistant": "otbr"}
+}
