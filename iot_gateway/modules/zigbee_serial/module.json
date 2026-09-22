@@ -1,0 +1,10 @@
+{
+  "id": "zigbee_serial",
+  "version": "0.1.0",
+  "status": "implemented",
+  "packages": ["ser2net"],
+  "services": ["jns-iot-zigbee-serial.service"],
+  "continuous_processes": ["ser2net"],
+  "conflicts": ["zigbee2mqtt", "thread_otbr"],
+  "resource_policy": {"radio": "exclusive", "max_clients": 1}
+}
