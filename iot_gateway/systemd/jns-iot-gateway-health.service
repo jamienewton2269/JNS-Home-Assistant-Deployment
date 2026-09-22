@@ -1,0 +1,9 @@
+[Unit]
+Description=JNS IoT Gateway health check
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/jns-gateway health
+Nice=10
+IOSchedulingClass=idle
