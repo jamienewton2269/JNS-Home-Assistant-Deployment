@@ -2,6 +2,14 @@
 
 Efficiency-first, profile-driven radio/IoT gateway node for the JNS Home Assistant infrastructure.
 
+## Public project documents
+
+- [Public Development Roadmap](docs/PUBLIC_ROADMAP.md)
+- [Public / Private Publication Boundary](docs/PUBLICATION_BOUNDARY.md)
+- [Architecture](docs/ARCHITECTURE.md)
+
+Public discussion should focus on gateway interfaces, interoperability, resource efficiency, testing and externally observable resilience requirements. Security-sensitive private control-plane, cryptographic, secure-distribution and rollback implementation details are outside the public gateway scope.
+
 ## Implemented now
 
 - Small standard-library Python core; no third-party Python packages.
@@ -34,8 +42,8 @@ jns-gateway status
 systemctl status jns-iot-zigbee-serial.service
 ```
 
-Home Assistant ZHA can then use the configured gateway address, for example `socket://<gateway-ip>:20108`. Cluster fencing must ensure only the active HA node opens the coordinator socket.
+Home Assistant ZHA can then use the configured gateway address, for example `socket://<gateway-ip>:20108`. An external orchestration layer must ensure only one HA/ZHA instance owns the coordinator at a time.
 
 ## Current JNS Deployment Platform relationship
 
-This code belongs to the same maintained JNS repository, but it is an infrastructure-node payload, not a Home Assistant `config_package` or `integration_package`. The existing v5 Home Assistant executor intentionally confines packages to HA-managed paths and does not execute arbitrary host installers. The gateway installer therefore remains separate until a security-scoped infrastructure deployment path is added to the Management Console/Proxmox side.
+This code belongs to the same maintained JNS repository, but it is an infrastructure-node payload, not a Home Assistant `config_package` or `integration_package`. The existing Home Assistant-side deployment executor intentionally confines packages to HA-managed paths and does not execute arbitrary host installers. The gateway installer therefore remains separate from that executor.
