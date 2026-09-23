@@ -1,0 +1,12 @@
+[Unit]
+Description=Apply JNS IoT Gateway profile
+After=local-fs.target
+Before=jns-iot-zigbee-serial.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/jns-gateway apply
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

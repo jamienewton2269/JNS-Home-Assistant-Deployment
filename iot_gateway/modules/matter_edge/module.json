@@ -1,0 +1,7 @@
+{
+  "id": "matter_edge",
+  "version": "0.1.0",
+  "status": "planned",
+  "load_policy": "not_installed_unless_selected",
+  "notes": "Matter is IP application-layer support; this module does not claim a radio directly."
+}

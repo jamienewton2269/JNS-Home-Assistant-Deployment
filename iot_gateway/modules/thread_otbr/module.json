@@ -1,0 +1,7 @@
+{
+  "id": "thread_otbr",
+  "version": "0.1.0",
+  "status": "planned",
+  "load_policy": "not_installed_unless_selected",
+  "resource_policy": {"radio": "exclusive"}
+}
