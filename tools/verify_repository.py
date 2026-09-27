@@ -60,7 +60,7 @@ if keys != expected_keys:
     raise SystemExit(
         f"Manifest key order invalid. Expected {expected_keys}; got {keys}"
     )
-if manifest.get("version") != "5.5.5":
+if manifest.get("version") != "5.5.6":
     raise SystemExit("Unexpected integration version")
 if manifest.get("iot_class") != "local_push":
     raise SystemExit("Manifest IoT class must be local_push")
@@ -71,7 +71,7 @@ if manifest.get("requirements") != []:
 
 const_text = (CC / "const.py").read_text(encoding="utf-8")
 for required_text in (
-    'VERSION = "5.5.5"',
+    'VERSION = "5.5.6"',
     "SIGNED_PACKAGE_FORMAT = 3",
     "ALLOW_UNSIGNED_PACKAGES = False",
     'SIGNATURE_ALGORITHM = "ed25519"',
@@ -95,9 +95,9 @@ for required_action in (
 
 app_config = (ROOT / "jns_secure_sftp" / "config.yaml").read_text(encoding="utf-8")
 for required_text in (
-    'version: "0.4.2"',
+    'version: "0.4.3"',
     "slug: jns_secure_sftp",
-    "image: ghcr.io/jamienewton2269/{arch}-jns-secure-sftp",
+    "image: ghcr.io/jamienewton2269/jns-secure-sftp",
     "22/tcp: 2222",
     "type: homeassistant_config",
     "password_authentication: true",
@@ -107,11 +107,11 @@ for required_text in (
 
 image_workflow = (ROOT / ".github" / "workflows" / "build_sftp_app.yml").read_text(encoding="utf-8")
 for required_text in (
-    'VERSION: "0.4.2"',
+    'VERSION: "0.4.3"',
     'matrix:',
     'arch: [amd64, aarch64]',
     'ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-${{ env.IMAGE_NAME }}',
-    'home-assistant/builder/actions/build-image@',
+    'home-assistant/builder/actions/build-image@7412f0023ea9b6e58e8bb5059f1660f51376f49a',\n    'home-assistant/builder/actions/publish-multi-arch-manifest@7412f0023ea9b6e58e8bb5059f1660f51376f49a',\n    'image-name: ${{ env.IMAGE_NAME }}',
 ):
     if required_text not in image_workflow:
         raise SystemExit(f"JNS SFTP image workflow missing: {required_text}")
@@ -199,7 +199,7 @@ if list(ROOT.rglob("__pycache__")):
 if list(ROOT.rglob("*.pyc")):
     raise SystemExit("Python bytecode must not be committed")
 
-print("JNS v5.5.5 repository static validation: PASS")
+print("JNS v5.5.6 repository static validation: PASS")
 print("Manifest ordering/version/IoT class: PASS")
 print("Mandatory signed-package policy: PASS")
 print("Signing/key/recovery tooling present: PASS")
@@ -208,5 +208,5 @@ print("Python compilation: PASS")
 
 print("Supervisor companion-app repository assets: PASS")
 print("v5.4.3 Supervisor readiness/diagnostic fixes preserved: PASS")
-print("v5.4.3 prebuilt architecture-specific SFTP image path preserved: PASS")
+print("Current Home Assistant generic multi-arch SFTP image path: PASS")
 print("SFTP transport hardening static checks: PASS")

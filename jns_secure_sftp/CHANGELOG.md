@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.3
+
+- Aligns the App package with the current Home Assistant App/Supervisor configuration.
+- Publishes a generic multi-architecture GHCR manifest and uses the generic image reference preferred by Home Assistant.
+- Updates the Home Assistant builder actions to 2026.09.0 while retaining amd64 and aarch64 images.
+- Keeps the existing SFTP hardening, host-key persistence and per-management-PC public-key authentication unchanged.
+
+
 ## 0.4.2
 
 - Fixes public-key authentication being rejected because the dedicated Unix account was shadow-locked.

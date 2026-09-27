@@ -1,6 +1,6 @@
-# JNS Home Assistant Deployment Platform v5.5.0
+# JNS Home Assistant Deployment Platform v5.5.6
 
-v5.5 adds **revocable per-management-PC enrollment** while preserving JNS signed-package and transactional deployment protections. It also carries forward the v5.4.2/v5.4.3 Supervisor readiness, provisioning-diagnostic and prebuilt-GHCR SFTP production fixes.
+v5.5.6 is the current production line. It preserves **revocable per-management-PC enrollment**, JNS signed-package and transactional deployment protections, and updates the companion SFTP App to the current Home Assistant multi-architecture publishing model.
 
 ## Replacement-PC workflow
 
@@ -29,7 +29,7 @@ No old private key, SFTP password, HA long-lived token or shared config-signing 
 
 ## SFTP
 
-Normal v5.5 transport is OpenSSH `internal-sftp`, key-only, user `jnstransfer`, host port 2222. JNS Secure SFTP v0.4.0 persists its host key and exports only the Ed25519 public host key for enrollment fingerprint pinning.
+Normal v5.5 transport is OpenSSH `internal-sftp`, key-only, user `jnstransfer`, host port 2222. JNS Secure SFTP v0.4.3 persists its host key, exports only the Ed25519 public host key for enrollment fingerprint pinning, and is published as the generic multi-architecture image `ghcr.io/jamienewton2269/jns-secure-sftp`.
 
 Legacy password mode exists only as a recovery/migration path.
 

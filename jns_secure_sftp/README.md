@@ -1,6 +1,10 @@
-# JNS Secure SFTP 0.4.1
+# JNS Secure SFTP 0.4.3
 
 A deliberately small Home Assistant App used only to transport JNS deployment packages.
+
+## Current Home Assistant packaging
+
+v0.4.3 follows the current Home Assistant App publishing model: amd64 and aarch64 images are built with the current composable Home Assistant builder actions and published behind the generic multi-architecture image `ghcr.io/jamienewton2269/jns-secure-sftp`. Home Assistant Supervisor therefore pulls the correct architecture without requiring a local image build or an `{arch}` image reference.
 
 ## v5.5 management-PC enrollment
 
