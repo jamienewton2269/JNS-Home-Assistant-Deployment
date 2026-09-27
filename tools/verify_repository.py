@@ -111,7 +111,10 @@ for required_text in (
     'matrix:',
     'arch: [amd64, aarch64]',
     'ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-${{ env.IMAGE_NAME }}',
-    'home-assistant/builder/actions/build-image@7412f0023ea9b6e58e8bb5059f1660f51376f49a',\n    'home-assistant/builder/actions/publish-multi-arch-manifest@7412f0023ea9b6e58e8bb5059f1660f51376f49a',\n    'image-name: ${{ env.IMAGE_NAME }}',
+    'home-assistant/builder/actions/build-image@7412f0023ea9b6e58e8bb5059f1660f51376f49a',
+    'home-assistant/builder/actions/publish-multi-arch-manifest@7412f0023ea9b6e58e8bb5059f1660f51376f49a',
+    'image-name: ${{ env.IMAGE_NAME }}',
+    'ARCHITECTURES: \'["amd64", "aarch64"]\'',
 ):
     if required_text not in image_workflow:
         raise SystemExit(f"JNS SFTP image workflow missing: {required_text}")
