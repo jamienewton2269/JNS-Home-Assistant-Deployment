@@ -60,7 +60,7 @@ if keys != expected_keys:
     raise SystemExit(
         f"Manifest key order invalid. Expected {expected_keys}; got {keys}"
     )
-if manifest.get("version") != "5.5.6":
+if manifest.get("version") != "5.5.7":
     raise SystemExit("Unexpected integration version")
 if manifest.get("iot_class") != "local_push":
     raise SystemExit("Manifest IoT class must be local_push")
@@ -71,7 +71,7 @@ if manifest.get("requirements") != []:
 
 const_text = (CC / "const.py").read_text(encoding="utf-8")
 for required_text in (
-    'VERSION = "5.5.6"',
+    'VERSION = "5.5.7"',
     "SIGNED_PACKAGE_FORMAT = 3",
     "ALLOW_UNSIGNED_PACKAGES = False",
     'SIGNATURE_ALGORITHM = "ed25519"',
@@ -155,11 +155,17 @@ for required_text in (
     "status_code=503",
     'registry["sftp_port"] = int(result.host_port)',
     '"sftp_port": int(registry.get("sftp_port") or SFTP_APP_PORT)',
+    "capture_existing=False",
+    "previous_registry = copy.deepcopy(registry)",
+    "await self._async_save_trust_json(previous_trust)",
 ):
     if required_text not in management_text:
         raise SystemExit(f"Management-PC enrollment safeguard missing: {required_text}")
 
 config_flow_text = (CC / "config_flow.py").read_text(encoding="utf-8")
+if '"sftp_port": int(result.host_port)' not in config_flow_text:
+    raise SystemExit("Legacy recovery must persist the Supervisor-selected SFTP port")
+
 for label in (
     "Enrol a new management PC",
     "Manage JNS management PCs",
@@ -202,7 +208,7 @@ if list(ROOT.rglob("__pycache__")):
 if list(ROOT.rglob("*.pyc")):
     raise SystemExit("Python bytecode must not be committed")
 
-print("JNS v5.5.6 repository static validation: PASS")
+print("JNS v5.5.7 repository static validation: PASS")
 print("Manifest ordering/version/IoT class: PASS")
 print("Mandatory signed-package policy: PASS")
 print("Signing/key/recovery tooling present: PASS")
