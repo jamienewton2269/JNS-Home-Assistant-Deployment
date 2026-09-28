@@ -52,7 +52,7 @@ class JNSDeploymentConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 title="JNS Deployment Platform",
                 data={
                     "sftp_username": SFTP_USERNAME,
-                    "sftp_port": SFTP_APP_PORT,
+                    "sftp_port": int(result.host_port),
                     "enrollment_mode": True,
                 },
             )
