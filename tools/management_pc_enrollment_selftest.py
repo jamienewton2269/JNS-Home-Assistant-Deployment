@@ -43,12 +43,15 @@ sys.modules[pkg_name] = pkg
 applied_key_sets: list[list[str]] = []
 disabled_count = 0
 legacy_key_holder: list[str] = []
+fail_apply = False
 
 async def async_existing_authorized_keys(_hass):
     return list(legacy_key_holder)
 
 async def async_apply_management_keys(_hass, keys):
     applied_key_sets.append(list(keys))
+    if fail_apply:
+        raise SftpProvisioningError("app_start", "port collision test")
     return types.SimpleNamespace(host_port=2223)
 
 async def async_disable_management_transport(_hass):
@@ -136,7 +139,7 @@ def signing_pub():
     return key, base64.b64encode(raw).decode("ascii")
 
 async def main():
-    global legacy_key_holder, disabled_count
+    global legacy_key_holder, disabled_count, fail_apply
     with tempfile.TemporaryDirectory(prefix="jns-v55-enroll-test-") as td:
         root = Path(td)
         trust = root / "jns" / "trust" / "publishers.json"
@@ -152,9 +155,17 @@ async def main():
         host_pub.write_text(server_pub + "\n", encoding="utf-8")
 
         _, legacy_pub = ssh_pair()
-        legacy_key_holder = [legacy_pub]
+        # Legacy keys are preserved only when they are explicitly recorded in
+        # the JNS registry. Unknown keys already present in the new SFTP app are
+        # not silently adopted.
+        legacy_key_holder = []
         hass = FakeHass(root)
         registry = ManagementPCRegistry(hass)
+        registry.registry_path.parent.mkdir(parents=True, exist_ok=True)
+        registry.registry_path.write_text(
+            json.dumps({"schema": 1, "pcs": [], "legacy_sftp_keys": [legacy_pub]}) + "\n",
+            encoding="utf-8",
+        )
 
         session = await registry.create_enrollment_session()
         raw_code = session["code"].replace("-", "")
@@ -216,6 +227,61 @@ async def main():
         trust_data = json.loads(trust.read_text())
         assert all(p.get("id") != enrolled["publisher_id"] for p in trust_data["publishers"])
 
-    print("JNS v5.5.4 management-PC enrollment security self-test: PASS")
+    # A failed first enrollment must be all-or-nothing. In particular, a key
+    # already written to the SFTP app before a start/configure failure must be
+    # removed again, and arbitrary pre-existing app keys must not be adopted.
+    applied_key_sets.clear()
+    disabled_count = 0
+    fail_apply = True
+    with tempfile.TemporaryDirectory(prefix="jns-v557-failed-enroll-") as td:
+        root = Path(td)
+        trust = root / "jns" / "trust" / "publishers.json"
+        trust.parent.mkdir(parents=True)
+        trust.write_text(json.dumps({"schema": 1, "publishers": [{
+            "id": "jns-config-production", "name": "Legacy Production",
+            "public_key": "legacy", "fingerprint_sha256": "legacy",
+            "scopes": ["config"], "enabled": True,
+        }]}) + "\n", encoding="utf-8")
+
+        _, server_pub = ssh_pair()
+        host_pub = root / "jns" / "sftp" / "server_host_ed25519.pub"
+        host_pub.parent.mkdir(parents=True)
+        host_pub.write_text(server_pub + "\n", encoding="utf-8")
+
+        _, orphan_pub = ssh_pair()
+        legacy_key_holder = [orphan_pub]
+        hass = FakeHass(root)
+        registry = ManagementPCRegistry(hass)
+        session = await registry.create_enrollment_session()
+        _, ssh_pub = ssh_pair(); _, sign_pub = signing_pub()
+        payload = {
+            "code": session["code"],
+            "device_id": "fedcba98-7654-3210-fedc-ba9876543210",
+            "device_name": "FAILED-MGMT-PC",
+            "ssh_public_key": ssh_pub,
+            "signing_public_key": sign_pub,
+        }
+        try:
+            await registry.enroll(payload, "10.10.10.56")
+        except SftpProvisioningError as exc:
+            assert exc.stage == "app_start"
+        else:
+            raise AssertionError("failed transport provisioning unexpectedly enrolled a PC")
+
+        state = await registry.list_pcs()
+        assert state["count"] == 0
+        assert state["legacy_sftp_key_count"] == 0
+        assert disabled_count >= 1, "failed enrollment must clear/stop the new SFTP transport"
+        assert hass.auth.removed, "failed enrollment must remove its temporary HA identity"
+        trust_data = json.loads(trust.read_text())
+        assert [p.get("id") for p in trust_data["publishers"]] == ["jns-config-production"]
+
+        fail_apply = False
+        transport = await registry.ensure_transport_policy()
+        assert transport["mode"] == "unconfigured"
+        state = await registry.list_pcs()
+        assert state["legacy_sftp_key_count"] == 0, "unknown SFTP keys must not be auto-adopted"
+
+    print("JNS v5.5.7 management-PC enrollment security self-test: PASS")
 
 asyncio.run(main())

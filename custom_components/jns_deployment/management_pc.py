@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import copy
 import hashlib
 import hmac
 import json
@@ -212,6 +213,12 @@ class ManagementPCRegistry:
     async def _async_load_trust_json(self) -> dict[str, Any]:
         return await self.hass.async_add_executor_job(self._load_trust_json)
 
+    def _save_trust_json(self, data: dict[str, Any]) -> None:
+        _atomic_write_json(self.trust_path, data)
+
+    async def _async_save_trust_json(self, data: dict[str, Any]) -> None:
+        await self.hass.async_add_executor_job(self._save_trust_json, data)
+
     async def _async_upsert_publisher(self, publisher: dict[str, Any]) -> None:
         await self.hass.async_add_executor_job(self._upsert_publisher, publisher)
 
@@ -259,7 +266,10 @@ class ManagementPCRegistry:
         """Preserve pre-v5.5 authorized keys and enforce key-only transport when keys exist."""
         async with self._lock:
             registry = await self._async_load_registry()
-            registry = await self._sync_sftp_authorized_keys(registry, capture_existing=True)
+            # Fail closed on startup: only keys already recorded in the JNS
+            # management registry are authoritative. Unknown keys left behind by
+            # an interrupted/failed enrollment are never adopted automatically.
+            registry = await self._sync_sftp_authorized_keys(registry, capture_existing=False)
             await self._async_save_registry(registry)
             active_count = sum(
                 1 for pc in registry.get("pcs", [])
@@ -292,6 +302,8 @@ class ManagementPCRegistry:
                 pc for pc in registry["pcs"]
                 if isinstance(pc, dict) and pc.get("device_id") == device_id and pc.get("status") == "active"
             ), None)
+            previous_registry = copy.deepcopy(registry)
+            previous_trust = await self._async_load_trust_json()
             old_user = None
             if existing_pc is not None:
                 if (str(existing_pc.get("ssh_public_key", "")).strip() != ssh_public or
@@ -330,7 +342,9 @@ class ManagementPCRegistry:
                     pc for pc in registry["pcs"]
                     if not (isinstance(pc, dict) and pc.get("device_id") == device_id)
                 ] + [record]
-                registry = await self._sync_sftp_authorized_keys(registry, capture_existing=True)
+                # Do not import arbitrary keys currently present in the SFTP app.
+                # Enrollment is authoritative from the registry + this approved PC.
+                registry = await self._sync_sftp_authorized_keys(registry, capture_existing=False)
                 await self._async_save_registry(registry)
                 await self._async_upsert_publisher({
                     "id": publisher_id,
@@ -342,10 +356,25 @@ class ManagementPCRegistry:
                     "management_pc_id": device_id,
                 })
             except Exception:
-                # A failed enrollment must not leave a usable orphan token
-                # identity behind. The single-use enrollment capability remains
-                # consumed, so the administrator must explicitly issue a fresh
-                # code before retrying.
+                # Enrollment is transactional across HA identity, transport keys,
+                # registry state and publisher trust. A failed SFTP start/configure
+                # must not leave an orphan authorized key that becomes usable later.
+                try:
+                    restored_registry = copy.deepcopy(previous_registry)
+                    await self._sync_sftp_authorized_keys(
+                        restored_registry, capture_existing=False
+                    )
+                    await self._async_save_registry(previous_registry)
+                except Exception:
+                    _LOGGER.exception(
+                        "Failed to restore JNS management transport after incomplete enrollment"
+                    )
+                try:
+                    await self._async_save_trust_json(previous_trust)
+                except Exception:
+                    _LOGGER.exception(
+                        "Failed to restore JNS publisher trust after incomplete enrollment"
+                    )
                 try:
                     await self.hass.auth.async_remove_user(user)
                 except Exception:
