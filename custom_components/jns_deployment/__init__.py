@@ -496,7 +496,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     if entry.data.get(CONF_SFTP_ADDON_SLUG) != result.addon_slug:
                         hass.config_entries.async_update_entry(
                             entry,
-                            data={**entry.data, CONF_SFTP_ADDON_SLUG: result.addon_slug},
+                            data={
+                                **entry.data,
+                                CONF_SFTP_ADDON_SLUG: result.addon_slug,
+                                "sftp_port": int(result.host_port),
+                            },
                         )
             else:
                 persistent_notification.async_create(
