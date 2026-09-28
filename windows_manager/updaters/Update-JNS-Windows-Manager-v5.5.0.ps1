@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 <#[
 JNS Windows Management Console v5.5.0 in-place updater
 
@@ -997,7 +997,8 @@ HFbPkE0SLUiGoFaqegw6BcivPO92X+FXkyncY3KO2y0ru/DOG207rMchA+x/PCFrdBtmRA8AlCoBAMJ/
 Ie18XVGBTj52TkF+PggHP5SPZDAC6bltjUTNKAAvi+1kXGFv8fjUTG2OGrTEArRIuOMWI091CH6RnwhkOwC/eGLc7PD7dB51LGzc
 vPXDCx6I9hBvS9X6fH0wz+XnethxCqYi9kCG+PzUrTeUSfBBBR0PeRiEZalaJSr9k7TApWpnBTHyCyHkLOSMWJ35/Jj1G3Oc3sPq
 ZBfy+PjC6togxZTVwmTB3Ca/WJbcyHTtt7XrNt4lmGQC8pzRe/1AwTEwIb5IwQZqbLz+QPpl8zGja2FzlnGZXpGTA3uj309qDYco
-FrhScfJynyDK8WdtlK1BMwPzO+7K0cLqC5/HjfhuBXjLAyFxgJoBcDm/Jfd87bjGX6urIvG+g8DBp9xbtferRPXDt6A6WrC0IOcc4OWBzA4+JruTrD36Gn86DPiRC2SyThs1LIi+Jsr9z8dGC0wWZY9mjwMC/cn+mmzv75DiSqimWyTNgQdWxhmdA+fMpLn3uV8aEwgh
+FrhScfJynyDK8WdtlK1BMwPzO+7K0cLqC5/HjfhuBXjLAyFxgJoBcDm/Jfd87bjGX6urIvG+g8DBp9xbtferRPXDt6A6WrC0IOcc
+4OWBzA4+JruTrD36Gn86DPiRC2SyThs1LIi+Jsr9z8dGC0wWZY9mjwMC/cn+mmzv75DiSqimWyTNgQdWxhmdA+fMpLn3uV8aEwgh
 cxa8ia2QJaToAkuzwvUp1ouKrW7eZhZKhFGMMi7oyZ93gow5fVJRDsf1IdO/AgVGMyz4onnE2OITyir3X/6Tb19MXvLNMafxsQfD
 I86h6F9ah26cilsfAfS8e6y8kYheV85RAcixFkCSLZBfJNFoh/aFwABQLJG/I07/Z6jerSM3zKTcIri1cHQH50n2R1Uvrsp9ze52
 6BC5PwS1vWpVy013uHLTOEOgQTzPulvaV1mDf20UsplGngr0kZblNyTS6uXsNzXH90kVDdOHcqGBtEgR824Nc/dEFfOQ/NWBFb5G
@@ -1996,7 +1997,8 @@ I2na0RuqQ34l2KmyqQsZetOiDRK9Y1YsVq3NmcV+QjvqezlLYheopKKwjXFrrcizaj+hvQAAr2KlcHxh
 SXTYAJeww2NOIFkZ0pd8wmYRI8hRNfsymmUpI0d5I/yexpnLI3y2cfockOmDJHpZcIVSh+Wb1nfFGFU2RLv26Py4094qla/vZkKj
 jir367mTcE2ZRKg6uNMP4ILPSxAe01PQRyY9joxfGm7vnUcVsLHi5Nl2VhJu6q0QPuY2s7iaQKxjdcWaxnwrZ1Lx21/vwX0dSr4Z
 si0HAsLU9+4eJlicuku1tKrdrNBPJlBqK7v3SkcXWnhNI3knVxEsuYZZm8OzsQH9EZ1NsL1HchXBtpwQMR+RCFVec1+YDFzndDfC
-8F7OZsB+sNmpmjydSXSnAA+oE9hno77rkzueXee3Qesy4PnEbe1wn8rF3rfPn7dVmOZwHaBy7PEez9vQSOBJjbfY4czjSyI8qKt5U2UZMWMOovy6YAx3gmPj/oBGLs4QaqkenOvL3Rx7BPP4NadY2ZNWjwMRDldkohejRNmEoqWjEPEkTverE9oC6/05dHzBkI8VCLmZ
+8F7OZsB+sNmpmjydSXSnAA+oE9hno77rkzueXee3Qesy4PnEbe1wn8rF3rfPn7dVmOZwHaBy7PEez9vQSOBJjbfY4czjSyI8qKt5
+U2UZMWMOovy6YAx3gmPj/oBGLs4QaqkenOvL3Rx7BPP4NadY2ZNWjwMRDldkohejRNmEoqWjEPEkTverE9oC6/05dHzBkI8VCLmZ
 FO2/U0HyLR5ZNWBzV1IRdN1FLuLykLiSW1FVyFnNEcaShwJCT1jY4dkT/Hx7p/BGuRjtbHtndl2QZDHgIEHmGCwF7GkshT6ZKIwk
 bwzw6ibdjNUG5IQySacNnKiEei4rYQThm0cEWuq8IqKKLKqaN9Ik8spW7C+FUMHBSyKo/E8zRb5a/92I3HWOiUrY3r2z7whXzZLO
 WmiLziXDyMI4M0MUNFV5nDgFpRUm7m0UTMvt26Y6ngQ0KqfMpkmrAhEL56BZp/5T6oZmK5WuaHpXdUJree7B2TBvTQhME8J0BlN6
@@ -2996,6 +2998,7 @@ try {
     & $python -m pip install --disable-pip-version-check -r (Join-Path $Current 'requirements.txt')
     if ($LASTEXITCODE -ne 0) { throw "Python dependency update failed." }
     Pass "Python dependencies are ready."
+
     Section "5. v5.5 REGRESSION CHECKS"
     foreach ($test in @('static_test.py','management_pc_enrollment_test.py','package_crypto_test.py','v5_compatibility_test.py')) {
         & $python (Join-Path $Current ("tests\" + $test))
