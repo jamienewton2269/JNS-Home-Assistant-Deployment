@@ -1,6 +1,6 @@
-# JNS Home Assistant Deployment Platform v5.5.6
+# JNS Home Assistant Deployment Platform v5.5.7
 
-v5.5.6 is the current production line. It preserves **revocable per-management-PC enrollment**, JNS signed-package and transactional deployment protections, and updates the companion SFTP App to the current Home Assistant multi-architecture publishing model.
+v5.5.7 is the current production line. It preserves **revocable per-management-PC enrollment**, JNS signed-package and transactional deployment protections, and updates the companion SFTP App to the current Home Assistant multi-architecture publishing model.
 
 ## Replacement-PC workflow
 
@@ -29,7 +29,7 @@ No old private key, SFTP password, HA long-lived token or shared config-signing 
 
 ## SFTP
 
-Normal v5.5 transport is OpenSSH `internal-sftp`, key-only, user `jnstransfer`, host port 2222. JNS Secure SFTP v0.4.3 persists its host key, exports only the Ed25519 public host key for enrollment fingerprint pinning, and is published as the generic multi-architecture image `ghcr.io/jamienewton2269/jns-secure-sftp`.
+Normal v5.5 transport is OpenSSH `internal-sftp`, key-only, user `jnstransfer`. TCP 2222 is preferred; during migration JNS automatically selects the first free port in 2222-2232 so a legacy gateway can remain online until commissioning. JNS Secure SFTP v0.4.3 persists its host key, exports only the Ed25519 public host key for enrollment fingerprint pinning, and is published as the generic multi-architecture image `ghcr.io/jamienewton2269/jns-secure-sftp`.
 
 Legacy password mode exists only as a recovery/migration path.
 
