@@ -60,7 +60,7 @@ CONFIG_ALLOWED_EXTENSIONS = {
 }
 
 
-INTEGRATION_DOMAIN_RE = r"^jns_[a-z0-9_]{1,59}$"
+INTEGRATION_DOMAIN_RE = r"^jns_[a-z0-9_]{1,59}$"\nINTEGRATION_NEUTRAL_DOMAIN_ALLOWLIST = {"rlm"}
 INTEGRATION_ALLOWED_EXTENSIONS = {
     ".py", ".json", ".yaml", ".yml", ".png", ".svg", ".ico", ".jpg", ".jpeg", ".webp",
 }
