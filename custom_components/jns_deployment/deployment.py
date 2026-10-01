@@ -518,9 +518,9 @@ class DeploymentManager:
     @staticmethod
     def _integration_domain(manifest: dict[str, Any]) -> str:
         domain = str(manifest.get("integration_domain", "")).strip()
-        if not re.fullmatch(INTEGRATION_DOMAIN_RE, domain):
+        if not re.fullmatch(INTEGRATION_DOMAIN_RE, domain) and domain not in INTEGRATION_NEUTRAL_DOMAIN_ALLOWLIST:
             raise DeploymentError(
-                "integration_package requires integration_domain beginning 'jns_' and containing only lowercase letters, digits and underscores."
+                "integration_package integration_domain must use the 'jns_' namespace or be explicitly allowlisted."
             )
         if domain == PLATFORM_DOMAIN:
             raise DeploymentError(
