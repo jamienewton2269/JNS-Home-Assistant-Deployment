@@ -22,7 +22,7 @@ def main() -> int:
     parser.add_argument("--publisher-id", required=True)
     parser.add_argument(
         "--type",
-        choices=["config_package", "platform_update"],
+        choices=["config_package", "integration_package", "platform_update"],
         default="config_package",
     )
     parser.add_argument("--package-id")
@@ -45,6 +45,12 @@ def main() -> int:
             "name": old_manifest["name"],
             "version": old_manifest["version"],
         }
+        if args.type == "integration_package":
+            integration_domain = old_manifest.get("integration_domain")
+            if not isinstance(integration_domain, str) or not integration_domain.strip():
+                raise SystemExit("integration_package requires integration_domain in input manifest")
+            manifest["integration_domain"] = integration_domain.strip()
+
         if args.type == "platform_update":
             if not args.to_version:
                 raise SystemExit("--to-version is required for platform_update")
