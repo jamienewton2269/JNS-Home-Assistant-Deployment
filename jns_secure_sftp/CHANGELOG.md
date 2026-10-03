@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.4
+
+- Fixes the exported Ed25519 server public-key file so management-PC enrollment receives a valid OpenSSH public key and fingerprint.
+- Removes the unsupported Alpine OpenSSH `UsePAM` directive from the generated sshd configuration.
+- Keeps SFTP-only restrictions, persistent server host keys and key-only management-PC authentication unchanged.
+
 ## 0.4.3
 
 - Aligns the App package with the current Home Assistant App/Supervisor configuration.
