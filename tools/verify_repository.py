@@ -95,7 +95,7 @@ for required_action in (
 
 app_config = (ROOT / "jns_secure_sftp" / "config.yaml").read_text(encoding="utf-8")
 for required_text in (
-    'version: "0.4.3"',
+    'version: "0.4.4"',
     "slug: jns_secure_sftp",
     "image: ghcr.io/jamienewton2269/jns-secure-sftp",
     "22/tcp: 2222",
@@ -107,7 +107,7 @@ for required_text in (
 
 image_workflow = (ROOT / ".github" / "workflows" / "build_sftp_app.yml").read_text(encoding="utf-8")
 for required_text in (
-    'VERSION: "0.4.3"',
+    'VERSION: "0.4.4"',
     'matrix:',
     'arch: [amd64, aarch64]',
     'ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-${{ env.IMAGE_NAME }}',
