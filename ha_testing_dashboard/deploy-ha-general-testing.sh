@@ -55,7 +55,7 @@ echo "=== 1/6 Configure HA-General DNS aliases ==="
 timeout 20s ssh -o BatchMode=yes "$NODE_B" "bash -s" <<EOF_DNS
 set -euo pipefail
 pct exec 218 -- cp -a /opt/AdGuardHome/AdGuardHome.yaml /opt/AdGuardHome/AdGuardHome.yaml.jns-ha-general-$STAMP.bak
-pct exec 218 -- python3 - <<\'PY\'
+pct exec 218 -- python3 - <<'PY'
 from pathlib import Path
 p=Path("/opt/AdGuardHome/AdGuardHome.yaml")
 s=p.read_text()
@@ -80,13 +80,13 @@ pct exec 218 -- systemctl is-active AdGuardHome
 EOF_DNS
 
 echo "=== 2/6 Verify DNS server answers ==="
-timeout 12s ssh -o BatchMode=yes "$NODE_B" "pct exec 218 -- sh -lc \'command -v nslookup >/dev/null && { nslookup ha-general.home.arpa 127.0.0.1; nslookup ha-general 127.0.0.1; } || grep -A8 \"rewrites:\" /opt/AdGuardHome/AdGuardHome.yaml\'"
+timeout 12s ssh -o BatchMode=yes "$NODE_B" "pct exec 218 -- sh -lc 'command -v nslookup >/dev/null && { nslookup ha-general.home.arpa 127.0.0.1; nslookup ha-general 127.0.0.1; } || grep -A8 \"rewrites:\" /opt/AdGuardHome/AdGuardHome.yaml'"
 
 echo "=== 3/6 Prepare dashboard payload ==="
 DASH_B64="$(base64 -w0 "$DASH_FILE")"
 
 echo "=== 4/6 Install dashboard through the proven Natural Automation QGA path ==="
-timeout 150s ssh -o BatchMode=yes "$NODE_B" "DASH_B64=\'$DASH_B64\' STAMP=\'$STAMP\' python3 -s" <<\'PY_NODEB\'
+timeout 150s ssh -o BatchMode=yes "$NODE_B" "DASH_B64='$DASH_B64' STAMP='$STAMP' python3 -s" <<'PY_NODEB'
 import os, json, textwrap
 from pathlib import Path
 import sys
@@ -206,7 +206,7 @@ for n in $(seq 1 36); do
 done
 
 echo "=== 6/6 Verify dashboard/resource endpoints ==="
-timeout 10s ssh -o BatchMode=yes "$NODE_B" "curl -sS -o /dev/null -w \'root=%{http_code}\\n\' --max-time 4 http://$HA_IP/; curl -sS -o /dev/null -w \'testing=%{http_code}\\n\' --max-time 4 http://$HA_IP/testing-dashboard/controls; curl -sS -o /dev/null -w \'auto_entities=%{http_code}\\n\' --max-time 4 http://$HA_IP/local/community/auto-entities/auto-entities.js?v=1.16.1"
+timeout 10s ssh -o BatchMode=yes "$NODE_B" "curl -sS -o /dev/null -w 'root=%{http_code}\\n' --max-time 4 http://$HA_IP/; curl -sS -o /dev/null -w 'testing=%{http_code}\\n' --max-time 4 http://$HA_IP/testing-dashboard/controls; curl -sS -o /dev/null -w 'auto_entities=%{http_code}\\n' --max-time 4 http://$HA_IP/local/community/auto-entities/auto-entities.js?v=1.16.1"
 
 echo
 echo "=== DEPLOYMENT COMPLETE ==="
