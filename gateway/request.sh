@@ -1,43 +1,38 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "=== NATURAL AUTOMATION + STEWARD INVENTORY ==="
-echo "nodec=$(hostname) user=$(whoami)"
+echo "=== NODE C ROOT SSH GATEWAY CHECK ==="
+echo "runner=$(hostname) user=$(whoami)"
 date -Is
 
 echo
-echo "=== Node C local candidates ==="
-find /opt /srv /home -maxdepth 4 \( -iname '*natural*automation*' -o -iname '*steward*' \) -print 2>/dev/null | head -100 || true
+echo "sudo:"
+if sudo -n true; then echo "sudo_noninteractive=YES"; else echo "sudo_noninteractive=NO"; exit 20; fi
 
 echo
-echo "=== Permanent SSH path checks ==="
-for host in 10.10.10.235 10.10.10.226; do
-  echo "--- $host ---"
-  ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new root@"$host" 'hostname; pveversion 2>/dev/null || true; echo OK' || true
-done
+echo "root ssh material:"
+sudo -n bash -lc 'ls -la /root/.ssh 2>/dev/null || true; echo; sed -n "1,160p" /root/.ssh/config 2>/dev/null || true'
 
 echo
-echo "=== Node B: locate Natural Automation + HA-General VM ==="
-ssh -o BatchMode=yes -o ConnectTimeout=5 root@10.10.10.235 '
-  set -u
-  hostname
+echo "root -> Node B:"
+sudo -n ssh -o BatchMode=yes -o ConnectTimeout=7 -o StrictHostKeyChecking=accept-new root@10.10.10.235 '
+  echo HOST=$(hostname)
+  pveversion || true
   echo "-- VMs --"
   qm list || true
   echo "-- LXCs --"
   pct list || true
   echo "-- Natural Automation candidates --"
   find /opt /srv /root /var/lib -maxdepth 4 \( -iname "*natural*automation*" -o -iname "*steward*" \) -print 2>/dev/null | head -100 || true
-  echo "-- VM905 status/config --"
-  qm status 905 2>/dev/null || true
-  qm config 905 2>/dev/null | sed -n "1,100p" || true
+'
+
+echo
+echo "root -> Node A:"
+sudo -n ssh -o BatchMode=yes -o ConnectTimeout=7 -o StrictHostKeyChecking=accept-new root@10.10.10.226 '
+  echo HOST=$(hostname)
+  pveversion || true
+  qm list || true
 ' || true
 
 echo
-echo "=== HA-General network probe from Node C ==="
-for ip in 10.10.10.223 10.10.10.224 10.10.10.225 10.10.10.226; do
-  printf "%s " "$ip"
-  if timeout 2 bash -c "</dev/tcp/$ip/8123" 2>/dev/null; then echo "HA8123=OPEN"; else echo "HA8123=closed"; fi
-done
-
-echo
-echo "=== DONE ==="
+echo "DONE"
