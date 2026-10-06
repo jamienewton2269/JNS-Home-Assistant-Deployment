@@ -1,21 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
-echo "=== AUDIO PRECHANGE AUDIT V2 ==="
+echo "=== STATIC AUDIO + DNS PREP ==="
 date -Is
-echo "RANGE:"
-for n in $(seq 220 240); do
- a=10.10.10.$n
- ping -c1 -W1 "$a" >/dev/null 2>&1 && s=UP || s=NO_REPLY
- echo "$a $s $(ip neigh show "$a" || true)"
+for X in "nodea 214" "nodeb 219"; do
+ set -- $X; H=$1; ID=$2
+ echo "===== $H/$ID network manager ====="
+ ssh -o BatchMode=yes "$H" "qm guest exec $ID -- /bin/bash -lc 'echo NETPLAN; find /etc/netplan /etc/network /run/systemd/network -maxdepth 2 -type f -print -exec sed -n \"1,160p\" {} \\; 2>/dev/null || true; echo NETWORKCTL; networkctl status ens18 --no-pager 2>/dev/null || true; echo NMCLI; command -v nmcli >/dev/null && nmcli -f NAME,UUID,TYPE,DEVICE connection show || true; echo RESOLV; cat /etc/resolv.conf'"
 done
 
-echo "=== NODE A AUDIO ==="
-ssh -o BatchMode=yes nodea "qm guest exec 214 -- /bin/bash -lc 'hostname; ip -br -4 a; ip route; echo NETPLAN; ls -la /etc/network/interfaces /etc/network/interfaces.d /etc/systemd/network /etc/NetworkManager/system-connections 2>/dev/null || true; echo BT; bluetoothctl devices 2>/dev/null || true; bluetoothctl info 73:81:7B:84:2A:AB 2>/dev/null || true; echo SERVICES; systemctl list-unit-files | grep -Ei \"bluetooth|audio|chime|clock|piper\" || true; echo FILES; find /opt /usr/local /etc/systemd/system /var/lib -maxdepth 3 -type f 2>/dev/null | grep -Ei \"audio|speaker|chime|clock|piper|westminster\" | head -100 || true'"
+echo "===== DNS REWRITES A ====="
+ssh -o BatchMode=yes nodea "pct exec 217 -- sh -lc 'grep -n -A80 -B5 \"rewrites:\" /opt/AdGuardHome/AdGuardHome.yaml || true; echo FILTERS; grep -n -E \"ha-general|house-audio|10.10.10.22[0-9]\" /opt/AdGuardHome/AdGuardHome.yaml || true'"
+echo "===== DNS REWRITES B ====="
+ssh -o BatchMode=yes nodeb "pct exec 218 -- sh -lc 'grep -n -A80 -B5 \"rewrites:\" /opt/AdGuardHome/AdGuardHome.yaml || true; echo FILTERS; grep -n -E \"ha-general|house-audio|10.10.10.22[0-9]\" /opt/AdGuardHome/AdGuardHome.yaml || true'"
 
-echo "=== NODE B AUDIO ==="
-ssh -o BatchMode=yes nodeb "qm guest exec 219 -- /bin/bash -lc 'hostname; ip -br -4 a; ip route; echo NETPLAN; ls -la /etc/network/interfaces /etc/network/interfaces.d /etc/systemd/network /etc/NetworkManager/system-connections 2>/dev/null || true; echo BT; bluetoothctl devices 2>/dev/null || true; echo SERVICES; systemctl list-unit-files | grep -Ei \"bluetooth|audio|chime|clock|piper\" || true; echo FILES; find /opt /usr/local /etc/systemd/system /var/lib -maxdepth 3 -type f 2>/dev/null | grep -Ei \"audio|speaker|chime|clock|piper|westminster\" | head -100 || true'"
-
-echo "=== DNS A ==="
-ssh -o BatchMode=yes nodea "pct exec 217 -- sh -lc 'hostname; ip -br -4 a; find /opt /etc -maxdepth 4 -type f 2>/dev/null | grep -Ei \"AdGuardHome.yaml|rewrite\" | head -50; grep -RHi \"10.10.10.223\|ha-general\|rewrites:\" /opt /etc 2>/dev/null | head -100 || true'"
-echo "=== DNS B ==="
-ssh -o BatchMode=yes nodeb "pct exec 218 -- sh -lc 'hostname; ip -br -4 a; find /opt /etc -maxdepth 4 -type f 2>/dev/null | grep -Ei \"AdGuardHome.yaml|rewrite\" | head -50; grep -RHi \"10.10.10.223\|ha-general\|rewrites:\" /opt /etc 2>/dev/null | head -100 || true'"
+echo "===== HA905 SUPERVISOR / CONFIG ACCESS ====="
+ssh -o BatchMode=yes nodeb "qm guest exec 905 -- /bin/bash -lc 'echo SHELL_OK; command -v ha || true; ha info 2>/dev/null || true; ls -ld /mnt/data/supervisor/homeassistant /config 2>/dev/null || true; find /mnt/data/supervisor/homeassistant -maxdepth 2 -type f 2>/dev/null | grep -Ei \"automation|script|configuration|media\" | head -80 || true'" || true
