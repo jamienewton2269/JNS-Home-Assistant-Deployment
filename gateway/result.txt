@@ -1,36 +1,58 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T15:36:24+01:00
+2026-10-06T15:37:19+01:00
 runner=nodec
 
-=== NATURAL AUTOMATION UI DEBUG ===
-2026-10-06T15:36:24+01:00
-=== service status ===
-{"ok": true, "vmid": 905, "entities": 197, "apply_enabled": true}
-
-=== relevant HTML/JS ===
-651:</style></head><body><div class=w><h1>Natural Automation</h1><p class=muted>Development Node B · HA Lite VM902 · language learning test</p>
-659:<div class=adminhead><h2>Testing / Admin</h2><span class=badge id=adminstatus>loading</span></div>
-660:<div class=admincard><button onclick=refreshInlineAdmin()>Refresh</button><button onclick=inlineHousekeepingScan()>Housekeeping scan</button><p class=muted>Live development view. Write gate remains disabled.</p></div>
-670:  await refreshInlineAdmin()
-674:  await refreshInlineAdmin()
-677:  document.getElementById('adminstatus').textContent='scanning…';
-679:  await refreshInlineAdmin()
-681:async function refreshInlineAdmin(){
-685:    document.getElementById('adminstatus').textContent=(d.apply_enabled?'write enabled':'write gate closed');
-694:    document.getElementById('adminstatus').textContent='admin view error';
-705:async function analyseText(t,newSubmission){
-712:    let start=await post('/api/analyse-start',{text:t});
-714:    await watchJob(start.job_id)
-717:async function go(){
-721:async function watchJob(id){
-725:    renderProgress(j);
-731:function renderProgress(j){
-805:  refreshInlineAdmin()
-807:refreshInlineAdmin();
-808:setInterval(refreshInlineAdmin,1500);
-891:            if path=="/api/analyse-start":
-
-=== JS block around analyseText ===
+=== HTML AROUND MAIN FORM ===
+:root{--vy-bg:#05080c;--vy-panel:#0b1118;--vy-line:#203448;--vy-text:#e8f4ff;--vy-muted:#8da3b5;--vy-blue:#5bbcff;--vy-green:#83e6b4;--vy-amber:#ffc857;--vy-red:#ff6b6b}
+body{font-family:system-ui;margin:0;background:var(--vy-bg);color:var(--vy-text)}.w{max-width:1500px;margin:28px auto;padding:0 18px}
+.layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(380px,.8fr);gap:18px;align-items:start}
+.maincol,.admincol{min-width:0}.admincol{position:sticky;top:18px;max-height:calc(100vh - 36px);overflow:auto}
+@media(max-width:1050px){.layout{grid-template-columns:1fr}.admincol{position:static;max-height:none}}
+.card{background:#191919;border:1px solid #333;border-radius:14px;padding:20px;margin:16px 0}
+.admincard{background:#151515;border:1px solid #2f3b47;border-radius:14px;padding:16px;margin:12px 0}
+.adminhead{display:flex;justify-content:space-between;gap:10px;align-items:center;position:sticky;top:0;background:#111;padding:6px 0 10px;z-index:2}
+.adminhead h2{margin:0}.badge{font-size:.8rem;border:1px solid #555;border-radius:999px;padding:4px 8px;color:#bbb}
+.audit-event{border-top:1px solid #2d2d2d;padding:10px 0}.audit-event:first-child{border-top:0}
+textarea{width:100%;box-sizing:border-box;min-height:110px;background:#0e0e0e;color:#eee;border:1px solid #444;border-radius:10px;padding:12px}
+button{padding:10px 14px;border-radius:9px;border:0;margin:8px 8px 0 0}.muted{color:#aaa}pre{white-space:pre-wrap;background:#0d0d0d;padding:14px;border-radius:10px;overflow:auto}
+.cand{display:block;width:100%;text-align:left;background:#292929;color:#eee;border:1px solid #444}
+.error{border:2px solid #d84b4b;background:#2a1111;color:#ffdede}.error h3{margin-top:0;color:#ff8f8f}
+.progress{border:1px solid var(--vy-line);background:var(--vy-panel)}.progress h3{margin:0 0 8px}.stage{padding:5px 0}.done{color:var(--vy-green)}.active{color:var(--vy-blue);font-weight:700}.stage-time{color:var(--vy-muted);margin-left:8px}.remove{background:#4b2626;color:#ffdede;border:1px solid #7b3b3b;font-size:.9rem;padding:6px 9px;margin-left:8px}.progressbar{height:18px;background:var(--vy-bg);border:1px solid var(--vy-line);border-radius:999px;overflow:hidden;margin:12px 0 8px}.progressfill{height:100%;width:0%;background:linear-gradient(90deg,var(--vy-blue),var(--vy-green));transition:width .18s linear}.progressmeta{display:flex;justify-content:space-between;gap:10px;font-size:.9rem;color:var(--vy-muted);flex-wrap:wrap}.progresspct{font-weight:700;color:var(--vy-text)}.progressstate{font-size:.78rem;letter-spacing:.08em;color:var(--vy-blue)}.state-stalled{border-color:var(--vy-amber)}.state-stalled .progressfill{background:var(--vy-amber)}.state-stalled .progressstate{color:var(--vy-amber)}.state-error{border-color:var(--vy-red)}.state-error .progressfill{background:var(--vy-red)}.state-error .progressstate{color:var(--vy-red)}.state-done .progressstate{color:var(--vy-green)}.stallnote{margin-top:10px;padding:10px 12px;border:1px solid var(--vy-amber);border-radius:9px;color:#ffe8a6;background:#211a08}
+.hidden{display:none}.request-title{border-left:4px solid #6da8df}.request-title .label{font-size:.82rem;text-transform:uppercase;letter-spacing:.08em;color:#8fa8bd}.request-title h2{margin:.35rem 0 0;font-size:1.15rem;line-height:1.45}.multi-row{display:flex;align-items:flex-start;gap:10px;padding:9px;border:1px solid #383838;border-radius:9px;margin:7px 0;background:#222}.multi-row input{margin-top:4px}.multi-meta{color:#aaa;font-size:.88rem}.primary{background:#eee;color:#111}.multi-actions{margin-top:14px}
+</style></head><body><div class=w><h1>Natural Automation</h1><p class=muted>Development Node B · HA Lite VM902 · language learning test</p>
+<div class=layout>
+<div class=maincol>
+<div class=card><textarea id=q placeholder="Type the next Home Assistant request..."></textarea><br><button onclick=go()>Analyse</button></div>
+<div class="card request-title hidden" id=reqcard><div class=label>Current request</div><h2 id=reqtext></h2></div>
+<div class=card id=o>Ready for a request.</div>
+</div>
+<div class=admincol>
+<div class=adminhead><h2>Testing / Admin</h2><span class=badge id=adminstatus>loading</span></div>
+<div class=admincard><button onclick=refreshInlineAdmin()>Refresh</button><button onclick=inlineHousekeepingScan()>Housekeeping scan</button><p class=muted>Live development view. Write gate remains disabled.</p></div>
+<div class=admincard><h3>Housekeeping</h3><div id=inlinehousekeeping>Loading…</div></div>
+<div class=admincard><h3>Removal queue</h3><div id=inlineremovals>Loading…</div></div>
+<div class=admincard><h3>Recent reasoning / audit</h3><div id=inlineaudit>Loading…</div></div>
+</div>
+</div></div><script>
+async function post(u,b){let r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});let d={};try{d=await r.json()}catch(e){d={error:'The server returned an unreadable response.'}}d._http_ok=r.ok;d._status=r.status;return d}
+function esc(v){return String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')}
+async function inlineHouseReview(id,decision){
+  await post('/api/admin/housekeeping-review',{suggestion_id:id,decision:decision});
+  await refreshInlineAdmin()
+}
+async function inlineRemovalReview(id,decision){
+  await post('/api/admin/removal-review',{proposal_id:id,decision:decision});
+  await refreshInlineAdmin()
+}
+async function inlineHousekeepingScan(){
+  document.getElementById('adminstatus').textContent='scanning…';
+  await post('/api/admin/housekeeping-scan',{});
+  await refreshInlineAdmin()
+}
+async function refreshInlineAdmin(){
+  try{
+    let r=await fetch('/api/admin/log'),d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Admin data unavailable');
     document.getElementById('adminstatus').textContent=(d.apply_enabled?'write enabled':'write gate closed');
     let h=document.getElementById('inlinehousekeeping'),q=document.getElementById('inlineremovals'),a=document.getElementById('inlineaudit');
     let hs=d.housekeeping||[];
@@ -62,171 +84,34 @@ async function analyseText(t,newSubmission){
     if(!start._http_ok){show(start);return}
     await watchJob(start.job_id)
   }catch(e){show({action:'error',error:'Could not contact Natural Automation.',suggestion:String(e)})}
-}
-async function go(){
-  let t=document.getElementById('q').value.trim();
-  await analyseText(t,true)
-}
-async function watchJob(id){
-  while(true){
-    let r=await fetch('/api/job?id='+encodeURIComponent(id)),j=await r.json();
-    if(!r.ok){show({action:'error',error:j.error||'Analysis job was lost.'});return}
-    renderProgress(j);
-    if(j.status==='done'){show(j.result);return}
-    if(j.status==='error'){show({action:'error',error:j.error,suggestion:'Nothing has been changed in Home Assistant.'});return}
-    await new Promise(x=>setTimeout(x,250))
-  }
-}
-function renderProgress(j){
-  let p=j.progress||{},pct=Number(p.percent||0),eta=p.eta_seconds,state=String(p.state||j.status||'running');
-  let o=document.getElementById('o');o.className='card progress state-'+state;
-  let etaText=(eta===null||eta===undefined)?'ETA unavailable':('ETA '+Number(eta).toFixed(1)+'s');
-  let h='<h3>Processing request <span class="progressstate">'+esc(state.toUpperCase())+'</span></h3>'+
-    '<div class="progressbar" aria-label="Measured processing progress"><div class="progressfill" style="width:'+pct.toFixed(1)+'%"></div></div>'+
-    '<div class="progressmeta"><span class="progresspct">'+pct.toFixed(1)+'%</span><span>Elapsed '+Number(j.elapsed||0).toFixed(1)+'s</span><span>'+etaText+'</span><span>'+esc(j.stage||'Queued')+'</span></div>'+
-    '<p class="muted">Measured from genuine backend stages and learned stage durations. No cosmetic progress is generated.</p>'+
-    (p.stall_reason?'<div class="stallnote">'+esc(p.stall_reason)+'</div>':'');
-  for(let i=0;i<j.stages.length;i++){
-    let s=j.stages[i],active=(i===j.stages.length-1&&j.status==='running');
-    h+='<div class="stage '+(active?'active':'done')+'">'+(active?'→ ':'✓ ')+esc(s.name)+'<span class="stage-time">'+Number(s.duration||0).toFixed(1)+'s</span></div>'
-  }
-  o.innerHTML=h
-}
-async function proposeRemoval(c,button){
-  button.disabled=true;button.textContent='Recording proposal...';
-  let d=await post('/api/propose-remove',{controller_id:c.id,source:c.source,alias:c.alias});
-  if(d.ok){button.textContent='Removal proposed · pending review'}else{button.disabled=false;button.textContent='Propose removal';alert(d.error||'Could not record proposal')}
-}
-function renderMultiCandidates(candidates){
-  let list=document.getElementById('multilist');
-  if(!list||!multiState)return;
-  list.innerHTML='';
-  candidates.forEach(c=>{
-    let row=document.createElement('label');row.className='multi-row';
-    let cb=document.createElement('input');cb.type='checkbox';cb.value=c.entity_id;
-    cb.checked=multiState.selected.has(c.entity_id);
-    cb.onchange=async()=>{
-      if(cb.checked)multiState.selected.add(c.entity_id);else multiState.selected.delete(c.entity_id);
-      if(cb.checked&&!multiState.refined){
-        multiState.refined=true;
-        let d=await post('/api/refine-candidates',{category:multiState.category,first_entity_id:c.entity_id});
-        if(d.ok){
-          let current=new Map(d.candidates.map(x=>[x.entity_id,x]));
-          for(let old of multiState.candidates){if(multiState.selected.has(old.entity_id)&&!current.has(old.entity_id))d.candidates.unshift(old)}
-          multiState.candidates=d.candidates;
-          document.getElementById('multihint').textContent=d.logic.join(' ');
-          renderMultiCandidates(d.candidates)
-        }
-      }
-      document.getElementById('multicount').textContent=multiState.selected.size+' selected'
-    };
-    let body=document.createElement('div');
-    body.innerHTML='<b>'+c.name+'</b><div class="multi-meta">'+c.entity_id+(c.area?' · '+c.area:'')+(c.match_reason?' · '+c.match_reason:'')+'</div>';
-    row.appendChild(cb);row.appendChild(body);list.appendChild(row)
-  })
-}
-async function confirmMulti(){
-  if(!multiState||multiState.selected.size===0){alert('Select at least one device.');return}
-  let d=await post('/api/confirm-multi',{request:activeRequest,category:multiState.category,selected:Array.from(multiState.selected)});
-  if(d.ok)show(d);else show({action:'error',error:d.error||'Could not confirm the selected devices.'})
-}
-function showMulti(d){
-  multiState={category:d.category,candidates:d.candidates,selected:new Set(),refined:false};
-  let o=document.getElementById('o');o.className='card';
-  o.innerHTML='<h3>Select devices</h3><p>This request appears to apply to multiple '+d.category+'. Tick every device that should be included.</p>'+
-    '<p id="multihint" class="muted">After the first selection, the remaining list will be re-ranked using that device\'s domain and Home Assistant area.</p>'+
-    '<div id="multilist"></div><div class="multi-actions"><span id="multicount">0 selected</span><br><button class="primary" onclick="confirmMulti()">Use selected devices</button></div>';
-  renderMultiCandidates(d.candidates)
-}
-function show(d){
-  let o=document.getElementById('o');o.className='card';
-  if((d._http_ok===false)||d.error||d.action==='error'){o.className='card error';o.innerHTML='<h3>ERROR - request not understood</h3><p><b>'+(d.error||'Unknown error')+'</b></p>'+(d.suggestion?'<p>'+d.suggestion+'</p>':'')+'<p class="muted">Nothing has been changed in Home Assistant.</p>';return}
-  if(d.action==='select_devices'){showMulti(d);return}
 
-=== recent logs ===
-Oct 02 13:19:51 nodeb python3[1368769]: Natural Automation listening on 0.0.0.0:8099, apply=False
-Oct 02 13:22:13 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
-Oct 02 13:22:13 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
-Oct 02 13:22:13 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
-Oct 02 13:22:13 nodeb systemd[1]: natural-automation.service: Consumed 9.736s CPU time, 130.2M memory peak.
-Oct 02 13:22:13 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
-Oct 02 13:22:13 nodeb python3[1370098]: Natural Automation listening on 0.0.0.0:8099, apply=False
-Oct 03 06:17:12 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
-Oct 03 06:17:12 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
-Oct 03 06:17:12 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
-Oct 03 06:17:12 nodeb systemd[1]: natural-automation.service: Consumed 12.797s CPU time, 130M memory peak.
-Oct 03 06:17:12 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
-Oct 03 06:17:12 nodeb python3[1862474]: Natural Automation listening on 0.0.0.0:8099, apply=False
-Oct 03 06:18:21 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
-Oct 03 06:18:21 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
-Oct 03 06:18:21 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
-Oct 03 06:18:21 nodeb systemd[1]: natural-automation.service: Consumed 3.679s CPU time, 130M memory peak.
-Oct 03 06:18:21 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
-Oct 03 06:18:21 nodeb python3[1863387]: Natural Automation listening on 0.0.0.0:8099, apply=False
-Oct 03 06:26:09 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
-Oct 03 06:26:09 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
-Oct 03 06:26:09 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
-Oct 03 06:26:09 nodeb systemd[1]: natural-automation.service: Consumed 5.833s CPU time, 131.1M memory peak.
-Oct 03 06:26:09 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
-Oct 03 06:26:09 nodeb python3[1867560]: Natural Automation listening on 0.0.0.0:8099, apply=False
-Oct 03 06:29:06 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
-Oct 03 06:29:06 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
-Oct 03 06:29:06 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
-Oct 03 06:29:06 nodeb systemd[1]: natural-automation.service: Consumed 1.413s CPU time, 130.2M memory peak.
-Oct 03 06:29:06 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
-Oct 03 06:29:06 nodeb python3[1869035]: Natural Automation listening on 0.0.0.0:8099, apply=False
-Oct 03 07:09:47 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
-Oct 03 07:09:47 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
-Oct 03 07:09:47 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
-Oct 03 07:09:47 nodeb systemd[1]: natural-automation.service: Consumed 1.687s CPU time, 130.3M memory peak.
-Oct 03 07:09:47 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
-Oct 03 07:09:47 nodeb python3[1890396]: Natural Automation listening on 0.0.0.0:8099, apply=False
-Oct 03 07:30:26 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
-Oct 03 07:30:26 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
-Oct 03 07:30:26 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
-Oct 03 07:30:26 nodeb systemd[1]: natural-automation.service: Consumed 2.983s CPU time, 130.9M memory peak.
-Oct 03 07:30:26 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
-Oct 03 07:30:26 nodeb python3[1901670]: Natural Automation listening on 0.0.0.0:8099, apply=False
-Oct 03 07:36:34 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
-Oct 03 07:36:34 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
-Oct 03 07:36:34 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
-Oct 03 07:36:34 nodeb systemd[1]: natural-automation.service: Consumed 1.616s CPU time, 130.6M memory peak.
-Oct 03 07:36:34 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
-Oct 03 07:36:34 nodeb python3[1904793]: Natural Automation listening on 0.0.0.0:8099, apply=False
-Oct 03 07:36:39 nodeb qm[1904800]: VM 902 qga command failed - VM 902 qga command 'guest-ping' failed - got timeout
-Oct 03 09:00:56 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
-Oct 03 09:00:56 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
-Oct 03 09:00:56 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
-Oct 03 09:00:56 nodeb systemd[1]: natural-automation.service: Consumed 2.042s CPU time, 130.8M memory peak.
-Oct 03 09:00:56 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
-Oct 03 09:00:56 nodeb python3[1957003]: Natural Automation listening on 0.0.0.0:8099, apply=False
-Oct 03 09:02:19 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
-Oct 03 09:02:19 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
-Oct 03 09:02:19 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
-Oct 03 09:02:19 nodeb systemd[1]: natural-automation.service: Consumed 1.601s CPU time, 130.6M memory peak.
-Oct 03 09:02:19 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
-Oct 03 09:02:19 nodeb python3[1958002]: Natural Automation listening on 0.0.0.0:8099, apply=False
-Oct 05 21:52:42 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
-Oct 05 21:52:42 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
-Oct 05 21:52:42 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
-Oct 05 21:52:42 nodeb systemd[1]: natural-automation.service: Consumed 24.555s CPU time, 130.5M memory peak, 8.5M memory swap peak.
--- Boot 4c6e8045decb446fa6677882a8c53266 --
-Oct 05 21:59:12 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
-Oct 05 21:59:12 nodeb python3[1733]: Natural Automation listening on 0.0.0.0:8099, apply=False
-Oct 06 10:27:56 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
-Oct 06 10:27:56 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
-Oct 06 10:27:56 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
-Oct 06 10:27:56 nodeb systemd[1]: natural-automation.service: Consumed 3.977s CPU time, 13.3M memory peak, 5.2M memory swap peak.
-Oct 06 10:27:56 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
-Oct 06 10:27:56 nodeb python3[815922]: Natural Automation listening on 0.0.0.0:8099, apply=True
-Oct 06 10:28:58 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
-Oct 06 10:28:58 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
-Oct 06 10:28:58 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
-Oct 06 10:28:58 nodeb systemd[1]: natural-automation.service: Consumed 1.546s CPU time, 131M memory peak.
-Oct 06 10:28:58 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
-Oct 06 10:28:58 nodeb python3[817008]: Natural Automation listening on 0.0.0.0:8099, apply=True
+=== expected request-card ids ===
+655:<div class="card request-title hidden" id=reqcard><div class=label>Current request</div><h2 id=reqtext></h2></div>
 
-=== direct analyse-start smoke test ===
-curl: (3) unmatched close brace/bracket in URL position 8:
-bedtime}
-       ^
+=== post helper ===
+<div class=admincard><h3>Housekeeping</h3><div id=inlinehousekeeping>Loading…</div></div>
+<div class=admincard><h3>Removal queue</h3><div id=inlineremovals>Loading…</div></div>
+<div class=admincard><h3>Recent reasoning / audit</h3><div id=inlineaudit>Loading…</div></div>
+</div>
+</div></div><script>
+async function post(u,b){let r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});let d={};try{d=await r.json()}catch(e){d={error:'The server returned an unreadable response.'}}d._http_ok=r.ok;d._status=r.status;return d}
+function esc(v){return String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')}
+async function inlineHouseReview(id,decision){
+  await post('/api/admin/housekeeping-review',{suggestion_id:id,decision:decision});
+  await refreshInlineAdmin()
+}
+async function inlineRemovalReview(id,decision){
+  await post('/api/admin/removal-review',{proposal_id:id,decision:decision});
+  await refreshInlineAdmin()
+}
+async function inlineHousekeepingScan(){
+  document.getElementById('adminstatus').textContent='scanning…';
+  await post('/api/admin/housekeeping-scan',{});
+  await refreshInlineAdmin()
+}
+async function refreshInlineAdmin(){
+  try{
+    let r=await fetch('/api/admin/log'),d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Admin data unavailable');
+    document.getElementById('adminstatus').textContent=(d.apply_enabled?'write enabled':'write gate closed');
+    let h=document.getElementById('inlinehousekeeping'),q=document.getElementById('inlineremovals'),a=document.getElementById('inlineaudit');
