@@ -1,12 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ssh nodeb '
-  echo "=== configuration.yaml references ==="
-  qm guest exec 905 -- docker exec homeassistant sh -lc "grep -n \"natural_automation\|automation:\" /config/configuration.yaml || true"
-  echo
-  echo "=== configuration.yaml head ==="
-  qm guest exec 905 -- docker exec homeassistant sh -lc "sed -n \"1,180p\" /config/configuration.yaml"
-  echo
-  echo "=== natural_automation.yaml ==="
-  qm guest exec 905 -- docker exec homeassistant sh -lc "if [ -f /config/natural_automation.yaml ]; then sed -n \"1,160p\" /config/natural_automation.yaml; else echo MISSING; fi"
+  cp -a /opt/natural-automation/steward/writer.py /opt/natural-automation/steward/writer.py.pre-apply-button
+  sed -i "s#/config/natural_automation.yaml#/config/automations.yaml#g" /opt/natural-automation/steward/writer.py
+  python3 -m py_compile /opt/natural-automation/steward/writer.py
+  grep -n "automations.yaml" /opt/natural-automation/steward/writer.py
 '
