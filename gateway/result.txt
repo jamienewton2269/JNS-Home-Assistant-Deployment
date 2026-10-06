@@ -1,27 +1,48 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T10:27:54+01:00
+2026-10-06T10:28:58+01:00
 runner=nodec
 
-=== INSTALL NATURAL AUTOMATION + STEWARD ON NODE B / HA-GENERAL ===
-2026-10-06T10:27:54+01:00
-backup=/opt/natural-automation/backup-20261006-102754
-{'facts': 2, 'observations': 1, 'repairs': 0}
-=== SERVICE ===
-● natural-automation.service - Natural Automation language test dashboard
-     Loaded: loaded (/etc/systemd/system/natural-automation.service; enabled; preset: enabled)
-     Active: active (running) since Tue 2026-10-06 10:27:56 BST; 2s ago
- Invocation: 7f9102ef6d6845a689bc7f49794b4562
-   Main PID: 815922 (python3)
-      Tasks: 1 (limit: 7875)
-     Memory: 13.8M (peak: 14M)
-        CPU: 129ms
-     CGroup: /system.slice/natural-automation.service
-             └─815922 /usr/bin/python3 /opt/natural-automation/natural_automation.py
-
-Oct 06 10:27:56 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
-Oct 06 10:27:56 nodeb python3[815922]: Natural Automation listening on 0.0.0.0:8099, apply=True
-
-=== LOCAL STATUS ===
+=== FIX STEWARD SQLITE THREAD SAFETY + ACCEPTANCE TEST ===
+2026-10-06T10:28:58+01:00
+=== STATUS ===
 {"ok": true, "vmid": 905, "entities": 197, "apply_enabled": true}
 === STEWARD STATUS ===
-curl: (22) The requested URL returned error: 422
+{"facts": 2, "observations": 1, "repairs": 0, "ok": true, "vmid": 905, "apply_enabled": true}
+=== APPLY SAFETY TEST: unresolved must reject, no write ===
+{"error": "Unresolved targets remain; refusing to apply.", "unresolved": ["test unresolved target"]}
+http_code=409
+before=MISSING
+after=MISSING
+=== HA-GENERAL CONFIG CHECK ===
+{
+   "pid" : 10592
+}
+timeout reached, returning pid
+=== SERVICE LOG TAIL ===
+Oct 03 09:00:56 nodeb python3[1957003]: Natural Automation listening on 0.0.0.0:8099, apply=False
+Oct 03 09:02:19 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
+Oct 03 09:02:19 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
+Oct 03 09:02:19 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
+Oct 03 09:02:19 nodeb systemd[1]: natural-automation.service: Consumed 1.601s CPU time, 130.6M memory peak.
+Oct 03 09:02:19 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
+Oct 03 09:02:19 nodeb python3[1958002]: Natural Automation listening on 0.0.0.0:8099, apply=False
+Oct 05 21:52:42 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
+Oct 05 21:52:42 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
+Oct 05 21:52:42 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
+Oct 05 21:52:42 nodeb systemd[1]: natural-automation.service: Consumed 24.555s CPU time, 130.5M memory peak, 8.5M memory swap peak.
+-- Boot 4c6e8045decb446fa6677882a8c53266 --
+Oct 05 21:59:12 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
+Oct 05 21:59:12 nodeb python3[1733]: Natural Automation listening on 0.0.0.0:8099, apply=False
+Oct 06 10:27:56 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
+Oct 06 10:27:56 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
+Oct 06 10:27:56 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
+Oct 06 10:27:56 nodeb systemd[1]: natural-automation.service: Consumed 3.977s CPU time, 13.3M memory peak, 5.2M memory swap peak.
+Oct 06 10:27:56 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
+Oct 06 10:27:56 nodeb python3[815922]: Natural Automation listening on 0.0.0.0:8099, apply=True
+Oct 06 10:28:58 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
+Oct 06 10:28:58 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
+Oct 06 10:28:58 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
+Oct 06 10:28:58 nodeb systemd[1]: natural-automation.service: Consumed 1.546s CPU time, 131M memory peak.
+Oct 06 10:28:58 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
+Oct 06 10:28:58 nodeb python3[817008]: Natural Automation listening on 0.0.0.0:8099, apply=True
+ACCEPTANCE_OK
