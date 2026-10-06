@@ -1,0 +1,42 @@
+name: JNS SAGE Gateway
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/sage-request.ps1'
+
+permissions:
+  contents: write
+
+jobs:
+  sage:
+    runs-on: [self-hosted, windows, x64, sage]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Execute SAGE gateway request
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path gateway | Out-Null
+          $ErrorActionPreference = 'Continue'
+          & {
+            "=== JNS SAGE GATEWAY ==="
+            Get-Date -Format o
+            "runner=$env:COMPUTERNAME"
+            ""
+            & .\gateway\sage-request.ps1
+          } *>&1 | Tee-Object -FilePath gateway\sage-result.txt
+
+      - name: Return result
+        if: always()
+        shell: powershell
+        run: |
+          git config user.name "jns-sage-gateway"
+          git config user.email "jns-sage-gateway@users.noreply.github.com"
+          git add gateway/sage-result.txt
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) { exit 0 }
+          git commit -m "gateway: return SAGE command result"
+          git push
