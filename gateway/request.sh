@@ -1,63 +1,60 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "=== FINAL HA-GENERAL DNS + TESTING DASHBOARD VERIFY ==="
+echo "=== FIX AND VALIDATE HA-GENERAL TESTING DASHBOARD YAML ==="
 date -Is
 echo "runner=$(hostname)"
 echo
 
-echo "=== NODE C CLIENT DNS ==="
-getent hosts ha-general.home.arpa || true
-getent hosts ha-general || true
-echo
+DASH="ha_testing_dashboard/testing-dashboard.yaml"
+[[ -f "$DASH" ]] || { echo "Missing $DASH" >&2; exit 1; }
 
-echo "=== DOCUMENTATION CATALOGUE ==="
-id
-ls -ld /home/github-runner/steward-web/docs 2>/dev/null || true
-ls -l /home/github-runner/steward-web/docs/script-catalogue.txt 2>/dev/null || true
-if sudo -n true 2>/dev/null; then
-  sudo -n sh -c '
-    f=/home/github-runner/steward-web/docs/script-catalogue.txt
-    mkdir -p "$(dirname "$f")"
-    touch "$f"
-    tmp=$(mktemp)
-    grep -v "^deploy-ha-general-testing\.sh - " "$f" > "$tmp" || true
-    echo "deploy-ha-general-testing.sh - Deploys the stable ha-general.home.arpa DNS name and the HA-General Testing dashboard with automatic light/switch/fan/sensor discovery and native HA commissioning via Areas and Labels; validates configuration before restart." >> "$tmp"
-    cat "$tmp" > "$f"
-    rm -f "$tmp"
-  '
-  echo "catalogue=updated"
-else
-  echo "catalogue=not-updated-no-runner-sudo"
-fi
-echo
+echo "Sending corrected dashboard payload to Node B..."
+base64 -w0 "$DASH" | timeout 10s ssh -o BatchMode=yes nodeb 'cat >/tmp/jns-testing-dashboard.b64'
 
-timeout 20s ssh -o BatchMode=yes nodeb 'bash -s' <<'REMOTE'
-set -euo pipefail
-cd /opt/natural-automation
-
-echo "=== HA LOVELACE CONFIG ==="
-python3 - <<'PY'
-import natural_automation as na
-code=r"""
+timeout 30s ssh -o BatchMode=yes nodeb 'python3 - <<'"'"'PY'"'"'
 from pathlib import Path
-lines=Path('/config/configuration.yaml').read_text(errors='ignore').splitlines()
-start=next(i for i,l in enumerate(lines) if l.startswith('lovelace:'))
-end=len(lines)
-for j in range(start+1,len(lines)):
-    if lines[j] and not lines[j][0].isspace() and not lines[j].startswith('#'):
-        end=j; break
-print('\n'.join(lines[start:end]))
-print('--- TESTING FILE ---')
-p=Path('/config/dashboards/testing.yaml')
-print('exists=',p.exists(),'bytes=',p.stat().st_size if p.exists() else 0)
-print('\n'.join(p.read_text(errors='ignore').splitlines()[:18]) if p.exists() else '')
-"""
-print(na.qga_python(code,timeout=12))
-PY
+import sys, json
+sys.path.insert(0,"/opt/natural-automation")
+import natural_automation as na
 
+b64=Path("/tmp/jns-testing-dashboard.b64").read_text().strip()
+
+code=f"""
+from pathlib import Path
+import base64, yaml, shutil, time, json
+
+target=Path('/config/dashboards/testing.yaml')
+payload=base64.b64decode({b64!r})
+
+# Parse before touching the live file.
+parsed=yaml.safe_load(payload)
+if not isinstance(parsed, dict) or 'views' not in parsed:
+    raise RuntimeError('Testing dashboard YAML parsed but does not contain a top-level views list')
+
+backup=target.with_name('testing.yaml.jns-fix-' + time.strftime('%Y%m%d-%H%M%S') + '.bak')
+if target.exists():
+    shutil.copy2(target, backup)
+
+target.write_bytes(payload)
+
+# Re-read and parse the actual live file after write.
+live=yaml.safe_load(target.read_text())
+if not isinstance(live, dict) or not isinstance(live.get('views'), list):
+    raise RuntimeError('Live Testing dashboard failed post-write validation')
+
+print(json.dumps({{
+    'ok': True,
+    'backup': str(backup),
+    'bytes': target.stat().st_size,
+    'views': [v.get('title') for v in live.get('views',[])],
+}}, separators=(',',':')))
+"""
+
+print(na.qga_python(code, timeout=15))
+Path("/tmp/jns-testing-dashboard.b64").unlink(missing_ok=True)
+PY'
+
+echo
 echo "=== HTTP VERIFY ==="
-curl -sS -o /dev/null -w 'root=%{http_code}\n' --max-time 4 http://10.10.10.223/
-curl -sS -o /dev/null -w 'testing=%{http_code}\n' --max-time 4 http://10.10.10.223/testing-dashboard/controls
-curl -sS -o /dev/null -w 'commissioning=%{http_code}\n' --max-time 4 http://10.10.10.223/testing-dashboard/commissioning
-REMOTE
+timeout 10s ssh -o BatchMode=yes nodeb "curl -sS -o /dev/null -w 'testing=%{http_code}\n' --max-time 4 http://10.10.10.223/testing-dashboard/commissioning"
