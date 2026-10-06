@@ -1,6 +1,8 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T16:39:00+01:00
+2026-10-06T16:40:29+01:00
 runner=nodec
 
-37:p='/config/automations.yaml'
-61:        rb=f"""import shutil; shutil.copy2({meta['backup']!r},'/config/automations.yaml')"""
+187:def analyse(text, progress=None):
+279:    result={"action":action,"request":text,"target_phrase":target,"target":chosen,
+792:function show(d){
+698:let activeRequest='';
