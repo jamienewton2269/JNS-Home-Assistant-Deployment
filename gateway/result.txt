@@ -1,9 +1,36 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T16:45:52+01:00
+2026-10-06T16:47:40+01:00
 runner=nodec
 
-=== INSTALL RESTRICTED HA REPLICATION CHANNEL ===
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIM3+a+VKn/75VnWfsmNwVf2/Rechfuz+KnKRmaPrVBrE jns-ha-replication-nodeb
+=== INSTALL NEW HA ZFS REPLICATION ENGINE ===
+Created symlink '/etc/systemd/system/timers.target.wants/jns-ha-replication.timer' → '/etc/systemd/system/jns-ha-replication.timer'.
+● jns-ha-replication.timer - Refresh JNS HA fenced standbys every five minutes
+     Loaded: loaded (/etc/systemd/system/jns-ha-replication.timer; enabled; preset: enabled)
+     Active: active (running) since Tue 2026-10-06 16:47:43 BST; 76ms ago
+ Invocation: c499590b2ee6401f90f1da572d0b5706
+    Trigger: n/a
+   Triggers: ● jns-ha-replication.service
 
-=== TEST RESTRICTED CHANNEL ===
-JNS-HA-REPLICA-RECEIVER OK
+Oct 06 16:47:43 nodeb systemd[1]: Started jns-ha-replication.timer - Refresh JNS HA fenced standbys every five minutes.
+
+● jns-ha-replication.service - JNS HA Node B to Node A fenced ZFS replication
+     Loaded: loaded (/etc/systemd/system/jns-ha-replication.service; static)
+     Active: activating (start) since Tue 2026-10-06 16:47:43 BST; 981ms ago
+        Job: 2149433
+ Invocation: e382b2bca42349dab9770107365c3597
+TriggeredBy: ● jns-ha-replication.timer
+   Main PID: 1214413 (bash)
+      Tasks: 4 (limit: 7875)
+     Memory: 55.9M (peak: 55.9M)
+        CPU: 675ms
+     CGroup: /system.slice/jns-ha-replication.service
+             ├─1214413 bash /usr/local/sbin/jns-ha-replicate
+             ├─1214425 tee /var/lib/jns-ha-replication/last-run.log
+             ├─1214430 /usr/bin/perl /usr/sbin/qm status 902
+             └─1214431 grep -q "^status: running\$"
+
+Oct 06 16:47:43 nodeb systemd[1]: Starting jns-ha-replication.service - JNS HA Node B to Node A fenced ZFS replication...
+Oct 06 16:47:43 nodeb jns-ha-replicate[1214425]: START 2026-10-06T16:47:43+01:00
+Oct 06 16:47:44 nodeb jns-ha-replicate[1214425]: JNS-HA-REPLICA-RECEIVER OK
+Oct 06 16:47:44 nodeb jns-ha-replicate[1214425]: === VM 902 ===
+=== ENGINE INSTALLED ===
