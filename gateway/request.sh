@@ -1,37 +1,50 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "=== HA-GENERAL DNS + NATURAL AUTOMATION ACCESS CHECK ==="
+echo "=== ADD HA-GENERAL DNS + INSPECT HA CONTROL API ==="
 date -Is
 echo "runner=$(hostname)"
 echo
 
-timeout 15s ssh -o BatchMode=yes nodeb 'bash -s' <<'REMOTE'
-set -u
+timeout 20s ssh -o BatchMode=yes nodeb 'bash -s' <<'REMOTE'
+set -euo pipefail
 
-echo "=== HA-GENERAL HTTP PORTS ==="
-for u in http://10.10.10.223/ http://10.10.10.223:8123/; do
-  printf "%s -> " "$u"
-  curl -sS -o /dev/null -w "%{http_code}\n" --max-time 3 "$u" || echo "unreachable"
-done
-
-echo
-echo "=== ADGUARD HOME PROCESS/CONFIG ==="
-pct exec 218 -- sh -lc '
-  ps wwaux | grep "[A]dGuardHome" || true
-  find /opt /etc /var/lib -maxdepth 3 -type f -name "AdGuardHome.yaml" -print 2>/dev/null
-' || true
-
-echo
-echo "=== NATURAL AUTOMATION TREE ==="
-find /opt/natural-automation -maxdepth 3 -type f -printf "%p\n" 2>/dev/null | sort | head -200 || true
+echo "=== ADGUARD CURRENT REWRITES ==="
+pct exec 218 -- python3 - <<'PY'
+from pathlib import Path
+p=Path("/opt/AdGuardHome/AdGuardHome.yaml")
+txt=p.read_text()
+lines=txt.splitlines()
+for i,line in enumerate(lines):
+    if line.lstrip().startswith("rewrites:"):
+        for x in lines[max(0,i-3):min(len(lines),i+40)]:
+            print(x)
+        break
+else:
+    print("NO_REWRITES_SECTION")
+PY
 
 echo
-echo "=== NATURAL AUTOMATION API STATUS ==="
-curl -sS --max-time 3 http://127.0.0.1:8099/api/status || true
-echo
-
-echo
-echo "=== SAFE SOURCE HINTS ==="
-grep -RniE "lovelace|dashboard|entity_registry|device_registry|area_registry|label_registry|services|config/core|api/steward|ha_url|10\.10\.10\.223" /opt/natural-automation 2>/dev/null |   grep -viE "token|password|secret|authorization|bearer" | head -240 || true
+echo "=== NATURAL AUTOMATION HA ACCESS FUNCTIONS ==="
+python3 - <<'PY'
+from pathlib import Path
+p=Path('/opt/natural-automation/natural_automation.py')
+lines=p.read_text(errors='ignore').splitlines()
+terms=('ha_request','ha_api','api/states','api/services','lovelace','websocket','entity_registry','config/')
+seen=set()
+for i,line in enumerate(lines):
+    low=line.lower()
+    if any(t in low for t in terms):
+        a=max(0,i-4); b=min(len(lines),i+9)
+        key=(a,b)
+        if key in seen: continue
+        seen.add(key)
+        print(f"--- lines {a+1}-{b} ---")
+        for n in range(a,b):
+            s=lines[n]
+            if any(k in s.lower() for k in ('token','authorization','bearer','password','secret')):
+                print(f"{n+1}: [REDACTED SENSITIVE LINE]")
+            else:
+                print(f"{n+1}: {s[:220]}")
+PY
 REMOTE
