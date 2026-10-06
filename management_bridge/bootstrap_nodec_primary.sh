@@ -51,7 +51,7 @@ systemctl enable --now ssh
 systemctl reload ssh
 
 cat > /etc/sudoers.d/jns-mcp-management <<EOF
-$MGMT_USER ALL=(root) NOPASSWD: /usr/sbin/qm, /usr/sbin/pct, /usr/bin/pvesh, /usr/sbin/pvesm, /usr/sbin/vzdump, /usr/bin/systemctl, /usr/bin/journalctl, /usr/bin/ss, /usr/sbin/ip, /usr/bin/lsblk, /usr/bin/df, /usr/bin/find, /usr/bin/grep, /usr/bin/cat, /usr/bin/rsync, /usr/bin/cp
+$MGMT_USER ALL=(root) NOPASSWD: /usr/sbin/qm, /usr/sbin/pct, /usr/bin/pvesh, /usr/sbin/pvesm, /usr/sbin/vzdump, /usr/bin/systemctl, /usr/bin/journalctl, /usr/bin/ss, /usr/sbin/ip, /usr/bin/lsblk, /usr/bin/df, /usr/bin/find, /usr/bin/grep, /usr/bin/cat, /usr/bin/rsync, /usr/bin/cp, /opt/jns-management-bridge/start_temp_tunnel.sh, /opt/jns-management-bridge/stop_temp_tunnel.sh
 EOF
 chmod 0440 /etc/sudoers.d/jns-mcp-management
 visudo -cf /etc/sudoers.d/jns-mcp-management >/dev/null
