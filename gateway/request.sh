@@ -1,14 +1,9 @@
 #!/usr/bin/env bash
-set -Eeuo pipefail
-echo "=== CT130 NETWORK MONITOR PREFLIGHT ==="
-echo "runner=$(hostname) user=$(whoami)"
+set -uo pipefail
+echo "=== NODE C HOST ACCESS CHECK ==="
 date -Is
-echo "-- CT130 status --"
-sudo -n pct status 130
-echo "-- monitor service --"
-sudo -n pct exec 130 -- systemctl is-active jns-netmon.service
-echo "-- health endpoint --"
-sudo -n pct exec 130 -- curl --noproxy '*' -fsS --max-time 5 http://127.0.0.1:8080/health
-echo
-echo "-- API state summary --"
-sudo -n pct exec 130 -- curl --noproxy '*' -fsS --max-time 35 http://127.0.0.1:8080/api/state | python3 -c 'import json,sys; d=json.load(sys.stdin); print("version:",d.get("version")); print("devices:",len(d.get("devices",[]))); print("links:",len(d.get("links",[])))'
+echo "runner=$(hostname) user=$(whoami)"
+for host in nodea nodeb; do
+  echo "-- $host --"
+  timeout 8 ssh -o BatchMode=yes -o ConnectTimeout=4 "$host" 'printf "remote="; hostname; id; command -v pct || true; sudo -n -l 2>&1 | head -5' 2>&1 || true
+done
