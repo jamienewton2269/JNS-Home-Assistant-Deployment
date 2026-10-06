@@ -49,19 +49,8 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 
 [[ -f "$DASH_FILE" ]] || { echo "Missing $DASH_FILE" >&2; exit 1; }
 
-# Catalogue this reusable script on the Node C documentation web root when present.
-DOC_DIR="/home/github-runner/steward-web/docs"
-if [[ -d "$DOC_DIR" && -w "$DOC_DIR" ]]; then
-  DOC_FILE="$DOC_DIR/script-catalogue.txt"
-  DOC_LINE="deploy-ha-general-testing.sh - Deploys the stable ha-general.home.arpa DNS name and the HA-General Testing dashboard with automatic light/switch/fan/sensor discovery and native HA commissioning via Areas and Labels; validates configuration before restart."
-  touch "$DOC_FILE"
-  TMP_DOC="$(mktemp)"
-  grep -v "^deploy-ha-general-testing\.sh - " "$DOC_FILE" > "$TMP_DOC" || true
-  printf "%s\n" "$DOC_LINE" >> "$TMP_DOC"
-  cat "$TMP_DOC" > "$DOC_FILE"
-  rm -f "$TMP_DOC"
-fi
-
+# Documentation catalogue update is intentionally excluded from the live deployment
+# path so local web-root permissions can never block infrastructure changes.
 echo "=== 1/6 Configure HA-General DNS aliases ==="
 timeout 20s ssh -o BatchMode=yes "$NODE_B" "bash -s" <<EOF_DNS
 set -euo pipefail
