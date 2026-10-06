@@ -61,6 +61,7 @@ DEVICES = [
     {"name":"Hallway bulb", "ieee":"0x847127fffe2890a6", "type":"IKEA bulb", "note":"Confirmed priority fault"},
     {"name":"Living Room pendant", "ieee":"0x847127fffe28965b", "type":"IKEA bulb", "note":"Confirmed priority fault"},
     {"name":"Treehouse lamp candidate", "ieee":"0x84fd27fffe2bd920", "type":"IKEA bulb", "note":"Old registry called this Downstairs Toilet; physical location needs confirmation"},
+    {"name":"Treehouse door light candidate", "ieee":"0x84fd27fffe6e0543", "type":"IKEA socket", "note":"Old registry name: Door; strong candidate for the treehouse door light"},
     {"name":"Snug corner light", "ieee":"0x84fd27fffe7040c9", "type":"IKEA socket", "note":"Witnessed working"},
     {"name":"Garage security light", "ieee":"0x84fd27fffe9ce438", "type":"IKEA socket", "note":"External/security-light candidate"},
     {"name":"Kitchen worktop", "ieee":"0x84fd27fffe9f52a4", "type":"IKEA socket", "note":"Witnessed working"},
