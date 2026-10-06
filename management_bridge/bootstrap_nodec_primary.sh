@@ -136,7 +136,20 @@ echo "Node C onward public key (install on Node A/B root accounts):"
 cat "$HOME_DIR/.ssh/jns_infra_ed25519.pub"
 echo
 echo "Bridge health:"
-curl -fsS http://127.0.0.1:8765/health
+bridge_ok=0
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  if curl -fsS http://127.0.0.1:8765/health; then
+    bridge_ok=1
+    break
+  fi
+  sleep 0.5
+done
+if [[ "$bridge_ok" -ne 1 ]]; then
+  echo "Bridge failed health check after 5 seconds." >&2
+  systemctl --no-pager --full status jns-management-bridge || true
+  journalctl -u jns-management-bridge -n 40 --no-pager || true
+  exit 1
+fi
 echo
 echo
 echo "Proxmox inventory:"
