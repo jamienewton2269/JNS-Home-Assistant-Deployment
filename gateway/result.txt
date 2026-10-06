@@ -1,139 +1,34 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T17:18:04+01:00
+2026-10-06T19:20:11+01:00
 runner=nodec
 
-=== CONTROLLED HA902 PROMOTION TEST ===
-2026-10-06T17:18:04+01:00
---- Freeze scheduled replication and force final incremental ---
-Removed '/etc/systemd/system/timers.target.wants/jns-ha-replication.timer'.
-FINAL_SYNC
-jns-repl-20261006T171805
-2026-10-06T17:18:43+01:00
---- Verify target remains fenced before source shutdown ---
-TARGET_FENCE_OK
---- Stop Node B primary ---
-VM quit/powerdown failed
-SOURCE_STOPPED
---- Promote Node A standby ---
-TARGET_QGA_READY
-[
-   {
-      "hardware-address" : "00:00:00:00:00:00",
-      "ip-addresses" : [
-         {
-            "ip-address" : "127.0.0.1",
-            "ip-address-type" : "ipv4",
-            "prefix" : 8
-         },
-         {
-            "ip-address" : "::1",
-            "ip-address-type" : "ipv6",
-            "prefix" : 128
-         }
-      ],
-      "name" : "lo",
-      "statistics" : {
-         "rx-bytes" : 0,
-         "rx-dropped" : 0,
-         "rx-errs" : 0,
-         "rx-packets" : 0,
-         "tx-bytes" : 0,
-         "tx-dropped" : 0,
-         "tx-errs" : 0,
-         "tx-packets" : 0
-      }
-   },
-   {
-      "hardware-address" : "bc:24:11:af:bb:79",
-      "ip-addresses" : [
-         {
-            "ip-address" : "10.10.10.220",
-            "ip-address-type" : "ipv4",
-            "prefix" : 24
-         },
-         {
-            "ip-address" : "fda6:8b55:d590:0:ad1a:bf10:f15b:1f81",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         },
-         {
-            "ip-address" : "fe80::648d:e655:c41e:6332",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         }
-      ],
-      "name" : "enp6s18",
-      "statistics" : {
-         "rx-bytes" : 33225,
-         "rx-dropped" : 0,
-         "rx-errs" : 0,
-         "rx-packets" : 303,
-         "tx-bytes" : 4699,
-         "tx-dropped" : 0,
-         "tx-errs" : 0,
-         "tx-packets" : 55
-      }
-   }
-]
---- Validate promoted HA service ---
-HTTP_CHECK_1=000
-HTTP_CHECK_2=000
-HTTP_CHECK_3=000
-HTTP_CHECK_4=000
-HTTP_CHECK_5=000
-HTTP_CHECK_6=000
-HTTP_CHECK_7=000
-HTTP_CHECK_8=000
-HTTP_CHECK_9=000
-HTTP_CHECK_10=000
-HTTP_CHECK_11=000
-HTTP_CHECK_12=000
-HTTP_CHECK_13=000
-HTTP_CHECK_14=000
-HTTP_CHECK_15=000
-HTTP_CHECK_16=000
-HTTP_CHECK_17=000
-HTTP_CHECK_18=000
-HTTP_CHECK_19=000
-HTTP_CHECK_20=000
-HTTP_CHECK_21=000
-HTTP_CHECK_22=000
-HTTP_CHECK_23=000
-HTTP_CHECK_24=000
-HTTP_CHECK_25=000
-HTTP_CHECK_26=000
-HTTP_CHECK_27=000
-HTTP_CHECK_28=000
-HTTP_CHECK_29=000
-HTTP_CHECK_30=000
-HTTP_CHECK_31=000
-HTTP_CHECK_32=000
-HTTP_CHECK_33=000
-HTTP_CHECK_34=000
-HTTP_CHECK_35=000
-HTTP_CHECK_36=000
-HTTP_CHECK_37=000
-HTTP_CHECK_38=000
-HTTP_CHECK_39=000
-HTTP_CHECK_40=000
-HA HTTP validation failed: 000
-
-=== ROLLBACK / RESTORE PRIMARY ===
-status: stopped
-net0: virtio=BC:24:11:AF:BB:79,bridge=vmbr0,firewall=1,link_down=1
-onboot: 0
+=== XIGMANAS / HA-GENERAL CONTROL PRECHECK ===
+2026-10-06T19:20:11+01:00
+--- HA-General VM905 on Node B ---
 status: running
-      "hardware-address" : "bc:24:11:af:bb:79",
-      "ip-addresses" : [
-         {
-            "ip-address" : "10.10.10.220",
-            "ip-address-type" : "ipv4",
-            "prefix" : 24
-         },
-         {
-            "ip-address" : "fe80::648d:e655:c41e:6332",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         }
-Created symlink '/etc/systemd/system/timers.target.wants/jns-ha-replication.timer' → '/etc/systemd/system/jns-ha-replication.timer'.
-ROLLBACK_COMPLETE 2026-10-06T17:23:35+01:00
+--- QGA ---
+QGA_OK
+--- HA core info ---
+{
+   "exitcode" : 0,
+   "exited" : 1,
+   "out-data" : "arch: amd64\naudio_input: null\naudio_output: null\nbackups_exclude_database: false\nboot: true\nduplicate_log_file: false\nimage: ghcr.io/home-assistant/qemux86-64-homeassistant\nip_address: 172.30.32.1\nmachine: qemux86-64\nport: 80\nssl: false\nupdate_available: false\nversion: 2026.9.4\nversion_latest: 2026.9.4\nwatchdog: true\n",
+   "out-truncated" : 0
+}
+--- XigmaNAS reachability from Node C runner ---
+NAS_PING=UP
+NAS_TCP_22=OPEN
+NAS_TCP_80=CLOSED
+NAS_TCP_443=OPEN
+--- Existing SSH trust to XigmaNAS ---
+NODEC_TO_NAS_SSH=NO_KEY_OR_LOGIN
+--- Node B SSH trust to XigmaNAS ---
+NODEB_TO_NAS_SSH=NO_KEY_OR_LOGIN
+--- HA-General config visibility ---
+{
+   "err-data" : "/bin/bash: syntax error: unexpected \"(\"\n",
+   "err-truncated" : 0,
+   "exitcode" : 2,
+   "exited" : 1
+}
+PRECHECK_COMPLETE
