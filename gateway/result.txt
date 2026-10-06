@@ -1,11 +1,99 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T10:00:51+01:00
+2026-10-06T10:01:25+01:00
 runner=nodec
 
-=== NODE C ROOT SSH GATEWAY CHECK ===
-runner=nodec user=github-runner
-2026-10-06T10:00:51+01:00
+=== NODE C GITHUB RUNNER SSH DISCOVERY ===
+home=/home/github-runner user=github-runner host=nodec
+2026-10-06T10:01:25+01:00
 
-sudo:
-sudo: a password is required
-sudo_noninteractive=NO
+runner ssh:
+total 12
+drwx------ 2 github-runner github-runner 4096 Oct  6 09:53 .
+drwx------ 4 github-runner github-runner 4096 Oct  6 09:53 ..
+-rw-r--r-- 1 github-runner github-runner  284 Oct  6 09:53 known_hosts
+-- config --
+-- public keys --
+
+ssh aliases:
+--- nodea ---
+user github-runner
+hostname nodea
+identityfile ~/.ssh/id_rsa
+identityfile ~/.ssh/id_ecdsa
+identityfile ~/.ssh/id_ecdsa_sk
+identityfile ~/.ssh/id_ed25519
+identityfile ~/.ssh/id_ed25519_sk
+identityfile ~/.ssh/id_xmss
+--- nodeb ---
+user github-runner
+hostname nodeb
+identityfile ~/.ssh/id_rsa
+identityfile ~/.ssh/id_ecdsa
+identityfile ~/.ssh/id_ecdsa_sk
+identityfile ~/.ssh/id_ed25519
+identityfile ~/.ssh/id_ed25519_sk
+identityfile ~/.ssh/id_xmss
+--- node-c ---
+user github-runner
+hostname node-c
+identityfile ~/.ssh/id_rsa
+identityfile ~/.ssh/id_ecdsa
+identityfile ~/.ssh/id_ecdsa_sk
+identityfile ~/.ssh/id_ed25519
+identityfile ~/.ssh/id_ed25519_sk
+identityfile ~/.ssh/id_xmss
+--- node-a ---
+user github-runner
+hostname node-a
+identityfile ~/.ssh/id_rsa
+identityfile ~/.ssh/id_ecdsa
+identityfile ~/.ssh/id_ecdsa_sk
+identityfile ~/.ssh/id_ed25519
+identityfile ~/.ssh/id_ed25519_sk
+identityfile ~/.ssh/id_xmss
+--- node-b ---
+user github-runner
+hostname node-b
+identityfile ~/.ssh/id_rsa
+identityfile ~/.ssh/id_ecdsa
+identityfile ~/.ssh/id_ecdsa_sk
+identityfile ~/.ssh/id_ed25519
+identityfile ~/.ssh/id_ed25519_sk
+identityfile ~/.ssh/id_xmss
+--- 10.10.10.235 ---
+user github-runner
+hostname 10.10.10.235
+identityfile ~/.ssh/id_rsa
+identityfile ~/.ssh/id_ecdsa
+identityfile ~/.ssh/id_ecdsa_sk
+identityfile ~/.ssh/id_ed25519
+identityfile ~/.ssh/id_ed25519_sk
+identityfile ~/.ssh/id_xmss
+--- 10.10.10.226 ---
+user github-runner
+hostname 10.10.10.226
+identityfile ~/.ssh/id_rsa
+identityfile ~/.ssh/id_ecdsa
+identityfile ~/.ssh/id_ecdsa_sk
+identityfile ~/.ssh/id_ed25519
+identityfile ~/.ssh/id_ed25519_sk
+identityfile ~/.ssh/id_xmss
+
+candidate gateway helpers:
+/home/github-runner/actions-runner/bin/Microsoft.DevTunnels.Ssh.dll
+/home/github-runner/actions-runner/bin/Microsoft.DevTunnels.Ssh.Tcp.dll
+
+network:
+default via 10.10.10.254 dev vmbr0 proto kernel onlink 
+10.10.10.0/24 dev vmbr0 proto kernel scope link src 10.10.10.236 
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+nic0             UP             
+vmbr0            UP             10.10.10.236/24 fe80::a00:27ff:fe70:c596/64 
+veth117i0@if2    UP             
+veth130i0@if2    UP             
+
+known host connectivity by aliases:
+--- nodeb ---
+Host key verification failed.
+--- nodea ---
+Host key verification failed.
