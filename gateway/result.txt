@@ -1,15 +1,129 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T14:31:39+01:00
+2026-10-06T14:33:52+01:00
 runner=nodec
 
-=== FIX AND VALIDATE HA-GENERAL TESTING DASHBOARD YAML ===
-2026-10-06T14:31:39+01:00
+=== DISCOVER HA-GENERAL / BLUETOOTH / CLOCK ===
+2026-10-06T14:33:52+01:00
 runner=nodec
 
-Staging corrected dashboard payload on Node B...
-Applying and validating inside Home Assistant...
-{"ok":true,"backup":"/config/dashboards/testing.yaml.jns-fix-20261006-143142.bak","bytes":11732,"views":["Controls","Fans","Sensors","Grow","Protected IT","Commissioning","Other"]}
+===== nodea =====
+-- host/ip --
+nodea
+lo               UNKNOWN        127.0.0.1/8 
+vmbr0            UP             10.10.10.225/24 
+vmbr1            UNKNOWN        10.254.90.1/30 
+-- qm list --
+      VMID NAME                 STATUS     MEM(MB)    BOOTDISK(GB) PID       
+       214 house-audio-a        running    512                8.00 4343      
+       900 homeassistant-recovery stopped    4084             256.00 0         
+       901 homeassistant-standby stopped    4084             256.00 0         
+       902 ha-p0-primary-lite   stopped    2048              32.00 0         
+       903 ha-s1-plant          stopped    2048              32.00 0         
+-- pct list --
+VMID       Status     Lock         Name                
+102        stopped                 CT102               
+116        running                 guardian02          
+118        running                 jns-maintenance     
+210        running                 jns-zigbee-gateway  
+211        stopped                 jns-log-a           
+212        running                 jns-log-a           
+213        stopped                 jns-log-b           
+215        running                 jns-time-a          
+217        running                 jns-dns-a           
+-- names bluetooth/audio/ha --
+/etc/pve/qemu-server/214.conf:name: house-audio-a
 
+===== nodeb =====
+-- host/ip --
+nodeb
+lo               UNKNOWN        127.0.0.1/8 
+vmbr0            UP             10.10.10.235/24 10.10.10.163/24 
+-- qm list --
+      VMID NAME                 STATUS     MEM(MB)    BOOTDISK(GB) PID       
+       219 house-audio-b        running    512                8.00 6445      
+       900 homeassistant-recovery stopped    4084             256.00 0         
+       902 ha-p0-primary-lite   running    2048              32.00 232603    
+       903 ha-s1-plant          running    2048              32.00 5780      
+       904 veyra-source01       stopped    2048              24.00 0         
+       905 ha-s2-general        running    1024              32.00 4595      
+-- pct list --
+VMID       Status     Lock         Name                
+115        running                 guardian01          
+210        stopped                 jns-zigbee-gateway  
+211        stopped                 jns-syslog          
+212        running                 mqtt-infra-a        
+213        running                 jns-log-b           
+214        running                 zigbee2mqtt-a       
+216        running                 jns-time-b          
+218        running                 jns-dns-b           
+220        running                 jns-mgmt-b          
+-- names bluetooth/audio/ha --
+/etc/pve/qemu-server/905.conf:name: ha-s2-general
+/etc/pve/qemu-server/905.conf:name: ha-s2-general
+/etc/pve/qemu-server/219.conf:name: house-audio-b
 
-=== HTTP VERIFY ===
-testing=200
+===== HA900 / OLD CLOCK SEARCH VIA NODE A =====
+VM 900 name: homeassistant-recovery
+net0: virtio=02:94:54:71:AA:9C,bridge=vmbr0
+VM 901 name: homeassistant-standby
+net0: virtio=02:90:01:00:09:01,bridge=vmbr1
+VM 902 name: ha-p0-primary-lite
+net0: virtio=BC:24:11:AF:BB:79,bridge=vmbr0,firewall=1
+VM 903 name: ha-s1-plant
+net0: virtio=BC:24:11:99:4B:E0,bridge=vmbr0,firewall=1
+
+===== ROUTE/ARP RELEVANT =====
+10.10.10.10 dev vmbr0 lladdr 78:a0:3f:2a:aa:46 STALE 
+10.10.10.151 dev vmbr0 lladdr bc:24:11:cb:43:44 REACHABLE 
+10.10.10.152 dev vmbr0 lladdr bc:24:11:b4:6b:25 REACHABLE 
+10.10.10.155 dev vmbr0 lladdr b0:e4:5c:6a:86:0c STALE 
+10.10.10.221 dev vmbr0 lladdr bc:24:11:99:4b:e0 REACHABLE 
+10.10.10.222 dev vmbr0 lladdr 00:90:a9:ef:f2:b7 REACHABLE 
+10.10.10.22 dev vmbr0 lladdr 3e:be:e1:88:73:66 STALE 
+10.10.10.235 dev vmbr0 lladdr ac:22:0b:89:2e:c8 REACHABLE 
+10.10.10.236 dev vmbr0 lladdr 08:00:27:70:c5:96 REACHABLE 
+10.10.10.238 dev vmbr0 lladdr bc:24:11:55:72:55 DELAY 
+10.10.10.239 dev vmbr0 lladdr bc:24:11:62:6b:c5 STALE 
+10.10.10.23 dev vmbr0 lladdr 3c:18:a0:03:4e:77 STALE 
+10.10.10.240 dev vmbr0 lladdr bc:24:11:98:db:ec STALE 
+10.10.10.247 dev vmbr0 lladdr bc:24:11:a5:31:e7 STALE 
+10.10.10.248 dev vmbr0 lladdr bc:24:11:f9:d8:96 STALE 
+10.10.10.254 dev vmbr0 lladdr 00:1d:aa:d8:ff:28 REACHABLE 
+10.10.10.29 dev vmbr0 lladdr 0e:1a:0e:b7:2f:54 STALE 
+fe80::21d:aaff:fed8:ff28 dev vmbr0 lladdr 00:1d:aa:d8:ff:28 router STALE 
+fe80::222:f4ff:fe76:867b dev vmbr0 lladdr 00:22:f4:76:86:7b STALE 
+fe80::3c27:fff:fea4:c188 dev vmbr0 lladdr 3e:27:0f:a4:c1:88 STALE 
+fe80::5e93:a2ff:fe64:3fcb dev vmbr0 lladdr 5c:93:a2:64:3f:cb STALE 
+fe80::6f9:ff:fef6:17 dev vmbr0 lladdr 04:f9:00:f6:00:17 STALE 
+fe80::7aa0:3fff:fe2a:aa46 dev vmbr0 lladdr 78:a0:3f:2a:aa:46 STALE 
+fe80::8410:5c05:a097:5031 dev vmbr0 lladdr d4:3a:2c:be:0e:ee STALE 
+fe80::88be:d7c7:7820:a873 dev vmbr0 lladdr bc:24:11:ab:e2:fa STALE 
+fe80::91b5:9346:e819:ecc2 dev vmbr0 lladdr 54:6c:eb:2e:3d:85 STALE 
+fe80::a0bf:25f8:56ab:1d07 dev vmbr0 lladdr 02:94:54:71:aa:9c STALE 
+fe80::a678:6ff:fe49:9dee dev vmbr0 lladdr a4:78:06:49:9d:ee router STALE 
+fe80::aa73:88cc:5984:bb12 dev vmbr0 lladdr 3c:18:a0:03:4e:77 STALE 
+fe80::acba:aa42:97b4:d3f2 dev vmbr0 lladdr bc:24:11:35:29:7b STALE 
+fe80::b52:a185:a145:9ba0 dev vmbr0 lladdr 54:e1:ad:69:d1:8e STALE 
+fe80::b64d:43ff:fed1:261a dev vmbr0 lladdr b4:4d:43:d1:26:1a router STALE 
+fe80::be24:11ff:fe0f:cd91 dev vmbr0 lladdr bc:24:11:0f:cd:91 STALE 
+fe80::be24:11ff:fe13:bb2b dev vmbr0 lladdr bc:24:11:13:bb:2b STALE 
+fe80::be24:11ff:fe16:ee52 dev vmbr0 lladdr bc:24:11:16:ee:52 STALE 
+fe80::be24:11ff:fe42:c394 dev vmbr0 lladdr bc:24:11:42:c3:94 STALE 
+fe80::be24:11ff:fe52:596c dev vmbr0 lladdr bc:24:11:52:59:6c STALE 
+fe80::be24:11ff:fe55:7255 dev vmbr0 lladdr bc:24:11:55:72:55 STALE 
+fe80::be24:11ff:fe62:6bc5 dev vmbr0 lladdr bc:24:11:62:6b:c5 STALE 
+fe80::be24:11ff:fe77:60c8 dev vmbr0 lladdr bc:24:11:77:60:c8 STALE 
+fe80::be24:11ff:fe86:a5be dev vmbr0 lladdr bc:24:11:86:a5:be STALE 
+fe80::be24:11ff:fe98:dbec dev vmbr0 lladdr bc:24:11:98:db:ec STALE 
+fe80::be24:11ff:fea0:c165 dev vmbr0 lladdr bc:24:11:a0:c1:65 STALE 
+fe80::be24:11ff:fea5:31e7 dev vmbr0 lladdr bc:24:11:a5:31:e7 STALE 
+fe80::be24:11ff:feb4:6b25 dev vmbr0 lladdr bc:24:11:b4:6b:25 STALE 
+fe80::be24:11ff:feb5:a9ce dev vmbr0 lladdr bc:24:11:b5:a9:ce STALE 
+fe80::be24:11ff:feca:bd80 dev vmbr0 lladdr bc:24:11:ca:bd:80 STALE 
+fe80::be24:11ff:fecb:4344 dev vmbr0 lladdr bc:24:11:cb:43:44 STALE 
+fe80::be24:11ff:fed8:3d4 dev vmbr0 lladdr bc:24:11:d8:03:d4 STALE 
+fe80::be24:11ff:fef9:d896 dev vmbr0 lladdr bc:24:11:f9:d8:96 STALE 
+fe80::c1a:eff:feb7:2f54 dev vmbr0 lladdr 0e:1a:0e:b7:2f:54 STALE 
+fe80::d8da:78ff:fe59:aeff dev vmbr0 lladdr da:da:78:59:ae:ff STALE 
+fe80::ebd7:c869:6585:2412 dev vmbr0 lladdr 00:68:eb:33:9e:61 STALE 
+fe80::f600:ff:fe09:2a dev vmbr0 lladdr f4:00:00:09:00:2a STALE 
