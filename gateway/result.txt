@@ -1,14 +1,13 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T11:33:25+01:00
+2026-10-06T11:36:11+01:00
 runner=nodec
 
-=== DEPLOY HA-GENERAL DNS + TESTING DASHBOARD (RETRY 4) ===
-2026-10-06T11:33:25+01:00
+=== ENABLE AND VERIFY HA-GENERAL DNS ===
+2026-10-06T11:36:11+01:00
 runner=nodec
 
-=== 1/6 Configure HA-General DNS aliases ===
 active
-=== 2/6 Verify DNS server answers ===
+
 Server:		127.0.0.1
 Address:	127.0.0.1#53
 
@@ -16,48 +15,23 @@ Non-authoritative answer:
 Name:	ha-general.home.arpa
 Address: 10.10.10.223
 
+
 Server:		127.0.0.1
 Address:	127.0.0.1#53
 
-** server can't find ha-general: NXDOMAIN
+Non-authoritative answer:
+Name:	ha-general
+Address: 10.10.10.223
+
 
   rewrites:
     - domain: ha-general.home.arpa
       answer: 10.10.10.223
-      enabled: false
+      enabled: true
     - domain: ha-general
       answer: 10.10.10.223
-      enabled: false
+      enabled: true
   safe_fs_patterns:
     - /opt/AdGuardHome/userfilters/*
-=== 3/6 Prepare dashboard payload ===
-=== 4/6 Install dashboard through the proven Natural Automation QGA path ===
-CHECK_EXIT 0
-[1mTesting configuration at /config[0m
-
-
-{"ok":true,"backup":"/config/configuration.yaml.jns-testing-20261006-113325.bak","dashboard":"/config/dashboards/testing.yaml","resource":"/config/www/community/auto-entities/auto-entities.js","resource_bytes":97077}
-
-=== 5/6 Restart HA Core ===
-timeout reached, returning pid
-Waiting for HA-General HTTP...
-curl: (7) Failed to connect to 10.10.10.223 port 80 after 0 ms: Could not connect to server
-curl: (7) Failed to connect to 10.10.10.223 port 80 after 0 ms: Could not connect to server
-curl: (7) Failed to connect to 10.10.10.223 port 80 after 0 ms: Could not connect to server
-curl: (7) Failed to connect to 10.10.10.223 port 80 after 85 ms: Could not connect to server
-curl: (7) Failed to connect to 10.10.10.223 port 80 after 254 ms: Could not connect to server
-curl: (7) Failed to connect to 10.10.10.223 port 80 after 0 ms: Could not connect to server
-curl: (7) Failed to connect to 10.10.10.223 port 80 after 0 ms: Could not connect to server
-curl: (7) Failed to connect to 10.10.10.223 port 80 after 0 ms: Could not connect to server
-curl: (7) Failed to connect to 10.10.10.223 port 80 after 0 ms: Could not connect to server
-curl: (7) Failed to connect to 10.10.10.223 port 80 after 0 ms: Could not connect to server
-HA-General HTTP ready after attempt 11.
-=== 6/6 Verify dashboard/resource endpoints ===
-root=200
-testing=200
-auto_entities=200
-
-=== DEPLOYMENT COMPLETE ===
-Companion internal URL: http://ha-general.home.arpa/
-Testing dashboard:      http://ha-general.home.arpa/testing-dashboard/controls
-Commissioning:          http://ha-general.home.arpa/testing-dashboard/commissioning
+  max_http_size: 256MB
+  safebrowsing_cache_size: 1048576
