@@ -1,27 +1,6 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T16:36:43+01:00
+2026-10-06T16:39:00+01:00
 runner=nodec
 
-=== configuration.yaml references ===
-{
-   "exitcode" : 0,
-   "exited" : 1,
-   "out-data" : "15:automation: !include automations.yaml\n",
-   "out-truncated" : 0
-}
-
-=== configuration.yaml head ===
-{
-   "exitcode" : 0,
-   "exited" : 1,
-   "out-data" : "homeassistant:\n  name: HA General\n  packages: !include_dir_named packages\n\nfrontend:\nconfig:\nhttp:\napi:\nwebsocket_api:\nsystem_health:\n\nlogger:\n  default: warning\n\nautomation: !include automations.yaml\nscript: !include scripts.yaml\n\nlovelace:\n  mode: storage\n  resource_mode: yaml\n  resources:\n    - url: /local/community/auto-entities/auto-entities.js?v=1.16.1\n      type: module\n  dashboards:\n    general-controls:\n      mode: yaml\n      title: General\n      icon: mdi:home-automation\n      show_in_sidebar: true\n      filename: dashboards/general.yaml\n    testing-dashboard:\n      mode: yaml\n      title: Testing\n      icon: mdi:test-tube\n      show_in_sidebar: true\n      require_admin: false\n      filename: dashboards/testing.yaml\n",
-   "out-truncated" : 0
-}
-
-=== natural_automation.yaml ===
-{
-   "exitcode" : 0,
-   "exited" : 1,
-   "out-data" : "MISSING\n",
-   "out-truncated" : 0
-}
+37:p='/config/automations.yaml'
+61:        rb=f"""import shutil; shutil.copy2({meta['backup']!r},'/config/automations.yaml')"""
