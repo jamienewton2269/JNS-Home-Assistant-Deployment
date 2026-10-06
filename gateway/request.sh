@@ -1,3 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-ssh nodeb 'echo RESOLVE; getent ahostsv4 nodea || true; echo ROUTE; ip route; echo PING; timeout 5 ping -c 2 nodea || true; echo SSHCFG; ssh -G nodea 2>/dev/null | grep -E "^(hostname|user|port|identityfile|proxycommand) " || true'
+echo "NODEA LAN"
+ssh nodea 'hostname; ip -4 -br addr; ip route'
+echo "NODEB LAN"
+ssh nodeb 'hostname; ip -4 -br addr; ip route'
