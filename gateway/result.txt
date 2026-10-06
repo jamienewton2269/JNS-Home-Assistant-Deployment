@@ -1,8 +1,869 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T16:40:29+01:00
+2026-10-06T16:41:04+01:00
 runner=nodec
 
-187:def analyse(text, progress=None):
-279:    result={"action":action,"request":text,"target_phrase":target,"target":chosen,
-792:function show(d){
-698:let activeRequest='';
+=== INSPECT EXISTING JNS HA SYNC / FAILOVER ===
+
+### nodea
+
+===== /root/jns-maintenance/sync_0_5_1.py =====
+from __future__ import annotations
+
+import hashlib
+import json
+from pathlib import Path
+from typing import Any, Iterable
+
+SAFE_TOP_LEVEL = (
+    "configuration.yaml",
+    "automations.yaml",
+    "scripts.yaml",
+    "scenes.yaml",
+    "ui-lovelace.yaml",
+)
+
+PROTECTED_STORAGE_EXACT = (
+    "core.config_entries",
+    "core.device_registry",
+    "core.entity_registry",
+    "core.area_registry",
+)
+
+PROTECTED_STORAGE_PREFIXES = (
+    "lovelace",
+    "hacs",
+)
+
+EXCLUDED_SOFTWARE_PARTS = {"__pycache__", ".git", ".hg", ".svn"}
+EXCLUDED_SOFTWARE_SUFFIXES = {".pyc", ".pyo"}
+
+
+def _hash_named_blobs(items: Iterable[tuple[str, bytes]]) -> str:
+    digest = hashlib.sha256()
+    for name, payload in sorted(items, key=lambda item: item[0]):
+        digest.update(name.encode("utf-8", errors="surrogateescape"))
+        digest.update(b"\0")
+        digest.update(payload)
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _safe_read(path: Path) -> bytes:
+    try:
+        return path.read_bytes()
+    except OSError:
+        return b"<unreadable>"
+
+
+def _walk_files(root: Path, relative_root: str) -> list[tuple[str, bytes]]:
+    base = root / relative_root
+    if not base.is_dir():
+        return []
+    result: list[tuple[str, bytes]] = []
+    for path in sorted(p for p in base.rglob("*") if p.is_file()):
+        rel = path.relative_to(root)
+        parts = set(rel.parts)
+        if parts & EXCLUDED_SOFTWARE_PARTS:
+            continue
+        if path.suffix.lower() in EXCLUDED_SOFTWARE_SUFFIXES:
+            continue
+        result.append((str(rel).replace("\\", "/"), _safe_read(path)))
+    return result
+
+
+def _safe_config_items(root: Path) -> list[tuple[str, bytes]]:
+    items: list[tuple[str, bytes]] = []
+    for name in SAFE_TOP_LEVEL:
+        path = root / name
+        if path.is_file():
+            items.append((name, _safe_read(path)))
+    packages = root / "packages"
+    if packages.is_dir():
+        for path in sorted(p for p in packages.rglob("*.yaml") if p.is_file()):
+            items.append((str(path.relative_to(root)).replace("\\", "/"), _safe_read(path)))
+    managed = root / "jns" / "sync_managed"
+    if managed.is_dir():
+        for path in sorted(p for p in managed.rglob("*") if p.is_file()):
+            items.append((str(path.relative_to(root)).replace("\\", "/"), _safe_read(path)))
+    return items
+
+
+def _normalise_config_entries(raw: bytes) -> bytes:
+    """Ignore node identity and observed rotating OAuth access tokens."""
+    try:
+        data = json.loads(raw)
+        entries = data.get("data", {}).get("entries")
+        if isinstance(entries, list):
+            normalized = []
+            for item in entries:
+                if item.get("domain") == "jns_ha_cluster":
+                    continue
+                if item.get("domain") == "lyric":
+                    item.pop("modified_at", None)
+                    token = item.get("data", {}).get("token")
+                    if isinstance(token, dict):
+                        token.pop("access_token", None)
+                        token.pop("expires_at", None)
+                if item.get("domain") == "alexa_devices":
+                    login = item.get("data", {}).get("login_data")
+                    if isinstance(login, dict):
+                        login.pop("access_token", None)
+                normalized.append(item)
+            data["data"]["entries"] = normalized
+        return json.dumps(data, sort_keys=True, separators=(",", ":")).encode()
+    except Exception:
+        return raw
+
+
+def _normalise_entity_registry(raw: bytes) -> bytes:
+    """Retain identities and settings; omit node-local JNS entities and timestamps."""
+    try:
+        data = json.loads(raw)
+        entities = data.get("data", {}).get("entities")
+        if isinstance(entities, list):
+            normalized = []
+            for item in entities:
+                if item.get("platform") == "jns_ha_cluster":
+                    continue
+                item.pop("modified_at", None)
+                normalized.append(item)
+            data["data"]["entities"] = normalized
+        return json.dumps(data, sort_keys=True, separators=(",", ":")).encode()
+    except Exception:
+        return raw
+
+
+def _normalise_device_registry(raw: bytes) -> bytes:
+    """Omit node-local cluster device and transient device timestamps."""
+    try:
+        data = json.loads(raw)
+        devices = data.get("data", {}).get("devices")
+        if isinstance(devices, list):
+            normalized = []
+            for item in devices:
+                identifiers = item.get("identifiers", [])
+                if any(isinstance(pair, (list, tuple)) and len(pair) > 1
+                       and pair[0] == "jns_ha_cluster" for pair in identifiers):
+                    continue
+                item.pop("modified_at", None)
+                if item.get("name") == "Whatsapp" and item.get("model") == "Home Assistant App":
+                    item.pop("manufacturer", None)
+                normalized.append(item)
+            data["data"]["devices"] = normalized
+        return json.dumps(data, sort_keys=True, separators=(",", ":")).encode()
+    except Exception:
+        return raw
+
+
+def _normalise_hacs_repositories(raw: bytes) -> bytes:
+    """Hash installed HACS state; catalog metadata refreshes independently."""
+    try:
+        data = json.loads(raw)
+        repos = data.get("data")
+        if not isinstance(repos, dict):
+            return raw
+        stable = ("full_name", "category", "domain", "installed", "installed_commit",
+                  "version_installed", "manifest_name")
+        data["data"] = {
+            key: {field: value[field] for field in stable if field in value}
+            for key, value in repos.items()
+            if isinstance(value, dict) and value.get("installed")
+        }
+        return json.dumps(data, sort_keys=True, separators=(",", ":")).encode()
+    except Exception:
+        return raw
+
+
+def _protected_storage_items(root: Path) -> list[tuple[str, bytes]]:
+    storage = root / ".storage"
+    if not storage.is_dir():
+        return []
+    items: list[tuple[str, bytes]] = []
+    for path in sorted(p for p in storage.iterdir() if p.is_file()):
+        name = path.name
+        if name in PROTECTED_STORAGE_EXACT or any(name.startswith(prefix) for prefix in PROTECTED_STORAGE_PREFIXES):
+            if name == "hacs.data":
+                # This is the downloaded repository catalog, not installed state.
+                continue
+            raw = _safe_read(path)
+            if name == "core.config_entries":
+                raw = _normalise_config_entries(raw)
+            elif name == "core.entity_registry":
+                raw = _normalise_entity_registry(raw)
+            elif name == "core.device_registry":
+                raw = _normalise_device_registry(raw)
+            elif name == "hacs.repositories":
+                raw = _normalise_hacs_repositories(raw)
+            items.append((f".storage/{name}", raw))
+    return items
+
+
+def compute_generations(config_dir: str | Path) -> dict[str, Any]:
+    root = Path(config_dir)
+
+    safe_items = _safe_config_items(root)
+    software_items = []
+    software_items.extend(_walk_files(root, "custom_components"))
+    software_items.extend(_walk_files(root, "www/community"))
+    protected_items = _protected_storage_items(root)
+
+    secrets = root / "secrets.yaml"
+    secrets_generation = hashlib.sha256(_safe_read(secrets)).hexdigest() if secrets.is_file() else None
+
+    return {
+        "config_generation": _hash_named_blobs(safe_items),
+        "software_generation": _hash_named_blobs(software_items),
+        "protected_generation": _hash_named_blobs(protected_items),
+        "secrets_generation": secrets_generation,
+        "safe_file_count": len(safe_items),
+        "software_file_count": len(software_items),
+        "protected_file_count": len(protected_items),
+    }
+
+===== /root/jns-maintenance/deploy_sync.py =====
+#!/usr/bin/env python3
+"""Install a checkpointed JNS generation rule while HA Core is stopped."""
+import hashlib
+import importlib.util
+import sys
+from pathlib import Path
+
+spec = importlib.util.spec_from_file_location('stage', '/root/jns-maintenance/stage_ha_options.py')
+stage = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(stage)
+
+ORIGINAL_SHA256 = 'cf9707ec3706f0dc6df23cd0209869f327e26c85ec80b318e03f568a8dc8309d'
+ROOT = '/mnt/data/supervisor/homeassistant'
+TARGET = ROOT + '/custom_components/jns_ha_cluster/sync.py'
+BACKUP = ROOT + '/.jns-rollback/sync.py.pre-normalise-20260926'
+TEMP = TARGET + '.jns-stage-20260926'
+SOURCE = Path('/root/jns-maintenance/sync_0_5_1.py')
+
+def main():
+    vmid = int(sys.argv[1])
+    mode = sys.argv[2]
+    assert vmid in (900, 901) and mode in ('inspect', 'install', 'rollback')
+    source = SOURCE.read_bytes()
+    compile(source, str(SOURCE), 'exec')
+    newhash = hashlib.sha256(source).hexdigest()
+    qga = stage.Qga(vmid)
+    current = qga.read(TARGET)
+    oldhash = hashlib.sha256(current).hexdigest()
+    print('vm', vmid, 'current_sha256', oldhash, 'candidate_sha256', newhash)
+    if mode == 'inspect':
+        assert oldhash in (ORIGINAL_SHA256, newhash)
+        return
+    if mode == 'install':
+        assert oldhash == ORIGINAL_SHA256
+        qga.exec('/bin/test', ['!', '-e', BACKUP])
+        qga.write(BACKUP, current)
+        qga.exec('/bin/chmod', ['600', BACKUP])
+        payload = source
+    else:
+        assert oldhash == newhash
+        payload = qga.read(BACKUP)
+        assert hashlib.sha256(payload).hexdigest() == ORIGINAL_SHA256
+    qga.exec('/bin/test', ['!', '-e', TEMP])
+    qga.write(TEMP, payload)
+    qga.exec('/bin/chmod', ['644', TEMP])
+    assert qga.read(TEMP) == payload
+    qga.exec('/bin/mv', [TEMP, TARGET])
+    assert qga.read(TARGET) == payload
+    print(mode, 'verified; backup retained')
+
+if __name__ == '__main__':
+    main()
+
+===== /usr/local/sbin/jns-maint-ha-failover =====
+#!/usr/bin/env bash
+set -Eeuo pipefail
+action="${1:-}"
+wd_dir="/mnt/pve/WD-BACKUP/dump"
+
+storage_active() {
+  pvesm status --storage "$1" | awk 'NR==2 && $3=="active"{ok=1} END{exit !ok}'
+}
+require_901_stopped() {
+  qm status 901 | grep -q '^status: stopped$' || {
+    echo "VM901 must be stopped for this action" >&2
+    exit 79
+  }
+}
+require_offline_net() {
+  local cfg
+  cfg="$(qm config 901)"
+  grep -Eq '^net0: .*bridge=vmbr0' <<<"$cfg" || {
+    echo "VM901 net0 is not attached to vmbr0" >&2
+    exit 79
+  }
+  grep -Eq '^net0: .*link_down=1' <<<"$cfg" || {
+    echo "VM901 net0 is not hard-disabled" >&2
+    exit 79
+  }
+}
+
+case "$action" in
+  inventory)
+    hostname
+    printf '\n=== QEMU ===\n'; qm list
+    printf '\n=== STORAGE ===\n'; pvesm status
+    printf '\n=== LINKS ===\n'; ip -br link
+    ;;
+  primary-status)
+    qm status 900
+    qm config 900
+    printf '\n=== WD-BACKUP ===\n'
+    pvesm status --storage WD-BACKUP
+    pvesm list WD-BACKUP --content backup
+    ;;
+  standby-status)
+    if qm status 901 >/dev/null 2>&1; then
+      qm status 901
+      qm config 901
+    else
+      echo "VM901 absent"
+    fi
+    printf '\n=== vmdata ===\n'
+    pvesm status --storage vmdata
+    printf '\n=== WD-BACKUP ===\n'
+    pvesm status --storage WD-BACKUP
+    ;;
+  standby-host-capacity)
+    printf '=== MEMORY ===\n'; free -h
+    printf '\n=== LOAD ===\n'; uptime
+    printf '\n=== vmdata ===\n'; pvesm status --storage vmdata
+    printf '\n=== VM901 ===\n'; qm status 901; qm config 901
+    ;;
+  standby-guest-status)
+    printf '=== VM901 ===\n'; qm status 901; qm config 901
+    if qm status 901 | grep -q '^status: running$'; then
+      printf '\n=== QGA NETWORK ===\n'
+      qm guest cmd 901 network-get-interfaces 2>&1 || true
+      printf '\n=== QGA OS ===\n'
+      qm guest cmd 901 get-osinfo 2>&1 || true
+      printf '\n=== QGA TIME ===\n'
+      qm guest cmd 901 get-time 2>&1 || true
+    fi
+    ;;
+  standby-prepare-offline)
+    require_901_stopped
+    qm config 901 | grep -Eq '^net[0-9]+:' && {
+      echo "VM901 already has a network device; refusing to overwrite it" >&2
+      exit 77
+    }
+    qm config 901 | grep -Eq '^(usb|hostpci)[0-9]+:' && {
+      echo "VM901 has passthrough hardware; refusing offline preparation" >&2
+      exit 77
+    }
+    qm set 901 --net0 'virtio=02:90:01:00:09:01,bridge=vmbr0,link_down=1'
+    qm set 901 --onboot 0
+    require_offline_net
+    printf 'VM901 offline NIC prepared.\n'
+    qm config 901
+    ;;
+  standby-start-offline)
+    require_901_stopped
+    require_offline_net
+    qm config 901 | grep -q '^onboot: 0$' || {
+      echo "VM901 onboot is not disabled" >&2
+      exit 79
+    }
+    qm config 901 | grep -Eq '^(usb|hostpci)[0-9]+:' && {
+      echo "VM901 has passthrough hardware; refusing start" >&2
+      exit 77
+    }
+    qm start 901
+    qm status 901
+    ;;
+  standby-stop)
+    if qm status 901 | grep -q '^status: running$'; then
+      qm shutdown 901 --timeout 90 || qm stop 901
+    fi
+    qm status 901 | grep -q '^status: stopped$' || {
+      echo "VM901 did not stop" >&2
+      exit 79
+    }
+    qm status 901
+    ;;
+  standby-detach-net)
+    require_901_stopped
+    if qm config 901 | grep -q '^net0:'; then
+      require_offline_net
+      qm set 901 --delete net0
+    fi
+    qm config 901 | grep -q '^net0:' && {
+      echo "VM901 net0 still present" >&2
+      exit 79
+    }
+    qm config 901
+    ;;
+  backup900)
+    qm status 900 | grep -q '^status: running$' || { echo "VM900 is not running" >&2; exit 78; }
+    storage_active WD-BACKUP || { echo "WD-BACKUP is not active" >&2; exit 78; }
+    vzdump 900 --storage WD-BACKUP --mode snapshot --compress zstd --remove 0
+    latest="$(ls -1t "$wd_dir"/vzdump-qemu-900-*.vma.zst | head -1)"
+    [[ -n "$latest" && -f "$latest" ]] || { echo "Fresh VM900 backup not found" >&2; exit 1; }
+    base="${latest##*/}"
+    (cd "$wd_dir" && sha256sum "$base" > "$base.sha256")
+    printf 'BACKUP=%s\n' "$base"
+    cat "$latest.sha256"
+    ;;
+  restore901)
+    base="${2:-}"
+    [[ "$base" =~ ^vzdump-qemu-900-[0-9]{4}_[0-9]{2}_[0-9]{2}-[0-9]{2}_[0-9]{2}_[0-9]{2}\.vma\.zst$ ]] || { echo "Invalid VM900 backup filename" >&2; exit 64; }
+    if qm status 901 >/dev/null 2>&1; then echo "VM901 already exists; refusing overwrite" >&2; exit 77; fi
+    archive="$wd_dir/$base"
+    [[ -f "$archive" && -f "$archive.sha256" ]] || { echo "Backup or checksum missing" >&2; exit 66; }
+    (cd "$wd_dir" && sha256sum -c --status "$base.sha256") || { echo "Backup checksum verification failed" >&2; exit 65; }
+    storage_active vmdata || { echo "vmdata is not active" >&2; exit 78; }
+    qmrestore "$archive" 901 --storage vmdata --unique 1
+    qm set 901 --onboot 0 --name homeassistant-standby
+    while read -r key; do [[ -n "$key" ]] && qm set 901 --delete "$key"; done < <(qm config 901 | awk -F: '/^(net|usb|hostpci)[0-9]+:/{print $1}')
+    qm status 901 | grep -q '^status: stopped$' || { echo "VM901 unexpectedly not stopped after restore" >&2; exit 79; }
+    qm config 901
+    ;;
+  *)
+    echo "Unsupported JNS HA failover action" >&2
+    exit 64
+    ;;
+esac
+
+===== /etc/systemd/system/jns-ha-guest-sync.service =====
+[Unit]
+Description=JNS HA read-only local VM generation probe
+After=pve-cluster.service
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -B /opt/jns-ha-telemetry-agent/guest_probe.py
+TimeoutStartSec=60
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/run/jns-ha-telemetry
+
+===== /etc/systemd/system/jns-ha-guest-sync.timer =====
+[Unit]
+Description=Refresh JNS HA local VM generations
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=90s
+AccuracySec=5s
+Unit=jns-ha-guest-sync.service
+[Install]
+WantedBy=timers.target
+
+===== MAINTENANCE TREE =====
+2026-09-25 20:47     5599 /root/jns-maintenance/stage_ha_options.py
+2026-09-26 10:39     4018 /root/jns-maintenance/__pycache__/repair_device_registry.cpython-313.pyc
+2026-09-26 10:42     1929 /root/jns-maintenance/deploy_sync.py
+2026-09-26 10:42     7882 /root/jns-maintenance/sync_0_5_1.py
+2026-09-26 10:56     5010 /root/jns-maintenance/peer_inventory_patch.py
+2026-09-26 11:02     2359 /root/jns-maintenance/lease_enforcement.py
+2026-09-26 11:21     9419 /root/jns-maintenance/__pycache__/stage_ha_options.cpython-313.pyc
+
+### nodeb
+
+===== /root/jns-maintenance/sync_0_5_1.py =====
+from __future__ import annotations
+
+import hashlib
+import json
+from pathlib import Path
+from typing import Any, Iterable
+
+SAFE_TOP_LEVEL = (
+    "configuration.yaml",
+    "automations.yaml",
+    "scripts.yaml",
+    "scenes.yaml",
+    "ui-lovelace.yaml",
+)
+
+PROTECTED_STORAGE_EXACT = (
+    "core.config_entries",
+    "core.device_registry",
+    "core.entity_registry",
+    "core.area_registry",
+)
+
+PROTECTED_STORAGE_PREFIXES = (
+    "lovelace",
+    "hacs",
+)
+
+EXCLUDED_SOFTWARE_PARTS = {"__pycache__", ".git", ".hg", ".svn"}
+EXCLUDED_SOFTWARE_SUFFIXES = {".pyc", ".pyo"}
+
+
+def _hash_named_blobs(items: Iterable[tuple[str, bytes]]) -> str:
+    digest = hashlib.sha256()
+    for name, payload in sorted(items, key=lambda item: item[0]):
+        digest.update(name.encode("utf-8", errors="surrogateescape"))
+        digest.update(b"\0")
+        digest.update(payload)
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _safe_read(path: Path) -> bytes:
+    try:
+        return path.read_bytes()
+    except OSError:
+        return b"<unreadable>"
+
+
+def _walk_files(root: Path, relative_root: str) -> list[tuple[str, bytes]]:
+    base = root / relative_root
+    if not base.is_dir():
+        return []
+    result: list[tuple[str, bytes]] = []
+    for path in sorted(p for p in base.rglob("*") if p.is_file()):
+        rel = path.relative_to(root)
+        parts = set(rel.parts)
+        if parts & EXCLUDED_SOFTWARE_PARTS:
+            continue
+        if path.suffix.lower() in EXCLUDED_SOFTWARE_SUFFIXES:
+            continue
+        result.append((str(rel).replace("\\", "/"), _safe_read(path)))
+    return result
+
+
+def _safe_config_items(root: Path) -> list[tuple[str, bytes]]:
+    items: list[tuple[str, bytes]] = []
+    for name in SAFE_TOP_LEVEL:
+        path = root / name
+        if path.is_file():
+            items.append((name, _safe_read(path)))
+    packages = root / "packages"
+    if packages.is_dir():
+        for path in sorted(p for p in packages.rglob("*.yaml") if p.is_file()):
+            items.append((str(path.relative_to(root)).replace("\\", "/"), _safe_read(path)))
+    managed = root / "jns" / "sync_managed"
+    if managed.is_dir():
+        for path in sorted(p for p in managed.rglob("*") if p.is_file()):
+            items.append((str(path.relative_to(root)).replace("\\", "/"), _safe_read(path)))
+    return items
+
+
+def _normalise_config_entries(raw: bytes) -> bytes:
+    """Ignore node identity and observed rotating OAuth access tokens."""
+    try:
+        data = json.loads(raw)
+        entries = data.get("data", {}).get("entries")
+        if isinstance(entries, list):
+            normalized = []
+            for item in entries:
+                if item.get("domain") == "jns_ha_cluster":
+                    continue
+                if item.get("domain") == "lyric":
+                    item.pop("modified_at", None)
+                    token = item.get("data", {}).get("token")
+                    if isinstance(token, dict):
+                        token.pop("access_token", None)
+                        token.pop("expires_at", None)
+                if item.get("domain") == "alexa_devices":
+                    login = item.get("data", {}).get("login_data")
+                    if isinstance(login, dict):
+                        login.pop("access_token", None)
+                normalized.append(item)
+            data["data"]["entries"] = normalized
+        return json.dumps(data, sort_keys=True, separators=(",", ":")).encode()
+    except Exception:
+        return raw
+
+
+def _normalise_entity_registry(raw: bytes) -> bytes:
+    """Retain identities and settings; omit node-local JNS entities and timestamps."""
+    try:
+        data = json.loads(raw)
+        entities = data.get("data", {}).get("entities")
+        if isinstance(entities, list):
+            normalized = []
+            for item in entities:
+                if item.get("platform") == "jns_ha_cluster":
+                    continue
+                item.pop("modified_at", None)
+                normalized.append(item)
+            data["data"]["entities"] = normalized
+        return json.dumps(data, sort_keys=True, separators=(",", ":")).encode()
+    except Exception:
+        return raw
+
+
+def _normalise_device_registry(raw: bytes) -> bytes:
+    """Omit node-local cluster device and transient device timestamps."""
+    try:
+        data = json.loads(raw)
+        devices = data.get("data", {}).get("devices")
+        if isinstance(devices, list):
+            normalized = []
+            for item in devices:
+                identifiers = item.get("identifiers", [])
+                if any(isinstance(pair, (list, tuple)) and len(pair) > 1
+                       and pair[0] == "jns_ha_cluster" for pair in identifiers):
+                    continue
+                item.pop("modified_at", None)
+                if item.get("name") == "Whatsapp" and item.get("model") == "Home Assistant App":
+                    item.pop("manufacturer", None)
+                normalized.append(item)
+            data["data"]["devices"] = normalized
+        return json.dumps(data, sort_keys=True, separators=(",", ":")).encode()
+    except Exception:
+        return raw
+
+
+def _normalise_hacs_repositories(raw: bytes) -> bytes:
+    """Hash installed HACS state; catalog metadata refreshes independently."""
+    try:
+        data = json.loads(raw)
+        repos = data.get("data")
+        if not isinstance(repos, dict):
+            return raw
+        stable = ("full_name", "category", "domain", "installed", "installed_commit",
+                  "version_installed", "manifest_name")
+        data["data"] = {
+            key: {field: value[field] for field in stable if field in value}
+            for key, value in repos.items()
+            if isinstance(value, dict) and value.get("installed")
+        }
+        return json.dumps(data, sort_keys=True, separators=(",", ":")).encode()
+    except Exception:
+        return raw
+
+
+def _protected_storage_items(root: Path) -> list[tuple[str, bytes]]:
+    storage = root / ".storage"
+    if not storage.is_dir():
+        return []
+    items: list[tuple[str, bytes]] = []
+    for path in sorted(p for p in storage.iterdir() if p.is_file()):
+        name = path.name
+        if name in PROTECTED_STORAGE_EXACT or any(name.startswith(prefix) for prefix in PROTECTED_STORAGE_PREFIXES):
+            if name == "hacs.data":
+                # This is the downloaded repository catalog, not installed state.
+                continue
+            raw = _safe_read(path)
+            if name == "core.config_entries":
+                raw = _normalise_config_entries(raw)
+            elif name == "core.entity_registry":
+                raw = _normalise_entity_registry(raw)
+            elif name == "core.device_registry":
+                raw = _normalise_device_registry(raw)
+            elif name == "hacs.repositories":
+                raw = _normalise_hacs_repositories(raw)
+            items.append((f".storage/{name}", raw))
+    return items
+
+
+def compute_generations(config_dir: str | Path) -> dict[str, Any]:
+    root = Path(config_dir)
+
+    safe_items = _safe_config_items(root)
+    software_items = []
+    software_items.extend(_walk_files(root, "custom_components"))
+    software_items.extend(_walk_files(root, "www/community"))
+    protected_items = _protected_storage_items(root)
+
+    secrets = root / "secrets.yaml"
+    secrets_generation = hashlib.sha256(_safe_read(secrets)).hexdigest() if secrets.is_file() else None
+
+    return {
+        "config_generation": _hash_named_blobs(safe_items),
+        "software_generation": _hash_named_blobs(software_items),
+        "protected_generation": _hash_named_blobs(protected_items),
+        "secrets_generation": secrets_generation,
+        "safe_file_count": len(safe_items),
+        "software_file_count": len(software_items),
+        "protected_file_count": len(protected_items),
+    }
+
+===== /root/jns-maintenance/deploy_sync.py =====
+#!/usr/bin/env python3
+"""Install a checkpointed JNS generation rule while HA Core is stopped."""
+import hashlib
+import importlib.util
+import sys
+from pathlib import Path
+
+spec = importlib.util.spec_from_file_location('stage', '/root/jns-maintenance/stage_ha_options.py')
+stage = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(stage)
+
+ORIGINAL_SHA256 = 'cf9707ec3706f0dc6df23cd0209869f327e26c85ec80b318e03f568a8dc8309d'
+ROOT = '/mnt/data/supervisor/homeassistant'
+TARGET = ROOT + '/custom_components/jns_ha_cluster/sync.py'
+BACKUP = ROOT + '/.jns-rollback/sync.py.pre-normalise-20260926'
+TEMP = TARGET + '.jns-stage-20260926'
+SOURCE = Path('/root/jns-maintenance/sync_0_5_1.py')
+
+def main():
+    vmid = int(sys.argv[1])
+    mode = sys.argv[2]
+    assert vmid in (900, 901) and mode in ('inspect', 'install', 'rollback')
+    source = SOURCE.read_bytes()
+    compile(source, str(SOURCE), 'exec')
+    newhash = hashlib.sha256(source).hexdigest()
+    qga = stage.Qga(vmid)
+    current = qga.read(TARGET)
+    oldhash = hashlib.sha256(current).hexdigest()
+    print('vm', vmid, 'current_sha256', oldhash, 'candidate_sha256', newhash)
+    if mode == 'inspect':
+        assert oldhash in (ORIGINAL_SHA256, newhash)
+        return
+    if mode == 'install':
+        assert oldhash == ORIGINAL_SHA256
+        qga.exec('/bin/test', ['!', '-e', BACKUP])
+        qga.write(BACKUP, current)
+        qga.exec('/bin/chmod', ['600', BACKUP])
+        payload = source
+    else:
+        assert oldhash == newhash
+        payload = qga.read(BACKUP)
+        assert hashlib.sha256(payload).hexdigest() == ORIGINAL_SHA256
+    qga.exec('/bin/test', ['!', '-e', TEMP])
+    qga.write(TEMP, payload)
+    qga.exec('/bin/chmod', ['644', TEMP])
+    assert qga.read(TEMP) == payload
+    qga.exec('/bin/mv', [TEMP, TARGET])
+    assert qga.read(TARGET) == payload
+    print(mode, 'verified; backup retained')
+
+if __name__ == '__main__':
+    main()
+
+===== /usr/local/sbin/jns-maint-ha-failover =====
+#!/usr/bin/env bash
+set -Eeuo pipefail
+action="${1:-}"
+wd_dir="/mnt/pve/WD-BACKUP/dump"
+
+storage_active() {
+  pvesm status --storage "$1" | awk 'NR==2 && $3=="active"{ok=1} END{exit !ok}'
+}
+
+case "$action" in
+  inventory)
+    hostname
+    printf '\n=== QEMU ===\n'; qm list
+    printf '\n=== STORAGE ===\n'; pvesm status
+    printf '\n=== LINKS ===\n'; ip -br link
+    ;;
+  primary-status)
+    qm status 900
+    qm config 900
+    printf '\n=== WD-BACKUP ===\n'
+    pvesm status --storage WD-BACKUP
+    pvesm list WD-BACKUP --content backup
+    ;;
+  standby-status)
+    if qm status 901 >/dev/null 2>&1; then
+      qm status 901
+      qm config 901
+    else
+      echo "VM901 absent"
+    fi
+    printf '\n=== vmdata ===\n'
+    pvesm status --storage vmdata
+    printf '\n=== WD-BACKUP ===\n'
+    pvesm status --storage WD-BACKUP
+    ;;
+  backup900)
+    qm status 900 | grep -q '^status: running$' || {
+      echo "VM900 is not running; refusing live-primary backup" >&2
+      exit 78
+    }
+    storage_active WD-BACKUP || {
+      echo "WD-BACKUP is not active" >&2
+      exit 78
+    }
+    vzdump 900 --storage WD-BACKUP --mode snapshot --compress zstd --remove 0
+    latest="$(ls -1t "$wd_dir"/vzdump-qemu-900-*.vma.zst | head -1)"
+    [[ -n "$latest" && -f "$latest" ]] || {
+      echo "Fresh VM900 backup not found" >&2
+      exit 1
+    }
+    base="${latest##*/}"
+    (
+      cd "$wd_dir"
+      sha256sum "$base" > "$base.sha256"
+    )
+    printf 'BACKUP=%s\n' "$base"
+    cat "$latest.sha256"
+    ;;
+  restore901)
+    base="${2:-}"
+    [[ "$base" =~ ^vzdump-qemu-900-[0-9]{4}_[0-9]{2}_[0-9]{2}-[0-9]{2}_[0-9]{2}_[0-9]{2}\.vma\.zst$ ]] || {
+      echo "Invalid VM900 backup filename" >&2
+      exit 64
+    }
+    if qm status 901 >/dev/null 2>&1; then
+      echo "VM901 already exists; refusing overwrite" >&2
+      exit 77
+    fi
+    archive="$wd_dir/$base"
+    [[ -f "$archive" && -f "$archive.sha256" ]] || {
+      echo "Backup or checksum missing" >&2
+      exit 66
+    }
+    (
+      cd "$wd_dir"
+      sha256sum -c --status "$base.sha256"
+    ) || {
+      echo "Backup checksum verification failed" >&2
+      exit 65
+    }
+    storage_active vmdata || {
+      echo "vmdata is not active" >&2
+      exit 78
+    }
+    qmrestore "$archive" 901 --storage vmdata --unique 1
+    qm set 901 --onboot 0 --name homeassistant-standby
+    while read -r key; do
+      [[ -n "$key" ]] && qm set 901 --delete "$key"
+    done < <(qm config 901 | awk -F: '/^(net|usb|hostpci)[0-9]+:/{print $1}')
+    qm status 901 | grep -q '^status: stopped$' || {
+      echo "VM901 unexpectedly not stopped after restore" >&2
+      exit 79
+    }
+    printf '\n=== RESTORED VM901 ===\n'
+    qm config 901
+    ;;
+  *)
+    echo "Unsupported JNS HA failover action" >&2
+    exit 64
+    ;;
+esac
+
+===== /etc/systemd/system/jns-ha-guest-sync.service =====
+[Unit]
+Description=JNS HA read-only local VM generation probe
+After=pve-cluster.service
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -B /opt/jns-ha-telemetry-agent/guest_probe.py
+TimeoutStartSec=60
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/run/jns-ha-telemetry
+
+===== /etc/systemd/system/jns-ha-guest-sync.timer =====
+[Unit]
+Description=Refresh JNS HA local VM generations
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=90s
+AccuracySec=5s
+Unit=jns-ha-guest-sync.service
+[Install]
+WantedBy=timers.target
+
+===== MAINTENANCE TREE =====
+2026-09-25 20:47     5599 /root/jns-maintenance/stage_ha_options.py
+2026-09-26 10:42     1929 /root/jns-maintenance/deploy_sync.py
+2026-09-26 10:42     7882 /root/jns-maintenance/sync_0_5_1.py
+2026-09-26 10:56     5010 /root/jns-maintenance/peer_inventory_patch.py
+2026-09-26 11:02     2359 /root/jns-maintenance/lease_enforcement.py
+2026-09-26 11:05     9419 /root/jns-maintenance/__pycache__/stage_ha_options.cpython-313.pyc
