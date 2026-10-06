@@ -1,15 +1,23 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-echo "=== HA-GENERAL NAS CONTROL CAPABILITY CHECK ==="
+echo "=== PREPARE XIGMANAS CONTROL KEY ==="
 date -Is
 ssh nodeb '
-  echo "--- HA Core ssh client ---"
-  qm guest exec 905 -- /bin/bash -lc "docker exec homeassistant sh -lc \"command -v ssh || true; command -v ping || true; command -v nc || true\"" || true
-
-  echo "--- HA config location ---"
-  qm guest exec 905 -- /bin/bash -lc "ls -ld /mnt/data/supervisor/homeassistant; test -f /mnt/data/supervisor/homeassistant/configuration.yaml && echo CONFIG_OK; grep -n \"packages:\" /mnt/data/supervisor/homeassistant/configuration.yaml || true" || true
-
-  echo "--- NAS plug entity registry match ---"
-  qm guest exec 905 -- /bin/bash -lc "grep -i -n -m 10 -E \"nas[_ -]?server|nas_plug|wdnas\" /mnt/data/supervisor/homeassistant/.storage/core.entity_registry 2>/dev/null || true" || true
+  set -Eeuo pipefail
+  install -d -m 700 /root/.ssh
+  key=/root/.ssh/jns_xigmanas_ed25519
+  if [ ! -f "$key" ]; then
+    ssh-keygen -q -t ed25519 -N "" -C "ha-general-xigmanas-control" -f "$key"
+    chmod 600 "$key"
+    chmod 644 "$key.pub"
+    echo KEY_CREATED
+  else
+    echo KEY_ALREADY_PRESENT
+  fi
+  echo PUBLIC_KEY_BEGIN
+  cat "$key.pub"
+  echo PUBLIC_KEY_END
+  echo "--- HA config path ---"
+  qm guest exec 905 -- /bin/bash -lc "ls -ld /mnt/data/supervisor/homeassistant 2>/dev/null || true; test -f /mnt/data/supervisor/homeassistant/configuration.yaml && echo CONFIG_OK || true" || true
 '
-echo CHECK_COMPLETE
+echo PREP_COMPLETE
