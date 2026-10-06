@@ -1,37 +1,19 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T11:36:11+01:00
+2026-10-06T12:45:57+01:00
 runner=nodec
 
-=== ENABLE AND VERIFY HA-GENERAL DNS ===
-2026-10-06T11:36:11+01:00
+=== FIX AND VALIDATE HA-GENERAL TESTING DASHBOARD YAML ===
+2026-10-06T12:45:57+01:00
 runner=nodec
 
-active
+Sending corrected dashboard payload to Node B...
+Traceback (most recent call last):
+  File "<stdin>", line 39, in <module>
+  File "/opt/natural-automation/natural_automation.py", line 40, in qga_python
+    if r.get("exitcode")!=0: raise RuntimeError(r.get("err-data") or "guest command failed")
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError:   File "<string>", line 5
+    target=Path(/config/dashboards/testing.yaml)
+                ^
+SyntaxError: invalid syntax
 
-Server:		127.0.0.1
-Address:	127.0.0.1#53
-
-Non-authoritative answer:
-Name:	ha-general.home.arpa
-Address: 10.10.10.223
-
-
-Server:		127.0.0.1
-Address:	127.0.0.1#53
-
-Non-authoritative answer:
-Name:	ha-general
-Address: 10.10.10.223
-
-
-  rewrites:
-    - domain: ha-general.home.arpa
-      answer: 10.10.10.223
-      enabled: true
-    - domain: ha-general
-      answer: 10.10.10.223
-      enabled: true
-  safe_fs_patterns:
-    - /opt/AdGuardHome/userfilters/*
-  max_http_size: 256MB
-  safebrowsing_cache_size: 1048576
