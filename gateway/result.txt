@@ -1,18 +1,9 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T11:26:51+01:00
+2026-10-06T11:30:07+01:00
 runner=nodec
 
-=== HA-GENERAL LOVELACE BLOCK ===
-2026-10-06T11:26:51+01:00
+=== DEPLOY HA-GENERAL DNS + TESTING DASHBOARD ===
+2026-10-06T11:30:07+01:00
 runner=nodec
 
-lovelace:
-  mode: storage
-  dashboards:
-    general-controls:
-      mode: yaml
-      title: General
-      icon: mdi:home-automation
-      show_in_sidebar: true
-      filename: dashboards/general.yaml
-
+touch: cannot touch '/home/github-runner/steward-web/docs/script-catalogue.txt': Permission denied
