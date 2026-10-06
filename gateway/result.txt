@@ -1,9 +1,8 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T10:50:29+01:00
+2026-10-06T10:52:20+01:00
 runner=nodec
 
-=== CT130 NETWORK MONITOR PREFLIGHT ===
-runner=nodec user=github-runner
-2026-10-06T10:50:29+01:00
--- CT130 status --
-sudo: a password is required
+=== CT130 MONITOR READ-ONLY CHECK ===
+2026-10-06T10:52:20+01:00
+host=nodea
+Configuration file 'nodes/nodea/lxc/130.conf' does not exist
