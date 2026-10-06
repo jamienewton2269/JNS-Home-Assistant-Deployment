@@ -1,12 +1,8 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T16:49:36+01:00
+2026-10-06T16:50:19+01:00
 runner=nodec
 
-SERVICE
-activating
-LOG
-START 2026-10-06T16:47:43+01:00
-JNS-HA-REPLICA-RECEIVER OK
+CHECK 1 2026-10-06T16:50:19+01:00 state=activating
 === VM 902 ===
 target: status: stopped
 guest filesystem frozen
@@ -15,8 +11,142 @@ vmdata/vm-902-disk-0: preserved old target dataset
 vmdata/vm-902-disk-0: full send
 vmdata/vm-902-disk-1: preserved old target dataset
 vmdata/vm-902-disk-1: full send
-PROCESS
-1214413       01:52 bash /usr/local/sbin/jns-ha-replicate
-1214714       01:39 zfs send -p vmdata/vm-902-disk-1@jns-repl-20261006T164743
-1214715       01:39 ssh -i /root/.ssh/jns_ha_replication -o BatchMode=yes -o ConnectTimeout=8 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 root@10.10.10.225 receive vmdata/vm-902-disk-1
+
+CHECK 2 2026-10-06T16:50:39+01:00 state=activating
+=== VM 902 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-902-disk-0: preserved old target dataset
+vmdata/vm-902-disk-0: full send
+vmdata/vm-902-disk-1: preserved old target dataset
+vmdata/vm-902-disk-1: full send
+
+CHECK 3 2026-10-06T16:50:59+01:00 state=activating
+=== VM 902 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-902-disk-0: preserved old target dataset
+vmdata/vm-902-disk-0: full send
+vmdata/vm-902-disk-1: preserved old target dataset
+vmdata/vm-902-disk-1: full send
+
+CHECK 4 2026-10-06T16:51:19+01:00 state=activating
+=== VM 902 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-902-disk-0: preserved old target dataset
+vmdata/vm-902-disk-0: full send
+vmdata/vm-902-disk-1: preserved old target dataset
+vmdata/vm-902-disk-1: full send
+
+CHECK 5 2026-10-06T16:51:39+01:00 state=activating
+=== VM 902 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-902-disk-0: preserved old target dataset
+vmdata/vm-902-disk-0: full send
+vmdata/vm-902-disk-1: preserved old target dataset
+vmdata/vm-902-disk-1: full send
+
+CHECK 6 2026-10-06T16:51:59+01:00 state=activating
+=== VM 902 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-902-disk-0: preserved old target dataset
+vmdata/vm-902-disk-0: full send
+vmdata/vm-902-disk-1: preserved old target dataset
+vmdata/vm-902-disk-1: full send
+
+CHECK 7 2026-10-06T16:52:20+01:00 state=activating
+=== VM 902 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-902-disk-0: preserved old target dataset
+vmdata/vm-902-disk-0: full send
+vmdata/vm-902-disk-1: preserved old target dataset
+vmdata/vm-902-disk-1: full send
+
+CHECK 8 2026-10-06T16:52:40+01:00 state=activating
+=== VM 902 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-902-disk-0: preserved old target dataset
+vmdata/vm-902-disk-0: full send
+vmdata/vm-902-disk-1: preserved old target dataset
+vmdata/vm-902-disk-1: full send
+
+CHECK 9 2026-10-06T16:53:00+01:00 state=activating
+=== VM 902 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-902-disk-0: preserved old target dataset
+vmdata/vm-902-disk-0: full send
+vmdata/vm-902-disk-1: preserved old target dataset
+vmdata/vm-902-disk-1: full send
+
+CHECK 10 2026-10-06T16:53:20+01:00 state=activating
+=== VM 902 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-902-disk-0: preserved old target dataset
+vmdata/vm-902-disk-0: full send
+vmdata/vm-902-disk-1: preserved old target dataset
+vmdata/vm-902-disk-1: full send
+
+CHECK 11 2026-10-06T16:53:40+01:00 state=activating
+=== VM 902 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-902-disk-0: preserved old target dataset
+vmdata/vm-902-disk-0: full send
+vmdata/vm-902-disk-1: preserved old target dataset
+vmdata/vm-902-disk-1: full send
+
+CHECK 12 2026-10-06T16:54:00+01:00 state=activating
+=== VM 902 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-902-disk-0: preserved old target dataset
+vmdata/vm-902-disk-0: full send
+vmdata/vm-902-disk-1: preserved old target dataset
+vmdata/vm-902-disk-1: full send
+
+FINAL
+● jns-ha-replication.service - JNS HA Node B to Node A fenced ZFS replication
+     Loaded: loaded (/etc/systemd/system/jns-ha-replication.service; static)
+     Active: activating (start) since Tue 2026-10-06 16:47:43 BST; 6min ago
+        Job: 2149433
+ Invocation: e382b2bca42349dab9770107365c3597
+TriggeredBy: ● jns-ha-replication.timer
+   Main PID: 1214413 (bash)
+      Tasks: 5 (limit: 7875)
+     Memory: 9M (peak: 119.2M)
+        CPU: 38.656s
+     CGroup: /system.slice/jns-ha-replication.service
+             ├─1214413 bash /usr/local/sbin/jns-ha-replicate
+             ├─1214425 tee /var/lib/jns-ha-replication/last-run.log
+             ├─1214714 zfs send -p vmdata/vm-902-disk-1@jns-repl-20261006T164743
+             └─1214715 ssh -i /root/.ssh/jns_ha_replication -o BatchMode=yes -o ConnectTimeout=8 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 root@10.10.10.225 "receive vmdata/vm-902-disk-1"
+
+Oct 06 16:47:43 nodeb jns-ha-replicate[1214425]: START 2026-10-06T16:47:43+01:00
+Oct 06 16:47:44 nodeb jns-ha-replicate[1214425]: JNS-HA-REPLICA-RECEIVER OK
+Oct 06 16:47:44 nodeb jns-ha-replicate[1214425]: === VM 902 ===
+Oct 06 16:47:46 nodeb jns-ha-replicate[1214425]: target: status: stopped
+Oct 06 16:47:50 nodeb jns-ha-replicate[1214425]: guest filesystem frozen
+Oct 06 16:47:53 nodeb jns-ha-replicate[1214425]: guest filesystem thawed
+Oct 06 16:47:54 nodeb jns-ha-replicate[1214425]: vmdata/vm-902-disk-0: preserved old target dataset
+Oct 06 16:47:54 nodeb jns-ha-replicate[1214425]: vmdata/vm-902-disk-0: full send
+Oct 06 16:47:56 nodeb jns-ha-replicate[1214425]: vmdata/vm-902-disk-1: preserved old target dataset
+Oct 06 16:47:56 nodeb jns-ha-replicate[1214425]: vmdata/vm-902-disk-1: full send
 SUCCESS
