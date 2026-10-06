@@ -1,21 +1,22 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T15:19:26+01:00
+2026-10-06T15:34:22+01:00
 runner=nodec
 
 === HA CLUSTER READ-ONLY RESOURCE / REPLICA AUDIT ===
-2026-10-06T15:19:26+01:00
+2026-10-06T15:34:22+01:00
 
 ################################################################
 ### HOST: nodea
 ################################################################
+
 --- IDENTITY / LOAD ---
 nodea
- 15:19:26 up 1 day,  5:54,  1 user,  load average: 1.76, 1.21, 0.97
+ 15:34:23 up 1 day,  6:09,  1 user,  load average: 0.33, 0.52, 0.69
 
 --- MEMORY ---
                total        used        free      shared  buff/cache   available
 Mem:           7.6Gi       3.1Gi       1.7Gi        29Mi       3.1Gi       4.5Gi
-Swap:          7.6Gi       982Mi       6.6Gi
+Swap:          7.6Gi       979Mi       6.6Gi
 
 --- ROOT / PVE STORAGE ---
 Filesystem           Type  Size  Used Avail Use% Mounted on
@@ -23,21 +24,21 @@ Filesystem           Type  Size  Used Avail Use% Mounted on
 /dev/mapper/pve-root ext4   37G   12G   24G  32% /
 
 --- PVE STORAGE STATUS ---
-  WARNING: Couldn't find device with uuid gyhtjR-l1JX-ayO3-tGrS-fxdF-MVon-X8f9aF.
-  WARNING: Couldn't find device with uuid 0wjeH3-YLvy-fpdz-2pPd-1I1Y-crVp-SJI4eP.
-  WARNING: VG pve-recovery is missing PV gyhtjR-l1JX-ayO3-tGrS-fxdF-MVon-X8f9aF (last written to /dev/sde3).
-  WARNING: VG pve-recovery is missing PV 0wjeH3-YLvy-fpdz-2pPd-1I1Y-crVp-SJI4eP (last written to /dev/sdd).
-  WARNING: Couldn't find device with uuid gyhtjR-l1JX-ayO3-tGrS-fxdF-MVon-X8f9aF.
-  WARNING: Couldn't find device with uuid 0wjeH3-YLvy-fpdz-2pPd-1I1Y-crVp-SJI4eP.
-  WARNING: VG pve-recovery is missing PV gyhtjR-l1JX-ayO3-tGrS-fxdF-MVon-X8f9aF (last written to /dev/sde3).
-  WARNING: VG pve-recovery is missing PV 0wjeH3-YLvy-fpdz-2pPd-1I1Y-crVp-SJI4eP (last written to /dev/sdd).
 storage 'NAS' is not online
+  WARNING: Couldn't find device with uuid gyhtjR-l1JX-ayO3-tGrS-fxdF-MVon-X8f9aF.
+  WARNING: Couldn't find device with uuid 0wjeH3-YLvy-fpdz-2pPd-1I1Y-crVp-SJI4eP.
+  WARNING: VG pve-recovery is missing PV gyhtjR-l1JX-ayO3-tGrS-fxdF-MVon-X8f9aF (last written to /dev/sde3).
+  WARNING: VG pve-recovery is missing PV 0wjeH3-YLvy-fpdz-2pPd-1I1Y-crVp-SJI4eP (last written to /dev/sdd).
+  WARNING: Couldn't find device with uuid gyhtjR-l1JX-ayO3-tGrS-fxdF-MVon-X8f9aF.
+  WARNING: Couldn't find device with uuid 0wjeH3-YLvy-fpdz-2pPd-1I1Y-crVp-SJI4eP.
+  WARNING: VG pve-recovery is missing PV gyhtjR-l1JX-ayO3-tGrS-fxdF-MVon-X8f9aF (last written to /dev/sde3).
+  WARNING: VG pve-recovery is missing PV 0wjeH3-YLvy-fpdz-2pPd-1I1Y-crVp-SJI4eP (last written to /dev/sdd).
 Name             Type     Status     Total (KiB)      Used (KiB) Available (KiB)        %
 NAS              cifs   inactive               0               0               0    0.00%
 WD-BACKUP         nfs     active      2875890368      1302239680      1544415680   45.28%
-local             dir     active        38497656        11655892        24853976   30.28%
+local             dir     active        38497656        11655960        24853908   30.28%
 local-lvm     lvmthin     active        51576832        11058072        40518759   21.44%
-vmdata        zfspool     active       943309072        88863744       854445328    9.42%
+vmdata        zfspool     active       943309072        88867016       854442056    9.42%
 
 --- QEMU VMS ---
       VMID NAME                 STATUS     MEM(MB)    BOOTDISK(GB) PID       
@@ -63,29 +64,6 @@ VMID       Status     Lock         Name
 [
    {
       "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 0,
-      "maxdisk" : 8589934592,
-      "maxmem" : 536870912,
-      "mem" : 370184192,
-      "memhost" : 370184192,
-      "name" : "house-audio-a",
-      "netin" : 268848845,
-      "netout" : 3915449,
-      "pid" : 4343,
-      "pressurecpufull" : 0,
-      "pressurecpusome" : 0,
-      "pressureiofull" : 0.88,
-      "pressureiosome" : 0.88,
-      "pressurememoryfull" : 0,
-      "pressurememorysome" : 0,
-      "serial" : 1,
-      "status" : "running",
-      "uptime" : 107505,
-      "vmid" : 214
-   },
-   {
-      "cpu" : 0,
       "cpus" : 2,
       "disk" : 0,
       "maxdisk" : 34359738368,
@@ -108,13 +86,13 @@ VMID       Status     Lock         Name
       "maxmem" : 4282384384,
       "mem" : 0,
       "memhost" : 0,
-      "name" : "homeassistant-recovery",
+      "name" : "homeassistant-standby",
       "netin" : 0,
       "netout" : 0,
       "serial" : 1,
       "status" : "stopped",
       "uptime" : 0,
-      "vmid" : 900
+      "vmid" : 901
    },
    {
       "cpu" : 0,
@@ -134,102 +112,47 @@ VMID       Status     Lock         Name
    },
    {
       "cpu" : 0,
+      "cpus" : 1,
+      "disk" : 0,
+      "maxdisk" : 8589934592,
+      "maxmem" : 536870912,
+      "mem" : 370462720,
+      "memhost" : 370462720,
+      "name" : "house-audio-a",
+      "netin" : 270930980,
+      "netout" : 3920737,
+      "pid" : 4343,
+      "pressurecpufull" : 0,
+      "pressurecpusome" : 0,
+      "pressureiofull" : 0,
+      "pressureiosome" : 0,
+      "pressurememoryfull" : 0,
+      "pressurememorysome" : 0,
+      "serial" : 1,
+      "status" : "running",
+      "uptime" : 108402,
+      "vmid" : 214
+   },
+   {
+      "cpu" : 0,
       "cpus" : 2,
       "disk" : 0,
       "maxdisk" : 274877906944,
       "maxmem" : 4282384384,
       "mem" : 0,
       "memhost" : 0,
-      "name" : "homeassistant-standby",
+      "name" : "homeassistant-recovery",
       "netin" : 0,
       "netout" : 0,
       "serial" : 1,
       "status" : "stopped",
       "uptime" : 0,
-      "vmid" : 901
+      "vmid" : 900
    }
 ]
 
 --- LXC LIVE RESOURCE DATA ---
 [
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 853671936,
-      "diskread" : 568569856,
-      "diskwrite" : 3481600,
-      "maxdisk" : 8589934592,
-      "maxmem" : 402653184,
-      "maxswap" : 268435456,
-      "mem" : 74985472,
-      "name" : "jns-log-a",
-      "netin" : 392756588,
-      "netout" : 274138204,
-      "pid" : 2670,
-      "pressurecpufull" : "0.32",
-      "pressurecpusome" : "1.17",
-      "pressureiofull" : "0.00",
-      "pressureiosome" : "0.00",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 221184,
-      "type" : "lxc",
-      "uptime" : 107587,
-      "vmid" : 212
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 402784256,
-      "diskread" : 26218496,
-      "diskwrite" : 0,
-      "maxdisk" : 4294967296,
-      "maxmem" : 268435456,
-      "maxswap" : 134217728,
-      "mem" : 18771968,
-      "name" : "jns-zigbee-gateway",
-      "netin" : 179141737,
-      "netout" : 5821223,
-      "pid" : 621118,
-      "pressurecpufull" : "0.00",
-      "pressurecpusome" : "0.00",
-      "pressureiofull" : "0.00",
-      "pressureiosome" : "0.00",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 0,
-      "type" : "lxc",
-      "uptime" : 64187,
-      "vmid" : 210
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 779825152,
-      "diskread" : 1660338176,
-      "diskwrite" : 315826176,
-      "maxdisk" : 2040373248,
-      "maxmem" : 134217728,
-      "maxswap" : 67108864,
-      "mem" : 23658496,
-      "name" : "jns-time-a",
-      "netin" : 267356023,
-      "netout" : 1945624,
-      "pid" : 1660,
-      "pressurecpufull" : "0.00",
-      "pressurecpusome" : "0.00",
-      "pressureiofull" : "0.00",
-      "pressureiosome" : "0.00",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 3895296,
-      "type" : "lxc",
-      "uptime" : 107614,
-      "vmid" : 215
-   },
    {
       "cpu" : 0,
       "cpus" : 1,
@@ -252,16 +175,16 @@ VMID       Status     Lock         Name
    {
       "cpu" : 0,
       "cpus" : 1,
-      "disk" : 3136045056,
+      "disk" : 3136118784,
       "diskread" : 1539481600,
-      "diskwrite" : 4395597824,
+      "diskwrite" : 4426907648,
       "maxdisk" : 8350298112,
       "maxmem" : 1073741824,
       "maxswap" : 536870912,
-      "mem" : 73162752,
+      "mem" : 72953856,
       "name" : "jns-maintenance",
-      "netin" : 265414069,
-      "netout" : 286091,
+      "netin" : 267494801,
+      "netout" : 288317,
       "pid" : 3236,
       "pressurecpufull" : "0.00",
       "pressurecpusome" : "0.00",
@@ -272,53 +195,86 @@ VMID       Status     Lock         Name
       "status" : "running",
       "swap" : 20938752,
       "type" : "lxc",
-      "uptime" : 107571,
+      "uptime" : 108467,
       "vmid" : 118
+   },
+   {
+      "cpu" : 0,
+      "cpus" : 1,
+      "disk" : 858517504,
+      "diskread" : 8298053632,
+      "diskwrite" : 3865288704,
+      "maxdisk" : 2040373248,
+      "maxmem" : 268435456,
+      "maxswap" : 67108864,
+      "mem" : 86196224,
+      "name" : "jns-dns-a",
+      "netin" : 421987171,
+      "netout" : 75747906,
+      "pid" : 121517,
+      "pressurecpufull" : "0.00",
+      "pressurecpusome" : "0.00",
+      "pressureiofull" : "0.00",
+      "pressureiosome" : "0.00",
+      "pressurememoryfull" : "0.00",
+      "pressurememorysome" : "0.00",
+      "status" : "running",
+      "swap" : 5226496,
+      "type" : "lxc",
+      "uptime" : 99881,
+      "vmid" : 217
    },
    {
       "cpu" : 0,
       "cpus" : 1,
       "disk" : 1088233472,
       "diskread" : 5332262912,
-      "diskwrite" : 6786416640,
+      "diskwrite" : 6842417152,
       "maxdisk" : 4143677440,
       "maxmem" : 268435456,
       "maxswap" : 134217728,
-      "mem" : 72675328,
+      "mem" : 72540160,
       "name" : "guardian02",
-      "netin" : 1901944150,
-      "netout" : 903841162,
+      "netin" : 1916356056,
+      "netout" : 910343545,
       "pid" : 2499,
       "pressurecpufull" : "0.00",
-      "pressurecpusome" : "0.02",
-      "pressureiofull" : "0.65",
-      "pressureiosome" : "0.65",
+      "pressurecpusome" : "0.18",
+      "pressureiofull" : "0.04",
+      "pressureiosome" : "0.04",
       "pressurememoryfull" : "0.00",
       "pressurememorysome" : "0.00",
       "status" : "running",
       "swap" : 32960512,
       "type" : "lxc",
-      "uptime" : 107591,
+      "uptime" : 108487,
       "vmid" : 116
    },
    {
       "cpu" : 0,
       "cpus" : 1,
-      "disk" : 0,
-      "diskread" : 0,
-      "diskwrite" : 0,
-      "maxdisk" : 8589934592,
-      "maxmem" : 402653184,
-      "maxswap" : 268435456,
-      "mem" : 0,
-      "name" : "jns-log-a",
-      "netin" : 0,
-      "netout" : 0,
-      "status" : "stopped",
-      "swap" : 0,
+      "disk" : 779825152,
+      "diskread" : 1666072576,
+      "diskwrite" : 315826176,
+      "maxdisk" : 2040373248,
+      "maxmem" : 134217728,
+      "maxswap" : 67108864,
+      "mem" : 24223744,
+      "name" : "jns-time-a",
+      "netin" : 269451305,
+      "netout" : 1961770,
+      "pid" : 1660,
+      "pressurecpufull" : "0.00",
+      "pressurecpusome" : "0.00",
+      "pressureiofull" : "0.00",
+      "pressureiosome" : "0.00",
+      "pressurememoryfull" : "0.00",
+      "pressurememorysome" : "0.00",
+      "status" : "running",
+      "swap" : 3264512,
       "type" : "lxc",
-      "uptime" : 0,
-      "vmid" : 211
+      "uptime" : 108510,
+      "vmid" : 215
    },
    {
       "cpu" : 0,
@@ -342,28 +298,73 @@ VMID       Status     Lock         Name
    {
       "cpu" : 0,
       "cpus" : 1,
-      "disk" : 857939968,
-      "diskread" : 8287354880,
-      "diskwrite" : 3826638848,
-      "maxdisk" : 2040373248,
-      "maxmem" : 268435456,
-      "maxswap" : 67108864,
-      "mem" : 86315008,
-      "name" : "jns-dns-a",
-      "netin" : 419256649,
-      "netout" : 74639679,
-      "pid" : 121517,
+      "disk" : 856817664,
+      "diskread" : 569745408,
+      "diskwrite" : 3481600,
+      "maxdisk" : 8589934592,
+      "maxmem" : 402653184,
+      "maxswap" : 268435456,
+      "mem" : 73990144,
+      "name" : "jns-log-a",
+      "netin" : 397729493,
+      "netout" : 278716630,
+      "pid" : 2670,
       "pressurecpufull" : "0.00",
-      "pressurecpusome" : "0.00",
-      "pressureiofull" : "0.15",
-      "pressureiosome" : "0.15",
+      "pressurecpusome" : "0.38",
+      "pressureiofull" : "0.00",
+      "pressureiosome" : "0.00",
       "pressurememoryfull" : "0.00",
       "pressurememorysome" : "0.00",
       "status" : "running",
-      "swap" : 5226496,
+      "swap" : 221184,
       "type" : "lxc",
-      "uptime" : 98985,
-      "vmid" : 217
+      "uptime" : 108483,
+      "vmid" : 212
+   },
+   {
+      "cpu" : 0,
+      "cpus" : 1,
+      "disk" : 0,
+      "diskread" : 0,
+      "diskwrite" : 0,
+      "maxdisk" : 8589934592,
+      "maxmem" : 402653184,
+      "maxswap" : 268435456,
+      "mem" : 0,
+      "name" : "jns-log-a",
+      "netin" : 0,
+      "netout" : 0,
+      "status" : "stopped",
+      "swap" : 0,
+      "type" : "lxc",
+      "uptime" : 0,
+      "vmid" : 211
+   },
+   {
+      "cpu" : 0,
+      "cpus" : 1,
+      "disk" : 402784256,
+      "diskread" : 26218496,
+      "diskwrite" : 0,
+      "maxdisk" : 4294967296,
+      "maxmem" : 268435456,
+      "maxswap" : 134217728,
+      "mem" : 18771968,
+      "name" : "jns-zigbee-gateway",
+      "netin" : 181240695,
+      "netout" : 5842786,
+      "pid" : 621118,
+      "pressurecpufull" : "0.00",
+      "pressurecpusome" : "0.00",
+      "pressureiofull" : "0.00",
+      "pressureiosome" : "0.00",
+      "pressurememoryfull" : "0.00",
+      "pressurememorysome" : "0.00",
+      "status" : "running",
+      "swap" : 0,
+      "type" : "lxc",
+      "uptime" : 65084,
+      "vmid" : 210
    }
 ]
 
@@ -372,21 +373,21 @@ VMID       Status     Lock         Name
   ifupdown2-pre.service                                                                                                                loaded    active     exited          Helper to synchronize boot up for ifupdown
 ● jns-adguard-rewrite-sync.service                                                                                                     loaded    failed     failed          JNS AdGuard DNS-A to DNS-B rewrite replication
   jns-cluster-proxy.service                                                                                                            loaded    active     running         JNS restricted peer and Guardian relay on Node A
-  jns-ha-guardian-probe.service                                                                                                        loaded    inactive   dead            JNS HA Guardian read-only probe
+● jns-ha-guardian-probe.service                                                                                                        loaded    activating start     start JNS HA Guardian read-only probe
   jns-ha-guest-sync.service                                                                                                            loaded    inactive   dead            JNS HA read-only local VM generation probe
   jns-ha-telemetry-agent.service                                                                                                       loaded    active     running         JNS HA read-only private Node A telemetry agent
-● jns-ha-telemetry-collect.service                                                                                                     loaded    activating start     start JNS HA read-only Node A Proxmox telemetry collector
+  jns-ha-telemetry-collect.service                                                                                                     loaded    inactive   dead            JNS HA read-only Node A Proxmox telemetry collector
   jns-private-guard.service                                                                                                            loaded    active     exited          JNS VM901 private management fail-closed guard
   time-sync.target                                                                                                                     loaded    inactive   dead            System Time Synchronized
   jns-adguard-rewrite-sync.timer                                                                                                       loaded    active     waiting         Verify JNS AdGuard rewrite replication
-  jns-ha-guardian-probe.timer                                                                                                          loaded    active     waiting         JNS HA Guardian probe timer
+  jns-ha-guardian-probe.timer                                                                                                          loaded    active     running         JNS HA Guardian probe timer
   jns-ha-guest-sync.timer                                                                                                              loaded    active     waiting         Refresh JNS HA local VM generations
-  jns-ha-telemetry-collect.timer                                                                                                       loaded    active     running         Refresh Node A Proxmox telemetry snapshot
+  jns-ha-telemetry-collect.timer                                                                                                       loaded    active     waiting         Refresh Node A Proxmox telemetry snapshot
 
 --- REPLICATION CONFIG ---
 
---- CLUSTER REPLICATION STATUS ---
-[]
+--- PVE REPLICATION STATUS ---
+JobID      Enabled    Target                           LastSync             NextSync   Duration  FailCount State
 
 --- SELECTED VM CONFIGS (if present) ---
 ### VM 900
@@ -487,16 +488,19 @@ startup: order=40,up=30,down=60
 --- RECENT BACKUP / SYNC ARTIFACTS ---
 2026-09-24 11:08:18.0000000000          0 /etc/pve/replication.cfg
 
+--- HOST AUDIT COMPLETE ---
+
 ################################################################
 ### HOST: nodeb
 ################################################################
+
 --- IDENTITY / LOAD ---
 nodeb
- 15:19:43 up 17:21,  3 users,  load average: 2.82, 2.56, 2.20
+ 15:34:39 up 17:36,  3 users,  load average: 2.07, 2.52, 2.37
 
 --- MEMORY ---
                total        used        free      shared  buff/cache   available
-Mem:           7.7Gi       6.1Gi       644Mi        33Mi       1.3Gi       1.6Gi
+Mem:           7.7Gi       6.0Gi       796Mi        36Mi       1.3Gi       1.7Gi
 Swap:          7.7Gi       2.0Gi       5.7Gi
 
 --- ROOT / PVE STORAGE ---
@@ -509,9 +513,9 @@ storage 'NAS' is not online
 Name             Type     Status     Total (KiB)      Used (KiB) Available (KiB)        %
 NAS              cifs   inactive               0               0               0    0.00%
 WD-BACKUP         nfs     active      2875890368      1302239680      1544415680   45.28%
-local             dir     active        48265932        12684516        33097192   26.28%
+local             dir     active        48265932        12692788        33088920   26.30%
 local-lvm     lvmthin     active        78872576        10474278        68398297   13.28%
-vmdata        zfspool     active       471468656        97689316       373779340   20.72%
+vmdata        zfspool     active       471468656        97695500       373773156   20.72%
 
 --- QEMU VMS ---
       VMID NAME                 STATUS     MEM(MB)    BOOTDISK(GB) PID       
@@ -538,93 +542,6 @@ VMID       Status     Lock         Name
 [
    {
       "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 0,
-      "maxdisk" : 8589934592,
-      "maxmem" : 536870912,
-      "mem" : 432832512,
-      "memhost" : 432832512,
-      "name" : "house-audio-b",
-      "netin" : 171850577,
-      "netout" : 3358090,
-      "pid" : 6445,
-      "pressurecpufull" : 0.73,
-      "pressurecpusome" : 0.73,
-      "pressureiofull" : 0.09,
-      "pressureiosome" : 0.09,
-      "pressurememoryfull" : 0,
-      "pressurememorysome" : 0,
-      "serial" : 1,
-      "status" : "running",
-      "uptime" : 62298,
-      "vmid" : 219
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 2,
-      "disk" : 0,
-      "maxdisk" : 34359738368,
-      "maxmem" : 2147483648,
-      "mem" : 982241280,
-      "memhost" : 982241280,
-      "name" : "ha-p0-primary-lite",
-      "netin" : 155555243,
-      "netout" : 133492213,
-      "pid" : 232603,
-      "pressurecpufull" : 0.26,
-      "pressurecpusome" : 0.95,
-      "pressureiofull" : 0.14,
-      "pressureiosome" : 0.14,
-      "pressurememoryfull" : 0,
-      "pressurememorysome" : 0,
-      "serial" : 1,
-      "status" : "running",
-      "uptime" : 49742,
-      "vmid" : 902
-   },
-   {
-      "balloon_min" : 805306368,
-      "cpu" : 0,
-      "cpus" : 2,
-      "disk" : 0,
-      "maxdisk" : 34359738368,
-      "maxmem" : 1073741824,
-      "mem" : 921030656,
-      "memhost" : 921030656,
-      "name" : "ha-s2-general",
-      "netin" : 192029328,
-      "netout" : 25617659,
-      "pid" : 4595,
-      "pressurecpufull" : 0.03,
-      "pressurecpusome" : 0.48,
-      "pressureiofull" : 0.11,
-      "pressureiosome" : 0.11,
-      "pressurememoryfull" : 0,
-      "pressurememorysome" : 0,
-      "serial" : 1,
-      "shares" : 1000,
-      "status" : "running",
-      "uptime" : 62360,
-      "vmid" : 905
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 2,
-      "disk" : 0,
-      "maxdisk" : 25769803776,
-      "maxmem" : 2147483648,
-      "mem" : 0,
-      "memhost" : 0,
-      "name" : "veyra-source01",
-      "netin" : 0,
-      "netout" : 0,
-      "serial" : 1,
-      "status" : "stopped",
-      "uptime" : 0,
-      "vmid" : 904
-   },
-   {
-      "cpu" : 0,
       "cpus" : 2,
       "disk" : 0,
       "maxdisk" : 274877906944,
@@ -645,27 +562,192 @@ VMID       Status     Lock         Name
       "disk" : 0,
       "maxdisk" : 34359738368,
       "maxmem" : 2147483648,
-      "mem" : 1255260160,
-      "memhost" : 1255260160,
+      "mem" : 1262497792,
+      "memhost" : 1262497792,
       "name" : "ha-s1-plant",
-      "netin" : 180144647,
-      "netout" : 166619594,
+      "netin" : 182371803,
+      "netout" : 169095422,
       "pid" : 5780,
-      "pressurecpufull" : 0.03,
-      "pressurecpusome" : 0.48,
-      "pressureiofull" : 0.06,
-      "pressureiosome" : 0.06,
+      "pressurecpufull" : 0,
+      "pressurecpusome" : 0.16,
+      "pressureiofull" : 0.12,
+      "pressureiosome" : 0.12,
       "pressurememoryfull" : 0,
       "pressurememorysome" : 0,
       "serial" : 1,
       "status" : "running",
-      "uptime" : 62329,
+      "uptime" : 63224,
       "vmid" : 903
+   },
+   {
+      "cpu" : 0,
+      "cpus" : 2,
+      "disk" : 0,
+      "maxdisk" : 25769803776,
+      "maxmem" : 2147483648,
+      "mem" : 0,
+      "memhost" : 0,
+      "name" : "veyra-source01",
+      "netin" : 0,
+      "netout" : 0,
+      "serial" : 1,
+      "status" : "stopped",
+      "uptime" : 0,
+      "vmid" : 904
+   },
+   {
+      "cpu" : 0,
+      "cpus" : 1,
+      "disk" : 0,
+      "maxdisk" : 8589934592,
+      "maxmem" : 536870912,
+      "mem" : 432545792,
+      "memhost" : 432545792,
+      "name" : "house-audio-b",
+      "netin" : 173927394,
+      "netout" : 3363850,
+      "pid" : 6445,
+      "pressurecpufull" : 0.45,
+      "pressurecpusome" : 0.45,
+      "pressureiofull" : 0,
+      "pressureiosome" : 0,
+      "pressurememoryfull" : 0,
+      "pressurememorysome" : 0,
+      "serial" : 1,
+      "status" : "running",
+      "uptime" : 63192,
+      "vmid" : 219
+   },
+   {
+      "balloon_min" : 805306368,
+      "cpu" : 0,
+      "cpus" : 2,
+      "disk" : 0,
+      "maxdisk" : 34359738368,
+      "maxmem" : 1073741824,
+      "mem" : 886480896,
+      "memhost" : 886480896,
+      "name" : "ha-s2-general",
+      "netin" : 194417964,
+      "netout" : 26456179,
+      "pid" : 4595,
+      "pressurecpufull" : 0.02,
+      "pressurecpusome" : 0.36,
+      "pressureiofull" : 0,
+      "pressureiosome" : 0,
+      "pressurememoryfull" : 0,
+      "pressurememorysome" : 0,
+      "serial" : 1,
+      "shares" : 1000,
+      "status" : "running",
+      "uptime" : 63255,
+      "vmid" : 905
+   },
+   {
+      "cpu" : 0,
+      "cpus" : 2,
+      "disk" : 0,
+      "maxdisk" : 34359738368,
+      "maxmem" : 2147483648,
+      "mem" : 982319104,
+      "memhost" : 982319104,
+      "name" : "ha-p0-primary-lite",
+      "netin" : 157796138,
+      "netout" : 135902002,
+      "pid" : 232603,
+      "pressurecpufull" : 0.14,
+      "pressurecpusome" : 0.27,
+      "pressureiofull" : 0.83,
+      "pressureiosome" : 0.83,
+      "pressurememoryfull" : 0,
+      "pressurememorysome" : 0,
+      "serial" : 1,
+      "status" : "running",
+      "uptime" : 50636,
+      "vmid" : 902
    }
 ]
 
 --- LXC LIVE RESOURCE DATA ---
 [
+   {
+      "cpu" : 0,
+      "cpus" : 1,
+      "disk" : 558891008,
+      "diskread" : 215511040,
+      "diskwrite" : 17252352,
+      "maxdisk" : 4294967296,
+      "maxmem" : 268435456,
+      "maxswap" : 134217728,
+      "mem" : 68988928,
+      "name" : "guardian01",
+      "netin" : 1070572028,
+      "netout" : 480557284,
+      "pid" : 3040,
+      "pressurecpufull" : "0.09",
+      "pressurecpusome" : "1.28",
+      "pressureiofull" : "0.00",
+      "pressureiosome" : "0.00",
+      "pressurememoryfull" : "0.00",
+      "pressurememorysome" : "0.00",
+      "status" : "running",
+      "swap" : 9793536,
+      "type" : "lxc",
+      "uptime" : 63281,
+      "vmid" : 115
+   },
+   {
+      "cpu" : 0,
+      "cpus" : 1,
+      "disk" : 874643456,
+      "diskread" : 834945024,
+      "diskwrite" : 10723328,
+      "maxdisk" : 8589934592,
+      "maxmem" : 402653184,
+      "maxswap" : 268435456,
+      "mem" : 67334144,
+      "name" : "jns-log-b",
+      "netin" : 324927644,
+      "netout" : 50129993,
+      "pid" : 2741,
+      "pressurecpufull" : "0.00",
+      "pressurecpusome" : "2.15",
+      "pressureiofull" : "0.01",
+      "pressureiosome" : "0.01",
+      "pressurememoryfull" : "0.00",
+      "pressurememorysome" : "0.00",
+      "status" : "running",
+      "swap" : 5459968,
+      "type" : "lxc",
+      "uptime" : 63289,
+      "vmid" : 213
+   },
+   {
+      "cpu" : 0,
+      "cpus" : 1,
+      "disk" : 385351680,
+      "diskread" : 96395264,
+      "diskwrite" : 229376,
+      "maxdisk" : 2147483648,
+      "maxmem" : 201326592,
+      "maxswap" : 134217728,
+      "mem" : 22024192,
+      "name" : "mqtt-infra-a",
+      "netin" : 195908913,
+      "netout" : 30256580,
+      "pid" : 3463,
+      "pressurecpufull" : "0.00",
+      "pressurecpusome" : "0.00",
+      "pressureiofull" : "0.00",
+      "pressureiosome" : "0.00",
+      "pressurememoryfull" : "0.00",
+      "pressurememorysome" : "0.00",
+      "status" : "running",
+      "swap" : 114688,
+      "type" : "lxc",
+      "uptime" : 63276,
+      "vmid" : 212
+   },
    {
       "cpu" : 0,
       "cpus" : 1,
@@ -688,6 +770,110 @@ VMID       Status     Lock         Name
    {
       "cpu" : 0,
       "cpus" : 1,
+      "disk" : 744357888,
+      "diskread" : 222257152,
+      "diskwrite" : 737280,
+      "maxdisk" : 3221225472,
+      "maxmem" : 402653184,
+      "maxswap" : 134217728,
+      "mem" : 178143232,
+      "name" : "zigbee2mqtt-a",
+      "netin" : 205730950,
+      "netout" : 37983732,
+      "pid" : 4158,
+      "pressurecpufull" : "0.00",
+      "pressurecpusome" : "0.00",
+      "pressureiofull" : "0.00",
+      "pressureiosome" : "0.00",
+      "pressurememoryfull" : "0.00",
+      "pressurememorysome" : "0.00",
+      "status" : "running",
+      "swap" : 335872,
+      "type" : "lxc",
+      "uptime" : 63264,
+      "vmid" : 214
+   },
+   {
+      "cpu" : 0,
+      "cpus" : 1,
+      "disk" : 826753024,
+      "diskread" : 3759857664,
+      "diskwrite" : 2197733376,
+      "maxdisk" : 2040373248,
+      "maxmem" : 268435456,
+      "maxswap" : 67108864,
+      "mem" : 79429632,
+      "name" : "jns-dns-b",
+      "netin" : 190926343,
+      "netout" : 11697192,
+      "pid" : 1894,
+      "pressurecpufull" : "0.00",
+      "pressurecpusome" : "0.01",
+      "pressureiofull" : "0.00",
+      "pressureiosome" : "0.00",
+      "pressurememoryfull" : "0.00",
+      "pressurememorysome" : "0.00",
+      "status" : "running",
+      "swap" : 1851392,
+      "type" : "lxc",
+      "uptime" : 63321,
+      "vmid" : 218
+   },
+   {
+      "cpu" : 0,
+      "cpus" : 1,
+      "disk" : 1470599168,
+      "diskread" : 1438212096,
+      "diskwrite" : 262619136,
+      "maxdisk" : 4143677440,
+      "maxmem" : 536870912,
+      "maxswap" : 134217728,
+      "mem" : 128778240,
+      "name" : "jns-mgmt-b",
+      "netin" : 173900102,
+      "netout" : 2876577,
+      "pid" : 2068,
+      "pressurecpufull" : "0.00",
+      "pressurecpusome" : "0.00",
+      "pressureiofull" : "0.00",
+      "pressureiosome" : "0.00",
+      "pressurememoryfull" : "0.00",
+      "pressurememorysome" : "0.00",
+      "status" : "running",
+      "swap" : 66863104,
+      "type" : "lxc",
+      "uptime" : 63312,
+      "vmid" : 220
+   },
+   {
+      "cpu" : 0,
+      "cpus" : 1,
+      "disk" : 779890688,
+      "diskread" : 1079664640,
+      "diskwrite" : 343195648,
+      "maxdisk" : 2040373248,
+      "maxmem" : 134217728,
+      "maxswap" : 67108864,
+      "mem" : 20869120,
+      "name" : "jns-time-b",
+      "netin" : 172333654,
+      "netout" : 1229486,
+      "pid" : 2458,
+      "pressurecpufull" : "0.00",
+      "pressurecpusome" : "0.00",
+      "pressureiofull" : "0.00",
+      "pressureiosome" : "0.00",
+      "pressurememoryfull" : "0.00",
+      "pressurememorysome" : "0.00",
+      "status" : "running",
+      "swap" : 5058560,
+      "type" : "lxc",
+      "uptime" : 63294,
+      "vmid" : 216
+   },
+   {
+      "cpu" : 0,
+      "cpus" : 1,
       "disk" : 0,
       "diskread" : 0,
       "diskwrite" : 0,
@@ -703,188 +889,6 @@ VMID       Status     Lock         Name
       "type" : "lxc",
       "uptime" : 0,
       "vmid" : 210
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 385351680,
-      "diskread" : 96395264,
-      "diskwrite" : 229376,
-      "maxdisk" : 2147483648,
-      "maxmem" : 201326592,
-      "maxswap" : 134217728,
-      "mem" : 22016000,
-      "name" : "mqtt-infra-a",
-      "netin" : 193823076,
-      "netout" : 30220878,
-      "pid" : 3463,
-      "pressurecpufull" : "0.14",
-      "pressurecpusome" : "0.14",
-      "pressureiofull" : "0.00",
-      "pressureiosome" : "0.00",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 114688,
-      "type" : "lxc",
-      "uptime" : 62382,
-      "vmid" : 212
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 744357888,
-      "diskread" : 221642752,
-      "diskwrite" : 737280,
-      "maxdisk" : 3221225472,
-      "maxmem" : 402653184,
-      "maxswap" : 134217728,
-      "mem" : 178126848,
-      "name" : "zigbee2mqtt-a",
-      "netin" : 203632108,
-      "netout" : 37928999,
-      "pid" : 4158,
-      "pressurecpufull" : "0.00",
-      "pressurecpusome" : "0.00",
-      "pressureiofull" : "0.00",
-      "pressureiosome" : "0.00",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 335872,
-      "type" : "lxc",
-      "uptime" : 62371,
-      "vmid" : 214
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 870973440,
-      "diskread" : 831963136,
-      "diskwrite" : 10723328,
-      "maxdisk" : 8589934592,
-      "maxmem" : 402653184,
-      "maxswap" : 268435456,
-      "mem" : 66945024,
-      "name" : "jns-log-b",
-      "netin" : 317812929,
-      "netout" : 48194641,
-      "pid" : 2741,
-      "pressurecpufull" : "0.54",
-      "pressurecpusome" : "2.15",
-      "pressureiofull" : "0.04",
-      "pressureiosome" : "0.04",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 5459968,
-      "type" : "lxc",
-      "uptime" : 62395,
-      "vmid" : 213
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 779890688,
-      "diskread" : 1079664640,
-      "diskwrite" : 342376448,
-      "maxdisk" : 2040373248,
-      "maxmem" : 134217728,
-      "maxswap" : 67108864,
-      "mem" : 20869120,
-      "name" : "jns-time-b",
-      "netin" : 170270721,
-      "netout" : 1213208,
-      "pid" : 2458,
-      "pressurecpufull" : "0.00",
-      "pressurecpusome" : "0.00",
-      "pressureiofull" : "0.00",
-      "pressureiosome" : "0.00",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 5058560,
-      "type" : "lxc",
-      "uptime" : 62401,
-      "vmid" : 216
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 1470599168,
-      "diskread" : 1438179328,
-      "diskwrite" : 262602752,
-      "maxdisk" : 4143677440,
-      "maxmem" : 536870912,
-      "maxswap" : 134217728,
-      "mem" : 128729088,
-      "name" : "jns-mgmt-b",
-      "netin" : 171831722,
-      "netout" : 2850768,
-      "pid" : 2068,
-      "pressurecpufull" : "0.00",
-      "pressurecpusome" : "0.00",
-      "pressureiofull" : "0.00",
-      "pressureiosome" : "0.00",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 66867200,
-      "type" : "lxc",
-      "uptime" : 62418,
-      "vmid" : 220
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 558759936,
-      "diskread" : 215244800,
-      "diskwrite" : 17252352,
-      "maxdisk" : 4294967296,
-      "maxmem" : 268435456,
-      "maxswap" : 134217728,
-      "mem" : 68583424,
-      "name" : "guardian01",
-      "netin" : 1055623895,
-      "netout" : 473782674,
-      "pid" : 3040,
-      "pressurecpufull" : "1.19",
-      "pressurecpusome" : "2.67",
-      "pressureiofull" : "0.00",
-      "pressureiosome" : "0.00",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 9793536,
-      "type" : "lxc",
-      "uptime" : 62388,
-      "vmid" : 115
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 826667008,
-      "diskread" : 3744931840,
-      "diskwrite" : 2137972736,
-      "maxdisk" : 2040373248,
-      "maxmem" : 268435456,
-      "maxswap" : 67108864,
-      "mem" : 77672448,
-      "name" : "jns-dns-b",
-      "netin" : 188624554,
-      "netout" : 11276560,
-      "pid" : 1894,
-      "pressurecpufull" : "0.00",
-      "pressurecpusome" : "0.00",
-      "pressureiofull" : "0.03",
-      "pressureiosome" : "0.03",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 1851392,
-      "type" : "lxc",
-      "uptime" : 62428,
-      "vmid" : 218
    }
 ]
 
@@ -904,10 +908,9 @@ VMID       Status     Lock         Name
   jns-tuya-watch.timer                                                                                                                                        loaded    active     waiting         Check Tuya migration candidates
 
 --- REPLICATION CONFIG ---
-cat: /etc/pve/replication.cfg: No such file or directory
 
---- CLUSTER REPLICATION STATUS ---
-[]
+--- PVE REPLICATION STATUS ---
+JobID      Enabled    Target                           LastSync             NextSync   Duration  FailCount State
 
 --- SELECTED VM CONFIGS (if present) ---
 ### VM 900
@@ -1009,9 +1012,9 @@ blockstat:
 		failed_unmap_operations: 0
 		failed_wr_operations: 0
 		failed_zone_append_operations: 0
-		flush_operations: 3002
-		flush_total_time_ns: 136433620789
-		idle_time_ns: 211942356
+		flush_operations: 3049
+		flush_total_time_ns: 138287920664
+		idle_time_ns: 12795984164
 		invalid_flush_operations: 0
 		invalid_rd_operations: 0
 		invalid_unmap_operations: 0
@@ -1026,11 +1029,11 @@ blockstat:
 		unmap_merged: 0
 		unmap_operations: 0
 		unmap_total_time_ns: 0
-		wr_bytes: 306799104
+		wr_bytes: 311679488
 		wr_highest_offset: 33345769472
 		wr_merged: 0
-		wr_operations: 57032
-		wr_total_time_ns: 2605577685067
+		wr_operations: 58047
+		wr_total_time_ns: 2649168313943
 		zone_append_bytes: 0
 		zone_append_merged: 0
 		zone_append_operations: 0
@@ -1038,23 +1041,23 @@ blockstat:
 cpus: 2
 disk: 0
 diskread: 426640896
-diskwrite: 306799104
+diskwrite: 311679488
 maxdisk: 34359738368
 maxmem: 2147483648
-mem: 982315008
-memhost: 982315008
+mem: 982564864
+memhost: 982564864
 name: ha-p0-primary-lite
-netin: 155626999
-netout: 133537776
+netin: 157819438
+netout: 135929173
 nics:
 	tap902i0:
-		netin: 155626999
-		netout: 133537776
+		netin: 157819438
+		netout: 135929173
 pid: 232603
-pressurecpufull: 0.83
-pressurecpusome: 1.86
-pressureiofull: 0.02
-pressureiosome: 0.02
+pressurecpufull: 0.59
+pressurecpusome: 0.72
+pressureiofull: 0.3
+pressureiosome: 0.3
 pressurememoryfull: 0
 pressurememorysome: 0
 proxmox-support:
@@ -1072,7 +1075,7 @@ running-machine: pc-q35-11.0+pve0
 running-qemu: 11.0.0
 serial: 1
 status: running
-uptime: 49759
+uptime: 50648
 vmid: 902
 balloon: 0
 boot: order=scsi0
@@ -1160,9 +1163,9 @@ blockstat:
 		failed_unmap_operations: 0
 		failed_wr_operations: 0
 		failed_zone_append_operations: 0
-		flush_operations: 3878
-		flush_total_time_ns: 316640665195
-		idle_time_ns: 2572067818
+		flush_operations: 3926
+		flush_total_time_ns: 319489926866
+		idle_time_ns: 10405314567
 		invalid_flush_operations: 0
 		invalid_rd_operations: 0
 		invalid_unmap_operations: 0
@@ -1177,11 +1180,11 @@ blockstat:
 		unmap_merged: 0
 		unmap_operations: 0
 		unmap_total_time_ns: 0
-		wr_bytes: 4626752512
+		wr_bytes: 4688970752
 		wr_highest_offset: 33345769472
 		wr_merged: 0
-		wr_operations: 518442
-		wr_total_time_ns: 14427975905555
+		wr_operations: 525139
+		wr_total_time_ns: 14445012770429
 		zone_append_bytes: 0
 		zone_append_merged: 0
 		zone_append_operations: 0
@@ -1189,23 +1192,23 @@ blockstat:
 cpus: 2
 disk: 0
 diskread: 449190912
-diskwrite: 4626752512
+diskwrite: 4688970752
 maxdisk: 34359738368
 maxmem: 2147483648
-mem: 1255350272
-memhost: 1255350272
+mem: 1262538752
+memhost: 1262538752
 name: ha-s1-plant
-netin: 180227871
-netout: 166675706
+netin: 182403092
+netout: 169133116
 nics:
 	tap903i0:
-		netin: 180227871
-		netout: 166675706
+		netin: 182403092
+		netout: 169133116
 pid: 5780
-pressurecpufull: 0.56
-pressurecpusome: 0.94
-pressureiofull: 0.03
-pressureiosome: 0.03
+pressurecpufull: 0.2
+pressurecpusome: 0.33
+pressureiofull: 0.02
+pressureiosome: 0.02
 pressurememoryfull: 0
 pressurememorysome: 0
 proxmox-support:
@@ -1223,7 +1226,7 @@ running-machine: pc-q35-11.0+pve0
 running-qemu: 11.0.0
 serial: 1
 status: running
-uptime: 62351
+uptime: 63240
 vmid: 903
 balloon: 0
 boot: order=scsi0
@@ -1257,18 +1260,18 @@ name: veyra-source01
 net0: virtio=BC:24:11:52:59:6C,bridge=vmbr0
 scsi0: local-lvm:vm-904-disk-0,discard=on,size=24G,ssd=1
 ### VM 905
-balloon: 1073741824
+balloon: 1016524800
 balloon_min: 805306368
 ballooninfo:
-	actual: 1073741824
-	free_mem: 117723136
-	last_update: 1791296420
-	major_page_faults: 52870
+	actual: 1016524800
+	free_mem: 158203904
+	last_update: 1791297311
+	major_page_faults: 52900
 	max_mem: 1073741824
 	mem_swapped_in: 0
 	mem_swapped_out: 0
-	minor_page_faults: 4183631
-	total_mem: 960503808
+	minor_page_faults: 4222604
+	total_mem: 1009336320
 blockstat:
 	efidisk0:
 		account_failed: 1
@@ -1344,53 +1347,53 @@ blockstat:
 		failed_unmap_operations: 0
 		failed_wr_operations: 0
 		failed_zone_append_operations: 0
-		flush_operations: 3536
-		flush_total_time_ns: 170018630938
-		idle_time_ns: 10034368397
+		flush_operations: 3583
+		flush_total_time_ns: 172180576468
+		idle_time_ns: 2151190839
 		invalid_flush_operations: 0
 		invalid_rd_operations: 0
 		invalid_unmap_operations: 0
 		invalid_wr_operations: 0
 		invalid_zone_append_operations: 0
-		rd_bytes: 1026010624
+		rd_bytes: 1030548992
 		rd_merged: 0
-		rd_operations: 36661
-		rd_total_time_ns: 276575970343
+		rd_operations: 36795
+		rd_total_time_ns: 277072306544
 		timed_stats:
 		unmap_bytes: 0
 		unmap_merged: 0
 		unmap_operations: 0
 		unmap_total_time_ns: 0
-		wr_bytes: 340236800
+		wr_bytes: 344207872
 		wr_highest_offset: 33345769472
 		wr_merged: 0
-		wr_operations: 56668
-		wr_total_time_ns: 2429997539722
+		wr_operations: 57456
+		wr_total_time_ns: 2448670427675
 		zone_append_bytes: 0
 		zone_append_merged: 0
 		zone_append_operations: 0
 		zone_append_total_time_ns: 0
 cpus: 2
 disk: 0
-diskread: 1026010624
-diskwrite: 340236800
-freemem: 117723136
+diskread: 1030548992
+diskwrite: 344207872
+freemem: 158203904
 maxdisk: 34359738368
 maxmem: 1073741824
-mem: 842780672
-memhost: 874192896
+mem: 851132416
+memhost: 879513600
 name: ha-s2-general
-netin: 192133481
-netout: 25625219
+netin: 194473218
+netout: 26462986
 nics:
 	tap905i0:
-		netin: 192133481
-		netout: 25625219
+		netin: 194473218
+		netout: 26462986
 pid: 4595
-pressurecpufull: 0.25
-pressurecpusome: 1.86
-pressureiofull: 0.09
-pressureiosome: 0.09
+pressurecpufull: 0.45
+pressurecpusome: 1.2
+pressureiofull: 0.26
+pressureiosome: 0.26
 pressurememoryfull: 0
 pressurememorysome: 0
 proxmox-support:
@@ -1409,7 +1412,7 @@ running-qemu: 11.0.0
 serial: 1
 shares: 1000
 status: running
-uptime: 62391
+uptime: 63281
 vmid: 905
 balloon: 768
 boot: order=scsi0
@@ -1423,5 +1426,7 @@ sockets: 1
 startup: order=30,up=30,down=60
 
 --- RECENT BACKUP / SYNC ARTIFACTS ---
+
+--- HOST AUDIT COMPLETE ---
 
 === END AUDIT ===
