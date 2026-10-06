@@ -110,9 +110,11 @@ chown "$MGMT_USER:$MGMT_USER" "$ETC_DIR/config.json"
 chmod 0600 "$ETC_DIR/config.json"
 systemctl restart jns-management-bridge
 
-cat > "$APP_DIR/enrol_onward_key.sh" <<EOF
+cat > "$APP_DIR/enrol_onward_key.sh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+MGMT_USER="${JNS_MGMT_USER:-jns-mcp}"
+HOME_DIR="$(getent passwd "$MGMT_USER" | cut -d: -f6)"
 host="${1:-}"
 if [[ "$host" != "node-a" && "$host" != "node-b" ]]; then
   echo "Usage: $0 node-a|node-b" >&2
