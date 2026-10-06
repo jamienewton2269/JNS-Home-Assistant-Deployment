@@ -1,29 +1,230 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T16:55:41+01:00
+2026-10-06T16:56:48+01:00
 runner=nodec
 
-SOURCE
+CHECK 1 2026-10-06T16:56:48+01:00 state=activating
+onboot: 0
+scsi0: vmdata:vm-902-disk-1,discard=on,iothread=1,size=32G,ssd=1
+startup: order=30,up=30,down=60
+VM 902 replicated at jns-repl-20261006T164743
+=== VM 903 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-903-disk-0: preserved old target dataset
+vmdata/vm-903-disk-0: full send
+vmdata/vm-903-disk-1: preserved old target dataset
+vmdata/vm-903-disk-1: full send
+
+CHECK 2 2026-10-06T16:57:18+01:00 state=activating
+onboot: 0
+scsi0: vmdata:vm-902-disk-1,discard=on,iothread=1,size=32G,ssd=1
+startup: order=30,up=30,down=60
+VM 902 replicated at jns-repl-20261006T164743
+=== VM 903 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-903-disk-0: preserved old target dataset
+vmdata/vm-903-disk-0: full send
+vmdata/vm-903-disk-1: preserved old target dataset
+vmdata/vm-903-disk-1: full send
+
+CHECK 3 2026-10-06T16:57:48+01:00 state=activating
+onboot: 0
+scsi0: vmdata:vm-902-disk-1,discard=on,iothread=1,size=32G,ssd=1
+startup: order=30,up=30,down=60
+VM 902 replicated at jns-repl-20261006T164743
+=== VM 903 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-903-disk-0: preserved old target dataset
+vmdata/vm-903-disk-0: full send
+vmdata/vm-903-disk-1: preserved old target dataset
+vmdata/vm-903-disk-1: full send
+
+CHECK 4 2026-10-06T16:58:19+01:00 state=activating
+onboot: 0
+scsi0: vmdata:vm-902-disk-1,discard=on,iothread=1,size=32G,ssd=1
+startup: order=30,up=30,down=60
+VM 902 replicated at jns-repl-20261006T164743
+=== VM 903 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-903-disk-0: preserved old target dataset
+vmdata/vm-903-disk-0: full send
+vmdata/vm-903-disk-1: preserved old target dataset
+vmdata/vm-903-disk-1: full send
+
+CHECK 5 2026-10-06T16:58:49+01:00 state=activating
+onboot: 0
+scsi0: vmdata:vm-902-disk-1,discard=on,iothread=1,size=32G,ssd=1
+startup: order=30,up=30,down=60
+VM 902 replicated at jns-repl-20261006T164743
+=== VM 903 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-903-disk-0: preserved old target dataset
+vmdata/vm-903-disk-0: full send
+vmdata/vm-903-disk-1: preserved old target dataset
+vmdata/vm-903-disk-1: full send
+
+CHECK 6 2026-10-06T16:59:19+01:00 state=activating
+onboot: 0
+scsi0: vmdata:vm-902-disk-1,discard=on,iothread=1,size=32G,ssd=1
+startup: order=30,up=30,down=60
+VM 902 replicated at jns-repl-20261006T164743
+=== VM 903 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-903-disk-0: preserved old target dataset
+vmdata/vm-903-disk-0: full send
+vmdata/vm-903-disk-1: preserved old target dataset
+vmdata/vm-903-disk-1: full send
+
+CHECK 7 2026-10-06T16:59:49+01:00 state=activating
+onboot: 0
+scsi0: vmdata:vm-902-disk-1,discard=on,iothread=1,size=32G,ssd=1
+startup: order=30,up=30,down=60
+VM 902 replicated at jns-repl-20261006T164743
+=== VM 903 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-903-disk-0: preserved old target dataset
+vmdata/vm-903-disk-0: full send
+vmdata/vm-903-disk-1: preserved old target dataset
+vmdata/vm-903-disk-1: full send
+
+CHECK 8 2026-10-06T17:00:19+01:00 state=activating
+onboot: 0
+scsi0: vmdata:vm-902-disk-1,discard=on,iothread=1,size=32G,ssd=1
+startup: order=30,up=30,down=60
+VM 902 replicated at jns-repl-20261006T164743
+=== VM 903 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-903-disk-0: preserved old target dataset
+vmdata/vm-903-disk-0: full send
+vmdata/vm-903-disk-1: preserved old target dataset
+vmdata/vm-903-disk-1: full send
+
+CHECK 9 2026-10-06T17:00:49+01:00 state=activating
+onboot: 0
+scsi0: vmdata:vm-902-disk-1,discard=on,iothread=1,size=32G,ssd=1
+startup: order=30,up=30,down=60
+VM 902 replicated at jns-repl-20261006T164743
+=== VM 903 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-903-disk-0: preserved old target dataset
+vmdata/vm-903-disk-0: full send
+vmdata/vm-903-disk-1: preserved old target dataset
+vmdata/vm-903-disk-1: full send
+
+CHECK 10 2026-10-06T17:01:19+01:00 state=activating
+onboot: 0
+scsi0: vmdata:vm-902-disk-1,discard=on,iothread=1,size=32G,ssd=1
+startup: order=30,up=30,down=60
+VM 902 replicated at jns-repl-20261006T164743
+=== VM 903 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-903-disk-0: preserved old target dataset
+vmdata/vm-903-disk-0: full send
+vmdata/vm-903-disk-1: preserved old target dataset
+vmdata/vm-903-disk-1: full send
+
+CHECK 11 2026-10-06T17:01:49+01:00 state=activating
+onboot: 0
+scsi0: vmdata:vm-902-disk-1,discard=on,iothread=1,size=32G,ssd=1
+startup: order=30,up=30,down=60
+VM 902 replicated at jns-repl-20261006T164743
+=== VM 903 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-903-disk-0: preserved old target dataset
+vmdata/vm-903-disk-0: full send
+vmdata/vm-903-disk-1: preserved old target dataset
+vmdata/vm-903-disk-1: full send
+
+CHECK 12 2026-10-06T17:02:19+01:00 state=activating
+balloon: 0
+cores: 2
+efidisk0: vmdata:vm-903-disk-0,efitype=2m,size=1M
+memory: 2048
+name: ha-s1-plant
+net0: virtio=BC:24:11:99:4B:E0,bridge=vmbr0,firewall=1,link_down=1
+onboot: 0
+scsi0: vmdata:vm-903-disk-1,discard=on,iothread=1,size=32G,ssd=1
+startup: order=40,up=30,down=60
+VM 903 replicated at jns-repl-20261006T164743
+=== VM 905 ===
+target: status: absent
+
+CHECK 13 2026-10-06T17:02:49+01:00 state=activating
+name: ha-s1-plant
+net0: virtio=BC:24:11:99:4B:E0,bridge=vmbr0,firewall=1,link_down=1
+onboot: 0
+scsi0: vmdata:vm-903-disk-1,discard=on,iothread=1,size=32G,ssd=1
+startup: order=40,up=30,down=60
+VM 903 replicated at jns-repl-20261006T164743
+=== VM 905 ===
+target: status: absent
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-905-disk-0: full send
+vmdata/vm-905-disk-1: full send
+
+CHECK 14 2026-10-06T17:03:19+01:00 state=activating
+name: ha-s1-plant
+net0: virtio=BC:24:11:99:4B:E0,bridge=vmbr0,firewall=1,link_down=1
+onboot: 0
+scsi0: vmdata:vm-903-disk-1,discard=on,iothread=1,size=32G,ssd=1
+startup: order=40,up=30,down=60
+VM 903 replicated at jns-repl-20261006T164743
+=== VM 905 ===
+target: status: absent
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-905-disk-0: full send
+vmdata/vm-905-disk-1: full send
+
+CHECK 15 2026-10-06T17:03:49+01:00 state=activating
+name: ha-s1-plant
+net0: virtio=BC:24:11:99:4B:E0,bridge=vmbr0,firewall=1,link_down=1
+onboot: 0
+scsi0: vmdata:vm-903-disk-1,discard=on,iothread=1,size=32G,ssd=1
+startup: order=40,up=30,down=60
+VM 903 replicated at jns-repl-20261006T164743
+=== VM 905 ===
+target: status: absent
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-905-disk-0: full send
+vmdata/vm-905-disk-1: full send
+
+CHECK 16 2026-10-06T17:04:19+01:00 state=activating
+name: ha-s1-plant
+net0: virtio=BC:24:11:99:4B:E0,bridge=vmbr0,firewall=1,link_down=1
+onboot: 0
+scsi0: vmdata:vm-903-disk-1,discard=on,iothread=1,size=32G,ssd=1
+startup: order=40,up=30,down=60
+VM 903 replicated at jns-repl-20261006T164743
+=== VM 905 ===
+target: status: absent
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-905-disk-0: full send
+vmdata/vm-905-disk-1: full send
+
+=== FINAL ===
 activating
-vmdata/vm-902-disk-1	logicalused	11094896640
-vmdata/vm-902-disk-1	used	6853296128
-vmdata/vm-902-disk-1	referenced	3188088832
-vmdata/vm-902-disk-1	volsize	34359738368
-3: vmbr0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
-    link/ether ac:22:0b:89:2e:c8 brd ff:ff:ff:ff:ff:ff
-    RX:   bytes packets errors dropped  missed   mcast           
-      388546047 4677657      0      14       0  449466 
-    TX:   bytes packets errors dropped carrier collsns           
-    28579377110 2070568      0       4       0       0 
-1214413       07:57 bash /usr/local/sbin/jns-ha-replicate
-1222553       00:23 zfs send -p vmdata/vm-903-disk-1@jns-repl-20261006T164743
-TARGET
-vmdata/vm-902-disk-1	logicalused	4801470464
-vmdata/vm-902-disk-1	used	3187884032
-vmdata/vm-902-disk-1	referenced	3187884032
-vmdata/vm-902-disk-1	volsize	34359738368
-3: vmbr0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
-    link/ether c4:65:16:30:8d:fd brd ff:ff:ff:ff:ff:ff
-    RX:  bytes  packets errors dropped  missed   mcast           
-    8982555462 11305057      0       9       0  821109 
-    TX:  bytes  packets errors dropped carrier collsns           
-    8484918800  3767073      0      23       0       0 
