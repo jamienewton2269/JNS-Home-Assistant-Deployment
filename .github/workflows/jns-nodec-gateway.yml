@@ -1,0 +1,42 @@
+name: JNS Node C Gateway
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/request.sh'
+
+permissions:
+  contents: write
+
+jobs:
+  nodec:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Execute gateway request
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p gateway
+          chmod +x gateway/request.sh
+          {
+            echo "=== JNS NODE C GATEWAY ==="
+            date -Is
+            echo "runner=$(hostname)"
+            echo
+            bash gateway/request.sh
+          } 2>&1 | tee gateway/result.txt
+
+      - name: Return result
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "jns-nodec-gateway"
+          git config user.email "jns-nodec-gateway@users.noreply.github.com"
+          git add gateway/result.txt
+          git diff --cached --quiet && exit 0
+          git commit -m "gateway: return Node C command result"
+          git push
