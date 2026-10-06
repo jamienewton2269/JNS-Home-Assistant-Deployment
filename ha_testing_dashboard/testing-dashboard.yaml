@@ -180,7 +180,7 @@ views:
         show_empty: false
         else:
           type: markdown
-          content: No devices are currently labelled **Purpose: Grow Light**.
+          content: "No devices are currently labelled **Purpose: Grow Light**."
         card:
           type: grid
           columns: 2
@@ -220,7 +220,7 @@ views:
         show_empty: false
         else:
           type: markdown
-          content: No devices are currently labelled **Purpose: Protected IT**.
+          content: "No devices are currently labelled **Purpose: Protected IT**."
         card:
           type: grid
           columns: 2
