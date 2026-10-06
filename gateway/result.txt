@@ -1,0 +1,12 @@
+=== JNS NODE C GATEWAY ===
+2026-10-06T09:52:54+01:00
+runner=nodec
+
+NODE C:
+nodec
+github-runner
+Linux nodec 7.0.2-6-pve #1 SMP PREEMPT_DYNAMIC PMX 7.0.2-6 (2026-05-20T08:55Z) x86_64 GNU/Linux
+
+SSH reachability:
+10.10.10.225: port 22 open
+10.10.10.235: port 22 open
