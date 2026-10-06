@@ -1,1432 +1,232 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T15:34:22+01:00
+2026-10-06T15:36:24+01:00
 runner=nodec
 
-=== HA CLUSTER READ-ONLY RESOURCE / REPLICA AUDIT ===
-2026-10-06T15:34:22+01:00
+=== NATURAL AUTOMATION UI DEBUG ===
+2026-10-06T15:36:24+01:00
+=== service status ===
+{"ok": true, "vmid": 905, "entities": 197, "apply_enabled": true}
 
-################################################################
-### HOST: nodea
-################################################################
+=== relevant HTML/JS ===
+651:</style></head><body><div class=w><h1>Natural Automation</h1><p class=muted>Development Node B · HA Lite VM902 · language learning test</p>
+659:<div class=adminhead><h2>Testing / Admin</h2><span class=badge id=adminstatus>loading</span></div>
+660:<div class=admincard><button onclick=refreshInlineAdmin()>Refresh</button><button onclick=inlineHousekeepingScan()>Housekeeping scan</button><p class=muted>Live development view. Write gate remains disabled.</p></div>
+670:  await refreshInlineAdmin()
+674:  await refreshInlineAdmin()
+677:  document.getElementById('adminstatus').textContent='scanning…';
+679:  await refreshInlineAdmin()
+681:async function refreshInlineAdmin(){
+685:    document.getElementById('adminstatus').textContent=(d.apply_enabled?'write enabled':'write gate closed');
+694:    document.getElementById('adminstatus').textContent='admin view error';
+705:async function analyseText(t,newSubmission){
+712:    let start=await post('/api/analyse-start',{text:t});
+714:    await watchJob(start.job_id)
+717:async function go(){
+721:async function watchJob(id){
+725:    renderProgress(j);
+731:function renderProgress(j){
+805:  refreshInlineAdmin()
+807:refreshInlineAdmin();
+808:setInterval(refreshInlineAdmin,1500);
+891:            if path=="/api/analyse-start":
 
---- IDENTITY / LOAD ---
-nodea
- 15:34:23 up 1 day,  6:09,  1 user,  load average: 0.33, 0.52, 0.69
+=== JS block around analyseText ===
+    document.getElementById('adminstatus').textContent=(d.apply_enabled?'write enabled':'write gate closed');
+    let h=document.getElementById('inlinehousekeeping'),q=document.getElementById('inlineremovals'),a=document.getElementById('inlineaudit');
+    let hs=d.housekeeping||[];
+    h.innerHTML=hs.length?hs.slice(0,8).map(x=>'<div class="audit-event"><b>'+esc(x.alias)+'</b><div class="muted">'+esc(x.confidence)+' · '+esc(x.kind.replaceAll('_',' '))+'</div><p>'+esc(x.reason)+'</p><div class="muted">'+esc(x.status.replaceAll('_',' '))+'</div>'+(x.status==='suggested'?'<button onclick="inlineHouseReview(\''+x.suggestion_id+'\',\'propose_removal\')">Propose cleanup</button><button onclick="inlineHouseReview(\''+x.suggestion_id+'\',\'keep\')">Keep</button><button onclick="inlineHouseReview(\''+x.suggestion_id+'\',\'dismiss\')">Dismiss</button>':'')+'</div>').join(''):'<span class="muted">No housekeeping suggestions.</span>';
+    let rs=d.removals||[];
+    q.innerHTML=rs.length?rs.slice().reverse().slice(0,8).map(x=>'<div class="audit-event"><b>'+esc(x.alias)+'</b><div class="muted">'+esc(x.controller_id)+' · '+esc(x.source)+'</div><div>'+esc(x.status.replaceAll('_',' '))+'</div>'+(x.status==='pending_review'?'<button onclick="inlineRemovalReview(\''+x.proposal_id+'\',\'approve\')">Approve later removal</button><button onclick="inlineRemovalReview(\''+x.proposal_id+'\',\'reject\')">Reject</button>':'')+'</div>').join(''):'<span class="muted">No removal proposals.</span>';
+    let ev=d.events||[];
+    a.innerHTML=ev.slice(0,12).map(e=>'<div class="audit-event"><b>'+new Date((e.ts||0)*1000).toLocaleTimeString()+' · '+esc(e.event||'event')+'</b>'+(e.logic?'<ol>'+e.logic.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ol>':'')+'<details><summary>Machine record</summary><pre>'+esc(JSON.stringify(e,null,2))+'</pre></details></div>').join('')||'<span class="muted">No events yet.</span>';
+  }catch(e){
+    document.getElementById('adminstatus').textContent='admin view error';
+    document.getElementById('inlineaudit').innerHTML='<div class="error">'+esc(e)+'</div>';
+  }
+}
+let activeRequest='';
+let multiState=null;
+function setCurrentRequest(text){
+  activeRequest=text;
+  document.getElementById('reqtext').textContent=text||'(blank request)';
+  document.getElementById('reqcard').classList.remove('hidden');
+}
+async function analyseText(t,newSubmission){
+  if(newSubmission){
+    setCurrentRequest(t);
+    document.getElementById('q').value='';
+    document.getElementById('q').focus();
+  }
+  try{
+    let start=await post('/api/analyse-start',{text:t});
+    if(!start._http_ok){show(start);return}
+    await watchJob(start.job_id)
+  }catch(e){show({action:'error',error:'Could not contact Natural Automation.',suggestion:String(e)})}
+}
+async function go(){
+  let t=document.getElementById('q').value.trim();
+  await analyseText(t,true)
+}
+async function watchJob(id){
+  while(true){
+    let r=await fetch('/api/job?id='+encodeURIComponent(id)),j=await r.json();
+    if(!r.ok){show({action:'error',error:j.error||'Analysis job was lost.'});return}
+    renderProgress(j);
+    if(j.status==='done'){show(j.result);return}
+    if(j.status==='error'){show({action:'error',error:j.error,suggestion:'Nothing has been changed in Home Assistant.'});return}
+    await new Promise(x=>setTimeout(x,250))
+  }
+}
+function renderProgress(j){
+  let p=j.progress||{},pct=Number(p.percent||0),eta=p.eta_seconds,state=String(p.state||j.status||'running');
+  let o=document.getElementById('o');o.className='card progress state-'+state;
+  let etaText=(eta===null||eta===undefined)?'ETA unavailable':('ETA '+Number(eta).toFixed(1)+'s');
+  let h='<h3>Processing request <span class="progressstate">'+esc(state.toUpperCase())+'</span></h3>'+
+    '<div class="progressbar" aria-label="Measured processing progress"><div class="progressfill" style="width:'+pct.toFixed(1)+'%"></div></div>'+
+    '<div class="progressmeta"><span class="progresspct">'+pct.toFixed(1)+'%</span><span>Elapsed '+Number(j.elapsed||0).toFixed(1)+'s</span><span>'+etaText+'</span><span>'+esc(j.stage||'Queued')+'</span></div>'+
+    '<p class="muted">Measured from genuine backend stages and learned stage durations. No cosmetic progress is generated.</p>'+
+    (p.stall_reason?'<div class="stallnote">'+esc(p.stall_reason)+'</div>':'');
+  for(let i=0;i<j.stages.length;i++){
+    let s=j.stages[i],active=(i===j.stages.length-1&&j.status==='running');
+    h+='<div class="stage '+(active?'active':'done')+'">'+(active?'→ ':'✓ ')+esc(s.name)+'<span class="stage-time">'+Number(s.duration||0).toFixed(1)+'s</span></div>'
+  }
+  o.innerHTML=h
+}
+async function proposeRemoval(c,button){
+  button.disabled=true;button.textContent='Recording proposal...';
+  let d=await post('/api/propose-remove',{controller_id:c.id,source:c.source,alias:c.alias});
+  if(d.ok){button.textContent='Removal proposed · pending review'}else{button.disabled=false;button.textContent='Propose removal';alert(d.error||'Could not record proposal')}
+}
+function renderMultiCandidates(candidates){
+  let list=document.getElementById('multilist');
+  if(!list||!multiState)return;
+  list.innerHTML='';
+  candidates.forEach(c=>{
+    let row=document.createElement('label');row.className='multi-row';
+    let cb=document.createElement('input');cb.type='checkbox';cb.value=c.entity_id;
+    cb.checked=multiState.selected.has(c.entity_id);
+    cb.onchange=async()=>{
+      if(cb.checked)multiState.selected.add(c.entity_id);else multiState.selected.delete(c.entity_id);
+      if(cb.checked&&!multiState.refined){
+        multiState.refined=true;
+        let d=await post('/api/refine-candidates',{category:multiState.category,first_entity_id:c.entity_id});
+        if(d.ok){
+          let current=new Map(d.candidates.map(x=>[x.entity_id,x]));
+          for(let old of multiState.candidates){if(multiState.selected.has(old.entity_id)&&!current.has(old.entity_id))d.candidates.unshift(old)}
+          multiState.candidates=d.candidates;
+          document.getElementById('multihint').textContent=d.logic.join(' ');
+          renderMultiCandidates(d.candidates)
+        }
+      }
+      document.getElementById('multicount').textContent=multiState.selected.size+' selected'
+    };
+    let body=document.createElement('div');
+    body.innerHTML='<b>'+c.name+'</b><div class="multi-meta">'+c.entity_id+(c.area?' · '+c.area:'')+(c.match_reason?' · '+c.match_reason:'')+'</div>';
+    row.appendChild(cb);row.appendChild(body);list.appendChild(row)
+  })
+}
+async function confirmMulti(){
+  if(!multiState||multiState.selected.size===0){alert('Select at least one device.');return}
+  let d=await post('/api/confirm-multi',{request:activeRequest,category:multiState.category,selected:Array.from(multiState.selected)});
+  if(d.ok)show(d);else show({action:'error',error:d.error||'Could not confirm the selected devices.'})
+}
+function showMulti(d){
+  multiState={category:d.category,candidates:d.candidates,selected:new Set(),refined:false};
+  let o=document.getElementById('o');o.className='card';
+  o.innerHTML='<h3>Select devices</h3><p>This request appears to apply to multiple '+d.category+'. Tick every device that should be included.</p>'+
+    '<p id="multihint" class="muted">After the first selection, the remaining list will be re-ranked using that device\'s domain and Home Assistant area.</p>'+
+    '<div id="multilist"></div><div class="multi-actions"><span id="multicount">0 selected</span><br><button class="primary" onclick="confirmMulti()">Use selected devices</button></div>';
+  renderMultiCandidates(d.candidates)
+}
+function show(d){
+  let o=document.getElementById('o');o.className='card';
+  if((d._http_ok===false)||d.error||d.action==='error'){o.className='card error';o.innerHTML='<h3>ERROR - request not understood</h3><p><b>'+(d.error||'Unknown error')+'</b></p>'+(d.suggestion?'<p>'+d.suggestion+'</p>':'')+'<p class="muted">Nothing has been changed in Home Assistant.</p>';return}
+  if(d.action==='select_devices'){showMulti(d);return}
 
---- MEMORY ---
-               total        used        free      shared  buff/cache   available
-Mem:           7.6Gi       3.1Gi       1.7Gi        29Mi       3.1Gi       4.5Gi
-Swap:          7.6Gi       979Mi       6.6Gi
+=== recent logs ===
+Oct 02 13:19:51 nodeb python3[1368769]: Natural Automation listening on 0.0.0.0:8099, apply=False
+Oct 02 13:22:13 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
+Oct 02 13:22:13 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
+Oct 02 13:22:13 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
+Oct 02 13:22:13 nodeb systemd[1]: natural-automation.service: Consumed 9.736s CPU time, 130.2M memory peak.
+Oct 02 13:22:13 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
+Oct 02 13:22:13 nodeb python3[1370098]: Natural Automation listening on 0.0.0.0:8099, apply=False
+Oct 03 06:17:12 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
+Oct 03 06:17:12 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
+Oct 03 06:17:12 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
+Oct 03 06:17:12 nodeb systemd[1]: natural-automation.service: Consumed 12.797s CPU time, 130M memory peak.
+Oct 03 06:17:12 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
+Oct 03 06:17:12 nodeb python3[1862474]: Natural Automation listening on 0.0.0.0:8099, apply=False
+Oct 03 06:18:21 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
+Oct 03 06:18:21 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
+Oct 03 06:18:21 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
+Oct 03 06:18:21 nodeb systemd[1]: natural-automation.service: Consumed 3.679s CPU time, 130M memory peak.
+Oct 03 06:18:21 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
+Oct 03 06:18:21 nodeb python3[1863387]: Natural Automation listening on 0.0.0.0:8099, apply=False
+Oct 03 06:26:09 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
+Oct 03 06:26:09 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
+Oct 03 06:26:09 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
+Oct 03 06:26:09 nodeb systemd[1]: natural-automation.service: Consumed 5.833s CPU time, 131.1M memory peak.
+Oct 03 06:26:09 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
+Oct 03 06:26:09 nodeb python3[1867560]: Natural Automation listening on 0.0.0.0:8099, apply=False
+Oct 03 06:29:06 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
+Oct 03 06:29:06 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
+Oct 03 06:29:06 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
+Oct 03 06:29:06 nodeb systemd[1]: natural-automation.service: Consumed 1.413s CPU time, 130.2M memory peak.
+Oct 03 06:29:06 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
+Oct 03 06:29:06 nodeb python3[1869035]: Natural Automation listening on 0.0.0.0:8099, apply=False
+Oct 03 07:09:47 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
+Oct 03 07:09:47 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
+Oct 03 07:09:47 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
+Oct 03 07:09:47 nodeb systemd[1]: natural-automation.service: Consumed 1.687s CPU time, 130.3M memory peak.
+Oct 03 07:09:47 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
+Oct 03 07:09:47 nodeb python3[1890396]: Natural Automation listening on 0.0.0.0:8099, apply=False
+Oct 03 07:30:26 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
+Oct 03 07:30:26 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
+Oct 03 07:30:26 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
+Oct 03 07:30:26 nodeb systemd[1]: natural-automation.service: Consumed 2.983s CPU time, 130.9M memory peak.
+Oct 03 07:30:26 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
+Oct 03 07:30:26 nodeb python3[1901670]: Natural Automation listening on 0.0.0.0:8099, apply=False
+Oct 03 07:36:34 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
+Oct 03 07:36:34 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
+Oct 03 07:36:34 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
+Oct 03 07:36:34 nodeb systemd[1]: natural-automation.service: Consumed 1.616s CPU time, 130.6M memory peak.
+Oct 03 07:36:34 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
+Oct 03 07:36:34 nodeb python3[1904793]: Natural Automation listening on 0.0.0.0:8099, apply=False
+Oct 03 07:36:39 nodeb qm[1904800]: VM 902 qga command failed - VM 902 qga command 'guest-ping' failed - got timeout
+Oct 03 09:00:56 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
+Oct 03 09:00:56 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
+Oct 03 09:00:56 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
+Oct 03 09:00:56 nodeb systemd[1]: natural-automation.service: Consumed 2.042s CPU time, 130.8M memory peak.
+Oct 03 09:00:56 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
+Oct 03 09:00:56 nodeb python3[1957003]: Natural Automation listening on 0.0.0.0:8099, apply=False
+Oct 03 09:02:19 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
+Oct 03 09:02:19 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
+Oct 03 09:02:19 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
+Oct 03 09:02:19 nodeb systemd[1]: natural-automation.service: Consumed 1.601s CPU time, 130.6M memory peak.
+Oct 03 09:02:19 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
+Oct 03 09:02:19 nodeb python3[1958002]: Natural Automation listening on 0.0.0.0:8099, apply=False
+Oct 05 21:52:42 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
+Oct 05 21:52:42 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
+Oct 05 21:52:42 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
+Oct 05 21:52:42 nodeb systemd[1]: natural-automation.service: Consumed 24.555s CPU time, 130.5M memory peak, 8.5M memory swap peak.
+-- Boot 4c6e8045decb446fa6677882a8c53266 --
+Oct 05 21:59:12 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
+Oct 05 21:59:12 nodeb python3[1733]: Natural Automation listening on 0.0.0.0:8099, apply=False
+Oct 06 10:27:56 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
+Oct 06 10:27:56 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
+Oct 06 10:27:56 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
+Oct 06 10:27:56 nodeb systemd[1]: natural-automation.service: Consumed 3.977s CPU time, 13.3M memory peak, 5.2M memory swap peak.
+Oct 06 10:27:56 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
+Oct 06 10:27:56 nodeb python3[815922]: Natural Automation listening on 0.0.0.0:8099, apply=True
+Oct 06 10:28:58 nodeb systemd[1]: Stopping natural-automation.service - Natural Automation language test dashboard...
+Oct 06 10:28:58 nodeb systemd[1]: natural-automation.service: Deactivated successfully.
+Oct 06 10:28:58 nodeb systemd[1]: Stopped natural-automation.service - Natural Automation language test dashboard.
+Oct 06 10:28:58 nodeb systemd[1]: natural-automation.service: Consumed 1.546s CPU time, 131M memory peak.
+Oct 06 10:28:58 nodeb systemd[1]: Started natural-automation.service - Natural Automation language test dashboard.
+Oct 06 10:28:58 nodeb python3[817008]: Natural Automation listening on 0.0.0.0:8099, apply=True
 
---- ROOT / PVE STORAGE ---
-Filesystem           Type  Size  Used Avail Use% Mounted on
-/dev/mapper/pve-root ext4   37G   12G   24G  32% /
-/dev/mapper/pve-root ext4   37G   12G   24G  32% /
-
---- PVE STORAGE STATUS ---
-storage 'NAS' is not online
-  WARNING: Couldn't find device with uuid gyhtjR-l1JX-ayO3-tGrS-fxdF-MVon-X8f9aF.
-  WARNING: Couldn't find device with uuid 0wjeH3-YLvy-fpdz-2pPd-1I1Y-crVp-SJI4eP.
-  WARNING: VG pve-recovery is missing PV gyhtjR-l1JX-ayO3-tGrS-fxdF-MVon-X8f9aF (last written to /dev/sde3).
-  WARNING: VG pve-recovery is missing PV 0wjeH3-YLvy-fpdz-2pPd-1I1Y-crVp-SJI4eP (last written to /dev/sdd).
-  WARNING: Couldn't find device with uuid gyhtjR-l1JX-ayO3-tGrS-fxdF-MVon-X8f9aF.
-  WARNING: Couldn't find device with uuid 0wjeH3-YLvy-fpdz-2pPd-1I1Y-crVp-SJI4eP.
-  WARNING: VG pve-recovery is missing PV gyhtjR-l1JX-ayO3-tGrS-fxdF-MVon-X8f9aF (last written to /dev/sde3).
-  WARNING: VG pve-recovery is missing PV 0wjeH3-YLvy-fpdz-2pPd-1I1Y-crVp-SJI4eP (last written to /dev/sdd).
-Name             Type     Status     Total (KiB)      Used (KiB) Available (KiB)        %
-NAS              cifs   inactive               0               0               0    0.00%
-WD-BACKUP         nfs     active      2875890368      1302239680      1544415680   45.28%
-local             dir     active        38497656        11655960        24853908   30.28%
-local-lvm     lvmthin     active        51576832        11058072        40518759   21.44%
-vmdata        zfspool     active       943309072        88867016       854442056    9.42%
-
---- QEMU VMS ---
-      VMID NAME                 STATUS     MEM(MB)    BOOTDISK(GB) PID       
-       214 house-audio-a        running    512                8.00 4343      
-       900 homeassistant-recovery stopped    4084             256.00 0         
-       901 homeassistant-standby stopped    4084             256.00 0         
-       902 ha-p0-primary-lite   stopped    2048              32.00 0         
-       903 ha-s1-plant          stopped    2048              32.00 0         
-
---- LXC CONTAINERS ---
-VMID       Status     Lock         Name                
-102        stopped                 CT102               
-116        running                 guardian02          
-118        running                 jns-maintenance     
-210        running                 jns-zigbee-gateway  
-211        stopped                 jns-log-a           
-212        running                 jns-log-a           
-213        stopped                 jns-log-b           
-215        running                 jns-time-a          
-217        running                 jns-dns-a           
-
---- QEMU LIVE RESOURCE DATA ---
-[
-   {
-      "cpu" : 0,
-      "cpus" : 2,
-      "disk" : 0,
-      "maxdisk" : 34359738368,
-      "maxmem" : 2147483648,
-      "mem" : 0,
-      "memhost" : 0,
-      "name" : "ha-s1-plant",
-      "netin" : 0,
-      "netout" : 0,
-      "serial" : 1,
-      "status" : "stopped",
-      "uptime" : 0,
-      "vmid" : 903
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 2,
-      "disk" : 0,
-      "maxdisk" : 274877906944,
-      "maxmem" : 4282384384,
-      "mem" : 0,
-      "memhost" : 0,
-      "name" : "homeassistant-standby",
-      "netin" : 0,
-      "netout" : 0,
-      "serial" : 1,
-      "status" : "stopped",
-      "uptime" : 0,
-      "vmid" : 901
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 2,
-      "disk" : 0,
-      "maxdisk" : 34359738368,
-      "maxmem" : 2147483648,
-      "mem" : 0,
-      "memhost" : 0,
-      "name" : "ha-p0-primary-lite",
-      "netin" : 0,
-      "netout" : 0,
-      "serial" : 1,
-      "status" : "stopped",
-      "uptime" : 0,
-      "vmid" : 902
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 0,
-      "maxdisk" : 8589934592,
-      "maxmem" : 536870912,
-      "mem" : 370462720,
-      "memhost" : 370462720,
-      "name" : "house-audio-a",
-      "netin" : 270930980,
-      "netout" : 3920737,
-      "pid" : 4343,
-      "pressurecpufull" : 0,
-      "pressurecpusome" : 0,
-      "pressureiofull" : 0,
-      "pressureiosome" : 0,
-      "pressurememoryfull" : 0,
-      "pressurememorysome" : 0,
-      "serial" : 1,
-      "status" : "running",
-      "uptime" : 108402,
-      "vmid" : 214
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 2,
-      "disk" : 0,
-      "maxdisk" : 274877906944,
-      "maxmem" : 4282384384,
-      "mem" : 0,
-      "memhost" : 0,
-      "name" : "homeassistant-recovery",
-      "netin" : 0,
-      "netout" : 0,
-      "serial" : 1,
-      "status" : "stopped",
-      "uptime" : 0,
-      "vmid" : 900
-   }
-]
-
---- LXC LIVE RESOURCE DATA ---
-[
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 0,
-      "diskread" : 0,
-      "diskwrite" : 0,
-      "maxdisk" : 8589934592,
-      "maxmem" : 402653184,
-      "maxswap" : 268435456,
-      "mem" : 0,
-      "name" : "jns-log-b",
-      "netin" : 0,
-      "netout" : 0,
-      "status" : "stopped",
-      "swap" : 0,
-      "type" : "lxc",
-      "uptime" : 0,
-      "vmid" : 213
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 3136118784,
-      "diskread" : 1539481600,
-      "diskwrite" : 4426907648,
-      "maxdisk" : 8350298112,
-      "maxmem" : 1073741824,
-      "maxswap" : 536870912,
-      "mem" : 72953856,
-      "name" : "jns-maintenance",
-      "netin" : 267494801,
-      "netout" : 288317,
-      "pid" : 3236,
-      "pressurecpufull" : "0.00",
-      "pressurecpusome" : "0.00",
-      "pressureiofull" : "0.00",
-      "pressureiosome" : "0.00",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 20938752,
-      "type" : "lxc",
-      "uptime" : 108467,
-      "vmid" : 118
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 858517504,
-      "diskread" : 8298053632,
-      "diskwrite" : 3865288704,
-      "maxdisk" : 2040373248,
-      "maxmem" : 268435456,
-      "maxswap" : 67108864,
-      "mem" : 86196224,
-      "name" : "jns-dns-a",
-      "netin" : 421987171,
-      "netout" : 75747906,
-      "pid" : 121517,
-      "pressurecpufull" : "0.00",
-      "pressurecpusome" : "0.00",
-      "pressureiofull" : "0.00",
-      "pressureiosome" : "0.00",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 5226496,
-      "type" : "lxc",
-      "uptime" : 99881,
-      "vmid" : 217
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 1088233472,
-      "diskread" : 5332262912,
-      "diskwrite" : 6842417152,
-      "maxdisk" : 4143677440,
-      "maxmem" : 268435456,
-      "maxswap" : 134217728,
-      "mem" : 72540160,
-      "name" : "guardian02",
-      "netin" : 1916356056,
-      "netout" : 910343545,
-      "pid" : 2499,
-      "pressurecpufull" : "0.00",
-      "pressurecpusome" : "0.18",
-      "pressureiofull" : "0.04",
-      "pressureiosome" : "0.04",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 32960512,
-      "type" : "lxc",
-      "uptime" : 108487,
-      "vmid" : 116
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 779825152,
-      "diskread" : 1666072576,
-      "diskwrite" : 315826176,
-      "maxdisk" : 2040373248,
-      "maxmem" : 134217728,
-      "maxswap" : 67108864,
-      "mem" : 24223744,
-      "name" : "jns-time-a",
-      "netin" : 269451305,
-      "netout" : 1961770,
-      "pid" : 1660,
-      "pressurecpufull" : "0.00",
-      "pressurecpusome" : "0.00",
-      "pressureiofull" : "0.00",
-      "pressureiosome" : "0.00",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 3264512,
-      "type" : "lxc",
-      "uptime" : 108510,
-      "vmid" : 215
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 2,
-      "disk" : 0,
-      "diskread" : 0,
-      "diskwrite" : 0,
-      "maxdisk" : 34359738368,
-      "maxmem" : 4284481536,
-      "maxswap" : 2122317824,
-      "mem" : 0,
-      "name" : "CT102",
-      "netin" : 0,
-      "netout" : 0,
-      "status" : "stopped",
-      "swap" : 0,
-      "type" : "lxc",
-      "uptime" : 0,
-      "vmid" : 102
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 856817664,
-      "diskread" : 569745408,
-      "diskwrite" : 3481600,
-      "maxdisk" : 8589934592,
-      "maxmem" : 402653184,
-      "maxswap" : 268435456,
-      "mem" : 73990144,
-      "name" : "jns-log-a",
-      "netin" : 397729493,
-      "netout" : 278716630,
-      "pid" : 2670,
-      "pressurecpufull" : "0.00",
-      "pressurecpusome" : "0.38",
-      "pressureiofull" : "0.00",
-      "pressureiosome" : "0.00",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 221184,
-      "type" : "lxc",
-      "uptime" : 108483,
-      "vmid" : 212
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 0,
-      "diskread" : 0,
-      "diskwrite" : 0,
-      "maxdisk" : 8589934592,
-      "maxmem" : 402653184,
-      "maxswap" : 268435456,
-      "mem" : 0,
-      "name" : "jns-log-a",
-      "netin" : 0,
-      "netout" : 0,
-      "status" : "stopped",
-      "swap" : 0,
-      "type" : "lxc",
-      "uptime" : 0,
-      "vmid" : 211
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 402784256,
-      "diskread" : 26218496,
-      "diskwrite" : 0,
-      "maxdisk" : 4294967296,
-      "maxmem" : 268435456,
-      "maxswap" : 134217728,
-      "mem" : 18771968,
-      "name" : "jns-zigbee-gateway",
-      "netin" : 181240695,
-      "netout" : 5842786,
-      "pid" : 621118,
-      "pressurecpufull" : "0.00",
-      "pressurecpusome" : "0.00",
-      "pressureiofull" : "0.00",
-      "pressureiosome" : "0.00",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 0,
-      "type" : "lxc",
-      "uptime" : 65084,
-      "vmid" : 210
-   }
-]
-
---- HA / GUARDIAN / REPLICATION-RELATED UNITS ---
-  corosync.service                                                                                                                     loaded    inactive   dead            Corosync Cluster Engine
-  ifupdown2-pre.service                                                                                                                loaded    active     exited          Helper to synchronize boot up for ifupdown
-● jns-adguard-rewrite-sync.service                                                                                                     loaded    failed     failed          JNS AdGuard DNS-A to DNS-B rewrite replication
-  jns-cluster-proxy.service                                                                                                            loaded    active     running         JNS restricted peer and Guardian relay on Node A
-● jns-ha-guardian-probe.service                                                                                                        loaded    activating start     start JNS HA Guardian read-only probe
-  jns-ha-guest-sync.service                                                                                                            loaded    inactive   dead            JNS HA read-only local VM generation probe
-  jns-ha-telemetry-agent.service                                                                                                       loaded    active     running         JNS HA read-only private Node A telemetry agent
-  jns-ha-telemetry-collect.service                                                                                                     loaded    inactive   dead            JNS HA read-only Node A Proxmox telemetry collector
-  jns-private-guard.service                                                                                                            loaded    active     exited          JNS VM901 private management fail-closed guard
-  time-sync.target                                                                                                                     loaded    inactive   dead            System Time Synchronized
-  jns-adguard-rewrite-sync.timer                                                                                                       loaded    active     waiting         Verify JNS AdGuard rewrite replication
-  jns-ha-guardian-probe.timer                                                                                                          loaded    active     running         JNS HA Guardian probe timer
-  jns-ha-guest-sync.timer                                                                                                              loaded    active     waiting         Refresh JNS HA local VM generations
-  jns-ha-telemetry-collect.timer                                                                                                       loaded    active     waiting         Refresh Node A Proxmox telemetry snapshot
-
---- REPLICATION CONFIG ---
-
---- PVE REPLICATION STATUS ---
-JobID      Enabled    Target                           LastSync             NextSync   Duration  FailCount State
-
---- SELECTED VM CONFIGS (if present) ---
-### VM 900
-cpus: 2
-disk: 0
-maxdisk: 274877906944
-maxmem: 4282384384
-mem: 0
-memhost: 0
-name: homeassistant-recovery
-netin: 0
-netout: 0
-qmpstatus: stopped
-serial: 1
-status: stopped
-uptime: 0
-vmid: 900
-boot: order=scsi0
-cores: 2
-memory: 4084
-name: homeassistant-recovery
-net0: virtio=02:94:54:71:AA:9C,bridge=vmbr0
-onboot: 1
-scsi0: vmdata:vm-900-disk-1,discard=on,size=256G,ssd=1
-startup: order=30,up=60,down=120
-### VM 901
-cpus: 2
-disk: 0
-maxdisk: 274877906944
-maxmem: 4282384384
-mem: 0
-memhost: 0
-name: homeassistant-standby
-netin: 0
-netout: 0
-qmpstatus: stopped
-serial: 1
-status: stopped
-uptime: 0
-vmid: 901
-boot: order=scsi0
-cores: 2
-memory: 4084
-name: homeassistant-standby
-net0: virtio=02:90:01:00:09:01,bridge=vmbr1
-onboot: 0
-scsi0: vmdata:vm-901-disk-1,discard=on,size=256G,ssd=1
-### VM 902
-cpus: 2
-disk: 0
-maxdisk: 34359738368
-maxmem: 2147483648
-mem: 0
-memhost: 0
-name: ha-p0-primary-lite
-netin: 0
-netout: 0
-qmpstatus: stopped
-serial: 1
-status: stopped
-uptime: 0
-vmid: 902
-balloon: 0
-boot: order=scsi0
-cores: 2
-memory: 2048
-name: ha-p0-primary-lite
-net0: virtio=BC:24:11:AF:BB:79,bridge=vmbr0,firewall=1
-onboot: 0
-scsi0: vmdata:vm-902-disk-1,discard=on,iothread=1,size=32G,ssd=1
-sockets: 1
-startup: order=30,up=30,down=60
-### VM 903
-cpus: 2
-disk: 0
-maxdisk: 34359738368
-maxmem: 2147483648
-mem: 0
-memhost: 0
-name: ha-s1-plant
-netin: 0
-netout: 0
-qmpstatus: stopped
-serial: 1
-status: stopped
-uptime: 0
-vmid: 903
-balloon: 0
-boot: order=scsi0
-cores: 2
-memory: 2048
-name: ha-s1-plant
-net0: virtio=BC:24:11:99:4B:E0,bridge=vmbr0,firewall=1
-onboot: 0
-scsi0: vmdata:vm-903-disk-1,discard=on,iothread=1,size=32G,ssd=1
-startup: order=40,up=30,down=60
-
---- RECENT BACKUP / SYNC ARTIFACTS ---
-2026-09-24 11:08:18.0000000000          0 /etc/pve/replication.cfg
-
---- HOST AUDIT COMPLETE ---
-
-################################################################
-### HOST: nodeb
-################################################################
-
---- IDENTITY / LOAD ---
-nodeb
- 15:34:39 up 17:36,  3 users,  load average: 2.07, 2.52, 2.37
-
---- MEMORY ---
-               total        used        free      shared  buff/cache   available
-Mem:           7.7Gi       6.0Gi       796Mi        36Mi       1.3Gi       1.7Gi
-Swap:          7.7Gi       2.0Gi       5.7Gi
-
---- ROOT / PVE STORAGE ---
-Filesystem           Type  Size  Used Avail Use% Mounted on
-/dev/mapper/pve-root ext4   47G   13G   32G  28% /
-/dev/mapper/pve-root ext4   47G   13G   32G  28% /
-
---- PVE STORAGE STATUS ---
-storage 'NAS' is not online
-Name             Type     Status     Total (KiB)      Used (KiB) Available (KiB)        %
-NAS              cifs   inactive               0               0               0    0.00%
-WD-BACKUP         nfs     active      2875890368      1302239680      1544415680   45.28%
-local             dir     active        48265932        12692788        33088920   26.30%
-local-lvm     lvmthin     active        78872576        10474278        68398297   13.28%
-vmdata        zfspool     active       471468656        97695500       373773156   20.72%
-
---- QEMU VMS ---
-      VMID NAME                 STATUS     MEM(MB)    BOOTDISK(GB) PID       
-       219 house-audio-b        running    512                8.00 6445      
-       900 homeassistant-recovery stopped    4084             256.00 0         
-       902 ha-p0-primary-lite   running    2048              32.00 232603    
-       903 ha-s1-plant          running    2048              32.00 5780      
-       904 veyra-source01       stopped    2048              24.00 0         
-       905 ha-s2-general        running    1024              32.00 4595      
-
---- LXC CONTAINERS ---
-VMID       Status     Lock         Name                
-115        running                 guardian01          
-210        stopped                 jns-zigbee-gateway  
-211        stopped                 jns-syslog          
-212        running                 mqtt-infra-a        
-213        running                 jns-log-b           
-214        running                 zigbee2mqtt-a       
-216        running                 jns-time-b          
-218        running                 jns-dns-b           
-220        running                 jns-mgmt-b          
-
---- QEMU LIVE RESOURCE DATA ---
-[
-   {
-      "cpu" : 0,
-      "cpus" : 2,
-      "disk" : 0,
-      "maxdisk" : 274877906944,
-      "maxmem" : 4282384384,
-      "mem" : 0,
-      "memhost" : 0,
-      "name" : "homeassistant-recovery",
-      "netin" : 0,
-      "netout" : 0,
-      "serial" : 1,
-      "status" : "stopped",
-      "uptime" : 0,
-      "vmid" : 900
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 2,
-      "disk" : 0,
-      "maxdisk" : 34359738368,
-      "maxmem" : 2147483648,
-      "mem" : 1262497792,
-      "memhost" : 1262497792,
-      "name" : "ha-s1-plant",
-      "netin" : 182371803,
-      "netout" : 169095422,
-      "pid" : 5780,
-      "pressurecpufull" : 0,
-      "pressurecpusome" : 0.16,
-      "pressureiofull" : 0.12,
-      "pressureiosome" : 0.12,
-      "pressurememoryfull" : 0,
-      "pressurememorysome" : 0,
-      "serial" : 1,
-      "status" : "running",
-      "uptime" : 63224,
-      "vmid" : 903
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 2,
-      "disk" : 0,
-      "maxdisk" : 25769803776,
-      "maxmem" : 2147483648,
-      "mem" : 0,
-      "memhost" : 0,
-      "name" : "veyra-source01",
-      "netin" : 0,
-      "netout" : 0,
-      "serial" : 1,
-      "status" : "stopped",
-      "uptime" : 0,
-      "vmid" : 904
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 0,
-      "maxdisk" : 8589934592,
-      "maxmem" : 536870912,
-      "mem" : 432545792,
-      "memhost" : 432545792,
-      "name" : "house-audio-b",
-      "netin" : 173927394,
-      "netout" : 3363850,
-      "pid" : 6445,
-      "pressurecpufull" : 0.45,
-      "pressurecpusome" : 0.45,
-      "pressureiofull" : 0,
-      "pressureiosome" : 0,
-      "pressurememoryfull" : 0,
-      "pressurememorysome" : 0,
-      "serial" : 1,
-      "status" : "running",
-      "uptime" : 63192,
-      "vmid" : 219
-   },
-   {
-      "balloon_min" : 805306368,
-      "cpu" : 0,
-      "cpus" : 2,
-      "disk" : 0,
-      "maxdisk" : 34359738368,
-      "maxmem" : 1073741824,
-      "mem" : 886480896,
-      "memhost" : 886480896,
-      "name" : "ha-s2-general",
-      "netin" : 194417964,
-      "netout" : 26456179,
-      "pid" : 4595,
-      "pressurecpufull" : 0.02,
-      "pressurecpusome" : 0.36,
-      "pressureiofull" : 0,
-      "pressureiosome" : 0,
-      "pressurememoryfull" : 0,
-      "pressurememorysome" : 0,
-      "serial" : 1,
-      "shares" : 1000,
-      "status" : "running",
-      "uptime" : 63255,
-      "vmid" : 905
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 2,
-      "disk" : 0,
-      "maxdisk" : 34359738368,
-      "maxmem" : 2147483648,
-      "mem" : 982319104,
-      "memhost" : 982319104,
-      "name" : "ha-p0-primary-lite",
-      "netin" : 157796138,
-      "netout" : 135902002,
-      "pid" : 232603,
-      "pressurecpufull" : 0.14,
-      "pressurecpusome" : 0.27,
-      "pressureiofull" : 0.83,
-      "pressureiosome" : 0.83,
-      "pressurememoryfull" : 0,
-      "pressurememorysome" : 0,
-      "serial" : 1,
-      "status" : "running",
-      "uptime" : 50636,
-      "vmid" : 902
-   }
-]
-
---- LXC LIVE RESOURCE DATA ---
-[
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 558891008,
-      "diskread" : 215511040,
-      "diskwrite" : 17252352,
-      "maxdisk" : 4294967296,
-      "maxmem" : 268435456,
-      "maxswap" : 134217728,
-      "mem" : 68988928,
-      "name" : "guardian01",
-      "netin" : 1070572028,
-      "netout" : 480557284,
-      "pid" : 3040,
-      "pressurecpufull" : "0.09",
-      "pressurecpusome" : "1.28",
-      "pressureiofull" : "0.00",
-      "pressureiosome" : "0.00",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 9793536,
-      "type" : "lxc",
-      "uptime" : 63281,
-      "vmid" : 115
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 874643456,
-      "diskread" : 834945024,
-      "diskwrite" : 10723328,
-      "maxdisk" : 8589934592,
-      "maxmem" : 402653184,
-      "maxswap" : 268435456,
-      "mem" : 67334144,
-      "name" : "jns-log-b",
-      "netin" : 324927644,
-      "netout" : 50129993,
-      "pid" : 2741,
-      "pressurecpufull" : "0.00",
-      "pressurecpusome" : "2.15",
-      "pressureiofull" : "0.01",
-      "pressureiosome" : "0.01",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 5459968,
-      "type" : "lxc",
-      "uptime" : 63289,
-      "vmid" : 213
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 385351680,
-      "diskread" : 96395264,
-      "diskwrite" : 229376,
-      "maxdisk" : 2147483648,
-      "maxmem" : 201326592,
-      "maxswap" : 134217728,
-      "mem" : 22024192,
-      "name" : "mqtt-infra-a",
-      "netin" : 195908913,
-      "netout" : 30256580,
-      "pid" : 3463,
-      "pressurecpufull" : "0.00",
-      "pressurecpusome" : "0.00",
-      "pressureiofull" : "0.00",
-      "pressureiosome" : "0.00",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 114688,
-      "type" : "lxc",
-      "uptime" : 63276,
-      "vmid" : 212
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 0,
-      "diskread" : 0,
-      "diskwrite" : 0,
-      "maxdisk" : 8589934592,
-      "maxmem" : 402653184,
-      "maxswap" : 134217728,
-      "mem" : 0,
-      "name" : "jns-syslog",
-      "netin" : 0,
-      "netout" : 0,
-      "status" : "stopped",
-      "swap" : 0,
-      "type" : "lxc",
-      "uptime" : 0,
-      "vmid" : 211
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 744357888,
-      "diskread" : 222257152,
-      "diskwrite" : 737280,
-      "maxdisk" : 3221225472,
-      "maxmem" : 402653184,
-      "maxswap" : 134217728,
-      "mem" : 178143232,
-      "name" : "zigbee2mqtt-a",
-      "netin" : 205730950,
-      "netout" : 37983732,
-      "pid" : 4158,
-      "pressurecpufull" : "0.00",
-      "pressurecpusome" : "0.00",
-      "pressureiofull" : "0.00",
-      "pressureiosome" : "0.00",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 335872,
-      "type" : "lxc",
-      "uptime" : 63264,
-      "vmid" : 214
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 826753024,
-      "diskread" : 3759857664,
-      "diskwrite" : 2197733376,
-      "maxdisk" : 2040373248,
-      "maxmem" : 268435456,
-      "maxswap" : 67108864,
-      "mem" : 79429632,
-      "name" : "jns-dns-b",
-      "netin" : 190926343,
-      "netout" : 11697192,
-      "pid" : 1894,
-      "pressurecpufull" : "0.00",
-      "pressurecpusome" : "0.01",
-      "pressureiofull" : "0.00",
-      "pressureiosome" : "0.00",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 1851392,
-      "type" : "lxc",
-      "uptime" : 63321,
-      "vmid" : 218
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 1470599168,
-      "diskread" : 1438212096,
-      "diskwrite" : 262619136,
-      "maxdisk" : 4143677440,
-      "maxmem" : 536870912,
-      "maxswap" : 134217728,
-      "mem" : 128778240,
-      "name" : "jns-mgmt-b",
-      "netin" : 173900102,
-      "netout" : 2876577,
-      "pid" : 2068,
-      "pressurecpufull" : "0.00",
-      "pressurecpusome" : "0.00",
-      "pressureiofull" : "0.00",
-      "pressureiosome" : "0.00",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 66863104,
-      "type" : "lxc",
-      "uptime" : 63312,
-      "vmid" : 220
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 779890688,
-      "diskread" : 1079664640,
-      "diskwrite" : 343195648,
-      "maxdisk" : 2040373248,
-      "maxmem" : 134217728,
-      "maxswap" : 67108864,
-      "mem" : 20869120,
-      "name" : "jns-time-b",
-      "netin" : 172333654,
-      "netout" : 1229486,
-      "pid" : 2458,
-      "pressurecpufull" : "0.00",
-      "pressurecpusome" : "0.00",
-      "pressureiofull" : "0.00",
-      "pressureiosome" : "0.00",
-      "pressurememoryfull" : "0.00",
-      "pressurememorysome" : "0.00",
-      "status" : "running",
-      "swap" : 5058560,
-      "type" : "lxc",
-      "uptime" : 63294,
-      "vmid" : 216
-   },
-   {
-      "cpu" : 0,
-      "cpus" : 1,
-      "disk" : 0,
-      "diskread" : 0,
-      "diskwrite" : 0,
-      "maxdisk" : 4294967296,
-      "maxmem" : 268435456,
-      "maxswap" : 134217728,
-      "mem" : 0,
-      "name" : "jns-zigbee-gateway",
-      "netin" : 0,
-      "netout" : 0,
-      "status" : "stopped",
-      "swap" : 0,
-      "type" : "lxc",
-      "uptime" : 0,
-      "vmid" : 210
-   }
-]
-
---- HA / GUARDIAN / REPLICATION-RELATED UNITS ---
-  corosync.service                                                                                                                                            loaded    inactive   dead            Corosync Cluster Engine
-  ifupdown2-pre.service                                                                                                                                       loaded    active     exited          Helper to synchronize boot up for ifupdown
-  jns-cluster-proxy.service                                                                                                                                   loaded    active     running         JNS restricted peer and Guardian relay on Node B
-  jns-ha-guardian-probe.service                                                                                                                               loaded    inactive   dead            JNS HA read-only Guardian lease probe
-  jns-ha-guest-sync.service                                                                                                                                   loaded    inactive   dead            JNS HA read-only local VM generation probe
-  jns-ha-telemetry-agent.service                                                                                                                              loaded    active     running         JNS HA hardened read-only Node B telemetry agent
-● jns-ha-telemetry-collect.service                                                                                                                            loaded    activating start     start JNS HA read-only Proxmox telemetry snapshot collector
-  jns-tuya-watch.service                                                                                                                                      loaded    inactive   dead            JNS Tuya migration candidate watcher
-  time-sync.target                                                                                                                                            loaded    inactive   dead            System Time Synchronized
-  jns-ha-guardian-probe.timer                                                                                                                                 loaded    active     waiting         Refresh read-only Guardian lease snapshot
-  jns-ha-guest-sync.timer                                                                                                                                     loaded    active     waiting         Refresh JNS HA local VM generations
-  jns-ha-telemetry-collect.timer                                                                                                                              loaded    active     running         Refresh JNS HA Proxmox telemetry snapshot
-  jns-tuya-watch.timer                                                                                                                                        loaded    active     waiting         Check Tuya migration candidates
-
---- REPLICATION CONFIG ---
-
---- PVE REPLICATION STATUS ---
-JobID      Enabled    Target                           LastSync             NextSync   Duration  FailCount State
-
---- SELECTED VM CONFIGS (if present) ---
-### VM 900
-cpus: 2
-disk: 0
-maxdisk: 274877906944
-maxmem: 4282384384
-mem: 0
-memhost: 0
-name: homeassistant-recovery
-netin: 0
-netout: 0
-qmpstatus: stopped
-serial: 1
-status: stopped
-uptime: 0
-vmid: 900
-boot: order=scsi0
-cores: 2
-memory: 4084
-name: homeassistant-recovery
-net0: virtio=02:94:54:71:AA:9C,bridge=vmbr0
-onboot: 0
-scsi0: vmdata:vm-900-disk-1,discard=on,size=256G,ssd=1
-startup: order=30,up=60,down=120
-### VM 902
-blockstat:
-	efidisk0:
-		account_failed: 1
-		account_invalid: 1
-		failed_flush_operations: 0
-		failed_rd_operations: 0
-		failed_unmap_operations: 0
-		failed_wr_operations: 0
-		failed_zone_append_operations: 0
-		flush_operations: 0
-		flush_total_time_ns: 0
-		invalid_flush_operations: 0
-		invalid_rd_operations: 0
-		invalid_unmap_operations: 0
-		invalid_wr_operations: 0
-		invalid_zone_append_operations: 0
-		rd_bytes: 0
-		rd_merged: 0
-		rd_operations: 0
-		rd_total_time_ns: 0
-		timed_stats:
-		unmap_bytes: 0
-		unmap_merged: 0
-		unmap_operations: 0
-		unmap_total_time_ns: 0
-		wr_bytes: 0
-		wr_highest_offset: 41472
-		wr_merged: 0
-		wr_operations: 0
-		wr_total_time_ns: 0
-		zone_append_bytes: 0
-		zone_append_merged: 0
-		zone_append_operations: 0
-		zone_append_total_time_ns: 0
-	pflash0:
-		account_failed: 1
-		account_invalid: 1
-		failed_flush_operations: 0
-		failed_rd_operations: 0
-		failed_unmap_operations: 0
-		failed_wr_operations: 0
-		failed_zone_append_operations: 0
-		flush_operations: 0
-		flush_total_time_ns: 0
-		invalid_flush_operations: 0
-		invalid_rd_operations: 0
-		invalid_unmap_operations: 0
-		invalid_wr_operations: 0
-		invalid_zone_append_operations: 0
-		rd_bytes: 0
-		rd_merged: 0
-		rd_operations: 0
-		rd_total_time_ns: 0
-		timed_stats:
-		unmap_bytes: 0
-		unmap_merged: 0
-		unmap_operations: 0
-		unmap_total_time_ns: 0
-		wr_bytes: 0
-		wr_highest_offset: 0
-		wr_merged: 0
-		wr_operations: 0
-		wr_total_time_ns: 0
-		zone_append_bytes: 0
-		zone_append_merged: 0
-		zone_append_operations: 0
-		zone_append_total_time_ns: 0
-	scsi0:
-		account_failed: 1
-		account_invalid: 1
-		failed_flush_operations: 0
-		failed_rd_operations: 0
-		failed_unmap_operations: 0
-		failed_wr_operations: 0
-		failed_zone_append_operations: 0
-		flush_operations: 3049
-		flush_total_time_ns: 138287920664
-		idle_time_ns: 12795984164
-		invalid_flush_operations: 0
-		invalid_rd_operations: 0
-		invalid_unmap_operations: 0
-		invalid_wr_operations: 0
-		invalid_zone_append_operations: 0
-		rd_bytes: 426640896
-		rd_merged: 0
-		rd_operations: 13675
-		rd_total_time_ns: 105290033753
-		timed_stats:
-		unmap_bytes: 0
-		unmap_merged: 0
-		unmap_operations: 0
-		unmap_total_time_ns: 0
-		wr_bytes: 311679488
-		wr_highest_offset: 33345769472
-		wr_merged: 0
-		wr_operations: 58047
-		wr_total_time_ns: 2649168313943
-		zone_append_bytes: 0
-		zone_append_merged: 0
-		zone_append_operations: 0
-		zone_append_total_time_ns: 0
-cpus: 2
-disk: 0
-diskread: 426640896
-diskwrite: 311679488
-maxdisk: 34359738368
-maxmem: 2147483648
-mem: 982564864
-memhost: 982564864
-name: ha-p0-primary-lite
-netin: 157819438
-netout: 135929173
-nics:
-	tap902i0:
-		netin: 157819438
-		netout: 135929173
-pid: 232603
-pressurecpufull: 0.59
-pressurecpusome: 0.72
-pressureiofull: 0.3
-pressureiosome: 0.3
-pressurememoryfull: 0
-pressurememorysome: 0
-proxmox-support:
-	backup-access-api: 1
-	backup-fleecing: 1
-	backup-max-workers: 1
-	pbs-dirty-bitmap: 1
-	pbs-dirty-bitmap-migration: 1
-	pbs-dirty-bitmap-savevm: 1
-	pbs-library-version: 2.0.2 (594183eab9fa275f45dfff5dd15b16f150abd503)
-	pbs-masterkey: 1
-	query-bitmap-info: 1
-qmpstatus: running
-running-machine: pc-q35-11.0+pve0
-running-qemu: 11.0.0
-serial: 1
-status: running
-uptime: 50648
-vmid: 902
-balloon: 0
-boot: order=scsi0
-cores: 2
-memory: 2048
-name: ha-p0-primary-lite
-net0: virtio=BC:24:11:AF:BB:79,bridge=vmbr0,firewall=1
-onboot: 0
-scsi0: vmdata:vm-902-disk-1,discard=on,iothread=1,size=32G,ssd=1
-sockets: 1
-startup: order=30,up=30,down=60
-### VM 903
-blockstat:
-	efidisk0:
-		account_failed: 1
-		account_invalid: 1
-		failed_flush_operations: 0
-		failed_rd_operations: 0
-		failed_unmap_operations: 0
-		failed_wr_operations: 0
-		failed_zone_append_operations: 0
-		flush_operations: 0
-		flush_total_time_ns: 0
-		invalid_flush_operations: 0
-		invalid_rd_operations: 0
-		invalid_unmap_operations: 0
-		invalid_wr_operations: 0
-		invalid_zone_append_operations: 0
-		rd_bytes: 0
-		rd_merged: 0
-		rd_operations: 0
-		rd_total_time_ns: 0
-		timed_stats:
-		unmap_bytes: 0
-		unmap_merged: 0
-		unmap_operations: 0
-		unmap_total_time_ns: 0
-		wr_bytes: 0
-		wr_highest_offset: 38912
-		wr_merged: 0
-		wr_operations: 0
-		wr_total_time_ns: 0
-		zone_append_bytes: 0
-		zone_append_merged: 0
-		zone_append_operations: 0
-		zone_append_total_time_ns: 0
-	pflash0:
-		account_failed: 1
-		account_invalid: 1
-		failed_flush_operations: 0
-		failed_rd_operations: 0
-		failed_unmap_operations: 0
-		failed_wr_operations: 0
-		failed_zone_append_operations: 0
-		flush_operations: 0
-		flush_total_time_ns: 0
-		invalid_flush_operations: 0
-		invalid_rd_operations: 0
-		invalid_unmap_operations: 0
-		invalid_wr_operations: 0
-		invalid_zone_append_operations: 0
-		rd_bytes: 0
-		rd_merged: 0
-		rd_operations: 0
-		rd_total_time_ns: 0
-		timed_stats:
-		unmap_bytes: 0
-		unmap_merged: 0
-		unmap_operations: 0
-		unmap_total_time_ns: 0
-		wr_bytes: 0
-		wr_highest_offset: 0
-		wr_merged: 0
-		wr_operations: 0
-		wr_total_time_ns: 0
-		zone_append_bytes: 0
-		zone_append_merged: 0
-		zone_append_operations: 0
-		zone_append_total_time_ns: 0
-	scsi0:
-		account_failed: 1
-		account_invalid: 1
-		failed_flush_operations: 0
-		failed_rd_operations: 0
-		failed_unmap_operations: 0
-		failed_wr_operations: 0
-		failed_zone_append_operations: 0
-		flush_operations: 3926
-		flush_total_time_ns: 319489926866
-		idle_time_ns: 10405314567
-		invalid_flush_operations: 0
-		invalid_rd_operations: 0
-		invalid_unmap_operations: 0
-		invalid_wr_operations: 0
-		invalid_zone_append_operations: 0
-		rd_bytes: 449190912
-		rd_merged: 0
-		rd_operations: 12679
-		rd_total_time_ns: 138950841056
-		timed_stats:
-		unmap_bytes: 0
-		unmap_merged: 0
-		unmap_operations: 0
-		unmap_total_time_ns: 0
-		wr_bytes: 4688970752
-		wr_highest_offset: 33345769472
-		wr_merged: 0
-		wr_operations: 525139
-		wr_total_time_ns: 14445012770429
-		zone_append_bytes: 0
-		zone_append_merged: 0
-		zone_append_operations: 0
-		zone_append_total_time_ns: 0
-cpus: 2
-disk: 0
-diskread: 449190912
-diskwrite: 4688970752
-maxdisk: 34359738368
-maxmem: 2147483648
-mem: 1262538752
-memhost: 1262538752
-name: ha-s1-plant
-netin: 182403092
-netout: 169133116
-nics:
-	tap903i0:
-		netin: 182403092
-		netout: 169133116
-pid: 5780
-pressurecpufull: 0.2
-pressurecpusome: 0.33
-pressureiofull: 0.02
-pressureiosome: 0.02
-pressurememoryfull: 0
-pressurememorysome: 0
-proxmox-support:
-	backup-access-api: 1
-	backup-fleecing: 1
-	backup-max-workers: 1
-	pbs-dirty-bitmap: 1
-	pbs-dirty-bitmap-migration: 1
-	pbs-dirty-bitmap-savevm: 1
-	pbs-library-version: 2.0.2 (594183eab9fa275f45dfff5dd15b16f150abd503)
-	pbs-masterkey: 1
-	query-bitmap-info: 1
-qmpstatus: running
-running-machine: pc-q35-11.0+pve0
-running-qemu: 11.0.0
-serial: 1
-status: running
-uptime: 63240
-vmid: 903
-balloon: 0
-boot: order=scsi0
-cores: 2
-memory: 2048
-name: ha-s1-plant
-net0: virtio=BC:24:11:99:4B:E0,bridge=vmbr0,firewall=1
-onboot: 1
-scsi0: vmdata:vm-903-disk-1,discard=on,iothread=1,size=32G,ssd=1
-startup: order=40,up=30,down=60
-### VM 904
-cpus: 2
-disk: 0
-maxdisk: 25769803776
-maxmem: 2147483648
-mem: 0
-memhost: 0
-name: veyra-source01
-netin: 0
-netout: 0
-qmpstatus: stopped
-serial: 1
-status: stopped
-uptime: 0
-vmid: 904
-boot: order=scsi0
-cores: 2
-ide2: local-lvm:vm-904-cloudinit,media=cdrom
-memory: 2048
-name: veyra-source01
-net0: virtio=BC:24:11:52:59:6C,bridge=vmbr0
-scsi0: local-lvm:vm-904-disk-0,discard=on,size=24G,ssd=1
-### VM 905
-balloon: 1016524800
-balloon_min: 805306368
-ballooninfo:
-	actual: 1016524800
-	free_mem: 158203904
-	last_update: 1791297311
-	major_page_faults: 52900
-	max_mem: 1073741824
-	mem_swapped_in: 0
-	mem_swapped_out: 0
-	minor_page_faults: 4222604
-	total_mem: 1009336320
-blockstat:
-	efidisk0:
-		account_failed: 1
-		account_invalid: 1
-		failed_flush_operations: 0
-		failed_rd_operations: 0
-		failed_unmap_operations: 0
-		failed_wr_operations: 0
-		failed_zone_append_operations: 0
-		flush_operations: 0
-		flush_total_time_ns: 0
-		invalid_flush_operations: 0
-		invalid_rd_operations: 0
-		invalid_unmap_operations: 0
-		invalid_wr_operations: 0
-		invalid_zone_append_operations: 0
-		rd_bytes: 0
-		rd_merged: 0
-		rd_operations: 0
-		rd_total_time_ns: 0
-		timed_stats:
-		unmap_bytes: 0
-		unmap_merged: 0
-		unmap_operations: 0
-		unmap_total_time_ns: 0
-		wr_bytes: 0
-		wr_highest_offset: 26624
-		wr_merged: 0
-		wr_operations: 0
-		wr_total_time_ns: 0
-		zone_append_bytes: 0
-		zone_append_merged: 0
-		zone_append_operations: 0
-		zone_append_total_time_ns: 0
-	pflash0:
-		account_failed: 1
-		account_invalid: 1
-		failed_flush_operations: 0
-		failed_rd_operations: 0
-		failed_unmap_operations: 0
-		failed_wr_operations: 0
-		failed_zone_append_operations: 0
-		flush_operations: 0
-		flush_total_time_ns: 0
-		invalid_flush_operations: 0
-		invalid_rd_operations: 0
-		invalid_unmap_operations: 0
-		invalid_wr_operations: 0
-		invalid_zone_append_operations: 0
-		rd_bytes: 0
-		rd_merged: 0
-		rd_operations: 0
-		rd_total_time_ns: 0
-		timed_stats:
-		unmap_bytes: 0
-		unmap_merged: 0
-		unmap_operations: 0
-		unmap_total_time_ns: 0
-		wr_bytes: 0
-		wr_highest_offset: 0
-		wr_merged: 0
-		wr_operations: 0
-		wr_total_time_ns: 0
-		zone_append_bytes: 0
-		zone_append_merged: 0
-		zone_append_operations: 0
-		zone_append_total_time_ns: 0
-	scsi0:
-		account_failed: 1
-		account_invalid: 1
-		failed_flush_operations: 0
-		failed_rd_operations: 0
-		failed_unmap_operations: 0
-		failed_wr_operations: 0
-		failed_zone_append_operations: 0
-		flush_operations: 3583
-		flush_total_time_ns: 172180576468
-		idle_time_ns: 2151190839
-		invalid_flush_operations: 0
-		invalid_rd_operations: 0
-		invalid_unmap_operations: 0
-		invalid_wr_operations: 0
-		invalid_zone_append_operations: 0
-		rd_bytes: 1030548992
-		rd_merged: 0
-		rd_operations: 36795
-		rd_total_time_ns: 277072306544
-		timed_stats:
-		unmap_bytes: 0
-		unmap_merged: 0
-		unmap_operations: 0
-		unmap_total_time_ns: 0
-		wr_bytes: 344207872
-		wr_highest_offset: 33345769472
-		wr_merged: 0
-		wr_operations: 57456
-		wr_total_time_ns: 2448670427675
-		zone_append_bytes: 0
-		zone_append_merged: 0
-		zone_append_operations: 0
-		zone_append_total_time_ns: 0
-cpus: 2
-disk: 0
-diskread: 1030548992
-diskwrite: 344207872
-freemem: 158203904
-maxdisk: 34359738368
-maxmem: 1073741824
-mem: 851132416
-memhost: 879513600
-name: ha-s2-general
-netin: 194473218
-netout: 26462986
-nics:
-	tap905i0:
-		netin: 194473218
-		netout: 26462986
-pid: 4595
-pressurecpufull: 0.45
-pressurecpusome: 1.2
-pressureiofull: 0.26
-pressureiosome: 0.26
-pressurememoryfull: 0
-pressurememorysome: 0
-proxmox-support:
-	backup-access-api: 1
-	backup-fleecing: 1
-	backup-max-workers: 1
-	pbs-dirty-bitmap: 1
-	pbs-dirty-bitmap-migration: 1
-	pbs-dirty-bitmap-savevm: 1
-	pbs-library-version: 2.0.2 (594183eab9fa275f45dfff5dd15b16f150abd503)
-	pbs-masterkey: 1
-	query-bitmap-info: 1
-qmpstatus: running
-running-machine: pc-q35-11.0+pve0
-running-qemu: 11.0.0
-serial: 1
-shares: 1000
-status: running
-uptime: 63281
-vmid: 905
-balloon: 768
-boot: order=scsi0
-cores: 2
-memory: 1024
-name: ha-s2-general
-net0: virtio=BC:24:11:35:29:7B,bridge=vmbr0,firewall=0
-onboot: 1
-scsi0: vmdata:vm-905-disk-1,discard=on,iothread=1,size=32G,ssd=1
-sockets: 1
-startup: order=30,up=30,down=60
-
---- RECENT BACKUP / SYNC ARTIFACTS ---
-
---- HOST AUDIT COMPLETE ---
-
-=== END AUDIT ===
+=== direct analyse-start smoke test ===
+curl: (3) unmatched close brace/bracket in URL position 8:
+bedtime}
+       ^
