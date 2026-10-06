@@ -4,7 +4,7 @@ set -euo pipefail
 APP_DIR="/opt/jns-management-bridge"
 ETC_DIR="/etc/jns-management-bridge"
 SERVICE="/etc/systemd/system/jns-management-bridge.service"
-REF="${JNS_BRIDGE_REF:-management-bridge}"
+REF="${JNS_BRIDGE_REF:-main}"
 BASE="https://raw.githubusercontent.com/jamienewton2269/JNS-Home-Assistant-Deployment/${REF}/management_bridge"
 
 if [[ "${EUID}" -ne 0 ]]; then
