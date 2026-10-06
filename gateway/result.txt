@@ -1,117 +1,19 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T15:37:19+01:00
+2026-10-06T15:38:31+01:00
 runner=nodec
 
-=== HTML AROUND MAIN FORM ===
-:root{--vy-bg:#05080c;--vy-panel:#0b1118;--vy-line:#203448;--vy-text:#e8f4ff;--vy-muted:#8da3b5;--vy-blue:#5bbcff;--vy-green:#83e6b4;--vy-amber:#ffc857;--vy-red:#ff6b6b}
-body{font-family:system-ui;margin:0;background:var(--vy-bg);color:var(--vy-text)}.w{max-width:1500px;margin:28px auto;padding:0 18px}
-.layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(380px,.8fr);gap:18px;align-items:start}
-.maincol,.admincol{min-width:0}.admincol{position:sticky;top:18px;max-height:calc(100vh - 36px);overflow:auto}
-@media(max-width:1050px){.layout{grid-template-columns:1fr}.admincol{position:static;max-height:none}}
-.card{background:#191919;border:1px solid #333;border-radius:14px;padding:20px;margin:16px 0}
-.admincard{background:#151515;border:1px solid #2f3b47;border-radius:14px;padding:16px;margin:12px 0}
-.adminhead{display:flex;justify-content:space-between;gap:10px;align-items:center;position:sticky;top:0;background:#111;padding:6px 0 10px;z-index:2}
-.adminhead h2{margin:0}.badge{font-size:.8rem;border:1px solid #555;border-radius:999px;padding:4px 8px;color:#bbb}
-.audit-event{border-top:1px solid #2d2d2d;padding:10px 0}.audit-event:first-child{border-top:0}
-textarea{width:100%;box-sizing:border-box;min-height:110px;background:#0e0e0e;color:#eee;border:1px solid #444;border-radius:10px;padding:12px}
-button{padding:10px 14px;border-radius:9px;border:0;margin:8px 8px 0 0}.muted{color:#aaa}pre{white-space:pre-wrap;background:#0d0d0d;padding:14px;border-radius:10px;overflow:auto}
-.cand{display:block;width:100%;text-align:left;background:#292929;color:#eee;border:1px solid #444}
-.error{border:2px solid #d84b4b;background:#2a1111;color:#ffdede}.error h3{margin-top:0;color:#ff8f8f}
-.progress{border:1px solid var(--vy-line);background:var(--vy-panel)}.progress h3{margin:0 0 8px}.stage{padding:5px 0}.done{color:var(--vy-green)}.active{color:var(--vy-blue);font-weight:700}.stage-time{color:var(--vy-muted);margin-left:8px}.remove{background:#4b2626;color:#ffdede;border:1px solid #7b3b3b;font-size:.9rem;padding:6px 9px;margin-left:8px}.progressbar{height:18px;background:var(--vy-bg);border:1px solid var(--vy-line);border-radius:999px;overflow:hidden;margin:12px 0 8px}.progressfill{height:100%;width:0%;background:linear-gradient(90deg,var(--vy-blue),var(--vy-green));transition:width .18s linear}.progressmeta{display:flex;justify-content:space-between;gap:10px;font-size:.9rem;color:var(--vy-muted);flex-wrap:wrap}.progresspct{font-weight:700;color:var(--vy-text)}.progressstate{font-size:.78rem;letter-spacing:.08em;color:var(--vy-blue)}.state-stalled{border-color:var(--vy-amber)}.state-stalled .progressfill{background:var(--vy-amber)}.state-stalled .progressstate{color:var(--vy-amber)}.state-error{border-color:var(--vy-red)}.state-error .progressfill{background:var(--vy-red)}.state-error .progressstate{color:var(--vy-red)}.state-done .progressstate{color:var(--vy-green)}.stallnote{margin-top:10px;padding:10px 12px;border:1px solid var(--vy-amber);border-radius:9px;color:#ffe8a6;background:#211a08}
-.hidden{display:none}.request-title{border-left:4px solid #6da8df}.request-title .label{font-size:.82rem;text-transform:uppercase;letter-spacing:.08em;color:#8fa8bd}.request-title h2{margin:.35rem 0 0;font-size:1.15rem;line-height:1.45}.multi-row{display:flex;align-items:flex-start;gap:10px;padding:9px;border:1px solid #383838;border-radius:9px;margin:7px 0;background:#222}.multi-row input{margin-top:4px}.multi-meta{color:#aaa;font-size:.88rem}.primary{background:#eee;color:#111}.multi-actions{margin-top:14px}
-</style></head><body><div class=w><h1>Natural Automation</h1><p class=muted>Development Node B · HA Lite VM902 · language learning test</p>
-<div class=layout>
-<div class=maincol>
-<div class=card><textarea id=q placeholder="Type the next Home Assistant request..."></textarea><br><button onclick=go()>Analyse</button></div>
-<div class="card request-title hidden" id=reqcard><div class=label>Current request</div><h2 id=reqtext></h2></div>
-<div class=card id=o>Ready for a request.</div>
-</div>
-<div class=admincol>
-<div class=adminhead><h2>Testing / Admin</h2><span class=badge id=adminstatus>loading</span></div>
-<div class=admincard><button onclick=refreshInlineAdmin()>Refresh</button><button onclick=inlineHousekeepingScan()>Housekeeping scan</button><p class=muted>Live development view. Write gate remains disabled.</p></div>
-<div class=admincard><h3>Housekeeping</h3><div id=inlinehousekeeping>Loading…</div></div>
-<div class=admincard><h3>Removal queue</h3><div id=inlineremovals>Loading…</div></div>
-<div class=admincard><h3>Recent reasoning / audit</h3><div id=inlineaudit>Loading…</div></div>
-</div>
-</div></div><script>
-async function post(u,b){let r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});let d={};try{d=await r.json()}catch(e){d={error:'The server returned an unreadable response.'}}d._http_ok=r.ok;d._status=r.status;return d}
-function esc(v){return String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')}
-async function inlineHouseReview(id,decision){
-  await post('/api/admin/housekeeping-review',{suggestion_id:id,decision:decision});
-  await refreshInlineAdmin()
-}
-async function inlineRemovalReview(id,decision){
-  await post('/api/admin/removal-review',{proposal_id:id,decision:decision});
-  await refreshInlineAdmin()
-}
-async function inlineHousekeepingScan(){
-  document.getElementById('adminstatus').textContent='scanning…';
-  await post('/api/admin/housekeeping-scan',{});
-  await refreshInlineAdmin()
-}
-async function refreshInlineAdmin(){
-  try{
-    let r=await fetch('/api/admin/log'),d=await r.json();
-    if(!r.ok)throw new Error(d.error||'Admin data unavailable');
-    document.getElementById('adminstatus').textContent=(d.apply_enabled?'write enabled':'write gate closed');
-    let h=document.getElementById('inlinehousekeeping'),q=document.getElementById('inlineremovals'),a=document.getElementById('inlineaudit');
-    let hs=d.housekeeping||[];
-    h.innerHTML=hs.length?hs.slice(0,8).map(x=>'<div class="audit-event"><b>'+esc(x.alias)+'</b><div class="muted">'+esc(x.confidence)+' · '+esc(x.kind.replaceAll('_',' '))+'</div><p>'+esc(x.reason)+'</p><div class="muted">'+esc(x.status.replaceAll('_',' '))+'</div>'+(x.status==='suggested'?'<button onclick="inlineHouseReview(\''+x.suggestion_id+'\',\'propose_removal\')">Propose cleanup</button><button onclick="inlineHouseReview(\''+x.suggestion_id+'\',\'keep\')">Keep</button><button onclick="inlineHouseReview(\''+x.suggestion_id+'\',\'dismiss\')">Dismiss</button>':'')+'</div>').join(''):'<span class="muted">No housekeeping suggestions.</span>';
-    let rs=d.removals||[];
-    q.innerHTML=rs.length?rs.slice().reverse().slice(0,8).map(x=>'<div class="audit-event"><b>'+esc(x.alias)+'</b><div class="muted">'+esc(x.controller_id)+' · '+esc(x.source)+'</div><div>'+esc(x.status.replaceAll('_',' '))+'</div>'+(x.status==='pending_review'?'<button onclick="inlineRemovalReview(\''+x.proposal_id+'\',\'approve\')">Approve later removal</button><button onclick="inlineRemovalReview(\''+x.proposal_id+'\',\'reject\')">Reject</button>':'')+'</div>').join(''):'<span class="muted">No removal proposals.</span>';
-    let ev=d.events||[];
-    a.innerHTML=ev.slice(0,12).map(e=>'<div class="audit-event"><b>'+new Date((e.ts||0)*1000).toLocaleTimeString()+' · '+esc(e.event||'event')+'</b>'+(e.logic?'<ol>'+e.logic.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ol>':'')+'<details><summary>Machine record</summary><pre>'+esc(JSON.stringify(e,null,2))+'</pre></details></div>').join('')||'<span class="muted">No events yet.</span>';
-  }catch(e){
-    document.getElementById('adminstatus').textContent='admin view error';
-    document.getElementById('inlineaudit').innerHTML='<div class="error">'+esc(e)+'</div>';
-  }
-}
-let activeRequest='';
-let multiState=null;
-function setCurrentRequest(text){
-  activeRequest=text;
-  document.getElementById('reqtext').textContent=text||'(blank request)';
-  document.getElementById('reqcard').classList.remove('hidden');
-}
-async function analyseText(t,newSubmission){
-  if(newSubmission){
-    setCurrentRequest(t);
-    document.getElementById('q').value='';
-    document.getElementById('q').focus();
-  }
-  try{
-    let start=await post('/api/analyse-start',{text:t});
-    if(!start._http_ok){show(start);return}
-    await watchJob(start.job_id)
-  }catch(e){show({action:'error',error:'Could not contact Natural Automation.',suggestion:String(e)})}
+=== VALIDATE RENDERED NATURAL AUTOMATION JS ===
+FOUND "device's"
+js_bytes 11930
+=== suspicious rendered lines ===
+124:    '<p id="multihint" class="muted">After the first selection, the remaining list will be re-ranked using that device's domain and Home Assistant area.</p>'+
+=== JS syntax check ===
+/tmp/na-page.js:24
+    h.innerHTML=hs.length?hs.slice(0,8).map(x=>'<div class="audit-event"><b>'+esc(x.alias)+'</b><div class="muted">'+esc(x.confidence)+' · '+esc(x.kind.replaceAll('_',' '))+'</div><p>'+esc(x.reason)+'</p><div class="muted">'+esc(x.status.replaceAll('_',' '))+'</div>'+(x.status==='suggested'?'<button onclick="inlineHouseReview(''+x.suggestion_id+'','propose_removal')">Propose cleanup</button><button onclick="inlineHouseReview(''+x.suggestion_id+'','keep')">Keep</button><button onclick="inlineHouseReview(''+x.suggestion_id+'','dismiss')">Dismiss</button>':'')+'</div>').join(''):'<span class="muted">No housekeeping suggestions.</span>';
+                                                                                                                                                                                                                                                                                                                                         ^^^^^^^^^^^^^^^^^^^
 
-=== expected request-card ids ===
-655:<div class="card request-title hidden" id=reqcard><div class=label>Current request</div><h2 id=reqtext></h2></div>
+SyntaxError: Unexpected string
+    at wrapSafe (node:internal/modules/cjs/loader:1472:18)
+    at checkSyntax (node:internal/main/check_syntax:78:3)
 
-=== post helper ===
-<div class=admincard><h3>Housekeeping</h3><div id=inlinehousekeeping>Loading…</div></div>
-<div class=admincard><h3>Removal queue</h3><div id=inlineremovals>Loading…</div></div>
-<div class=admincard><h3>Recent reasoning / audit</h3><div id=inlineaudit>Loading…</div></div>
-</div>
-</div></div><script>
-async function post(u,b){let r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});let d={};try{d=await r.json()}catch(e){d={error:'The server returned an unreadable response.'}}d._http_ok=r.ok;d._status=r.status;return d}
-function esc(v){return String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')}
-async function inlineHouseReview(id,decision){
-  await post('/api/admin/housekeeping-review',{suggestion_id:id,decision:decision});
-  await refreshInlineAdmin()
-}
-async function inlineRemovalReview(id,decision){
-  await post('/api/admin/removal-review',{proposal_id:id,decision:decision});
-  await refreshInlineAdmin()
-}
-async function inlineHousekeepingScan(){
-  document.getElementById('adminstatus').textContent='scanning…';
-  await post('/api/admin/housekeeping-scan',{});
-  await refreshInlineAdmin()
-}
-async function refreshInlineAdmin(){
-  try{
-    let r=await fetch('/api/admin/log'),d=await r.json();
-    if(!r.ok)throw new Error(d.error||'Admin data unavailable');
-    document.getElementById('adminstatus').textContent=(d.apply_enabled?'write enabled':'write gate closed');
-    let h=document.getElementById('inlinehousekeeping'),q=document.getElementById('inlineremovals'),a=document.getElementById('inlineaudit');
+Node.js v20.19.2
