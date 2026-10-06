@@ -1,56 +1,65 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T11:23:57+01:00
+2026-10-06T11:24:45+01:00
 runner=nodec
 
-=== HA-GENERAL DNS + NATURAL AUTOMATION ACCESS CHECK ===
-2026-10-06T11:23:57+01:00
+=== ADD HA-GENERAL DNS + INSPECT HA CONTROL API ===
+2026-10-06T11:24:45+01:00
 runner=nodec
 
-=== HA-GENERAL HTTP PORTS ===
-http://10.10.10.223/ -> 200
-http://10.10.10.223:8123/ -> 000
-curl: (7) Failed to connect to 10.10.10.223 port 8123 after 0 ms: Could not connect to server
-unreachable
+=== ADGUARD CURRENT REWRITES ===
+  blocking_mode: default
+  parental_block_host: family-block.dns.adguard.com
+  safebrowsing_block_host: standard-block.dns.adguard.com
+  rewrites: []
+  safe_fs_patterns:
+    - /opt/AdGuardHome/userfilters/*
+  max_http_size: 256MB
+  safebrowsing_cache_size: 1048576
+  safesearch_cache_size: 1048576
+  parental_cache_size: 1048576
+  cache_time: 30
+  filters_update_interval: 24
+  blocked_response_ttl: 10
+  filtering_enabled: true
+  rewrites_enabled: true
+  parental_enabled: false
+  safebrowsing_enabled: false
+  protection_enabled: true
+clients:
+  runtime_sources:
+    whois: true
+    arp: true
+    rdns: true
+    dhcp: true
+    hosts: true
+  persistent: []
+log:
+  enabled: true
+  file: ""
+  max_backups: 0
+  max_size: 100
+  max_age: 3
+  compress: false
+  local_time: false
+  verbose: false
+os:
+  group: ""
+  user: ""
+  rlimit_nofile: 0
+schema_version: 34
 
-=== ADGUARD HOME PROCESS/CONFIG ===
-root          86  0.0 22.3 1375708 58712 ?       Ssl  Oct05   0:26 /opt/AdGuardHome/AdGuardHome -s run
-root       21070  0.0  0.6   2680  1732 ?        S    10:23   0:00 sh -lc    ps wwaux | grep "[A]dGuardHome" || true   find /opt /etc /var/lib -maxdepth 3 -type f -name "AdGuardHome.yaml" -print 2>/dev/null 
-/opt/AdGuardHome/AdGuardHome.yaml
-
-=== NATURAL AUTOMATION TREE ===
-/opt/natural-automation/backup-20261006-102754/data/changes.jsonl
-/opt/natural-automation/backup-20261006-102754/data/device_fixture.json
-/opt/natural-automation/backup-20261006-102754/data/housekeeping.json
-/opt/natural-automation/backup-20261006-102754/data/progress_stats.json
-/opt/natural-automation/backup-20261006-102754/natural_automation.py
-/opt/natural-automation/backup-20261006-102754/natural-automation.service
-/opt/natural-automation/data/changes.jsonl
-/opt/natural-automation/data/device_fixture.json
-/opt/natural-automation/data/housekeeping.json
-/opt/natural-automation/data/progress_stats.json
-/opt/natural-automation/data/steward.db
-/opt/natural-automation/data/steward.db-shm
-/opt/natural-automation/data/steward.db-wal
-/opt/natural-automation/natural_automation.py
-/opt/natural-automation/__pycache__/natural_automation.cpython-313.pyc
-/opt/natural-automation/steward/__init__.py
-/opt/natural-automation/steward/__pycache__/__init__.cpython-313.pyc
-/opt/natural-automation/steward/__pycache__/repair_capture.cpython-313.pyc
-/opt/natural-automation/steward/__pycache__/store.cpython-313.pyc
-/opt/natural-automation/steward/__pycache__/writer.cpython-313.pyc
-/opt/natural-automation/steward/repair_capture.py
-/opt/natural-automation/steward/store.py
-/opt/natural-automation/steward/writer.py
-
-=== NATURAL AUTOMATION API STATUS ===
-{"ok": true, "vmid": 905, "entities": 197, "apply_enabled": true}
-
-=== SAFE SOURCE HINTS ===
-/opt/natural-automation/data/device_fixture.json:892:      "entity_id": "switch.venus_os_dashboard_pre_release",
-/opt/natural-automation/data/device_fixture.json:2184:      "name": "Venus OS Dashboard",
-/opt/natural-automation/backup-20261006-102754/data/device_fixture.json:892:      "entity_id": "switch.venus_os_dashboard_pre_release",
-/opt/natural-automation/backup-20261006-102754/data/device_fixture.json:2184:      "name": "Venus OS Dashboard",
-/opt/natural-automation/backup-20261006-102754/natural_automation.py:815:<p class=muted>LAN-admin diagnostics · not linked from the user dashboard · write gate status shown per event</p>
-/opt/natural-automation/backup-20261006-102754/natural-automation.service:2:Description=Natural Automation language test dashboard
-/opt/natural-automation/natural_automation.py:818:<p class=muted>LAN-admin diagnostics · not linked from the user dashboard · write gate status shown per event</p>
-/opt/natural-automation/natural_automation.py:922:            if path=="/api/steward/status":
+=== NATURAL AUTOMATION HA ACCESS FUNCTIONS ===
+--- lines 62-74 ---
+62: 
+63: def ha_snapshot():
+64:     code="""import json,yaml,os
+65: autos=[]
+66: for f in ['/config/automations.yaml','/config/natural_automation.yaml']:
+67:     if not os.path.exists(f): continue
+68:     raw=yaml.safe_load(open(f)) or []
+69:     for x in raw:
+70:         if isinstance(x,dict):
+71:             x=dict(x); x['_source']=os.path.basename(f); autos.append(x)
+72: print(json.dumps({'automations':autos},separators=(',',':'),default=str))"""
+73:     try:
+74:         live=json.loads(qga_python(code))
