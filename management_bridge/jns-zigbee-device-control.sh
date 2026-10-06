@@ -39,6 +39,7 @@ ALLOWED=(
   0x847127fffe2890a6
   0x847127fffe28965b
   0x84fd27fffe2bd920
+  0x84fd27fffe6e0543
   0x84fd27fffe7040c9
   0x84fd27fffe9ce438
   0x84fd27fffe9f52a4
