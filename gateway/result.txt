@@ -1,36 +1,74 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T16:47:40+01:00
+2026-10-06T16:48:19+01:00
 runner=nodec
 
-=== INSTALL NEW HA ZFS REPLICATION ENGINE ===
-Created symlink '/etc/systemd/system/timers.target.wants/jns-ha-replication.timer' → '/etc/systemd/system/jns-ha-replication.timer'.
-● jns-ha-replication.timer - Refresh JNS HA fenced standbys every five minutes
-     Loaded: loaded (/etc/systemd/system/jns-ha-replication.timer; enabled; preset: enabled)
-     Active: active (running) since Tue 2026-10-06 16:47:43 BST; 76ms ago
- Invocation: c499590b2ee6401f90f1da572d0b5706
-    Trigger: n/a
-   Triggers: ● jns-ha-replication.service
-
-Oct 06 16:47:43 nodeb systemd[1]: Started jns-ha-replication.timer - Refresh JNS HA fenced standbys every five minutes.
-
+=== REPLICATION PROGRESS ===
 ● jns-ha-replication.service - JNS HA Node B to Node A fenced ZFS replication
      Loaded: loaded (/etc/systemd/system/jns-ha-replication.service; static)
-     Active: activating (start) since Tue 2026-10-06 16:47:43 BST; 981ms ago
+     Active: activating (start) since Tue 2026-10-06 16:47:43 BST; 35s ago
         Job: 2149433
  Invocation: e382b2bca42349dab9770107365c3597
 TriggeredBy: ● jns-ha-replication.timer
    Main PID: 1214413 (bash)
-      Tasks: 4 (limit: 7875)
-     Memory: 55.9M (peak: 55.9M)
-        CPU: 675ms
+      Tasks: 5 (limit: 7875)
+     Memory: 8.5M (peak: 119.2M)
+        CPU: 7.272s
      CGroup: /system.slice/jns-ha-replication.service
              ├─1214413 bash /usr/local/sbin/jns-ha-replicate
              ├─1214425 tee /var/lib/jns-ha-replication/last-run.log
-             ├─1214430 /usr/bin/perl /usr/sbin/qm status 902
-             └─1214431 grep -q "^status: running\$"
+             ├─1214714 zfs send -p vmdata/vm-902-disk-1@jns-repl-20261006T164743
+             └─1214715 ssh -i /root/.ssh/jns_ha_replication -o BatchMode=yes -o ConnectTimeout=8 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 root@10.10.10.225 "receive vmdata/vm-902-disk-1"
 
-Oct 06 16:47:43 nodeb systemd[1]: Starting jns-ha-replication.service - JNS HA Node B to Node A fenced ZFS replication...
 Oct 06 16:47:43 nodeb jns-ha-replicate[1214425]: START 2026-10-06T16:47:43+01:00
 Oct 06 16:47:44 nodeb jns-ha-replicate[1214425]: JNS-HA-REPLICA-RECEIVER OK
 Oct 06 16:47:44 nodeb jns-ha-replicate[1214425]: === VM 902 ===
-=== ENGINE INSTALLED ===
+Oct 06 16:47:46 nodeb jns-ha-replicate[1214425]: target: status: stopped
+Oct 06 16:47:50 nodeb jns-ha-replicate[1214425]: guest filesystem frozen
+Oct 06 16:47:53 nodeb jns-ha-replicate[1214425]: guest filesystem thawed
+Oct 06 16:47:54 nodeb jns-ha-replicate[1214425]: vmdata/vm-902-disk-0: preserved old target dataset
+Oct 06 16:47:54 nodeb jns-ha-replicate[1214425]: vmdata/vm-902-disk-0: full send
+Oct 06 16:47:56 nodeb jns-ha-replicate[1214425]: vmdata/vm-902-disk-1: preserved old target dataset
+Oct 06 16:47:56 nodeb jns-ha-replicate[1214425]: vmdata/vm-902-disk-1: full send
+
+--- LAST RUN LOG ---
+START 2026-10-06T16:47:43+01:00
+JNS-HA-REPLICA-RECEIVER OK
+=== VM 902 ===
+target: status: stopped
+guest filesystem frozen
+guest filesystem thawed
+vmdata/vm-902-disk-0: preserved old target dataset
+vmdata/vm-902-disk-0: full send
+vmdata/vm-902-disk-1: preserved old target dataset
+vmdata/vm-902-disk-1: full send
+
+--- SUCCESS MARKERS ---
+
+=== NODE A TARGETS ===
+### VM902
+status: stopped
+balloon: 0
+cores: 2
+efidisk0: vmdata:vm-902-disk-3,efitype=2m,size=1M
+memory: 2048
+name: ha-p0-primary-lite
+net0: virtio=BC:24:11:AF:BB:79,bridge=vmbr0,firewall=1
+onboot: 0
+scsi0: vmdata:vm-902-disk-1,discard=on,iothread=1,size=32G,ssd=1
+startup: order=30,up=30,down=60
+### VM903
+status: stopped
+balloon: 0
+cores: 2
+efidisk0: vmdata:vm-903-disk-0,efitype=2m,size=1M
+memory: 2048
+name: ha-s1-plant
+net0: virtio=BC:24:11:99:4B:E0,bridge=vmbr0,firewall=1
+onboot: 0
+scsi0: vmdata:vm-903-disk-1,discard=on,iothread=1,size=32G,ssd=1
+startup: order=40,up=30,down=60
+### VM905
+ABSENT
+
+--- REPL SNAPSHOTS ---
+vmdata/vm-902-disk-0@jns-repl-20261006T164743	Tue Oct  6 16:47 2026
