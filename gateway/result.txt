@@ -1,18 +1,9 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T16:44:54+01:00
+2026-10-06T16:45:52+01:00
 runner=nodec
 
-NODEA LAN
-nodea
-lo               UNKNOWN        127.0.0.1/8 
-vmbr0            UP             10.10.10.225/24 
-vmbr1            UNKNOWN        10.254.90.1/30 
-default via 10.10.10.254 dev vmbr0 proto kernel onlink 
-10.10.10.0/24 dev vmbr0 proto kernel scope link src 10.10.10.225 
-10.254.90.0/30 dev vmbr1 proto kernel scope link src 10.254.90.1 
-NODEB LAN
-nodeb
-lo               UNKNOWN        127.0.0.1/8 
-vmbr0            UP             10.10.10.235/24 10.10.10.163/24 
-default via 10.10.10.254 dev vmbr0 proto kernel onlink 
-10.10.10.0/24 dev vmbr0 proto kernel scope link src 10.10.10.235 
+=== INSTALL RESTRICTED HA REPLICATION CHANNEL ===
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIM3+a+VKn/75VnWfsmNwVf2/Rechfuz+KnKRmaPrVBrE jns-ha-replication-nodeb
+
+=== TEST RESTRICTED CHANNEL ===
+JNS-HA-REPLICA-RECEIVER OK
