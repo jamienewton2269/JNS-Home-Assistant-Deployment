@@ -21,7 +21,9 @@ install -d -m 0755 "$APP_DIR"
 install -d -m 0700 "$ETC_DIR"
 
 curl -fsSL "$BASE/server.py" -o "$APP_DIR/server.py"
-chmod 0755 "$APP_DIR/server.py"
+curl -fsSL "$BASE/start_temp_tunnel.sh" -o "$APP_DIR/start_temp_tunnel.sh"
+curl -fsSL "$BASE/stop_temp_tunnel.sh" -o "$APP_DIR/stop_temp_tunnel.sh"
+chmod 0755 "$APP_DIR/server.py" "$APP_DIR/start_temp_tunnel.sh" "$APP_DIR/stop_temp_tunnel.sh"
 
 if [[ ! -f "$ETC_DIR/config.json" ]]; then
   curl -fsSL "$BASE/config.example.json" -o "$ETC_DIR/config.json"
@@ -72,4 +74,7 @@ echo
 echo "Status:"
 systemctl --no-pager --full status jns-management-bridge | sed -n '1,12p'
 echo
-echo "For a temporary HTTPS URL, use an authenticated/restricted tunnel of your choice."
+echo "Start a temporary HTTPS session with:"
+echo "  sudo $APP_DIR/start_temp_tunnel.sh"
+echo "Stop it afterwards with:"
+echo "  sudo $APP_DIR/stop_temp_tunnel.sh"
