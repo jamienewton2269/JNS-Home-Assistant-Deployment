@@ -1,19 +1,8 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T15:38:31+01:00
+2026-10-06T15:40:20+01:00
 runner=nodec
 
-=== VALIDATE RENDERED NATURAL AUTOMATION JS ===
-FOUND "device's"
-js_bytes 11930
-=== suspicious rendered lines ===
-124:    '<p id="multihint" class="muted">After the first selection, the remaining list will be re-ranked using that device's domain and Home Assistant area.</p>'+
-=== JS syntax check ===
-/tmp/na-page.js:24
-    h.innerHTML=hs.length?hs.slice(0,8).map(x=>'<div class="audit-event"><b>'+esc(x.alias)+'</b><div class="muted">'+esc(x.confidence)+' · '+esc(x.kind.replaceAll('_',' '))+'</div><p>'+esc(x.reason)+'</p><div class="muted">'+esc(x.status.replaceAll('_',' '))+'</div>'+(x.status==='suggested'?'<button onclick="inlineHouseReview(''+x.suggestion_id+'','propose_removal')">Propose cleanup</button><button onclick="inlineHouseReview(''+x.suggestion_id+'','keep')">Keep</button><button onclick="inlineHouseReview(''+x.suggestion_id+'','dismiss')">Dismiss</button>':'')+'</div>').join(''):'<span class="muted">No housekeeping suggestions.</span>';
-                                                                                                                                                                                                                                                                                                                                         ^^^^^^^^^^^^^^^^^^^
-
-SyntaxError: Unexpected string
-    at wrapSafe (node:internal/modules/cjs/loader:1472:18)
-    at checkSyntax (node:internal/main/check_syntax:78:3)
-
-Node.js v20.19.2
+label_ok True
+write_text_ok True
+{"ok": true, "vmid": 905, "entities": 197, "apply_enabled": true}
+UI_SYNTAX_OK
