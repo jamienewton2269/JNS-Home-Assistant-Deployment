@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
-echo "=== CHECK HA-GENERAL NATURAL AUTOMATION INCLUDE ==="
 ssh nodeb '
-  qm guest exec 905 -- docker exec homeassistant python3 -c "from pathlib import Path; p=Path('/config/configuration.yaml'); print(p.read_text() if p.exists() else 'MISSING')" 2>/dev/null | sed -n "1,220p"
+  echo "=== configuration.yaml references ==="
+  qm guest exec 905 -- docker exec homeassistant sh -lc "grep -n \"natural_automation\|automation:\" /config/configuration.yaml || true"
+  echo
+  echo "=== configuration.yaml head ==="
+  qm guest exec 905 -- docker exec homeassistant sh -lc "sed -n \"1,180p\" /config/configuration.yaml"
   echo
   echo "=== natural_automation.yaml ==="
-  qm guest exec 905 -- docker exec homeassistant python3 -c "from pathlib import Path; p=Path('/config/natural_automation.yaml'); print(p.read_text() if p.exists() else 'MISSING')" 2>/dev/null | sed -n "1,120p"
+  qm guest exec 905 -- docker exec homeassistant sh -lc "if [ -f /config/natural_automation.yaml ]; then sed -n \"1,160p\" /config/natural_automation.yaml; else echo MISSING; fi"
 '
