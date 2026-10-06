@@ -1,38 +1,42 @@
 #!/usr/bin/env bash
 set -euo pipefail
-echo "=== VERIFY NODE C -> A/B AND INVENTORY ==="
-echo "runner=$(hostname) user=$(whoami)"
+echo "=== NATURAL AUTOMATION LIVE INSPECTION ==="
 date -Is
 
-for h in nodea nodeb; do
-  echo
-  echo "=== $h ==="
-  ssh -o BatchMode=yes -o ConnectTimeout=7 "$h" '
-    set -e
-    echo HOST=$(hostname)
-    echo USER=$(whoami)
-    pveversion | head -1 || true
-    echo "-- VMs --"
-    qm list || true
-    echo "-- LXCs --"
-    pct list || true
-    echo "-- Natural Automation / Steward candidates --"
-    find /opt /srv /root /var/lib -maxdepth 4 \( -iname "*natural*automation*" -o -iname "*steward*" \) -print 2>/dev/null | head -120 || true
-  '
-done
-
-echo
-echo "=== Node B HA-General probes ==="
 ssh nodeb '
-  set -u
-  for vm in 902 903 904 905 906 907 908 909; do
-    if qm status "$vm" >/dev/null 2>&1; then
-      echo "--- VM$vm ---"
-      qm status "$vm" || true
-      qm config "$vm" | grep -E "^(name:|net0:|ipconfig0:|description:)" || true
-    fi
-  done
+  set -e
+  echo "HOST=$(hostname)"
+  echo "=== /opt/natural-automation ==="
+  find /opt/natural-automation -maxdepth 3 -type f -printf "%p %s bytes\n" | sort | head -200
+  echo
+  echo "=== natural_automation.py head ==="
+  sed -n "1,260p" /opt/natural-automation/natural_automation.py 2>/dev/null || true
+  echo
+  echo "=== service/process ==="
+  systemctl list-unit-files | grep -Ei "natural|steward" || true
+  systemctl list-units --all | grep -Ei "natural|steward" || true
+  ps aux | grep -Ei "[n]atural.?automation|[s]teward" || true
+  echo
+  echo "=== config/data dirs ==="
+  find /opt/natural-automation -maxdepth 2 -type d -print
+  echo
+  echo "=== VM905 network ==="
+  qm status 905
+  qm config 905
+  echo
+  echo "=== guest network agent ==="
+  qm guest cmd 905 network-get-interfaces 2>&1 || true
+  echo
+  echo "=== ARP/DHCP hints ==="
+  ip neigh show | grep -i "BC:24:11:35:29:7B" || true
+  grep -R -i "BC:24:11:35:29:7B" /var/lib/misc /var/lib/dhcp /etc 2>/dev/null | head -20 || true
 '
 
 echo
-echo "=== DONE ==="
+echo "=== Probe likely HA-General addresses from Node C ==="
+for ip in $(seq 101 240); do
+  addr="10.10.10.$ip"
+  if timeout 0.25 bash -c "</dev/tcp/$addr/8123" 2>/dev/null; then
+    echo "$addr:8123 OPEN"
+  fi
+done
