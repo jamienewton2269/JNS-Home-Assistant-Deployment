@@ -1,8 +1,15 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T14:31:09+01:00
+2026-10-06T14:31:39+01:00
 runner=nodec
 
-=== NODE C LOCAL ROOT ROUTE CHECK ===
-2026-10-06T14:31:09+01:00
-Warning: Permanently added '127.0.0.1' (ED25519) to the list of known hosts.
-root@127.0.0.1: Permission denied (publickey,password).
+=== FIX AND VALIDATE HA-GENERAL TESTING DASHBOARD YAML ===
+2026-10-06T14:31:39+01:00
+runner=nodec
+
+Staging corrected dashboard payload on Node B...
+Applying and validating inside Home Assistant...
+{"ok":true,"backup":"/config/dashboards/testing.yaml.jns-fix-20261006-143142.bak","bytes":11732,"views":["Controls","Fans","Sensors","Grow","Protected IT","Commissioning","Other"]}
+
+
+=== HTTP VERIFY ===
+testing=200
