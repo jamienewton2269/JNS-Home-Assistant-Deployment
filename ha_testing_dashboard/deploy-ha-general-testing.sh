@@ -61,7 +61,7 @@ p=Path("/opt/AdGuardHome/AdGuardHome.yaml")
 s=p.read_text()
 entries=[("ha-general.home.arpa","10.10.10.223"),("ha-general","10.10.10.223")]
 if "  rewrites: []" in s:
-    block="  rewrites:\n" + "".join(f"    - domain: {d}\n      answer: {a}\n" for d,a in entries)
+    block="  rewrites:\n" + "".join(f"    - domain: {d}\n      answer: {a}\n      enabled: true\n" for d,a in entries)
     s=s.replace("  rewrites: []",block,1)
 else:
     marker="  rewrites:\n"
@@ -70,7 +70,7 @@ else:
     additions=""
     for d,a in entries:
         if f"domain: {d}" not in s:
-            additions += f"    - domain: {d}\n      answer: {a}\n"
+            additions += f"    - domain: {d}\n      answer: {a}\n      enabled: true\n"
     if additions:
         s=s.replace(marker,marker+additions,1)
 p.write_text(s)
