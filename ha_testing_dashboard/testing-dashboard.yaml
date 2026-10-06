@@ -1,0 +1,372 @@
+# ==============================================================================
+# Home Assistant "Testing" Dashboard
+# ==============================================================================
+# PURPOSE
+#   A recovery, testing and commissioning dashboard for HA-General.
+#
+#   - Automatically lists controllable lights/switches as toggle tiles.
+#   - Keeps fan controls on a separate view.
+#   - Lists every sensor/binary sensor state, with diagnostics separated below.
+#   - Provides dedicated views for Grow-room and Protected-IT purpose labels.
+#   - Provides a Commissioning view for unassigned/new devices.
+#   - Uses custom:auto-entities so new entities appear without hand-editing this
+#     dashboard when they belong to an existing device type.
+#
+# COMMISSIONING METADATA
+#   Store physical location in Home Assistant Area.
+#   Store functional classification with Home Assistant device/entity Labels:
+#     Commissioned
+#     Purpose: Standard Light
+#     Purpose: General Socket
+#     Purpose: Fan
+#     Purpose: Protected IT
+#     Purpose: Grow Light
+#     Alarm Profile
+#     Alarm Excluded
+#
+# SAFETY
+#   Protected-IT entities are excluded from the normal Controls view once they
+#   carry the "Purpose: Protected IT" label and appear in their own view with
+#   confirmation before toggling.
+#
+# DEPENDENCY
+#   thomasloven/lovelace-auto-entities v1.16.1 or newer.
+# ==============================================================================
+
+title: Testing
+
+views:
+  - title: Controls
+    path: controls
+    icon: mdi:toggle-switch
+    cards:
+      - type: markdown
+        content: >
+          **General device testing.** Tap a tile to toggle it. Hold a tile for
+          normal Home Assistant details. Devices classified as **Fan**,
+          **Grow Light**, or **Protected IT** are separated into their own tabs.
+
+      - type: custom:auto-entities
+        show_empty: false
+        unique: true
+        card:
+          type: grid
+          columns: 2
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - domain: light
+              options:
+                type: tile
+                tap_action:
+                  action: toggle
+                hold_action:
+                  action: more-info
+            - domain: switch
+              options:
+                type: tile
+                tap_action:
+                  action: toggle
+                hold_action:
+                  action: more-info
+          exclude:
+            - hidden_by: integration
+            - hidden_by: user
+            - entity_category: config
+            - entity_category: diagnostic
+            - label: "Purpose: Fan"
+            - label: "Purpose: Grow Light"
+            - label: "Purpose: Protected IT"
+        sort:
+          method: area
+          ignore_case: true
+
+  - title: Fans
+    path: fans
+    icon: mdi:fan
+    cards:
+      - type: custom:auto-entities
+        show_empty: false
+        unique: true
+        else:
+          type: markdown
+          content: No fan devices are currently available.
+        card:
+          type: grid
+          columns: 2
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - domain: fan
+              options:
+                type: tile
+                tap_action:
+                  action: toggle
+                hold_action:
+                  action: more-info
+            - domain: switch
+              label: "Purpose: Fan"
+              options:
+                type: tile
+                tap_action:
+                  action: toggle
+                hold_action:
+                  action: more-info
+          exclude:
+            - hidden_by: integration
+            - hidden_by: user
+        sort:
+          method: area
+          ignore_case: true
+
+  - title: Sensors
+    path: sensors
+    icon: mdi:gauge
+    cards:
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: entities
+          title: Current sensor states
+          show_header_toggle: false
+        filter:
+          include:
+            - domain: sensor
+              options:
+                secondary_info: last-changed
+            - domain: binary_sensor
+              options:
+                secondary_info: last-changed
+          exclude:
+            - hidden_by: integration
+            - hidden_by: user
+            - entity_category: config
+            - entity_category: diagnostic
+        sort:
+          method: area
+          ignore_case: true
+
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: entities
+          title: Diagnostics / battery / link quality
+          show_header_toggle: false
+        filter:
+          include:
+            - domain: sensor
+              entity_category: diagnostic
+              options:
+                secondary_info: last-changed
+            - domain: binary_sensor
+              entity_category: diagnostic
+              options:
+                secondary_info: last-changed
+        sort:
+          method: name
+          ignore_case: true
+
+  - title: Grow
+    path: grow
+    icon: mdi:sprout
+    cards:
+      - type: markdown
+        content: >
+          Devices deliberately classified as **Purpose: Grow Light** are kept
+          separate from ordinary household lighting.
+      - type: custom:auto-entities
+        show_empty: false
+        else:
+          type: markdown
+          content: No devices are currently labelled **Purpose: Grow Light**.
+        card:
+          type: grid
+          columns: 2
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - label: "Purpose: Grow Light"
+              domain: light
+              options:
+                type: tile
+                tap_action:
+                  action: toggle
+                hold_action:
+                  action: more-info
+            - label: "Purpose: Grow Light"
+              domain: switch
+              options:
+                type: tile
+                tap_action:
+                  action: toggle
+                hold_action:
+                  action: more-info
+        sort:
+          method: area
+          ignore_case: true
+
+  - title: Protected IT
+    path: protected-it
+    icon: mdi:server-security
+    cards:
+      - type: markdown
+        content: >
+          **Protected equipment.** These controls require confirmation before a
+          toggle so routine testing cannot casually interrupt protected IT.
+      - type: custom:auto-entities
+        show_empty: false
+        else:
+          type: markdown
+          content: No devices are currently labelled **Purpose: Protected IT**.
+        card:
+          type: grid
+          columns: 2
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - label: "Purpose: Protected IT"
+              domain: switch
+              options:
+                type: tile
+                tap_action:
+                  action: toggle
+                  confirmation:
+                    text: Confirm switching this protected device.
+                hold_action:
+                  action: more-info
+            - label: "Purpose: Protected IT"
+              domain: light
+              options:
+                type: tile
+                tap_action:
+                  action: toggle
+                  confirmation:
+                    text: Confirm switching this protected device.
+                hold_action:
+                  action: more-info
+        sort:
+          method: area
+          ignore_case: true
+
+  - title: Commissioning
+    path: commissioning
+    icon: mdi:clipboard-check-outline
+    cards:
+      - type: markdown
+        title: Commission a newly discovered device
+        content: |
+          Use Home Assistant's own **device registry, Areas and Labels** as the
+          authoritative commissioning record.
+
+          1. Open **Devices** below and select the newly discovered device.
+          2. Set its **Area** (physical location).
+          3. Keep the discovered name as the starting suggestion, then edit it
+             to a clear name such as **Hallway ceiling light** or
+             **Garage wall lights**.
+          4. Add **Commissioned** and one purpose label:
+             **Purpose: Standard Light**, **Purpose: General Socket**,
+             **Purpose: Fan**, **Purpose: Protected IT**, or
+             **Purpose: Grow Light**.
+          5. For sensors, add **Alarm Profile** if the sensor should participate
+             in normal alarm logic; otherwise add **Alarm Excluded**.
+
+          The dashboard reacts to those labels automatically.
+
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: shortcut
+            label: Devices
+            description: Name devices and assign their physical area
+            icon: mdi:devices
+            tap_action:
+              action: navigate
+              navigation_path: /config/devices/dashboard
+          - type: shortcut
+            label: Areas & Labels
+            description: Create/edit locations and commissioning labels
+            icon: mdi:label-multiple-outline
+            tap_action:
+              action: navigate
+              navigation_path: /config/areas/dashboard
+
+      - type: custom:auto-entities
+        show_empty: false
+        else:
+          type: markdown
+          content: All normal device entities currently have an assigned area.
+        card:
+          type: entities
+          title: Unassigned / commissioning candidates
+          show_header_toggle: false
+        filter:
+          template: |
+            {% set ns = namespace(items=[], seen=[]) %}
+            {% for s in states %}
+              {% if s.domain in ['light','switch','fan','sensor','binary_sensor','climate','cover'] %}
+                {% set d = device_id(s.entity_id) %}
+                {% if d and d not in ns.seen and area_name(s.entity_id) is none %}
+                  {% set ns.items = ns.items + [s.entity_id] %}
+                  {% set ns.seen = ns.seen + [d] %}
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.items }}
+        sort:
+          method: name
+          ignore_case: true
+
+  - title: Other
+    path: other
+    icon: mdi:dots-horizontal-circle-outline
+    cards:
+      - type: markdown
+        content: >
+          Catch-all for genuinely different device domains. Nothing newly
+          discovered is deliberately hidden; when a useful new class appears
+          here it can be promoted to its own dedicated Testing tab.
+      - type: custom:auto-entities
+        show_empty: false
+        else:
+          type: markdown
+          content: No additional controllable device types are currently present.
+        card:
+          type: entities
+          title: Other controllable entities
+          show_header_toggle: false
+        filter:
+          include:
+            - {}
+          exclude:
+            - domain: light
+            - domain: switch
+            - domain: fan
+            - domain: sensor
+            - domain: binary_sensor
+            - domain: automation
+            - domain: script
+            - domain: scene
+            - domain: input_boolean
+            - domain: input_button
+            - domain: input_number
+            - domain: input_select
+            - domain: input_text
+            - domain: person
+            - domain: device_tracker
+            - domain: zone
+            - domain: sun
+            - domain: weather
+            - domain: update
+            - domain: persistent_notification
+            - hidden_by: integration
+            - hidden_by: user
+            - entity_category: config
+            - entity_category: diagnostic
+        sort:
+          method: domain
+          ignore_case: true
