@@ -22,7 +22,7 @@ This project intentionally does not contain deployment-specific IP addresses, ho
 On a Debian/Ubuntu/Proxmox management host:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jamienewton2269/JNS-Home-Assistant-Deployment/management-bridge/management_bridge/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/jamienewton2269/JNS-Home-Assistant-Deployment/main/management_bridge/install.sh | sudo bash
 ```
 
 Then edit:
