@@ -1,38 +1,38 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
-echo "=== NODE C ROOT SSH GATEWAY CHECK ==="
-echo "runner=$(hostname) user=$(whoami)"
+set -u
+echo "=== NODE C GITHUB RUNNER SSH DISCOVERY ==="
+echo "home=$HOME user=$(whoami) host=$(hostname)"
 date -Is
 
 echo
-echo "sudo:"
-if sudo -n true; then echo "sudo_noninteractive=YES"; else echo "sudo_noninteractive=NO"; exit 20; fi
+echo "runner ssh:"
+ls -la "$HOME/.ssh" 2>/dev/null || true
+echo "-- config --"
+sed -n '1,240p' "$HOME/.ssh/config" 2>/dev/null || true
+echo "-- public keys --"
+for f in "$HOME"/.ssh/*.pub; do [ -f "$f" ] && { echo "FILE=$f"; cat "$f"; }; done
 
 echo
-echo "root ssh material:"
-sudo -n bash -lc 'ls -la /root/.ssh 2>/dev/null || true; echo; sed -n "1,160p" /root/.ssh/config 2>/dev/null || true'
+echo "ssh aliases:"
+for h in nodea nodeb node-c node-a node-b 10.10.10.235 10.10.10.226; do
+  echo "--- $h ---"
+  ssh -G "$h" 2>/dev/null | grep -E '^(hostname|user|identityfile|proxyjump|proxycommand) ' | head -20 || true
+done
 
 echo
-echo "root -> Node B:"
-sudo -n ssh -o BatchMode=yes -o ConnectTimeout=7 -o StrictHostKeyChecking=accept-new root@10.10.10.235 '
-  echo HOST=$(hostname)
-  pveversion || true
-  echo "-- VMs --"
-  qm list || true
-  echo "-- LXCs --"
-  pct list || true
-  echo "-- Natural Automation candidates --"
-  find /opt /srv /root /var/lib -maxdepth 4 \( -iname "*natural*automation*" -o -iname "*steward*" \) -print 2>/dev/null | head -100 || true
-'
+echo "candidate gateway helpers:"
+find /usr/local/bin /usr/local/sbin /opt /srv "$HOME" -maxdepth 4 -type f \
+  \( -iname '*gateway*' -o -iname '*nodeb*' -o -iname '*nodea*' -o -iname '*ssh*' \) \
+  -print 2>/dev/null | head -150 || true
 
 echo
-echo "root -> Node A:"
-sudo -n ssh -o BatchMode=yes -o ConnectTimeout=7 -o StrictHostKeyChecking=accept-new root@10.10.10.226 '
-  echo HOST=$(hostname)
-  pveversion || true
-  qm list || true
-' || true
+echo "network:"
+ip route 2>/dev/null || true
+ip -brief addr 2>/dev/null || true
 
 echo
-echo "DONE"
+echo "known host connectivity by aliases:"
+for h in nodeb nodea; do
+  echo "--- $h ---"
+  ssh -o BatchMode=yes -o ConnectTimeout=5 "$h" 'echo CONNECTED; hostname; whoami' 2>&1 || true
+done
