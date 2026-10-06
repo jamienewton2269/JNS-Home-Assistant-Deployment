@@ -1,5 +1,5 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T16:48:55+01:00
+2026-10-06T16:49:36+01:00
 runner=nodec
 
 SERVICE
@@ -15,4 +15,8 @@ vmdata/vm-902-disk-0: preserved old target dataset
 vmdata/vm-902-disk-0: full send
 vmdata/vm-902-disk-1: preserved old target dataset
 vmdata/vm-902-disk-1: full send
+PROCESS
+1214413       01:52 bash /usr/local/sbin/jns-ha-replicate
+1214714       01:39 zfs send -p vmdata/vm-902-disk-1@jns-repl-20261006T164743
+1214715       01:39 ssh -i /root/.ssh/jns_ha_replication -o BatchMode=yes -o ConnectTimeout=8 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 root@10.10.10.225 receive vmdata/vm-902-disk-1
 SUCCESS
