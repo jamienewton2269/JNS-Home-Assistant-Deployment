@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "=== DEPLOY HA-GENERAL DNS + TESTING DASHBOARD ==="
+echo "=== DEPLOY HA-GENERAL DNS + TESTING DASHBOARD (RETRY) ==="
 date -Is
 echo "runner=$(hostname)"
 echo
