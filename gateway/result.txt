@@ -1,13 +1,9 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T10:30:15+01:00
+2026-10-06T10:50:29+01:00
 runner=nodec
 
-=== HA-GENERAL CORE CHECK RESULT ===
-2026-10-06T10:30:15+01:00
-{
-   "exited" : 0
-}
-
-=== current natural automation status ===
-{"ok": true, "vmid": 905, "entities": 197, "apply_enabled": true}
-{"facts": 2, "observations": 1, "repairs": 0, "ok": true, "vmid": 905, "apply_enabled": true}
+=== CT130 NETWORK MONITOR PREFLIGHT ===
+runner=nodec user=github-runner
+2026-10-06T10:50:29+01:00
+-- CT130 status --
+sudo: a password is required
