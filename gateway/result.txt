@@ -1,16 +1,51 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T10:55:36+01:00
+2026-10-06T11:22:49+01:00
 runner=nodec
 
-=== HA-GENERAL CORE CHECK RESULT ===
-2026-10-06T10:55:36+01:00
-{
-   "exitcode" : 0,
-   "exited" : 1,
-   "out-data" : "Command completed successfully.\n",
-   "out-truncated" : 0
-}
+=== HA-GENERAL DNS + DASHBOARD PRECHECK ===
+2026-10-06T11:22:49+01:00
+runner=nodec
 
-=== current natural automation status ===
-{"ok": true, "vmid": 905, "entities": 197, "apply_enabled": true}
-{"facts": 2, "observations": 1, "repairs": 0, "ok": true, "vmid": 905, "apply_enabled": true}
+=== VM905 STATUS ===
+status: running
+
+=== DNS CT218 ===
+status: running
+arch: amd64
+cores: 1
+features: nesting=0
+hostname: jns-dns-b
+memory: 256
+nameserver: 10.10.10.254
+net0: name=eth0,bridge=vmbr0,firewall=0,gw=10.10.10.254,hwaddr=BC:24:11:F9:D8:96,ip=10.10.10.248/24,type=veth
+onboot: 1
+ostype: debian
+rootfs: local-lvm:vm-218-disk-0,size=2G
+searchdomain: local
+startup: order=2,up=5,down=10
+swap: 64
+unprivileged: 1
+-- DNS files --
+jns-dns-b
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+eth0@if4         UP             10.10.10.248/24 fda6:8b55:d590:0:be24:11ff:fef9:d896/64 fe80::be24:11ff:fef9:d896/64 
+
+/etc/hosts
+127.0.0.1	localhost
+::1		localhost ip6-localhost ip6-loopback
+ff02::1		ip6-allnodes
+ff02::2		ip6-allrouters
+# --- BEGIN PVE ---
+10.10.10.248 jns-dns-b.local jns-dns-b
+# --- END PVE ---
+
+DNS-related files
+/etc/unbound/unbound.conf
+
+listeners
+udp   UNCONN 0      0                  *:53               *:*    users:(("AdGuardHome",pid=86,fd=6))                   
+udp   UNCONN 0      0                  *:53               *:*    users:(("AdGuardHome",pid=86,fd=12))                  
+tcp   LISTEN 0      4096               *:53               *:*    users:(("AdGuardHome",pid=86,fd=13))                  
+tcp   LISTEN 0      4096               *:53               *:*    users:(("AdGuardHome",pid=86,fd=14))                  
+
+=== VM905 HA CONFIG ROOT ===
