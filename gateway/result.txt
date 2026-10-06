@@ -1,20 +1,579 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T10:03:35+01:00
+2026-10-06T10:24:12+01:00
 runner=nodec
 
-=== PROVISION NODE C GITHUB RUNNER SSH IDENTITY ===
-host=nodec user=github-runner home=/home/github-runner
-2026-10-06T10:03:35+01:00
-created=YES
+=== NATURAL AUTOMATION LIVE INSPECTION ===
+2026-10-06T10:24:12+01:00
+HOST=nodeb
+=== /opt/natural-automation ===
+/opt/natural-automation/data/changes.jsonl 19756 bytes
+/opt/natural-automation/data/device_fixture.json 70746 bytes
+/opt/natural-automation/data/housekeeping.json 2 bytes
+/opt/natural-automation/data/progress_stats.json 441 bytes
+/opt/natural-automation/natural_automation.py 57549 bytes
+/opt/natural-automation/__pycache__/natural_automation.cpython-313.pyc 80568 bytes
 
-PUBLIC_KEY_BEGIN
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDTu/PThfsQoa6OF/mXd7Km8+jGqb76jK2UPEkV1f9f6 jns-nodec-github-gateway
-PUBLIC_KEY_END
+=== natural_automation.py head ===
+#!/usr/bin/env python3
+import json, hashlib, os, subprocess, time, threading, uuid
+from difflib import SequenceMatcher
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import urlparse, parse_qs
+import sys
+sys.path.insert(0,"/opt/real-progress")
+from real_progress import ProgressModel, JobTracker
 
-256 SHA256:GOdDiKUbME8nyfI5yOCQ9btWGdIaWdXOEXcxsb0dGG4 jns-nodec-github-gateway (ED25519)
+VMID=902
+ROOT=Path("/opt/natural-automation")
+DATA=ROOT/"data"; DATA.mkdir(parents=True,exist_ok=True)
+AUDIT=DATA/"changes.jsonl"
+ALIASES=DATA/"aliases.json"
+REMOVALS=DATA/"removal_proposals.json"
+HOUSEKEEPING=DATA/"housekeeping.json"
+PROGRESS_STATS=DATA/"progress_stats.json"
+ENABLE_APPLY=os.environ.get("NA_ENABLE_APPLY","0")=="1"
+AUDIT_LOCK=threading.Lock()
+REMOVAL_LOCK=threading.Lock()
+HOUSEKEEPING_LOCK=threading.Lock()
+PROGRESS_MODEL=ProgressModel(PROGRESS_STATS,defaults={
+    "Parsing language":0.05,
+    "Reading Home Assistant inventory and automations":3.0,
+    "Resolving target device":0.08,
+    "Scanning existing automations":0.05,
+    "Evaluating conflicts and coverage":0.03,
+    "Writing audit record":0.03,
+},stall_multiplier=3.0,stall_min_seconds=5.0)
+JOB_TRACKER=JobTracker(PROGRESS_MODEL)
 
-connectivity:
---- nodea ---
-root@10.10.10.225: Permission denied (publickey,password).
---- nodeb ---
-root@10.10.10.235: Permission denied (publickey,password).
+def qga_python(code, timeout=40):
+    p=subprocess.run(["qm","guest","exec",str(VMID),"--","docker","exec","homeassistant",
+        "python3","-c",code],capture_output=True,text=True,timeout=timeout,check=True)
+    r=json.loads(p.stdout)
+    if r.get("exitcode")!=0: raise RuntimeError(r.get("err-data") or "guest command failed")
+    return r.get("out-data","")
+
+def audit(event, **extra):
+    with AUDIT_LOCK:
+        prev=None
+        if AUDIT.exists():
+            lines=[x for x in AUDIT.read_text().splitlines() if x.strip()]
+            if lines: prev=json.loads(lines[-1]).get("entry_hash")
+        e={"ts":time.time(),"event":event,"previous_hash":prev,**extra}
+        raw=json.dumps(e,sort_keys=True,separators=(",",":"))
+        e["entry_hash"]=hashlib.sha256(raw.encode()).hexdigest()
+        with AUDIT.open("a") as f: f.write(json.dumps(e,sort_keys=True)+"\n")
+def load_aliases():
+    if not ALIASES.exists(): return {}
+    try: return json.loads(ALIASES.read_text())
+    except Exception: return {}
+
+def save_alias(phrase, entity_id):
+    a=load_aliases(); a[" ".join(phrase.lower().split())]=entity_id
+    ALIASES.write_text(json.dumps(a,indent=2,sort_keys=True))
+    audit("alias_confirmed",phrase=phrase,entity_id=entity_id)
+
+def ha_snapshot():
+    code="""import json,yaml,os
+autos=[]
+for f in ['/config/automations.yaml','/config/natural_automation.yaml']:
+    if not os.path.exists(f): continue
+    raw=yaml.safe_load(open(f)) or []
+    for x in raw:
+        if isinstance(x,dict):
+            x=dict(x); x['_source']=os.path.basename(f); autos.append(x)
+print(json.dumps({'automations':autos},separators=(',',':'),default=str))"""
+    try:
+        live=json.loads(qga_python(code))
+        live_ok=True
+        live_warning=None
+    except Exception as exc:
+        live={'automations':[]}
+        live_ok=False
+        live_warning=f"{type(exc).__name__}: {exc}"
+    fixture=DATA/"device_fixture.json"
+    if fixture.exists():
+        meta=json.loads(fixture.read_text())
+        return {'entities':meta.get('entities',[]),'devices':meta.get('devices',[]),'areas':meta.get('areas',[]),
+                'automations':live.get('automations',[]),'live_automation_available':live_ok,'live_warning':live_warning}
+    return {'entities':[],'devices':[],'areas':[],'automations':live.get('automations',[]),
+            'live_automation_available':live_ok,'live_warning':live_warning}
+
+def inventory():
+    snap=ha_snapshot()
+    return {'entities':snap['entities'],'devices':snap['devices'],'areas':snap['areas']}
+
+def automations():
+    return ha_snapshot()['automations']
+
+def controller_role(cfg):
+    s=json.dumps(cfg).lower()
+    on=('turn_on' in s); off=('turn_off' in s)
+    if on and not off: return 'on'
+    if off and not on: return 'off'
+    return 'mixed'
+
+def friendly(entity):
+    return (entity.get("name") or entity.get("original_name") or entity.get("entity_id") or "")
+
+def candidates(phrase, inv=None):
+    inv=inv or inventory(); aliases=load_aliases(); key=" ".join(phrase.lower().split())
+    if key in aliases:
+        eid=aliases[key]
+        return [{"entity_id":eid,"name":eid,"score":1.0}]
+    p=phrase.lower()
+    compact="".join(ch for ch in p if ch.isalnum())
+    devices={d.get("id"):d for d in inv["devices"]}
+    out=[]
+    for e in inv["entities"]:
+        eid=e.get("entity_id",""); n=friendly(e)
+        if eid.split(".",1)[0] not in ("switch","light","fan","input_boolean"): continue
+        base=eid.split(".",1)[-1].replace("_"," ")
+        dev=devices.get(e.get("device_id")) or {}
+        devname=dev.get("name_by_user") or dev.get("name") or ""
+        labels=[n,base,devname]
+        score=max(SequenceMatcher(None,p,str(x).lower()).ratio() for x in labels if x)
+        for x in labels:
+            c="".join(ch for ch in str(x).lower() if ch.isalnum())
+            if c and (c in compact or compact in c): score=max(score,0.92)
+            elif "waterfeature" in c and "waterfeature" in compact: score=max(score,0.96)
+        out.append({"entity_id":eid,"name":n or devname or eid,"score":round(score,3)})
+    return sorted(out,key=lambda x:x["score"],reverse=True)[:5]
+def entity_details(inv, entity_id):
+    e=next((x for x in inv["entities"] if x.get("entity_id")==entity_id),None) or {}
+    devices={d.get("id"):d for d in inv["devices"]}
+    areas={a.get("id"):a.get("name") for a in inv["areas"]}
+    dev=devices.get(e.get("device_id")) or {}
+    area_id=e.get("area_id") or dev.get("area_id")
+    return {
+        "entity_id":entity_id,
+        "domain":entity_id.split(".",1)[0] if "." in entity_id else "",
+        "name":friendly(e) or dev.get("name_by_user") or dev.get("name") or entity_id,
+        "area":areas.get(area_id) if area_id else None,
+    }
+
+def infer_role(details):
+    text=(details.get("name","")+" "+details.get("entity_id","").replace("_"," ")).lower()
+    domain=details.get("domain","")
+    if any(x in text for x in ("extractor","extract fan","vent fan")): return "fan"
+    if any(x in text for x in ("pump","water feature","pond pump")): return "pump"
+    if any(x in text for x in ("heater","radiator","heating")) and "light" not in text: return "heater"
+    if any(x in text for x in ("light","lamp","bulb","pendant","ceiling","sconce","strip","downlight","spotlight")): return "light"
+    if domain=="fan": return "fan"
+    if domain=="light": return "light"
+    if domain=="switch": return "switch"
+    return domain
+
+def multi_candidates(category, inv, first_entity_id=None):
+    wanted_role={"lights":"light","light":"light","switches":"switch","switch":"switch","fans":"fan","fan":"fan"}.get(category)
+    first=entity_details(inv,first_entity_id) if first_entity_id else None
+    if first: wanted_role=infer_role(first)
+    out=[]
+    for e in inv["entities"]:
+        eid=e.get("entity_id","")
+        if "." not in eid: continue
+        domain=eid.split(".",1)[0]
+        if domain not in ("light","switch","fan","input_boolean"): continue
+        d=entity_details(inv,eid)
+        role=infer_role(d)
+        if wanted_role and role!=wanted_role: continue
+        d["role"]=role
+        score=1.0
+        reason=f"same inferred {role} role"
+        if domain==role: score+=0.25
+        if first and first.get("area") and d.get("area")==first.get("area"):
+            score+=2.0; reason=f"same {role} role and same area ({d['area']})"
+        d["score"]=score; d["match_reason"]=reason
+        out.append(d)
+    out.sort(key=lambda x:(-x["score"],(x.get("area") or ""),x["name"].lower()))
+    return out[:40]
+
+def config_mentions_target(cfg, entity_id, inv):
+    blob=json.dumps(cfg).lower()
+    if entity_id.lower() in blob: return True
+    # UI device actions often store registry entity UUID rather than entity_id.
+    er=next((e for e in inv["entities"] if e.get("entity_id")==entity_id),None)
+    if er and str(er.get("id","")).lower() in blob: return True
+    if er and er.get("device_id") and str(er["device_id"]).lower() in blob: return True
+    return False
+
+def analyse(text, progress=None):
+    if progress: progress("Parsing language")
+    low=" ".join(text.lower().split()).strip()
+    if not low:
+        return {"action":"error","error":"Nothing was entered.","suggestion":"Describe what you want Home Assistant to do in ordinary language."}
+
+    aliases=load_aliases()
+    remembered_phrase=next((a for a in sorted(aliases,key=len,reverse=True) if a in low),None)
+    if remembered_phrase:
+        target=remembered_phrase
+    else:
+        target=low
+        for prefix in ("please ","can you ","could you ","i want you to ","i would like you to "):
+            if target.startswith(prefix): target=target[len(prefix):]
+        for prefix in ("set the ","set ","run the ","run ","turn the ","turn ","switch the ","switch "):
+            if target.startswith(prefix): target=target[len(prefix):]; break
+        stops=(" to run "," from "," on at "," off at "," on from "," off from "," every "," everyday"," daily"," at "," when "," until "," till ")
+        cut=len(target)
+        for marker in stops:
+            pos=target.find(marker)
+            if pos>0: cut=min(cut,pos)
+        target=target[:cut].strip(" ,.!?")
+
+    if not target:
+        return {"action":"error","error":"I could not identify the device or thing you want to control.",
+                "suggestion":"Try naming the device, for example: turn the garden water feature off at bedtime."}
+
+    timing=[]
+    for word in ("sunrise","sunset","bedtime","midnight","noon"):
+        if word in low: timing.append(word)
+    import re
+    timing += re.findall(r"\b(?:[01]?\d|2[0-3]):[0-5]\d\b",low)
+    if progress: progress("Reading Home Assistant inventory and automations")
+    snap=ha_snapshot()
+    inv={"entities":snap["entities"],"devices":snap["devices"],"areas":snap["areas"]}
+    if progress: progress("Resolving target device")
+    multi_category=next((x for x in ("lights","switches","fans") if x in low),None)
+    multi_requested=bool(multi_category and re.search(r"\b(all|multiple|several|these|those)\b",low))
+    if multi_requested:
+        cs=multi_candidates(multi_category,inv)
+        logic=[
+            f'Detected a multiple-device request for {multi_category}.',
+            f'Found {len(cs)} compatible {multi_category} in the static test inventory.',
+            'Select one or more devices. After the first selection, the list is re-ranked by matching semantic role and area.',
+        ]
+        if snap.get("live_automation_available"):
+            logic.append('HA Lite automation inspection is available for this test.')
+        else:
+            logic.append('HA Lite automation inspection is temporarily unavailable; device-language testing is continuing from the static fixture only.')
+        logic.append('No Home Assistant changes have been made.')
+        audit("multi_device_selection",request=text,category=multi_category,candidates=len(cs),logic=logic)
+        return {"action":"select_devices","selection_mode":"multiple","request":text,
+                "category":multi_category,"target_phrase":multi_category,
+                "candidates":cs,"logic":logic}
+    cs=candidates(target, inv)
+    if not cs: return {"action":"clarify","target_phrase":target,"candidates":[]}
+    remembered=load_aliases().get(" ".join(target.lower().split()))
+    if not remembered and (len(cs)>1 and (cs[0]["score"]<0.78 or cs[0]["score"]-cs[1]["score"]<0.12)):
+        audit("clarify",request=text,target_phrase=target,candidates=cs)
+        return {"action":"clarify","target_phrase":target,"candidates":cs}
+    chosen=cs[0]
+    if progress: progress("Scanning existing automations")
+    ctrls=[]
+    for a in snap["automations"]:
+        if config_mentions_target(a,chosen["entity_id"],inv):
+            ctrls.append({"id":str(a.get("id","")),"alias":a.get("alias","Unnamed"),
+                          "source":a.get("_source","unknown"),"role":controller_role(a),"config":a})
+    if progress: progress("Evaluating conflicts and coverage")
+    roles=[c["role"] for c in ctrls]
+    managed=any(c["source"]=="natural_automation.yaml" for c in ctrls)
+    if managed and "on" in roles and "off" in roles:
+        action="covered_with_legacy_fallback"
+    else:
+        action="conflict" if len(ctrls)>1 else ("modify" if len(ctrls)==1 else "create")
+    logic=[
+        f'Interpreted target phrase as "{target}".',
+        f'Resolved it to {chosen["entity_id"]} with confidence {chosen["score"]}.',
+
+=== service/process ===
+natural-automation.service                   enabled         enabled
+  natural-automation.service                                                                                                                                  loaded    active     running         Natural Automation language test dashboard
+root        1733  0.0  0.2  35836 18224 ?        Ss   Oct05   0:03 /usr/bin/python3 /opt/natural-automation/natural_automation.py
+root      811967  0.0  0.0   7084  3492 ?        Ss   10:24   0:00 bash -c    set -e   echo "HOST=$(hostname)"   echo "=== /opt/natural-automation ==="   find /opt/natural-automation -maxdepth 3 -type f -printf "%p %s bytes\n" | sort | head -200   echo   echo "=== natural_automation.py head ==="   sed -n "1,260p" /opt/natural-automation/natural_automation.py 2>/dev/null || true   echo   echo "=== service/process ==="   systemctl list-unit-files | grep -Ei "natural|steward" || true   systemctl list-units --all | grep -Ei "natural|steward" || true   ps aux | grep -Ei "[n]atural.?automation|[s]teward" || true   echo   echo "=== config/data dirs ==="   find /opt/natural-automation -maxdepth 2 -type d -print   echo   echo "=== VM905 network ==="   qm status 905   qm config 905   echo   echo "=== guest network agent ==="   qm guest cmd 905 network-get-interfaces 2>&1 || true   echo   echo "=== ARP/DHCP hints ==="   ip neigh show | grep -i "BC:24:11:35:29:7B" || true   grep -R -i "BC:24:11:35:29:7B" /var/lib/misc /var/lib/dhcp /etc 2>/dev/null | head -20 || true 
+
+=== config/data dirs ===
+/opt/natural-automation
+/opt/natural-automation/data
+/opt/natural-automation/__pycache__
+
+=== VM905 network ===
+status: running
+agent: enabled=1
+balloon: 768
+bios: ovmf
+boot: order=scsi0
+cores: 2
+cpu: host
+description: JNS HA-P0 Primary Lite - HAOS 18.3 / Core 2026.9.4 production-test control plane. Ed25519-signed read-only HA900 feed only. No production authority. No automatic failover. No production USB/Zigbee.
+efidisk0: vmdata:vm-905-disk-0,efitype=2m,size=1M
+machine: q35
+memory: 1024
+meta: creation-qemu=11.0.0,ctime=1790424114
+name: ha-s2-general
+net0: virtio=BC:24:11:35:29:7B,bridge=vmbr0,firewall=0
+onboot: 1
+ostype: l26
+parent: gen-observe-20261005
+scsi0: vmdata:vm-905-disk-1,discard=on,iothread=1,size=32G,ssd=1
+scsihw: virtio-scsi-single
+serial0: socket
+smbios1: uuid=b9613705-a605-490a-ba9e-36e0e7e212e7
+sockets: 1
+startup: order=30,up=30,down=60
+vga: std
+vmgenid: 62f7a097-ffe3-4e5f-ae97-324f998ebf7d
+
+=== guest network agent ===
+[
+   {
+      "hardware-address" : "00:00:00:00:00:00",
+      "ip-addresses" : [
+         {
+            "ip-address" : "127.0.0.1",
+            "ip-address-type" : "ipv4",
+            "prefix" : 8
+         },
+         {
+            "ip-address" : "::1",
+            "ip-address-type" : "ipv6",
+            "prefix" : 128
+         }
+      ],
+      "name" : "lo",
+      "statistics" : {
+         "rx-bytes" : 161202,
+         "rx-dropped" : 0,
+         "rx-errs" : 0,
+         "rx-packets" : 3067,
+         "tx-bytes" : 161202,
+         "tx-dropped" : 0,
+         "tx-errs" : 0,
+         "tx-packets" : 3067
+      }
+   },
+   {
+      "hardware-address" : "bc:24:11:35:29:7b",
+      "ip-addresses" : [
+         {
+            "ip-address" : "10.10.10.223",
+            "ip-address-type" : "ipv4",
+            "prefix" : 24
+         },
+         {
+            "ip-address" : "2a0a:ef40:4f5:1201::5",
+            "ip-address-type" : "ipv6",
+            "prefix" : 128
+         },
+         {
+            "ip-address" : "fda6:8b55:d590:0:ad1a:bf10:f15b:1f81",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         },
+         {
+            "ip-address" : "fe80::acba:aa42:97b4:d3f2",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         }
+      ],
+      "name" : "enp6s18",
+      "statistics" : {
+         "rx-bytes" : 144908699,
+         "rx-dropped" : 0,
+         "rx-errs" : 0,
+         "rx-packets" : 1020290,
+         "tx-bytes" : 12970872,
+         "tx-dropped" : 0,
+         "tx-errs" : 0,
+         "tx-packets" : 146971
+      }
+   },
+   {
+      "hardware-address" : "8a:34:59:32:8a:43",
+      "ip-addresses" : [
+         {
+            "ip-address" : "172.30.32.1",
+            "ip-address-type" : "ipv4",
+            "prefix" : 23
+         },
+         {
+            "ip-address" : "fd0c:ac1e:2100::1",
+            "ip-address-type" : "ipv6",
+            "prefix" : 48
+         },
+         {
+            "ip-address" : "fe80::8834:59ff:fe32:8a43",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         }
+      ],
+      "name" : "hassio",
+      "statistics" : {
+         "rx-bytes" : 7798901,
+         "rx-dropped" : 0,
+         "rx-errs" : 0,
+         "rx-packets" : 6329,
+         "tx-bytes" : 33068711,
+         "tx-dropped" : 2,
+         "tx-errs" : 0,
+         "tx-packets" : 208793
+      }
+   },
+   {
+      "hardware-address" : "3a:eb:42:10:b3:c1",
+      "ip-addresses" : [
+         {
+            "ip-address" : "172.30.232.1",
+            "ip-address-type" : "ipv4",
+            "prefix" : 23
+         },
+         {
+            "ip-address" : "fd8b:837b:716c::1",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         },
+         {
+            "ip-address" : "fe80::38eb:42ff:fe10:b3c1",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         }
+      ],
+      "name" : "docker0",
+      "statistics" : {
+         "rx-bytes" : 179868,
+         "rx-dropped" : 0,
+         "rx-errs" : 0,
+         "rx-packets" : 1098,
+         "tx-bytes" : 512270,
+         "tx-dropped" : 4,
+         "tx-errs" : 0,
+         "tx-packets" : 1215
+      }
+   },
+   {
+      "hardware-address" : "42:2b:ac:ff:78:33",
+      "ip-addresses" : [
+         {
+            "ip-address" : "fe80::402b:acff:feff:7833",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         }
+      ],
+      "name" : "veth54f27ba",
+      "statistics" : {
+         "rx-bytes" : 120682,
+         "rx-dropped" : 0,
+         "rx-errs" : 0,
+         "rx-packets" : 1694,
+         "tx-bytes" : 32227625,
+         "tx-dropped" : 0,
+         "tx-errs" : 0,
+         "tx-packets" : 202380
+      }
+   },
+   {
+      "hardware-address" : "42:3e:0b:16:6d:83",
+      "ip-addresses" : [
+         {
+            "ip-address" : "fe80::403e:bff:fe16:6d83",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         }
+      ],
+      "name" : "vethba371fd",
+      "statistics" : {
+         "rx-bytes" : 195240,
+         "rx-dropped" : 0,
+         "rx-errs" : 0,
+         "rx-packets" : 1098,
+         "tx-bytes" : 514210,
+         "tx-dropped" : 0,
+         "tx-errs" : 0,
+         "tx-packets" : 1230
+      }
+   },
+   {
+      "hardware-address" : "5a:09:3d:c5:8f:c9",
+      "ip-addresses" : [
+         {
+            "ip-address" : "fe80::5809:3dff:fec5:8fc9",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         }
+      ],
+      "name" : "vethb2bc609",
+      "statistics" : {
+         "rx-bytes" : 8045882,
+         "rx-dropped" : 0,
+         "rx-errs" : 0,
+         "rx-packets" : 8291,
+         "tx-bytes" : 33191369,
+         "tx-dropped" : 0,
+         "tx-errs" : 0,
+         "tx-packets" : 210574
+      }
+   },
+   {
+      "hardware-address" : "9a:7f:5f:36:11:90",
+      "ip-addresses" : [
+         {
+            "ip-address" : "fe80::987f:5fff:fe36:1190",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         }
+      ],
+      "name" : "vethb6f94ad",
+      "statistics" : {
+         "rx-bytes" : 17176,
+         "rx-dropped" : 0,
+         "rx-errs" : 0,
+         "rx-packets" : 103,
+         "tx-bytes" : 32061833,
+         "tx-dropped" : 0,
+         "tx-errs" : 0,
+         "tx-packets" : 200211
+      }
+   },
+   {
+      "hardware-address" : "0e:e8:2e:4a:01:aa",
+      "ip-addresses" : [
+         {
+            "ip-address" : "fe80::ce8:2eff:fe4a:1aa",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         }
+      ],
+      "name" : "vethca89315",
+      "statistics" : {
+         "rx-bytes" : 50176,
+         "rx-dropped" : 0,
+         "rx-errs" : 0,
+         "rx-packets" : 422,
+         "tx-bytes" : 32094494,
+         "tx-dropped" : 0,
+         "tx-errs" : 0,
+         "tx-packets" : 200485
+      }
+   },
+   {
+      "hardware-address" : "9a:93:00:90:fa:80",
+      "ip-addresses" : [
+         {
+            "ip-address" : "fe80::9893:ff:fe90:fa80",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         }
+      ],
+      "name" : "veth011456a",
+      "statistics" : {
+         "rx-bytes" : 2380,
+         "rx-dropped" : 0,
+         "rx-errs" : 0,
+         "rx-packets" : 32,
+         "tx-bytes" : 32047229,
+         "tx-dropped" : 0,
+         "tx-errs" : 0,
+         "tx-packets" : 200144
+      }
+   }
+]
+
+=== ARP/DHCP hints ===
+fe80::acba:aa42:97b4:d3f2 dev vmbr0 lladdr bc:24:11:35:29:7b STALE 
+/etc/pve/local/qemu-server/905.conf:net0: virtio=BC:24:11:35:29:7B,bridge=vmbr0,firewall=0
+/etc/pve/local/qemu-server/905.conf:net0: virtio=BC:24:11:35:29:7B,bridge=vmbr0,firewall=0
+/etc/pve/qemu-server/905.conf:net0: virtio=BC:24:11:35:29:7B,bridge=vmbr0,firewall=0
+/etc/pve/qemu-server/905.conf:net0: virtio=BC:24:11:35:29:7B,bridge=vmbr0,firewall=0
+/etc/pve/nodes/nodeb/qemu-server/905.conf:net0: virtio=BC:24:11:35:29:7B,bridge=vmbr0,firewall=0
+/etc/pve/nodes/nodeb/qemu-server/905.conf:net0: virtio=BC:24:11:35:29:7B,bridge=vmbr0,firewall=0
+
+=== Probe likely HA-General addresses from Node C ===
