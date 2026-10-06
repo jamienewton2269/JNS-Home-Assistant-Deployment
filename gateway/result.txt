@@ -1,489 +1,86 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T14:35:03+01:00
+2026-10-06T15:12:52+01:00
 runner=nodec
 
-=== INSPECT AUDIO VMS AND HA-GENERAL ===
-2026-10-06T14:35:03+01:00
+=== AUDIO/DNS/CLOCK PRECHANGE AUDIT ===
+2026-10-06T15:12:52+01:00
+===== SERVER RANGE AVAILABILITY 220-240 =====
+10.10.10.220   USED           bc:24:11:af:bb:79 DELAY
+10.10.10.221   USED           bc:24:11:99:4b:e0 DELAY
+10.10.10.222   USED           00:90:a9:ef:f2:b7 REACHABLE
+10.10.10.223   USED           bc:24:11:35:29:7b DELAY
+10.10.10.224   FREE_OR_SILENT  
+10.10.10.225   USED           c4:65:16:30:8d:fd DELAY
+10.10.10.226   FREE_OR_SILENT  
+10.10.10.227   FREE_OR_SILENT  
+10.10.10.228   FREE_OR_SILENT  
+10.10.10.229   FREE_OR_SILENT  
+10.10.10.230   USED           bc:24:11:42:c3:94 DELAY
+10.10.10.231   USED           bc:24:11:a0:c1:65 DELAY
+10.10.10.232   FREE_OR_SILENT  
+10.10.10.233   FREE_OR_SILENT  
+10.10.10.234   USED           bc:24:11:0f:cd:91 DELAY
+10.10.10.235   USED           ac:22:0b:89:2e:c8 DELAY
+10.10.10.236   USED           
+10.10.10.237   FREE_OR_SILENT  
+10.10.10.238   USED           bc:24:11:55:72:55 DELAY
+10.10.10.239   USED           bc:24:11:62:6b:c5 DELAY
+10.10.10.240   USED           bc:24:11:98:db:ec REACHABLE
 
-===== nodea VM 214 =====
-agent: enabled=1
-boot: order=scsi0
-cores: 1
-cpu: host
-description: Local Bluetooth clock and Piper output test. TK-BS001 73%3A81%3A7B%3A84%3A2A%3AAB. Separate from HA900; standby not commissioned.
-ide2: local:iso/house-audio214-seed.iso,media=cdrom,size=366K
-memory: 512
-meta: creation-qemu=11.0.0,ctime=1790943717
-name: house-audio-a
-net0: virtio=BC:24:11:D8:03:D4,bridge=vmbr0
-onboot: 1
-scsi0: local-lvm:vm-214-disk-0,size=8G
-scsihw: virtio-scsi-pci
-serial0: socket
-smbios1: uuid=b5549e8a-b5d2-4310-834d-4869c60f8b36
-startup: order=40
-usb0: host=1-2
-vga: serial0
-vmgenid: ca4a9e86-6f0c-467a-ac33-36de71244b06
--- guest-agent-net --
-[
-   {
-      "hardware-address" : "00:00:00:00:00:00",
-      "ip-addresses" : [
-         {
-            "ip-address" : "127.0.0.1",
-            "ip-address-type" : "ipv4",
-            "prefix" : 8
-         },
-         {
-            "ip-address" : "::1",
-            "ip-address-type" : "ipv6",
-            "prefix" : 128
-         }
-      ],
-      "name" : "lo",
-      "statistics" : {
-         "rx-bytes" : 6775,
-         "rx-dropped" : 0,
-         "rx-errs" : 0,
-         "rx-packets" : 83,
-         "tx-bytes" : 6775,
-         "tx-dropped" : 0,
-         "tx-errs" : 0,
-         "tx-packets" : 83
-      }
-   },
-   {
-      "hardware-address" : "bc:24:11:d8:03:d4",
-      "ip-addresses" : [
-         {
-            "ip-address" : "10.10.10.28",
-            "ip-address-type" : "ipv4",
-            "prefix" : 24
-         },
-         {
-            "ip-address" : "fda6:8b55:d590:0:be24:11ff:fed8:3d4",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         },
-         {
-            "ip-address" : "fe80::be24:11ff:fed8:3d4",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         }
-      ],
-      "name" : "ens18",
-      "statistics" : {
-         "rx-bytes" : 262771282,
-         "rx-dropped" : 2174,
-         "rx-errs" : 0,
-         "rx-packets" : 2085242,
-         "tx-bytes" : 3894630,
-         "tx-dropped" : 0,
-         "tx-errs" : 0,
-         "tx-packets" : 41452
-      }
-   }
-]
--- guest-agent-os --
+===== nodea AUDIO VM 214 =====
 {
-   "id" : "debian",
-   "kernel-release" : "6.12.111+deb13-amd64",
-   "kernel-version" : "#1 SMP PREEMPT_DYNAMIC Debian 6.12.111-1 (2026-09-28)",
-   "machine" : "x86_64",
-   "name" : "Debian GNU/Linux",
-   "pretty-name" : "Debian GNU/Linux 13 (trixie)",
-   "version" : "13 (trixie)",
-   "version-id" : "13"
+   "exitcode" : 0,
+   "exited" : 1,
+   "out-data" : "house-audio-a\n--net--\nlo               UNKNOWN        127.0.0.1/8 \nens18            UP             10.10.10.28/24 metric 100 \n--routes--\ndefault via 10.10.10.254 dev ens18 proto dhcp src 10.10.10.28 metric 100 \n10.10.10.0/24 dev ens18 proto kernel scope link src 10.10.10.28 metric 100 \n10.10.10.238 dev ens18 proto dhcp scope link src 10.10.10.28 metric 100 \n10.10.10.239 dev ens18 proto dhcp scope link src 10.10.10.28 metric 100 \n10.10.10.247 dev ens18 proto dhcp scope link src 10.10.10.28 metric 100 \n10.10.10.248 dev ens18 proto dhcp scope link src 10.10.10.28 metric 100 \n10.10.10.254 dev ens18 proto dhcp scope link src 10.10.10.28 metric 100 \n--network-config--\n/etc/systemd/network:\ntotal 0\n--services--\nbluetooth.service                            enabled         enabled\nhouse-audio-reconnect.service                static          -\nbluetooth.target                             static          -\nhouse-audio-reconnect.timer                  enabled         enabled\n--bt--\nDevice 73:81:7B:84:2A:AB TK-BS001\nDevice 73:81:7B:84:2A:AB (public)\n\tName: TK-BS001\n\tAlias: TK-BS001\n\tClass: 0x00240404 (2360324)\n\tIcon: audio-headset\n\tPaired: yes\n\tBonded: yes\n\tTrusted: yes\n\tBlocked: no\n\tConnected: yes\n\tLegacyPairing: no\n\tUUID: Serial Port               (00001101-0000-1000-8000-00805f9b34fb)\n\tUUID: Audio Sink                (0000110b-0000-1000-8000-00805f9b34fb)\n\tUUID: A/V Remote Control Target (0000110c-0000-1000-8000-00805f9b34fb)\n\tUUID: Advanced Audio Distribu.. (0000110d-0000-1000-8000-00805f9b34fb)\n\tUUID: A/V Remote Control        (0000110e-0000-1000-8000-00805f9b34fb)\n\tUUID: Handsfree                 (0000111e-0000-1000-8000-00805f9b34fb)\n\tUUID: Message Notification Se.. (00001133-0000-1000-8000-00805f9b34fb)\n\tUUID: PnP Information           (00001200-0000-1000-8000-00805f9b34fb)\n\tUUID: Vendor specific           (fe010000-1234-5678-abcd-00805f9b34fb)\n\tModalias: bluetooth:v05D6p000Ad0240\n--local-files--\n/usr/local/sbin/house-audio-reconnect\n/etc/systemd/system/house-audio-reconnect.service\n/etc/systemd/system/house-audio-reconnect.timer\n",
+   "out-truncated" : 0
 }
 
-===== nodeb VM 219 =====
-agent: enabled=1
-boot: order=scsi0
-cores: 1
-cpu: host
-description: Bluetooth/audio gateway Node B standby. Mirrored from house-audio-a; ACTIVE/STANDBY role must be fenced before network/service activation.
-memory: 512
-meta: creation-qemu=11.0.0,ctime=1790943717
-name: house-audio-b
-net0: virtio=BC:24:11:16:EE:52,bridge=vmbr0,link_down=0
-onboot: 1
-scsi0: local-lvm:vm-219-disk-0,size=8G
-scsihw: virtio-scsi-pci
-serial0: socket
-smbios1: uuid=cd39a303-9f14-471f-9f32-82b0505eb3cf
-startup: order=45,up=15,down=30
-usb0: host=03f0:d104
-vga: serial0
-vmgenid: 814b731c-0992-4922-b83f-dd46e98c17e9
--- guest-agent-net --
-[
-   {
-      "hardware-address" : "00:00:00:00:00:00",
-      "ip-addresses" : [
-         {
-            "ip-address" : "127.0.0.1",
-            "ip-address-type" : "ipv4",
-            "prefix" : 8
-         },
-         {
-            "ip-address" : "::1",
-            "ip-address-type" : "ipv6",
-            "prefix" : 128
-         }
-      ],
-      "name" : "lo",
-      "statistics" : {
-         "rx-bytes" : 6879,
-         "rx-dropped" : 0,
-         "rx-errs" : 0,
-         "rx-packets" : 84,
-         "tx-bytes" : 6879,
-         "tx-dropped" : 0,
-         "tx-errs" : 0,
-         "tx-packets" : 84
-      }
-   },
-   {
-      "hardware-address" : "bc:24:11:16:ee:52",
-      "ip-addresses" : [
-         {
-            "ip-address" : "10.10.10.15",
-            "ip-address-type" : "ipv4",
-            "prefix" : 24
-         },
-         {
-            "ip-address" : "fda6:8b55:d590:0:be24:11ff:fe16:ee52",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         },
-         {
-            "ip-address" : "fe80::be24:11ff:fe16:ee52",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         }
-      ],
-      "name" : "ens18",
-      "statistics" : {
-         "rx-bytes" : 165599998,
-         "rx-dropped" : 1168,
-         "rx-errs" : 0,
-         "rx-packets" : 1276372,
-         "tx-bytes" : 3131423,
-         "tx-dropped" : 0,
-         "tx-errs" : 0,
-         "tx-packets" : 25931
-      }
-   }
-]
--- guest-agent-os --
+===== nodeb AUDIO VM 219 =====
 {
-   "id" : "debian",
-   "kernel-release" : "6.12.111+deb13-amd64",
-   "kernel-version" : "#1 SMP PREEMPT_DYNAMIC Debian 6.12.111-1 (2026-09-28)",
-   "machine" : "x86_64",
-   "name" : "Debian GNU/Linux",
-   "pretty-name" : "Debian GNU/Linux 13 (trixie)",
-   "version" : "13 (trixie)",
-   "version-id" : "13"
+   "exitcode" : 0,
+   "exited" : 1,
+   "out-data" : "house-audio-b\n--net--\nlo               UNKNOWN        127.0.0.1/8 \nens18            UP             10.10.10.15/24 metric 100 \n--routes--\ndefault via 10.10.10.254 dev ens18 proto dhcp src 10.10.10.15 metric 100 \n10.10.10.0/24 dev ens18 proto kernel scope link src 10.10.10.15 metric 100 \n10.10.10.238 dev ens18 proto dhcp scope link src 10.10.10.15 metric 100 \n10.10.10.239 dev ens18 proto dhcp scope link src 10.10.10.15 metric 100 \n10.10.10.247 dev ens18 proto dhcp scope link src 10.10.10.15 metric 100 \n10.10.10.248 dev ens18 proto dhcp scope link src 10.10.10.15 metric 100 \n10.10.10.254 dev ens18 proto dhcp scope link src 10.10.10.15 metric 100 \n--network-config--\n/etc/systemd/network:\ntotal 0\n--services--\nbluetooth.service                            enabled         enabled\nhouse-audio-reconnect.service                static          -\nbluetooth.target                             static          -\nhouse-audio-reconnect.timer                  disabled        enabled\n--bt--\nDevice 73:81:7B:84:2A:AB not available\nDeviceSet 73:81:7B:84:2A:AB not available\n--local-files--\n/usr/local/sbin/house-audio-reconnect\n/etc/systemd/system/house-audio-reconnect.service\n/etc/systemd/system/house-audio-reconnect.timer\n",
+   "out-truncated" : 0
 }
 
-===== nodeb VM 905 =====
-agent: enabled=1
-balloon: 768
-bios: ovmf
-boot: order=scsi0
-cores: 2
-cpu: host
-description: JNS HA-P0 Primary Lite - HAOS 18.3 / Core 2026.9.4 production-test control plane. Ed25519-signed read-only HA900 feed only. No production authority. No automatic failover. No production USB/Zigbee.
-efidisk0: vmdata:vm-905-disk-0,efitype=2m,size=1M
-machine: q35
-memory: 1024
-meta: creation-qemu=11.0.0,ctime=1790424114
-name: ha-s2-general
-net0: virtio=BC:24:11:35:29:7B,bridge=vmbr0,firewall=0
-onboot: 1
-ostype: l26
-parent: gen-observe-20261005
-scsi0: vmdata:vm-905-disk-1,discard=on,iothread=1,size=32G,ssd=1
-scsihw: virtio-scsi-single
-serial0: socket
-smbios1: uuid=b9613705-a605-490a-ba9e-36e0e7e212e7
-sockets: 1
-startup: order=30,up=30,down=60
-vga: std
-vmgenid: 62f7a097-ffe3-4e5f-ae97-324f998ebf7d
--- guest-agent-net --
-[
-   {
-      "hardware-address" : "00:00:00:00:00:00",
-      "ip-addresses" : [
-         {
-            "ip-address" : "127.0.0.1",
-            "ip-address-type" : "ipv4",
-            "prefix" : 8
-         },
-         {
-            "ip-address" : "::1",
-            "ip-address-type" : "ipv6",
-            "prefix" : 128
-         }
-      ],
-      "name" : "lo",
-      "statistics" : {
-         "rx-bytes" : 215224,
-         "rx-dropped" : 0,
-         "rx-errs" : 0,
-         "rx-packets" : 4095,
-         "tx-bytes" : 215224,
-         "tx-dropped" : 0,
-         "tx-errs" : 0,
-         "tx-packets" : 4095
-      }
-   },
-   {
-      "hardware-address" : "bc:24:11:35:29:7b",
-      "ip-addresses" : [
-         {
-            "ip-address" : "10.10.10.223",
-            "ip-address-type" : "ipv4",
-            "prefix" : 24
-         },
-         {
-            "ip-address" : "2a0a:ef40:4f5:1201::5",
-            "ip-address-type" : "ipv6",
-            "prefix" : 128
-         },
-         {
-            "ip-address" : "fda6:8b55:d590:0:ad1a:bf10:f15b:1f81",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         },
-         {
-            "ip-address" : "fe80::acba:aa42:97b4:d3f2",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         }
-      ],
-      "name" : "enp6s18",
-      "statistics" : {
-         "rx-bytes" : 185038998,
-         "rx-dropped" : 14,
-         "rx-errs" : 0,
-         "rx-packets" : 1399353,
-         "tx-bytes" : 24894273,
-         "tx-dropped" : 0,
-         "tx-errs" : 0,
-         "tx-packets" : 201280
-      }
-   },
-   {
-      "hardware-address" : "8a:34:59:32:8a:43",
-      "ip-addresses" : [
-         {
-            "ip-address" : "172.30.32.1",
-            "ip-address-type" : "ipv4",
-            "prefix" : 23
-         },
-         {
-            "ip-address" : "fd0c:ac1e:2100::1",
-            "ip-address-type" : "ipv6",
-            "prefix" : 48
-         },
-         {
-            "ip-address" : "fe80::8834:59ff:fe32:8a43",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         }
-      ],
-      "name" : "hassio",
-      "statistics" : {
-         "rx-bytes" : 10409038,
-         "rx-dropped" : 0,
-         "rx-errs" : 0,
-         "rx-packets" : 8497,
-         "tx-bytes" : 46750473,
-         "tx-dropped" : 2,
-         "tx-errs" : 0,
-         "tx-packets" : 300713
-      }
-   },
-   {
-      "hardware-address" : "3a:eb:42:10:b3:c1",
-      "ip-addresses" : [
-         {
-            "ip-address" : "172.30.232.1",
-            "ip-address-type" : "ipv4",
-            "prefix" : 23
-         },
-         {
-            "ip-address" : "fd8b:837b:716c::1",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         },
-         {
-            "ip-address" : "fe80::38eb:42ff:fe10:b3c1",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         }
-      ],
-      "name" : "docker0",
-      "statistics" : {
-         "rx-bytes" : 223981,
-         "rx-dropped" : 0,
-         "rx-errs" : 0,
-         "rx-packets" : 1364,
-         "tx-bytes" : 641801,
-         "tx-dropped" : 4,
-         "tx-errs" : 0,
-         "tx-packets" : 1524
-      }
-   },
-   {
-      "hardware-address" : "42:2b:ac:ff:78:33",
-      "ip-addresses" : [
-         {
-            "ip-address" : "fe80::402b:acff:feff:7833",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         }
-      ],
-      "name" : "veth54f27ba",
-      "statistics" : {
-         "rx-bytes" : 161258,
-         "rx-dropped" : 0,
-         "rx-errs" : 0,
-         "rx-packets" : 2264,
-         "tx-bytes" : 45618724,
-         "tx-dropped" : 0,
-         "tx-errs" : 0,
-         "tx-packets" : 292091
-      }
-   },
-   {
-      "hardware-address" : "42:3e:0b:16:6d:83",
-      "ip-addresses" : [
-         {
-            "ip-address" : "fe80::403e:bff:fe16:6d83",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         }
-      ],
-      "name" : "vethba371fd",
-      "statistics" : {
-         "rx-bytes" : 243077,
-         "rx-dropped" : 0,
-         "rx-errs" : 0,
-         "rx-packets" : 1364,
-         "tx-bytes" : 643741,
-         "tx-dropped" : 0,
-         "tx-errs" : 0,
-         "tx-packets" : 1539
-      }
-   },
-   {
-      "hardware-address" : "5a:09:3d:c5:8f:c9",
-      "ip-addresses" : [
-         {
-            "ip-address" : "fe80::5809:3dff:fec5:8fc9",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         }
-      ],
-      "name" : "vethb2bc609",
-      "statistics" : {
-         "rx-bytes" : 10729212,
-         "rx-dropped" : 0,
-         "rx-errs" : 0,
-         "rx-packets" : 11094,
-         "tx-bytes" : 46904544,
-         "tx-dropped" : 0,
-         "tx-errs" : 0,
-         "tx-packets" : 303055
-      }
-   },
-   {
-      "hardware-address" : "9a:7f:5f:36:11:90",
-      "ip-addresses" : [
-         {
-            "ip-address" : "fe80::987f:5fff:fe36:1190",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         }
-      ],
-      "name" : "vethb6f94ad",
-      "statistics" : {
-         "rx-bytes" : 19610,
-         "rx-dropped" : 0,
-         "rx-errs" : 0,
-         "rx-packets" : 133,
-         "tx-bytes" : 45395668,
-         "tx-dropped" : 0,
-         "tx-errs" : 0,
-         "tx-packets" : 289210
-      }
-   },
-   {
-      "hardware-address" : "0e:e8:2e:4a:01:aa",
-      "ip-addresses" : [
-         {
-            "ip-address" : "fe80::ce8:2eff:fe4a:1aa",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         }
-      ],
-      "name" : "vethca89315",
-      "statistics" : {
-         "rx-bytes" : 74715,
-         "rx-dropped" : 0,
-         "rx-errs" : 0,
-         "rx-packets" : 600,
-         "tx-bytes" : 45448586,
-         "tx-dropped" : 0,
-         "tx-errs" : 0,
-         "tx-packets" : 289604
-      }
-   },
-   {
-      "hardware-address" : "9a:93:00:90:fa:80",
-      "ip-addresses" : [
-         {
-            "ip-address" : "fe80::9893:ff:fe90:fa80",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         }
-      ],
-      "name" : "veth011456a",
-      "statistics" : {
-         "rx-bytes" : 2660,
-         "rx-dropped" : 0,
-         "rx-errs" : 0,
-         "rx-packets" : 36,
-         "tx-bytes" : 45379468,
-         "tx-dropped" : 0,
-         "tx-errs" : 0,
-         "tx-packets" : 289121
-      }
-   }
-]
--- guest-agent-os --
-{
-   "id" : "haos",
-   "kernel-release" : "6.18.52-haos",
-   "kernel-version" : "#1 SMP PREEMPT_DYNAMIC Fri Sep 18 04:09:59 UTC 2026",
-   "machine" : "x86_64",
-   "name" : "Home Assistant OS",
-   "pretty-name" : "Home Assistant OS 18.3",
-   "variant" : "Home Assistant OS Open Virtual Appliance",
-   "variant-id" : "ova",
-   "version" : "18.3 (Open Virtual Appliance)",
-   "version-id" : "18.3"
-}
+===== DNS A/B CONFIG =====
+--- nodea ---
+jns-dns-a
+lo               UNKNOWN        127.0.0.1/8 
+eth0@if15        UP             10.10.10.247/24 
+unbound     9154  0.0  8.6  39000 22660 ?        Ss   Oct05   0:38 /usr/sbin/unbound -d -p
+root       43143  0.0 25.5 1375452 66944 ?       Ssl  13:45   0:00 /opt/AdGuardHome/AdGuardHome -s run
+/opt/AdGuardHome/AdGuardHome.yaml.pre-dns-sync-20261006-143600
+/opt/AdGuardHome/AdGuardHome.sig
+/opt/AdGuardHome/AdGuardHome
+/opt/AdGuardHome/AdGuardHome.yaml
+/etc/systemd/system/AdGuardHome.service
+--- nodeb ---
+jns-dns-b
+lo               UNKNOWN        127.0.0.1/8 
+eth0@if4         UP             10.10.10.248/24 
+unbound      123  0.0  7.5  36100 19756 ?        Ss   Oct05   0:16 /usr/sbin/unbound -d -p
+root       26744  0.2 23.6 1375196 62092 ?       Ssl  14:04   0:01 /opt/AdGuardHome/AdGuardHome -s run
+/opt/AdGuardHome/AdGuardHome.yaml.jns-ha-general-20261006-113232.bak
+/opt/AdGuardHome/AdGuardHome.sig
+/opt/AdGuardHome/AdGuardHome
+/opt/AdGuardHome/AdGuardHome.yaml
+/opt/AdGuardHome/AdGuardHome.yaml.jns-ha-general-20261006-113325.bak
+/opt/AdGuardHome/AdGuardHome.yaml.pre-replication-20261006-150425
+/etc/systemd/system/AdGuardHome.service
 
-===== AUDIO SERVICE CHECK =====
--- nodea/214 --
-gateway/request.sh: line 20: pulse: command not found
-gateway/request.sh: line 20: pipe: command not found
-gateway/request.sh: line 20: audio: command not found
-gateway/request.sh: line 20: speaker || true; bluetoothctl devices Connected 2>/dev/null || true' 2>&1 || true: No such file or directory
-bash: -c: line 1: unexpected EOF while looking for matching `''
+===== HA-GENERAL ACCESS HELPERS =====
+/root/jns-hap0-test/remote_homeassistant_minimal.yaml
+/root/ha905-configuration.yaml
+/root/z2m-stage-2.14.2/lib/extension/homeassistant.ts
+/root/z2m-stage-2.14.2/test/extensions/homeassistant.test.ts
+/root/z2m-stage-2.14.2/dist/extension/homeassistant.d.ts
+/root/z2m-stage-2.14.2/dist/extension/homeassistant.js
+/root/z2m-stage-2.14.2/dist/extension/homeassistant.d.ts.map
+/root/jns-guardian-hardened/JNS_Guardian_Hardened_v0.5.1-recovery1/install_guardian_api.sh
+/root/jns-guardian-hardened/JNS_Guardian_Hardened_v0.5.1-recovery1/config.guardian01.json
+/root/jns-cluster-v050/JNS_HA_Cluster_v0.5.0/guardian_lease/config.json
+/root/jns-cluster-v050/JNS_HA_Cluster_v0.5.0/proxmox_agent/config.json
+/root/jns-dev/plant-profile/remote_homeassistant-4.6.tar
+/root/jns-cluster-recovery-20260922/state/jns_ha_cluster-config-entry-full.json
+/root/jns-cluster-recovery-20260922/code/jns_ha_cluster/config_flow.py
