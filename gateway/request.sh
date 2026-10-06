@@ -1,18 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
-ssh nodeb 'bash -s' <<'REMOTE'
-set -u
-for i in $(seq 1 12); do
-  state=$(systemctl is-active jns-ha-replication.service 2>/dev/null || true)
-  echo "CHECK $i $(date -Is) state=$state"
-  tail -8 /var/lib/jns-ha-replication/last-run.log 2>/dev/null || true
-  echo
-  if [ "$state" != "activating" ]; then break; fi
-  sleep 20
-done
-echo "FINAL"
-systemctl --no-pager status jns-ha-replication.service | head -35 || true
-echo "SUCCESS"
-cat /var/lib/jns-ha-replication/last-success 2>/dev/null || true
-cat /var/lib/jns-ha-replication/last-success-time 2>/dev/null || true
-REMOTE
+echo "SOURCE"
+ssh nodeb '
+  systemctl is-active jns-ha-replication.service || true
+  zfs get -Hp -o name,property,value logicalused,used,referenced,volsize vmdata/vm-902-disk-1 2>/dev/null || true
+  ip -s link show vmbr0 | sed -n "1,12p"
+  ps -eo pid,etime,cmd | grep -E "zfs send|jns-ha-replicate" | grep -v grep || true
+'
+echo "TARGET"
+ssh nodea '
+  zfs get -Hp -o name,property,value logicalused,used,referenced,volsize vmdata/vm-902-disk-1 2>/dev/null || true
+  ip -s link show vmbr0 | sed -n "1,12p"
+'
