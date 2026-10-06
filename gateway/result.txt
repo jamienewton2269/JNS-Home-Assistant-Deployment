@@ -1,25 +1,17 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T17:12:40+01:00
+2026-10-06T17:16:47+01:00
 runner=nodec
 
-
-=== OFFLINE BOOT TEST VM902 ===
-QGA_READY=1
+=== CONTROLLED PROMOTION PRECHECK VM902 ===
+SOURCE NODE B
 status: running
---- OS INFO ---
-{
-   "id" : "haos",
-   "kernel-release" : "6.18.52-haos",
-   "kernel-version" : "#1 SMP PREEMPT_DYNAMIC Fri Sep 18 04:09:59 UTC 2026",
-   "machine" : "x86_64",
-   "name" : "Home Assistant OS",
-   "pretty-name" : "Home Assistant OS 18.3",
-   "variant" : "Home Assistant OS Open Virtual Appliance",
-   "variant-id" : "ova",
-   "version" : "18.3 (Open Virtual Appliance)",
-   "version-id" : "18.3"
-}
---- GUEST NETWORK ---
+efidisk0: vmdata:vm-902-disk-0,efitype=2m,size=1M
+memory: 2048
+name: ha-p0-primary-lite
+net0: virtio=BC:24:11:AF:BB:79,bridge=vmbr0,firewall=1
+onboot: 0
+scsi0: vmdata:vm-902-disk-1,discard=on,iothread=1,size=32G,ssd=1
+NETWORK
 [
    {
       "hardware-address" : "00:00:00:00:00:00",
@@ -37,133 +29,263 @@ status: running
       ],
       "name" : "lo",
       "statistics" : {
-         "rx-bytes" : 0,
+         "rx-bytes" : 166144,
          "rx-dropped" : 0,
          "rx-errs" : 0,
-         "rx-packets" : 0,
-         "tx-bytes" : 0,
+         "rx-packets" : 1888,
+         "tx-bytes" : 166144,
          "tx-dropped" : 0,
          "tx-errs" : 0,
-         "tx-packets" : 0
+         "tx-packets" : 1888
       }
    },
    {
       "hardware-address" : "bc:24:11:af:bb:79",
-      "name" : "enp6s18"
+      "ip-addresses" : [
+         {
+            "ip-address" : "10.10.10.220",
+            "ip-address-type" : "ipv4",
+            "prefix" : 24
+         },
+         {
+            "ip-address" : "2a0a:ef40:4f5:1201::6",
+            "ip-address-type" : "ipv6",
+            "prefix" : 128
+         },
+         {
+            "ip-address" : "fda6:8b55:d590:0:ad1a:bf10:f15b:1f81",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         },
+         {
+            "ip-address" : "fe80::648d:e655:c41e:6332",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         }
+      ],
+      "name" : "enp6s18",
+      "statistics" : {
+         "rx-bytes" : 173112793,
+         "rx-dropped" : 9,
+         "rx-errs" : 0,
+         "rx-packets" : 1374069,
+         "tx-bytes" : 152435389,
+         "tx-dropped" : 0,
+         "tx-errs" : 0,
+         "tx-packets" : 98054
+      }
+   },
+   {
+      "hardware-address" : "3e:29:df:bd:cc:d3",
+      "ip-addresses" : [
+         {
+            "ip-address" : "172.30.32.1",
+            "ip-address-type" : "ipv4",
+            "prefix" : 23
+         },
+         {
+            "ip-address" : "fd0c:ac1e:2100::1",
+            "ip-address-type" : "ipv6",
+            "prefix" : 48
+         },
+         {
+            "ip-address" : "fe80::3c29:dfff:febd:ccd3",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         }
+      ],
+      "name" : "hassio",
+      "statistics" : {
+         "rx-bytes" : 9854605,
+         "rx-dropped" : 0,
+         "rx-errs" : 0,
+         "rx-packets" : 7843,
+         "tx-bytes" : 48571995,
+         "tx-dropped" : 2,
+         "tx-errs" : 0,
+         "tx-packets" : 317515
+      }
+   },
+   {
+      "hardware-address" : "8a:f4:1b:59:56:5f",
+      "ip-addresses" : [
+         {
+            "ip-address" : "172.30.232.1",
+            "ip-address-type" : "ipv4",
+            "prefix" : 23
+         },
+         {
+            "ip-address" : "fd8b:837b:716c::1",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         },
+         {
+            "ip-address" : "fe80::88f4:1bff:fe59:565f",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         }
+      ],
+      "name" : "docker0",
+      "statistics" : {
+         "rx-bytes" : 219844,
+         "rx-dropped" : 0,
+         "rx-errs" : 0,
+         "rx-packets" : 1326,
+         "tx-bytes" : 601615,
+         "tx-dropped" : 4,
+         "tx-errs" : 0,
+         "tx-packets" : 1179
+      }
+   },
+   {
+      "hardware-address" : "72:78:5d:31:68:6f",
+      "ip-addresses" : [
+         {
+            "ip-address" : "fe80::7078:5dff:fe31:686f",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         }
+      ],
+      "name" : "vethf56f697",
+      "statistics" : {
+         "rx-bytes" : 153205,
+         "rx-dropped" : 0,
+         "rx-errs" : 0,
+         "rx-packets" : 2151,
+         "tx-bytes" : 47525422,
+         "tx-dropped" : 0,
+         "tx-errs" : 0,
+         "tx-packets" : 309527
+      }
+   },
+   {
+      "hardware-address" : "76:57:86:99:08:93",
+      "ip-addresses" : [
+         {
+            "ip-address" : "fe80::7457:86ff:fe99:893",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         }
+      ],
+      "name" : "vethd40f3ff",
+      "statistics" : {
+         "rx-bytes" : 238408,
+         "rx-dropped" : 0,
+         "rx-errs" : 0,
+         "rx-packets" : 1326,
+         "tx-bytes" : 603523,
+         "tx-dropped" : 0,
+         "tx-errs" : 0,
+         "tx-packets" : 1194
+      }
+   },
+   {
+      "hardware-address" : "56:ea:96:39:4e:19",
+      "ip-addresses" : [
+         {
+            "ip-address" : "fe80::54ea:96ff:fe39:4e19",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         }
+      ],
+      "name" : "veth087141f",
+      "statistics" : {
+         "rx-bytes" : 10183878,
+         "rx-dropped" : 0,
+         "rx-errs" : 0,
+         "rx-packets" : 10510,
+         "tx-bytes" : 48739996,
+         "tx-dropped" : 0,
+         "tx-errs" : 0,
+         "tx-packets" : 319893
+      }
+   },
+   {
+      "hardware-address" : "2a:2e:bc:d8:4e:79",
+      "ip-addresses" : [
+         {
+            "ip-address" : "fe80::282e:bcff:fed8:4e79",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         }
+      ],
+      "name" : "vethf6f9507",
+      "statistics" : {
+         "rx-bytes" : 19298,
+         "rx-dropped" : 0,
+         "rx-errs" : 0,
+         "rx-packets" : 131,
+         "tx-bytes" : 47313728,
+         "tx-dropped" : 0,
+         "tx-errs" : 0,
+         "tx-packets" : 306793
+      }
+   },
+   {
+      "hardware-address" : "92:e6:86:f9:32:c7",
+      "ip-addresses" : [
+         {
+            "ip-address" : "fe80::90e6:86ff:fef9:32c7",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         }
+      ],
+      "name" : "veth0b06a72",
+      "statistics" : {
+         "rx-bytes" : 38945,
+         "rx-dropped" : 0,
+         "rx-errs" : 0,
+         "rx-packets" : 332,
+         "tx-bytes" : 47338353,
+         "tx-dropped" : 0,
+         "tx-errs" : 0,
+         "tx-packets" : 306968
+      }
+   },
+   {
+      "hardware-address" : "5e:69:4f:db:0f:af",
+      "ip-addresses" : [
+         {
+            "ip-address" : "fe80::5c69:4fff:fedb:faf",
+            "ip-address-type" : "ipv6",
+            "prefix" : 64
+         }
+      ],
+      "name" : "vethf374748",
+      "statistics" : {
+         "rx-bytes" : 2660,
+         "rx-dropped" : 0,
+         "rx-errs" : 0,
+         "rx-packets" : 36,
+         "tx-bytes" : 47298188,
+         "tx-dropped" : 0,
+         "tx-errs" : 0,
+         "tx-packets" : 306708
+      }
    }
 ]
---- HA CORE PROBE ---
+HA
+{
+   "exitcode" : 0,
+   "exited" : 1,
+   "out-data" : "arch: amd64\naudio_input: null\naudio_output: null\nbackups_exclude_database: false\nboot: true\nduplicate_log_file: false\nimage: ghcr.io/home-assistant/qemux86-64-homeassistant\nip_address: 172.30.32.1\nmachine: qemux86-64\nport: 80\nssl: false\nupdate_available: false\nversion: 2026.9.4\nversion_latest: 2026.9.4\nwatchdog: true\n",
+   "out-truncated" : 0
+}
+REPL
+inactive
+enabled
+NEXT                           LEFT LAST                              PASSED UNIT                     ACTIVATES
+Tue 2026-10-06 17:20:03 BST 3min 5s Tue 2026-10-06 17:15:03 BST 1min 54s ago jns-ha-replication.timer jns-ha-replication.service
+
+1 timers listed.
+Pass --all to see loaded but inactive timers, too.
+jns-repl-20261006T171503
+2026-10-06T17:15:41+01:00
+TARGET NODE A
 status: stopped
+efidisk0: vmdata:vm-902-disk-0,efitype=2m,size=1M
+memory: 2048
+name: ha-p0-primary-lite
 net0: virtio=BC:24:11:AF:BB:79,bridge=vmbr0,firewall=1,link_down=1
 onboot: 0
-OFFLINE_BOOT_TEST_VM902=PASS
-
-=== OFFLINE BOOT TEST VM903 ===
-QGA_READY=1
-status: running
---- OS INFO ---
-{
-   "id" : "haos",
-   "kernel-release" : "6.12.67-haos",
-   "kernel-version" : "#1 SMP PREEMPT_DYNAMIC Thu Feb 12 15:31:37 UTC 2026",
-   "machine" : "x86_64",
-   "name" : "Home Assistant OS",
-   "pretty-name" : "Home Assistant OS 17.1",
-   "variant" : "Home Assistant OS Open Virtual Appliance",
-   "variant-id" : "ova",
-   "version" : "17.1 (Open Virtual Appliance)",
-   "version-id" : "17.1"
-}
---- GUEST NETWORK ---
-[
-   {
-      "hardware-address" : "00:00:00:00:00:00",
-      "ip-addresses" : [
-         {
-            "ip-address" : "127.0.0.1",
-            "ip-address-type" : "ipv4",
-            "prefix" : 8
-         },
-         {
-            "ip-address" : "::1",
-            "ip-address-type" : "ipv6",
-            "prefix" : 128
-         }
-      ],
-      "name" : "lo",
-      "statistics" : {
-         "rx-bytes" : 0,
-         "rx-dropped" : 0,
-         "rx-errs" : 0,
-         "rx-packets" : 0,
-         "tx-bytes" : 0,
-         "tx-dropped" : 0,
-         "tx-errs" : 0,
-         "tx-packets" : 0
-      }
-   },
-   {
-      "hardware-address" : "bc:24:11:99:4b:e0",
-      "name" : "enp6s18"
-   }
-]
---- HA CORE PROBE ---
-status: stopped
-net0: virtio=BC:24:11:99:4B:E0,bridge=vmbr0,firewall=1,link_down=1
-onboot: 0
-OFFLINE_BOOT_TEST_VM903=PASS
-
-=== OFFLINE BOOT TEST VM905 ===
-QGA_READY=1
-status: running
---- OS INFO ---
-{
-   "id" : "haos",
-   "kernel-release" : "6.18.52-haos",
-   "kernel-version" : "#1 SMP PREEMPT_DYNAMIC Fri Sep 18 04:09:59 UTC 2026",
-   "machine" : "x86_64",
-   "name" : "Home Assistant OS",
-   "pretty-name" : "Home Assistant OS 18.3",
-   "variant" : "Home Assistant OS Open Virtual Appliance",
-   "variant-id" : "ova",
-   "version" : "18.3 (Open Virtual Appliance)",
-   "version-id" : "18.3"
-}
---- GUEST NETWORK ---
-[
-   {
-      "hardware-address" : "00:00:00:00:00:00",
-      "ip-addresses" : [
-         {
-            "ip-address" : "127.0.0.1",
-            "ip-address-type" : "ipv4",
-            "prefix" : 8
-         },
-         {
-            "ip-address" : "::1",
-            "ip-address-type" : "ipv6",
-            "prefix" : 128
-         }
-      ],
-      "name" : "lo",
-      "statistics" : {
-         "rx-bytes" : 0,
-         "rx-dropped" : 0,
-         "rx-errs" : 0,
-         "rx-packets" : 0,
-         "tx-bytes" : 0,
-         "tx-dropped" : 0,
-         "tx-errs" : 0,
-         "tx-packets" : 0
-      }
-   },
-   {
-      "hardware-address" : "bc:24:11:35:29:7b",
-      "name" : "enp6s18"
-   }
-]
---- HA CORE PROBE ---
-status: stopped
-net0: virtio=BC:24:11:35:29:7B,bridge=vmbr0,firewall=0,link_down=1
-onboot: 0
-OFFLINE_BOOT_TEST_VM905=PASS
+scsi0: vmdata:vm-902-disk-1,discard=on,iothread=1,size=32G,ssd=1
