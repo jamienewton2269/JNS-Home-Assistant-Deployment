@@ -1,6 +1,16 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T10:54:21+01:00
+2026-10-06T10:55:36+01:00
 runner=nodec
 
-=== NODE C ACCESS CHECK ===
-2026-10-06T10:54:21+01:00
+=== HA-GENERAL CORE CHECK RESULT ===
+2026-10-06T10:55:36+01:00
+{
+   "exitcode" : 0,
+   "exited" : 1,
+   "out-data" : "Command completed successfully.\n",
+   "out-truncated" : 0
+}
+
+=== current natural automation status ===
+{"ok": true, "vmid": 905, "entities": 197, "apply_enabled": true}
+{"facts": 2, "observations": 1, "repairs": 0, "ok": true, "vmid": 905, "apply_enabled": true}
