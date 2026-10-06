@@ -1,9 +1,14 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T11:31:44+01:00
+2026-10-06T11:32:32+01:00
 runner=nodec
 
-=== DEPLOY HA-GENERAL DNS + TESTING DASHBOARD (RETRY 2) ===
-2026-10-06T11:31:44+01:00
+=== DEPLOY HA-GENERAL DNS + TESTING DASHBOARD (RETRY 3) ===
+2026-10-06T11:32:32+01:00
 runner=nodec
 
-touch: cannot touch '/home/github-runner/steward-web/docs/script-catalogue.txt': Permission denied
+=== 1/6 Configure HA-General DNS aliases ===
+bash: line 24: warning: here-document at line 3 delimited by end-of-file (wanted `'PY'')
+  File "<stdin>", line 20
+    pct exec 218 -- systemctl restart AdGuardHome
+        ^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: Missing parentheses in call to 'exec'. Did you mean exec(...)?
