@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 set -u
-
-echo "NODE C:"
+echo "=== NODE C STEWARD WEB PRECHECK ==="
 hostname
 whoami
-uname -a
-
+id
 echo
-echo "SSH authentication test:"
-for host in 10.10.10.225 10.10.10.235; do
-  echo "--- $host ---"
-  ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new root@$host 'hostname; whoami; pveversion 2>/dev/null | head -1' || echo "SSH_AUTH_FAILED"
-done
+echo "sudo_noninteractive:"
+if sudo -n true 2>/dev/null; then echo YES; else echo NO; fi
+echo
+echo "candidate steward/natural automation paths:"
+find /home /opt /srv -maxdepth 3 \( -iname '*steward*' -o -iname '*natural*automation*' \) -print 2>/dev/null | head -50 || true
+echo
+echo "listening tcp ports:"
+ss -ltn 2>/dev/null | sed -n '1,80p' || true
+echo
+echo "python:"
+command -v python3 || true
+python3 --version 2>/dev/null || true
