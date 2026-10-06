@@ -1,31 +1,63 @@
 #!/usr/bin/env bash
 set -euo pipefail
-echo "=== RECOVER OLD HA900 CLOCK READ-ONLY/ISOLATED ==="
+echo "=== HA CLUSTER READ-ONLY RESOURCE / REPLICA AUDIT ==="
 date -Is
-ssh -o BatchMode=yes nodea 'bash -s' <<'REMOTE'
-set -euo pipefail
-ID=900
-orig=$(qm config "$ID" | sed -n 's/^net0: //p')
-echo "ORIGINAL_NET0=$orig"
-was=$(qm status "$ID" | awk '{print $2}')
-echo "ORIGINAL_STATUS=$was"
-cleanup() {
-  if [ "$(qm status "$ID" | awk '{print $2}')" = running ]; then qm stop "$ID" --skiplock 1 >/dev/null 2>&1 || true; fi
-  qm set "$ID" --net0 "$orig" >/dev/null 2>&1 || true
-}
-trap cleanup EXIT
-if [[ "$orig" == *link_down=* ]]; then
-  iso="$orig"
-else
-  iso="$orig,link_down=1"
-fi
-qm set "$ID" --net0 "$iso" >/dev/null
-qm start "$ID"
-for i in $(seq 1 30); do
-  if qm guest cmd "$ID" ping >/dev/null 2>&1; then break; fi
-  sleep 2
+
+for host in nodea nodeb; do
+  echo
+  echo "################################################################"
+  echo "### HOST: $host"
+  echo "################################################################"
+  ssh -o BatchMode=yes -o ConnectTimeout=10 "$host" 'bash -s' <<'REMOTE'
+set -u
+echo "--- IDENTITY / LOAD ---"
+hostname
+uptime
+echo
+echo "--- MEMORY ---"
+free -h
+echo
+echo "--- ROOT / PVE STORAGE ---"
+df -hT / /var/lib/vz 2>/dev/null || df -hT /
+echo
+echo "--- PVE STORAGE STATUS ---"
+pvesm status 2>&1 || true
+echo
+echo "--- QEMU VMS ---"
+qm list 2>&1 || true
+echo
+echo "--- LXC CONTAINERS ---"
+pct list 2>&1 || true
+echo
+echo "--- QEMU LIVE RESOURCE DATA ---"
+NODE=$(hostname)
+pvesh get "/nodes/$NODE/qemu" --output-format json-pretty 2>&1 || true
+echo
+echo "--- LXC LIVE RESOURCE DATA ---"
+pvesh get "/nodes/$NODE/lxc" --output-format json-pretty 2>&1 || true
+echo
+echo "--- HA / GUARDIAN / REPLICATION-RELATED UNITS ---"
+systemctl list-units --all --no-pager 2>/dev/null | grep -Ei 'guardian|replic|sync|home.?assistant|ha[-_]?sync|jns' | head -200 || true
+echo
+echo "--- REPLICATION CONFIG ---"
+cat /etc/pve/replication.cfg 2>&1 || true
+echo
+echo "--- CLUSTER REPLICATION STATUS ---"
+pvesh get /cluster/replication --output-format json-pretty 2>&1 || true
+echo
+echo "--- SELECTED VM CONFIGS (if present) ---"
+for id in 900 901 902 903 904 905 906 907 908 909; do
+  if qm status "$id" >/dev/null 2>&1; then
+    echo "### VM $id"
+    qm status "$id" --verbose 2>&1 || qm status "$id" 2>&1 || true
+    qm config "$id" 2>&1 | grep -E '^(name|memory|balloon|cores|sockets|net[0-9]+|scsi[0-9]+|virtio[0-9]+|ide[0-9]+|boot|onboot|startup|tags):' || true
+  fi
 done
-qm guest cmd "$ID" ping >/dev/null
-echo "QGA READY"
-qm guest exec "$ID" -- /bin/bash -lc 'echo CLOCK_FILES; find /mnt/data/supervisor/homeassistant/media /mnt/data/supervisor/homeassistant/www /mnt/data/supervisor/homeassistant -maxdepth 5 -type f 2>/dev/null | grep -Ei "westminster|chime|bird|clock|tweet" | head -200; echo AUTOMATION_MATCHES; grep -RniE "westminster|chime|bird|clock|tweet" /mnt/data/supervisor/homeassistant/*.yaml /mnt/data/supervisor/homeassistant/packages 2>/dev/null | head -250 || true'
+echo
+echo "--- RECENT BACKUP / SYNC ARTIFACTS ---"
+find /var/lib/vz/dump /var/lib/vz/snippets /etc/pve -maxdepth 3 -type f \( -iname '*900*' -o -iname '*901*' -o -iname '*902*' -o -iname '*sync*' -o -iname '*replic*' -o -iname '*guardian*' \) -printf '%TY-%Tm-%Td %TH:%TM:%TS %10s %p\n' 2>/dev/null | sort -r | head -100 || true
 REMOTE
+done
+
+echo
+echo "=== END AUDIT ==="
