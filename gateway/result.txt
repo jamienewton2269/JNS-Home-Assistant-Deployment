@@ -1,130 +1,19 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T16:32:06+01:00
+2026-10-06T16:35:56+01:00
 runner=nodec
 
-=== AUDIO LIVE STATUS ===
-2026-10-06T16:32:06+01:00
-[
-   {
-      "hardware-address" : "00:00:00:00:00:00",
-      "ip-addresses" : [
-         {
-            "ip-address" : "127.0.0.1",
-            "ip-address-type" : "ipv4",
-            "prefix" : 8
-         },
-         {
-            "ip-address" : "::1",
-            "ip-address-type" : "ipv6",
-            "prefix" : 128
-         }
-      ],
-      "name" : "lo",
-      "statistics" : {
-         "rx-bytes" : 6775,
-         "rx-dropped" : 0,
-         "rx-errs" : 0,
-         "rx-packets" : 83,
-         "tx-bytes" : 6775,
-         "tx-dropped" : 0,
-         "tx-errs" : 0,
-         "tx-packets" : 83
-      }
-   },
-   {
-      "hardware-address" : "bc:24:11:d8:03:d4",
-      "ip-addresses" : [
-         {
-            "ip-address" : "10.10.10.228",
-            "ip-address-type" : "ipv4",
-            "prefix" : 24
-         },
-         {
-            "ip-address" : "fda6:8b55:d590:0:be24:11ff:fed8:3d4",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         },
-         {
-            "ip-address" : "fe80::be24:11ff:fed8:3d4",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         }
-      ],
-      "name" : "ens18",
-      "statistics" : {
-         "rx-bytes" : 279198888,
-         "rx-dropped" : 2334,
-         "rx-errs" : 0,
-         "rx-packets" : 2246265,
-         "tx-bytes" : 3946576,
-         "tx-dropped" : 0,
-         "tx-errs" : 0,
-         "tx-packets" : 42085
-      }
-   }
-]
-[
-   {
-      "hardware-address" : "00:00:00:00:00:00",
-      "ip-addresses" : [
-         {
-            "ip-address" : "127.0.0.1",
-            "ip-address-type" : "ipv4",
-            "prefix" : 8
-         },
-         {
-            "ip-address" : "::1",
-            "ip-address-type" : "ipv6",
-            "prefix" : 128
-         }
-      ],
-      "name" : "lo",
-      "statistics" : {
-         "rx-bytes" : 6879,
-         "rx-dropped" : 0,
-         "rx-errs" : 0,
-         "rx-packets" : 84,
-         "tx-bytes" : 6879,
-         "tx-dropped" : 0,
-         "tx-errs" : 0,
-         "tx-packets" : 84
-      }
-   },
-   {
-      "hardware-address" : "bc:24:11:16:ee:52",
-      "ip-addresses" : [
-         {
-            "ip-address" : "10.10.10.229",
-            "ip-address-type" : "ipv4",
-            "prefix" : 24
-         },
-         {
-            "ip-address" : "fda6:8b55:d590:0:be24:11ff:fe16:ee52",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         },
-         {
-            "ip-address" : "fe80::be24:11ff:fe16:ee52",
-            "ip-address-type" : "ipv6",
-            "prefix" : 64
-         }
-      ],
-      "name" : "ens18",
-      "statistics" : {
-         "rx-bytes" : 182102708,
-         "rx-dropped" : 1329,
-         "rx-errs" : 0,
-         "rx-packets" : 1439137,
-         "tx-bytes" : 3387092,
-         "tx-dropped" : 0,
-         "tx-errs" : 0,
-         "tx-packets" : 28080
-      }
-   }
-]
+=== CHECK HA-GENERAL NATURAL AUTOMATION INCLUDE ===
 {
-   "exitcode" : 0,
-   "exited" : 1,
-   "out-data" : "Device 73:81:7B:84:2A:AB (public)\n\tName: TK-BS001\n\tAlias: TK-BS001\n\tClass: 0x00240404 (2360324)\n\tIcon: audio-headset\n\tPaired: yes\n\tBonded: yes\n\tTrusted: yes\n\tBlocked: no\n\tConnected: yes\n\tLegacyPairing: no\n\tUUID: Serial Port               (00001101-0000-1000-8000-00805f9b34fb)\n\tUUID: Audio Sink                (0000110b-0000-1000-8000-00805f9b34fb)\n\tUUID: A/V Remote Control Target (0000110c-0000-1000-8000-00805f9b34fb)\n\tUUID: Advanced Audio Distribu.. (0000110d-0000-1000-8000-00805f9b34fb)\n\tUUID: A/V Remote Control        (0000110e-0000-1000-8000-00805f9b34fb)\n\tUUID: Handsfree                 (0000111e-0000-1000-8000-00805f9b34fb)\n\tUUID: Message Notification Se.. (00001133-0000-1000-8000-00805f9b34fb)\n\tUUID: PnP Information           (00001200-0000-1000-8000-00805f9b34fb)\n\tUUID: Vendor specific           (fe010000-1234-5678-abcd-00805f9b34fb)\n\tModalias: bluetooth:v05D6p000Ad0240\n",
-   "out-truncated" : 0
+   "err-data" : "  File \"<string>\", line 1\n    from pathlib import Path; p=Path(/config/configuration.yaml); print(p.read_text() if p.exists() else MISSING)\n                                     ^\nSyntaxError: invalid syntax\n",
+   "err-truncated" : 0,
+   "exitcode" : 1,
+   "exited" : 1
+}
+
+=== natural_automation.yaml ===
+{
+   "err-data" : "  File \"<string>\", line 1\n    from pathlib import Path; p=Path(/config/natural_automation.yaml); print(p.read_text() if p.exists() else MISSING)\n                                     ^\nSyntaxError: invalid syntax\n",
+   "err-truncated" : 0,
+   "exitcode" : 1,
+   "exited" : 1
 }
