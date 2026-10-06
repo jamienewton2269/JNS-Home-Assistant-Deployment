@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
-set -uo pipefail
-echo "=== NODE C ACCESS CHECK ==="
+set -euo pipefail
+echo "=== HA-GENERAL CORE CHECK RESULT ==="
 date -Is
-timeout 20 ssh -o BatchMode=yes -o ConnectTimeout=5 nodea 'timeout 8 ssh -o BatchMode=yes -o ConnectTimeout=4 nodec '\''echo "host=$(hostname)"; pct status 130; pct exec 130 -- systemctl is-active jns-netmon.service; pct exec 130 -- curl --noproxy "*" -fsS --max-time 5 http://127.0.0.1:8080/health'\'''
+ssh nodeb '
+  qm guest exec-status 905 10592 || true
+  echo
+  echo "=== current natural automation status ==="
+  curl -sS http://127.0.0.1:8099/api/status
+  echo
+  curl -sS -X POST -H "Content-Type: application/json" -d "{}" http://127.0.0.1:8099/api/steward/status
+  echo
+'
