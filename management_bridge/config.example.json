@@ -1,0 +1,16 @@
+{
+  "listen_host": "127.0.0.1",
+  "listen_port": 8765,
+  "command_timeout": 30,
+  "max_output_bytes": 200000,
+  "max_command_chars": 8192,
+  "targets": {
+    "local": {
+      "mode": "local"
+    },
+    "example-ssh-host": {
+      "mode": "ssh",
+      "destination": "example-host"
+    }
+  }
+}
