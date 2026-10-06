@@ -1,154 +1,169 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T17:06:07+01:00
+2026-10-06T17:12:40+01:00
 runner=nodec
 
-CHECK 1 2026-10-06T17:06:07+01:00 state=activating
-onboot: 0
-scsi0: vmdata:vm-903-disk-1,discard=on,iothread=1,size=32G,ssd=1
-startup: order=40,up=30,down=60
-VM 903 replicated at jns-repl-20261006T164743
-=== VM 905 ===
-target: status: absent
-guest filesystem frozen
-guest filesystem thawed
-vmdata/vm-905-disk-0: full send
-vmdata/vm-905-disk-1: full send
-CHECK 2 2026-10-06T17:06:38+01:00 state=activating
-onboot: 0
-scsi0: vmdata:vm-903-disk-1,discard=on,iothread=1,size=32G,ssd=1
-startup: order=40,up=30,down=60
-VM 903 replicated at jns-repl-20261006T164743
-=== VM 905 ===
-target: status: absent
-guest filesystem frozen
-guest filesystem thawed
-vmdata/vm-905-disk-0: full send
-vmdata/vm-905-disk-1: full send
-CHECK 3 2026-10-06T17:07:08+01:00 state=activating
-onboot: 0
-scsi0: vmdata:vm-903-disk-1,discard=on,iothread=1,size=32G,ssd=1
-startup: order=40,up=30,down=60
-VM 903 replicated at jns-repl-20261006T164743
-=== VM 905 ===
-target: status: absent
-guest filesystem frozen
-guest filesystem thawed
-vmdata/vm-905-disk-0: full send
-vmdata/vm-905-disk-1: full send
-CHECK 4 2026-10-06T17:07:38+01:00 state=activating
-onboot: 0
-scsi0: vmdata:vm-903-disk-1,discard=on,iothread=1,size=32G,ssd=1
-startup: order=40,up=30,down=60
-VM 903 replicated at jns-repl-20261006T164743
-=== VM 905 ===
-target: status: absent
-guest filesystem frozen
-guest filesystem thawed
-vmdata/vm-905-disk-0: full send
-vmdata/vm-905-disk-1: full send
-CHECK 5 2026-10-06T17:08:08+01:00 state=activating
-onboot: 0
-scsi0: vmdata:vm-903-disk-1,discard=on,iothread=1,size=32G,ssd=1
-startup: order=40,up=30,down=60
-VM 903 replicated at jns-repl-20261006T164743
-=== VM 905 ===
-target: status: absent
-guest filesystem frozen
-guest filesystem thawed
-vmdata/vm-905-disk-0: full send
-vmdata/vm-905-disk-1: full send
-CHECK 6 2026-10-06T17:08:38+01:00 state=activating
-onboot: 0
-scsi0: vmdata:vm-903-disk-1,discard=on,iothread=1,size=32G,ssd=1
-startup: order=40,up=30,down=60
-VM 903 replicated at jns-repl-20261006T164743
-=== VM 905 ===
-target: status: absent
-guest filesystem frozen
-guest filesystem thawed
-vmdata/vm-905-disk-0: full send
-vmdata/vm-905-disk-1: full send
-CHECK 7 2026-10-06T17:09:08+01:00 state=activating
-onboot: 0
-scsi0: vmdata:vm-903-disk-1,discard=on,iothread=1,size=32G,ssd=1
-startup: order=40,up=30,down=60
-VM 903 replicated at jns-repl-20261006T164743
-=== VM 905 ===
-target: status: absent
-guest filesystem frozen
-guest filesystem thawed
-vmdata/vm-905-disk-0: full send
-vmdata/vm-905-disk-1: full send
-CHECK 8 2026-10-06T17:09:38+01:00 state=activating
-onboot: 0
-scsi0: vmdata:vm-903-disk-1,discard=on,iothread=1,size=32G,ssd=1
-startup: order=40,up=30,down=60
-VM 903 replicated at jns-repl-20261006T164743
-=== VM 905 ===
-target: status: absent
-guest filesystem frozen
-guest filesystem thawed
-vmdata/vm-905-disk-0: full send
-vmdata/vm-905-disk-1: full send
-CHECK 9 2026-10-06T17:10:08+01:00 state=activating
-START 2026-10-06T17:10:00+01:00
-JNS-HA-REPLICA-RECEIVER OK
-=== VM 902 ===
-target: status: stopped
-guest filesystem frozen
-guest filesystem thawed
-vmdata/vm-902-disk-0: incremental from jns-repl-20261006T164743
-vmdata/vm-902-disk-1: incremental from jns-repl-20261006T164743
-CHECK 10 2026-10-06T17:10:38+01:00 state=activating
-scsi0: vmdata:vm-903-disk-1,discard=on,iothread=1,size=32G,ssd=1
-startup: order=40,up=30,down=60
-VM 903 replicated at jns-repl-20261006T171000
-=== VM 905 ===
-target: status: stopped
-guest filesystem frozen
-guest filesystem thawed
-vmdata/vm-905-disk-0: incremental from jns-repl-20261006T164743
-vmdata/vm-905-disk-1: incremental from jns-repl-20261006T164743
+
+=== OFFLINE BOOT TEST VM902 ===
+QGA_READY=1
+status: running
+--- OS INFO ---
+{
+   "id" : "haos",
+   "kernel-release" : "6.18.52-haos",
+   "kernel-version" : "#1 SMP PREEMPT_DYNAMIC Fri Sep 18 04:09:59 UTC 2026",
+   "machine" : "x86_64",
+   "name" : "Home Assistant OS",
+   "pretty-name" : "Home Assistant OS 18.3",
+   "variant" : "Home Assistant OS Open Virtual Appliance",
+   "variant-id" : "ova",
+   "version" : "18.3 (Open Virtual Appliance)",
+   "version-id" : "18.3"
+}
+--- GUEST NETWORK ---
+[
+   {
+      "hardware-address" : "00:00:00:00:00:00",
+      "ip-addresses" : [
+         {
+            "ip-address" : "127.0.0.1",
+            "ip-address-type" : "ipv4",
+            "prefix" : 8
+         },
+         {
+            "ip-address" : "::1",
+            "ip-address-type" : "ipv6",
+            "prefix" : 128
+         }
+      ],
+      "name" : "lo",
+      "statistics" : {
+         "rx-bytes" : 0,
+         "rx-dropped" : 0,
+         "rx-errs" : 0,
+         "rx-packets" : 0,
+         "tx-bytes" : 0,
+         "tx-dropped" : 0,
+         "tx-errs" : 0,
+         "tx-packets" : 0
+      }
+   },
+   {
+      "hardware-address" : "bc:24:11:af:bb:79",
+      "name" : "enp6s18"
+   }
+]
+--- HA CORE PROBE ---
 status: stopped
-CHECK 11 2026-10-06T17:11:08+01:00 state=inactive
-cores: 2
-efidisk0: vmdata:vm-905-disk-0,efitype=2m,size=1M
-memory: 1024
-name: ha-s2-general
-net0: virtio=BC:24:11:35:29:7B,bridge=vmbr0,firewall=0,link_down=1
-onboot: 0
-scsi0: vmdata:vm-905-disk-1,discard=on,iothread=1,size=32G,ssd=1
-startup: order=30,up=30,down=60
-VM 905 replicated at jns-repl-20261006T171000
-SUCCESS 2026-10-06T17:10:38+01:00 jns-repl-20261006T171000
-SUCCESS_MARKERS
-jns-repl-20261006T171000
-2026-10-06T17:10:38+01:00
-NODE_A_FENCING
-### 902
-status: stopped
-balloon: 0
-efidisk0: vmdata:vm-902-disk-0,efitype=2m,size=1M
-memory: 2048
-name: ha-p0-primary-lite
 net0: virtio=BC:24:11:AF:BB:79,bridge=vmbr0,firewall=1,link_down=1
 onboot: 0
-scsi0: vmdata:vm-902-disk-1,discard=on,iothread=1,size=32G,ssd=1
-### 903
+OFFLINE_BOOT_TEST_VM902=PASS
+
+=== OFFLINE BOOT TEST VM903 ===
+QGA_READY=1
+status: running
+--- OS INFO ---
+{
+   "id" : "haos",
+   "kernel-release" : "6.12.67-haos",
+   "kernel-version" : "#1 SMP PREEMPT_DYNAMIC Thu Feb 12 15:31:37 UTC 2026",
+   "machine" : "x86_64",
+   "name" : "Home Assistant OS",
+   "pretty-name" : "Home Assistant OS 17.1",
+   "variant" : "Home Assistant OS Open Virtual Appliance",
+   "variant-id" : "ova",
+   "version" : "17.1 (Open Virtual Appliance)",
+   "version-id" : "17.1"
+}
+--- GUEST NETWORK ---
+[
+   {
+      "hardware-address" : "00:00:00:00:00:00",
+      "ip-addresses" : [
+         {
+            "ip-address" : "127.0.0.1",
+            "ip-address-type" : "ipv4",
+            "prefix" : 8
+         },
+         {
+            "ip-address" : "::1",
+            "ip-address-type" : "ipv6",
+            "prefix" : 128
+         }
+      ],
+      "name" : "lo",
+      "statistics" : {
+         "rx-bytes" : 0,
+         "rx-dropped" : 0,
+         "rx-errs" : 0,
+         "rx-packets" : 0,
+         "tx-bytes" : 0,
+         "tx-dropped" : 0,
+         "tx-errs" : 0,
+         "tx-packets" : 0
+      }
+   },
+   {
+      "hardware-address" : "bc:24:11:99:4b:e0",
+      "name" : "enp6s18"
+   }
+]
+--- HA CORE PROBE ---
 status: stopped
-balloon: 0
-efidisk0: vmdata:vm-903-disk-0,efitype=2m,size=1M
-memory: 2048
-name: ha-s1-plant
 net0: virtio=BC:24:11:99:4B:E0,bridge=vmbr0,firewall=1,link_down=1
 onboot: 0
-scsi0: vmdata:vm-903-disk-1,discard=on,iothread=1,size=32G,ssd=1
-### 905
+OFFLINE_BOOT_TEST_VM903=PASS
+
+=== OFFLINE BOOT TEST VM905 ===
+QGA_READY=1
+status: running
+--- OS INFO ---
+{
+   "id" : "haos",
+   "kernel-release" : "6.18.52-haos",
+   "kernel-version" : "#1 SMP PREEMPT_DYNAMIC Fri Sep 18 04:09:59 UTC 2026",
+   "machine" : "x86_64",
+   "name" : "Home Assistant OS",
+   "pretty-name" : "Home Assistant OS 18.3",
+   "variant" : "Home Assistant OS Open Virtual Appliance",
+   "variant-id" : "ova",
+   "version" : "18.3 (Open Virtual Appliance)",
+   "version-id" : "18.3"
+}
+--- GUEST NETWORK ---
+[
+   {
+      "hardware-address" : "00:00:00:00:00:00",
+      "ip-addresses" : [
+         {
+            "ip-address" : "127.0.0.1",
+            "ip-address-type" : "ipv4",
+            "prefix" : 8
+         },
+         {
+            "ip-address" : "::1",
+            "ip-address-type" : "ipv6",
+            "prefix" : 128
+         }
+      ],
+      "name" : "lo",
+      "statistics" : {
+         "rx-bytes" : 0,
+         "rx-dropped" : 0,
+         "rx-errs" : 0,
+         "rx-packets" : 0,
+         "tx-bytes" : 0,
+         "tx-dropped" : 0,
+         "tx-errs" : 0,
+         "tx-packets" : 0
+      }
+   },
+   {
+      "hardware-address" : "bc:24:11:35:29:7b",
+      "name" : "enp6s18"
+   }
+]
+--- HA CORE PROBE ---
 status: stopped
-balloon: 768
-efidisk0: vmdata:vm-905-disk-0,efitype=2m,size=1M
-memory: 1024
-name: ha-s2-general
 net0: virtio=BC:24:11:35:29:7B,bridge=vmbr0,firewall=0,link_down=1
 onboot: 0
-scsi0: vmdata:vm-905-disk-1,discard=on,iothread=1,size=32G,ssd=1
+OFFLINE_BOOT_TEST_VM905=PASS
