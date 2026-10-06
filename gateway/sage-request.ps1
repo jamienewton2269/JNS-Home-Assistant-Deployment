@@ -14,3 +14,5 @@ Get-PSDrive C | Select-Object Name,
 ""
 "GitHub runner service:"
 Get-Service | Where-Object { $_.Name -like 'actions.runner.*' } | Select-Object Name, Status, StartType
+
+# trigger-after-runner-connected
