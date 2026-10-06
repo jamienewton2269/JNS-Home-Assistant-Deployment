@@ -1,86 +1,178 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T15:12:52+01:00
+2026-10-06T15:13:44+01:00
 runner=nodec
 
-=== AUDIO/DNS/CLOCK PRECHANGE AUDIT ===
-2026-10-06T15:12:52+01:00
-===== SERVER RANGE AVAILABILITY 220-240 =====
-10.10.10.220   USED           bc:24:11:af:bb:79 DELAY
-10.10.10.221   USED           bc:24:11:99:4b:e0 DELAY
-10.10.10.222   USED           00:90:a9:ef:f2:b7 REACHABLE
-10.10.10.223   USED           bc:24:11:35:29:7b DELAY
-10.10.10.224   FREE_OR_SILENT  
-10.10.10.225   USED           c4:65:16:30:8d:fd DELAY
-10.10.10.226   FREE_OR_SILENT  
-10.10.10.227   FREE_OR_SILENT  
-10.10.10.228   FREE_OR_SILENT  
-10.10.10.229   FREE_OR_SILENT  
-10.10.10.230   USED           bc:24:11:42:c3:94 DELAY
-10.10.10.231   USED           bc:24:11:a0:c1:65 DELAY
-10.10.10.232   FREE_OR_SILENT  
-10.10.10.233   FREE_OR_SILENT  
-10.10.10.234   USED           bc:24:11:0f:cd:91 DELAY
-10.10.10.235   USED           ac:22:0b:89:2e:c8 DELAY
-10.10.10.236   USED           
-10.10.10.237   FREE_OR_SILENT  
-10.10.10.238   USED           bc:24:11:55:72:55 DELAY
-10.10.10.239   USED           bc:24:11:62:6b:c5 DELAY
-10.10.10.240   USED           bc:24:11:98:db:ec REACHABLE
-
-===== nodea AUDIO VM 214 =====
+=== AUDIO PRECHANGE AUDIT V2 ===
+2026-10-06T15:13:44+01:00
+RANGE:
+10.10.10.220 UP 10.10.10.220 dev vmbr0 lladdr bc:24:11:af:bb:79 DELAY 
+10.10.10.221 UP 10.10.10.221 dev vmbr0 lladdr bc:24:11:99:4b:e0 DELAY 
+10.10.10.222 UP 10.10.10.222 dev vmbr0 lladdr 00:90:a9:ef:f2:b7 REACHABLE 
+10.10.10.223 UP 10.10.10.223 dev vmbr0 lladdr bc:24:11:35:29:7b DELAY 
+10.10.10.224 NO_REPLY 10.10.10.224 dev vmbr0 INCOMPLETE 
+10.10.10.225 UP 10.10.10.225 dev vmbr0 lladdr c4:65:16:30:8d:fd REACHABLE 
+10.10.10.226 NO_REPLY 10.10.10.226 dev vmbr0 INCOMPLETE 
+10.10.10.227 NO_REPLY 10.10.10.227 dev vmbr0 INCOMPLETE 
+10.10.10.228 NO_REPLY 10.10.10.228 dev vmbr0 INCOMPLETE 
+10.10.10.229 NO_REPLY 10.10.10.229 dev vmbr0 INCOMPLETE 
+10.10.10.230 UP 10.10.10.230 dev vmbr0 lladdr bc:24:11:42:c3:94 DELAY 
+10.10.10.231 UP 10.10.10.231 dev vmbr0 lladdr bc:24:11:a0:c1:65 DELAY 
+10.10.10.232 NO_REPLY 10.10.10.232 dev vmbr0 INCOMPLETE 
+10.10.10.233 NO_REPLY 10.10.10.233 dev vmbr0 INCOMPLETE 
+10.10.10.234 UP 10.10.10.234 dev vmbr0 lladdr bc:24:11:0f:cd:91 DELAY 
+10.10.10.235 UP 10.10.10.235 dev vmbr0 lladdr ac:22:0b:89:2e:c8 REACHABLE 
+10.10.10.236 UP 
+10.10.10.237 NO_REPLY 10.10.10.237 dev vmbr0 INCOMPLETE 
+10.10.10.238 UP 10.10.10.238 dev vmbr0 lladdr bc:24:11:55:72:55 DELAY 
+10.10.10.239 UP 10.10.10.239 dev vmbr0 lladdr bc:24:11:62:6b:c5 DELAY 
+10.10.10.240 UP 10.10.10.240 dev vmbr0 lladdr bc:24:11:98:db:ec DELAY 
+=== NODE A AUDIO ===
 {
    "exitcode" : 0,
    "exited" : 1,
-   "out-data" : "house-audio-a\n--net--\nlo               UNKNOWN        127.0.0.1/8 \nens18            UP             10.10.10.28/24 metric 100 \n--routes--\ndefault via 10.10.10.254 dev ens18 proto dhcp src 10.10.10.28 metric 100 \n10.10.10.0/24 dev ens18 proto kernel scope link src 10.10.10.28 metric 100 \n10.10.10.238 dev ens18 proto dhcp scope link src 10.10.10.28 metric 100 \n10.10.10.239 dev ens18 proto dhcp scope link src 10.10.10.28 metric 100 \n10.10.10.247 dev ens18 proto dhcp scope link src 10.10.10.28 metric 100 \n10.10.10.248 dev ens18 proto dhcp scope link src 10.10.10.28 metric 100 \n10.10.10.254 dev ens18 proto dhcp scope link src 10.10.10.28 metric 100 \n--network-config--\n/etc/systemd/network:\ntotal 0\n--services--\nbluetooth.service                            enabled         enabled\nhouse-audio-reconnect.service                static          -\nbluetooth.target                             static          -\nhouse-audio-reconnect.timer                  enabled         enabled\n--bt--\nDevice 73:81:7B:84:2A:AB TK-BS001\nDevice 73:81:7B:84:2A:AB (public)\n\tName: TK-BS001\n\tAlias: TK-BS001\n\tClass: 0x00240404 (2360324)\n\tIcon: audio-headset\n\tPaired: yes\n\tBonded: yes\n\tTrusted: yes\n\tBlocked: no\n\tConnected: yes\n\tLegacyPairing: no\n\tUUID: Serial Port               (00001101-0000-1000-8000-00805f9b34fb)\n\tUUID: Audio Sink                (0000110b-0000-1000-8000-00805f9b34fb)\n\tUUID: A/V Remote Control Target (0000110c-0000-1000-8000-00805f9b34fb)\n\tUUID: Advanced Audio Distribu.. (0000110d-0000-1000-8000-00805f9b34fb)\n\tUUID: A/V Remote Control        (0000110e-0000-1000-8000-00805f9b34fb)\n\tUUID: Handsfree                 (0000111e-0000-1000-8000-00805f9b34fb)\n\tUUID: Message Notification Se.. (00001133-0000-1000-8000-00805f9b34fb)\n\tUUID: PnP Information           (00001200-0000-1000-8000-00805f9b34fb)\n\tUUID: Vendor specific           (fe010000-1234-5678-abcd-00805f9b34fb)\n\tModalias: bluetooth:v05D6p000Ad0240\n--local-files--\n/usr/local/sbin/house-audio-reconnect\n/etc/systemd/system/house-audio-reconnect.service\n/etc/systemd/system/house-audio-reconnect.timer\n",
+   "out-data" : "house-audio-a\nlo               UNKNOWN        127.0.0.1/8 \nens18            UP             10.10.10.28/24 metric 100 \ndefault via 10.10.10.254 dev ens18 proto dhcp src 10.10.10.28 metric 100 \n10.10.10.0/24 dev ens18 proto kernel scope link src 10.10.10.28 metric 100 \n10.10.10.238 dev ens18 proto dhcp scope link src 10.10.10.28 metric 100 \n10.10.10.239 dev ens18 proto dhcp scope link src 10.10.10.28 metric 100 \n10.10.10.247 dev ens18 proto dhcp scope link src 10.10.10.28 metric 100 \n10.10.10.248 dev ens18 proto dhcp scope link src 10.10.10.28 metric 100 \n10.10.10.254 dev ens18 proto dhcp scope link src 10.10.10.28 metric 100 \nNETPLAN\n/etc/systemd/network:\ntotal 8\ndrwxr-xr-x 2 root root 4096 Apr 13 19:38 .\ndrwxr-xr-x 5 root root 4096 Oct  1 04:59 ..\nBT\nDevice 73:81:7B:84:2A:AB TK-BS001\nDevice 73:81:7B:84:2A:AB (public)\n\tName: TK-BS001\n\tAlias: TK-BS001\n\tClass: 0x00240404 (2360324)\n\tIcon: audio-headset\n\tPaired: yes\n\tBonded: yes\n\tTrusted: yes\n\tBlocked: no\n\tConnected: yes\n\tLegacyPairing: no\n\tUUID: Serial Port               (00001101-0000-1000-8000-00805f9b34fb)\n\tUUID: Audio Sink                (0000110b-0000-1000-8000-00805f9b34fb)\n\tUUID: A/V Remote Control Target (0000110c-0000-1000-8000-00805f9b34fb)\n\tUUID: Advanced Audio Distribu.. (0000110d-0000-1000-8000-00805f9b34fb)\n\tUUID: A/V Remote Control        (0000110e-0000-1000-8000-00805f9b34fb)\n\tUUID: Handsfree                 (0000111e-0000-1000-8000-00805f9b34fb)\n\tUUID: Message Notification Se.. (00001133-0000-1000-8000-00805f9b34fb)\n\tUUID: PnP Information           (00001200-0000-1000-8000-00805f9b34fb)\n\tUUID: Vendor specific           (fe010000-1234-5678-abcd-00805f9b34fb)\n\tModalias: bluetooth:v05D6p000Ad0240\nSERVICES\nbluetooth.service                            enabled         enabled\nhouse-audio-reconnect.service                static          -\nhwclock.service                              masked          enabled\nbluetooth.target                             static          -\nhouse-audio-reconnect.timer                  enabled         enabled\nFILES\n/usr/local/sbin/house-audio-reconnect\n/etc/systemd/system/house-audio-reconnect.service\n/etc/systemd/system/house-audio-reconnect.timer\n/var/lib/dpkg/info/libwebrtc-audio-processing-1-3:amd64.md5sums\n/var/lib/dpkg/info/libwebrtc-audio-processing-1-3:amd64.shlibs\n/var/lib/dpkg/info/libwebrtc-audio-processing-1-3:amd64.list\n/var/lib/dpkg/info/libwebrtc-audio-processing-1-3:amd64.triggers\n/var/lib/house-audio-bootstrap-ready\n/var/lib/systemd/timesync/clock\n",
    "out-truncated" : 0
 }
-
-===== nodeb AUDIO VM 219 =====
+=== NODE B AUDIO ===
 {
    "exitcode" : 0,
    "exited" : 1,
-   "out-data" : "house-audio-b\n--net--\nlo               UNKNOWN        127.0.0.1/8 \nens18            UP             10.10.10.15/24 metric 100 \n--routes--\ndefault via 10.10.10.254 dev ens18 proto dhcp src 10.10.10.15 metric 100 \n10.10.10.0/24 dev ens18 proto kernel scope link src 10.10.10.15 metric 100 \n10.10.10.238 dev ens18 proto dhcp scope link src 10.10.10.15 metric 100 \n10.10.10.239 dev ens18 proto dhcp scope link src 10.10.10.15 metric 100 \n10.10.10.247 dev ens18 proto dhcp scope link src 10.10.10.15 metric 100 \n10.10.10.248 dev ens18 proto dhcp scope link src 10.10.10.15 metric 100 \n10.10.10.254 dev ens18 proto dhcp scope link src 10.10.10.15 metric 100 \n--network-config--\n/etc/systemd/network:\ntotal 0\n--services--\nbluetooth.service                            enabled         enabled\nhouse-audio-reconnect.service                static          -\nbluetooth.target                             static          -\nhouse-audio-reconnect.timer                  disabled        enabled\n--bt--\nDevice 73:81:7B:84:2A:AB not available\nDeviceSet 73:81:7B:84:2A:AB not available\n--local-files--\n/usr/local/sbin/house-audio-reconnect\n/etc/systemd/system/house-audio-reconnect.service\n/etc/systemd/system/house-audio-reconnect.timer\n",
+   "out-data" : "house-audio-b\nlo               UNKNOWN        127.0.0.1/8 \nens18            UP             10.10.10.15/24 metric 100 \ndefault via 10.10.10.254 dev ens18 proto dhcp src 10.10.10.15 metric 100 \n10.10.10.0/24 dev ens18 proto kernel scope link src 10.10.10.15 metric 100 \n10.10.10.238 dev ens18 proto dhcp scope link src 10.10.10.15 metric 100 \n10.10.10.239 dev ens18 proto dhcp scope link src 10.10.10.15 metric 100 \n10.10.10.247 dev ens18 proto dhcp scope link src 10.10.10.15 metric 100 \n10.10.10.248 dev ens18 proto dhcp scope link src 10.10.10.15 metric 100 \n10.10.10.254 dev ens18 proto dhcp scope link src 10.10.10.15 metric 100 \nNETPLAN\n/etc/systemd/network:\ntotal 8\ndrwxr-xr-x 2 root root 4096 Apr 13 19:38 .\ndrwxr-xr-x 5 root root 4096 Oct  1 04:59 ..\nBT\nSERVICES\nbluetooth.service                            enabled         enabled\nhouse-audio-reconnect.service                static          -\nhwclock.service                              masked          enabled\nbluetooth.target                             static          -\nhouse-audio-reconnect.timer                  disabled        enabled\nFILES\n/usr/local/sbin/house-audio-reconnect\n/etc/systemd/system/house-audio-reconnect.service\n/etc/systemd/system/house-audio-reconnect.timer\n/var/lib/dpkg/info/libwebrtc-audio-processing-1-3:amd64.md5sums\n/var/lib/dpkg/info/libwebrtc-audio-processing-1-3:amd64.shlibs\n/var/lib/dpkg/info/libwebrtc-audio-processing-1-3:amd64.list\n/var/lib/dpkg/info/libwebrtc-audio-processing-1-3:amd64.triggers\n/var/lib/house-audio-bootstrap-ready\n/var/lib/systemd/timesync/clock\n",
    "out-truncated" : 0
 }
-
-===== DNS A/B CONFIG =====
---- nodea ---
+=== DNS A ===
 jns-dns-a
 lo               UNKNOWN        127.0.0.1/8 
 eth0@if15        UP             10.10.10.247/24 
-unbound     9154  0.0  8.6  39000 22660 ?        Ss   Oct05   0:38 /usr/sbin/unbound -d -p
-root       43143  0.0 25.5 1375452 66944 ?       Ssl  13:45   0:00 /opt/AdGuardHome/AdGuardHome -s run
 /opt/AdGuardHome/AdGuardHome.yaml.pre-dns-sync-20261006-143600
-/opt/AdGuardHome/AdGuardHome.sig
-/opt/AdGuardHome/AdGuardHome
 /opt/AdGuardHome/AdGuardHome.yaml
-/etc/systemd/system/AdGuardHome.service
---- nodeb ---
+/opt/AdGuardHome/AdGuardHome.yaml.pre-dns-sync-20261006-143600:  rewrites: []
+/opt/AdGuardHome/AdGuardHome.yaml:  rewrites:
+/opt/AdGuardHome/AdGuardHome.yaml:    - domain: ha-general.home.arpa
+/opt/AdGuardHome/AdGuardHome.yaml:      answer: 10.10.10.223
+/opt/AdGuardHome/AdGuardHome.yaml:    - domain: ha-general
+/opt/AdGuardHome/AdGuardHome.yaml:      answer: 10.10.10.223
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T15:29:28.19802269Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"hjiBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.234","Result":{},"Elapsed":150582}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T19:35:26.062550741Z","QH":"ha-general.home.arpa","QT":"HTTPS","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"PQaBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAABBAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":200199}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T19:35:26.063575662Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"3ZOBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":100628}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T19:35:26.065489662Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"akmBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.23","Result":{},"Elapsed":115799}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T19:35:26.083094141Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"/R2BgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":52510,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T19:35:26.084247578Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"qdyBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.23","Result":{},"Elapsed":28970,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T19:35:26.411306054Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"mkaBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":62535,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T19:35:26.41319159Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"1eKBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.23","Result":{},"Elapsed":50192,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T19:35:26.416284456Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"lyiBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":45658,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T19:35:26.417524362Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"3QWBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.23","Result":{},"Elapsed":25673,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T19:35:39.547744418Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"GY2BgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAEfACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":45030,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T19:35:39.548546428Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"FzuBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAAvAAQKCgrf","IP":"10.10.10.23","Result":{},"Elapsed":24809,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T20:22:06.661083105Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"Le2BgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":162423}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T20:22:06.661199668Z","QH":"ha-general.home.arpa","QT":"HTTPS","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"0YSBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAABBAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":450758}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T20:22:06.661871178Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"Am+BgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.23","Result":{},"Elapsed":126961}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T20:22:06.70732695Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"asGBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.23","Result":{},"Elapsed":54177,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T20:22:06.707404826Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"9vGBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":15849,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T20:39:01.017674289Z","QH":"ha-general.home.arpa","QT":"HTTPS","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"nTyBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAABBAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":186004}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T20:39:01.018523497Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"EdaBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.23","Result":{},"Elapsed":102853}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T20:39:01.018577405Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"h/iBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":225494}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T00:29:52.02778594Z","QH":"ha-general.home.arpa","QT":"HTTPS","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"hUKBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAABBAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":173029}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T00:29:52.028637756Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"NoOBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":123793}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T00:29:52.028785999Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"frKBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.23","Result":{},"Elapsed":95761}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:37:19.437245851Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"3sGBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.236","Result":{},"Elapsed":169298}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:37:19.438566265Z","QH":"ha-general.home.arpa.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"8A2BgwABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhBGhvbWUEYXJwYQAAHAABwCEABgABAAABLAApBWRucy1hwCEKaG9zdG1hc3RlcsAheMPXGQAAASwAAAB4AAk6gAAAASw=","IP":"10.10.10.236","Result":{},"Elapsed":113578}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:37:19.439933236Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"jcmBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.236","Result":{},"Elapsed":109455}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:37:19.442683277Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"rl2BgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.236","Result":{},"Elapsed":17742,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:37:19.492867285Z","QH":"ha-general","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"ttyBgwABAAAAAQAACmhhLWdlbmVyYWwAABwAAQAABgABAAALXgBAAWEMcm9vdC1zZXJ2ZXJzA25ldAAFbnN0bGQMdmVyaXNpZ24tZ3JzA2NvbQB4w9d4AAAHCAAAA4QACTqAAAFRgA==","IP":"10.10.10.236","Result":{},"Elapsed":49044934}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:37:19.494518306Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"0hKBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.236","Result":{},"Elapsed":22931,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:43:00.453026332Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"vPOBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.29","Result":{},"Elapsed":123926}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:43:00.45308033Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"TWmBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.29","Result":{},"Elapsed":312346}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:44:00.463531495Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"aiuBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.29","Result":{},"Elapsed":149748}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:45:01.148395742Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"UkGBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.29","Result":{},"Elapsed":210277}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:47:56.424420653Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"T9SBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.29","Result":{},"Elapsed":185184}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:48:29.271533831Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"nv6BgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.29","Result":{},"Elapsed":171246}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:49:03.16475502Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"GvuBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.29","Result":{},"Elapsed":153924}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:50:13.968933614Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"38KBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.29","Result":{},"Elapsed":175401}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:51:15.581025708Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"4iaBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.29","Result":{},"Elapsed":1301004}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:00:55.744229875Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"cNmBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.30","Result":{},"Elapsed":234755}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:02:07.416845156Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"dm+BgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.30","Result":{},"Elapsed":243468}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:02:07.466932984Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"+HKBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.30","Result":{},"Elapsed":48623,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:04:58.994892082Z","QH":"_8123._https.ha-general.home.arpa","QT":"HTTPS","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"uuWBgwABAAAAAQAABV84MTIzBl9odHRwcwpoYS1nZW5lcmFsBGhvbWUEYXJwYQAAQQABwCQABgABAAABLAApBWRucy1hwCQKaG9zdG1hc3RlcsAkeMPXGQAAASwAAAB4AAk6gAAAASw=","IP":"10.10.10.30","Result":{},"Elapsed":189424}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:04:59.034563204Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"TYCBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.30","Result":{},"Elapsed":106417}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:12:33.73621049Z","QH":"ha-general.home.arpa","QT":"SOA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"u5OBgAABAAAAAQABCmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAGAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLAAAKQUAAAAAAAAA","IP":"10.10.10.30","Result":{},"Elapsed":169425}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:12:33.80876985Z","QH":"ha-general.home.arpa","QT":"NS","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"AR6BgAABAAAAAQABCmhhLWdlbmVyYWwEaG9tZQRhcnBhAAACAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLAAAKQUAAAAAAAAA","IP":"10.10.10.30","Result":{},"Elapsed":144804}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:12:33.895402922Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"FfaBgAABAAEAAAABCmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrfAAApBQAAAAAAAAA=","IP":"10.10.10.30","Result":{},"Elapsed":134337}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:12:33.97633879Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"3QKBgAABAAAAAQABCmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLAAAKQUAAAAAAAAA","IP":"10.10.10.30","Result":{},"Elapsed":214819}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:12:34.048900875Z","QH":"ha-general.home.arpa","QT":"MX","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"skmBgAABAAAAAQABCmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAPAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLAAAKQUAAAAAAAAA","IP":"10.10.10.30","Result":{},"Elapsed":170330}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:12:34.126092597Z","QH":"ha-general.home.arpa","QT":"TXT","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"OdyBgAABAAAAAQABCmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAQAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLAAAKQUAAAAAAAAA","IP":"10.10.10.30","Result":{},"Elapsed":202916}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:12:34.198857072Z","QH":"ha-general.home.arpa","QT":"PTR","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"Z0eBgAABAAAAAQABCmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAMAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLAAAKQUAAAAAAAAA","IP":"10.10.10.30","Result":{},"Elapsed":164747}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:15:32.756984342Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"B2yBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.30","Result":{},"Elapsed":200228}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:16:37.120185497Z","QH":"ha-general.home.arpa","QT":"HTTPS","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"ZPmBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAABBAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.30","Result":{},"Elapsed":177109}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:16:37.120395995Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"f4eBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.30","Result":{},"Elapsed":101048}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:16:37.277892594Z","QH":"ha-general.home.arpa","QT":"HTTPS","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"lYWBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAABBAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.30","Result":{},"Elapsed":41424,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:16:37.320523311Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"836BgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.30","Result":{},"Elapsed":24611,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:43:19.559154126Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"I/qBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.23","Result":{},"Elapsed":130352}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:43:19.559224007Z","QH":"ha-general.home.arpa","QT":"HTTPS","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"bi6BgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAABBAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":290921}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:43:19.559324179Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"VP+BgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":528328}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:43:20.173257606Z","QH":"ha-general.home.arpa","QT":"HTTPS","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"rZqBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAABBAAHAFwAGAAEAAAErACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":56589,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:43:20.173349388Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"86yBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAErACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":12863,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:43:20.174406643Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"2vKBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA7AAQKCgrf","IP":"10.10.10.23","Result":{},"Elapsed":51514,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:43:20.329737175Z","QH":"ha-general.home.arpa","QT":"HTTPS","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"UTqBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAABBAAHAFwAGAAEAAAErACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":75542,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:43:20.329819544Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"ugOBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA7AAQKCgrf","IP":"10.10.10.23","Result":{},"Elapsed":22850,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:43:20.329872359Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"XcSBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAErACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":13621,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:43:22.751486359Z","QH":"ha-general.home.arpa","QT":"HTTPS","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"+kWBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAABBAAHAFwAGAAEAAAEpACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":45874,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:43:22.752224331Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"HNuBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAEpACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":26262,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T11:43:22.752347239Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"LWqBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA5AAQKCgrf","IP":"10.10.10.23","Result":{},"Elapsed":27397,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T13:10:37.277646226Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"jYCBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.29","Result":{},"Elapsed":209664}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T13:10:37.285148753Z","QH":"ha-general.home.arpa","QT":"HTTPS","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"gpmBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAABBAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.29","Result":{},"Elapsed":93879}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T13:10:37.288238903Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"+buBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.29","Result":{},"Elapsed":104009}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T13:46:37.703798793Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Answer":"AAKBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAAKAAQKCgrf","IP":"10.10.10.23","Result":{"IPList":["10.10.10.223"],"Reason":9},"Elapsed":5995}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T13:46:37.708315966Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Answer":"AAOBgAABAAAAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAE=","IP":"10.10.10.23","Result":{"Reason":9},"Elapsed":4102}
+/etc/unbound/unbound.conf.d/home-arpa.conf:  local-data: "ha905.home.arpa. 60 IN A 10.10.10.223"
+/etc/unbound/unbound.conf.d/home-arpa.conf:  local-data: "ha-general.home.arpa. 60 IN A 10.10.10.223"
+=== DNS B ===
 jns-dns-b
 lo               UNKNOWN        127.0.0.1/8 
 eth0@if4         UP             10.10.10.248/24 
-unbound      123  0.0  7.5  36100 19756 ?        Ss   Oct05   0:16 /usr/sbin/unbound -d -p
-root       26744  0.2 23.6 1375196 62092 ?       Ssl  14:04   0:01 /opt/AdGuardHome/AdGuardHome -s run
 /opt/AdGuardHome/AdGuardHome.yaml.jns-ha-general-20261006-113232.bak
-/opt/AdGuardHome/AdGuardHome.sig
-/opt/AdGuardHome/AdGuardHome
 /opt/AdGuardHome/AdGuardHome.yaml
 /opt/AdGuardHome/AdGuardHome.yaml.jns-ha-general-20261006-113325.bak
 /opt/AdGuardHome/AdGuardHome.yaml.pre-replication-20261006-150425
-/etc/systemd/system/AdGuardHome.service
-
-===== HA-GENERAL ACCESS HELPERS =====
-/root/jns-hap0-test/remote_homeassistant_minimal.yaml
-/root/ha905-configuration.yaml
-/root/z2m-stage-2.14.2/lib/extension/homeassistant.ts
-/root/z2m-stage-2.14.2/test/extensions/homeassistant.test.ts
-/root/z2m-stage-2.14.2/dist/extension/homeassistant.d.ts
-/root/z2m-stage-2.14.2/dist/extension/homeassistant.js
-/root/z2m-stage-2.14.2/dist/extension/homeassistant.d.ts.map
-/root/jns-guardian-hardened/JNS_Guardian_Hardened_v0.5.1-recovery1/install_guardian_api.sh
-/root/jns-guardian-hardened/JNS_Guardian_Hardened_v0.5.1-recovery1/config.guardian01.json
-/root/jns-cluster-v050/JNS_HA_Cluster_v0.5.0/guardian_lease/config.json
-/root/jns-cluster-v050/JNS_HA_Cluster_v0.5.0/proxmox_agent/config.json
-/root/jns-dev/plant-profile/remote_homeassistant-4.6.tar
-/root/jns-cluster-recovery-20260922/state/jns_ha_cluster-config-entry-full.json
-/root/jns-cluster-recovery-20260922/code/jns_ha_cluster/config_flow.py
+/opt/AdGuardHome/AdGuardHome.yaml.jns-ha-general-20261006-113232.bak:  rewrites: []
+/opt/AdGuardHome/AdGuardHome.yaml:  rewrites:
+/opt/AdGuardHome/AdGuardHome.yaml:    - domain: ha-general.home.arpa
+/opt/AdGuardHome/AdGuardHome.yaml:      answer: 10.10.10.223
+/opt/AdGuardHome/AdGuardHome.yaml:    - domain: ha-general
+/opt/AdGuardHome/AdGuardHome.yaml:      answer: 10.10.10.223
+/opt/AdGuardHome/AdGuardHome.yaml.jns-ha-general-20261006-113325.bak:  rewrites: []
+/opt/AdGuardHome/AdGuardHome.yaml.pre-replication-20261006-150425:  rewrites:
+/opt/AdGuardHome/AdGuardHome.yaml.pre-replication-20261006-150425:    - domain: ha-general.home.arpa
+/opt/AdGuardHome/AdGuardHome.yaml.pre-replication-20261006-150425:      answer: 10.10.10.223
+/opt/AdGuardHome/AdGuardHome.yaml.pre-replication-20261006-150425:    - domain: ha-general
+/opt/AdGuardHome/AdGuardHome.yaml.pre-replication-20261006-150425:      answer: 10.10.10.223
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T19:37:27.70985603Z","QH":"ha-general.home.arpa","QT":"HTTPS","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"aZOBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAABBAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":390383}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T19:37:27.710658708Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"DBWBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":294740}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T19:37:27.712898878Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"4S6BgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.23","Result":{},"Elapsed":376240}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T19:38:27.868316487Z","QH":"ha-general.home.arpa","QT":"HTTPS","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"ms+BgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAABBAAHAFwAGAAEAAADwACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":66788,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T19:38:27.869072492Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"z86BgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAADwACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":35490,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-05T19:38:27.869929455Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"pcaBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.23","Result":{},"Elapsed":280557}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T00:15:24.426534796Z","QH":"ha-general.home.arpa","QT":"HTTPS","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"hy6BgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAABBAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":313266}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T00:15:24.427455232Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"pNuBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":150321}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T00:15:24.429391543Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"N3qBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.23","Result":{},"Elapsed":178866}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T00:15:24.466225107Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"RHGBgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"10.10.10.23","Result":{},"Elapsed":58887,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T00:15:24.466607377Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"yx+BgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"10.10.10.23","Result":{},"Elapsed":48487,"Cached":true}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:33:33.701944642Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"zSOBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAA8AAQKCgrf","IP":"127.0.0.1","Result":{},"Elapsed":542981}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:33:33.703921649Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"sJ2BgAABAAAAAQAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAHAFwAGAAEAAAEsACkFZG5zLWHAFwpob3N0bWFzdGVywBd4w9cZAAABLAAAAHgACTqAAAABLA==","IP":"127.0.0.1","Result":{},"Elapsed":340100}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:33:33.778979566Z","QH":"ha-general.local","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"C9mBgwABAAAAAQAACmhhLWdlbmVyYWwFbG9jYWwAAAEAAQAABgABAAAMRQBAAWEMcm9vdC1zZXJ2ZXJzA25ldAAFbnN0bGQMdmVyaXNpZ24tZ3JzA2NvbQB4w9d4AAAHCAAAA4QACTqAAAFRgA==","IP":"127.0.0.1","Result":{},"Elapsed":52751871}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:33:33.799815443Z","QH":"ha-general","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"n6iBgwABAAAAAQAACmhhLWdlbmVyYWwAAAEAAQAABgABAAAMRQBAAWEMcm9vdC1zZXJ2ZXJzA25ldAAFbnN0bGQMdmVyaXNpZ24tZ3JzA2NvbQB4w9d4AAAHCAAAA4QACTqAAAFRgA==","IP":"127.0.0.1","Result":{},"Elapsed":19405993}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:36:17.795573897Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Answer":"3IaBgAABAAAAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAE=","IP":"127.0.0.1","Result":{"Reason":9},"Elapsed":20115}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:36:17.817273196Z","QH":"ha-general.local","QT":"A","QC":"IN","CP":"","Upstream":"127.0.0.1:5335","Answer":"9/qBgwABAAAAAQAACmhhLWdlbmVyYWwFbG9jYWwAAAEAAQAABgABAAALoQBAAWEMcm9vdC1zZXJ2ZXJzA25ldAAFbnN0bGQMdmVyaXNpZ24tZ3JzA2NvbQB4w9d4AAAHCAAAA4QACTqAAAFRgA==","IP":"127.0.0.1","Result":{},"Elapsed":496378}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:36:17.818477723Z","QH":"ha-general","QT":"A","QC":"IN","CP":"","Answer":"CWqBgAABAAEAAAAACmhhLWdlbmVyYWwAAAEAAcAMAAEAAQAAAAoABAoKCt8=","IP":"127.0.0.1","Result":{"IPList":["10.10.10.223"],"Reason":9},"Elapsed":19481}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T10:36:17.819309864Z","QH":"ha-general","QT":"AAAA","QC":"IN","CP":"","Answer":"4muBgAABAAAAAAAACmhhLWdlbmVyYWwAABwAAQ==","IP":"127.0.0.1","Result":{"Reason":9},"Elapsed":12432}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T13:00:22.289270686Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Answer":"pVuBgAABAAAAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAE=","IP":"10.10.10.23","Result":{"Reason":9},"Elapsed":16865}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T13:00:22.289378503Z","QH":"ha-general.home.arpa","QT":"HTTPS","QC":"IN","CP":"","Answer":"dcOBgAABAAAAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAABBAAE=","IP":"10.10.10.23","Result":{"Reason":9},"Elapsed":7118}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T13:00:22.289498079Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Answer":"oZGBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAAKAAQKCgrf","IP":"10.10.10.23","Result":{"IPList":["10.10.10.223"],"Reason":9},"Elapsed":10956}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T13:00:22.325917824Z","QH":"ha-general.home.arpa","QT":"HTTPS","QC":"IN","CP":"","Answer":"vr2BgAABAAAAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAABBAAE=","IP":"10.10.10.23","Result":{"Reason":9},"Elapsed":17049}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T13:00:22.326386971Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Answer":"056BgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAAKAAQKCgrf","IP":"10.10.10.23","Result":{"IPList":["10.10.10.223"],"Reason":9},"Elapsed":18390}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T13:00:22.326489836Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Answer":"1SaBgAABAAAAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAE=","IP":"10.10.10.23","Result":{"Reason":9},"Elapsed":13668}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T13:02:32.645841141Z","QH":"ha-general.home.arpa","QT":"A","QC":"IN","CP":"","Answer":"RHmBgAABAAEAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAABAAHADAABAAEAAAAKAAQKCgrf","IP":"10.10.10.23","Result":{"IPList":["10.10.10.223"],"Reason":9},"Elapsed":39865}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T13:02:32.646219554Z","QH":"ha-general.home.arpa","QT":"AAAA","QC":"IN","CP":"","Answer":"JJSBgAABAAAAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAAAcAAE=","IP":"10.10.10.23","Result":{"Reason":9},"Elapsed":168661}
+/opt/AdGuardHome/data/querylog.json:{"T":"2026-10-06T13:02:32.646349577Z","QH":"ha-general.home.arpa","QT":"HTTPS","QC":"IN","CP":"","Answer":"4MeBgAABAAAAAAAACmhhLWdlbmVyYWwEaG9tZQRhcnBhAABBAAE=","IP":"10.10.10.23","Result":{"Reason":9},"Elapsed":11824}
+/etc/unbound/unbound.conf.d/home-arpa.conf:  local-data: "ha905.home.arpa. 60 IN A 10.10.10.223"
+/etc/unbound/unbound.conf.d/home-arpa.conf:  local-data: "ha-general.home.arpa. 60 IN A 10.10.10.223"
