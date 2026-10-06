@@ -1,10 +1,18 @@
 === JNS NODE C GATEWAY ===
-2026-10-06T11:26:09+01:00
+2026-10-06T11:26:51+01:00
 runner=nodec
 
-=== HA-GENERAL LIVE LOVELACE INSPECTION ===
-2026-10-06T11:26:09+01:00
+=== HA-GENERAL LOVELACE BLOCK ===
+2026-10-06T11:26:51+01:00
 runner=nodec
 
-{"lovelace_lines":["lovelace:"],"testing_yaml_exists":false,"storage":[{"name":"lovelace_dashboards","size":316},{"name":"lovelace.map","size":154}],"www_exists":false}
+lovelace:
+  mode: storage
+  dashboards:
+    general-controls:
+      mode: yaml
+      title: General
+      icon: mdi:home-automation
+      show_in_sidebar: true
+      filename: dashboards/general.yaml
 
