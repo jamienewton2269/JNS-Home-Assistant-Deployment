@@ -1,70 +1,48 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "=== HA-GENERAL DASHBOARD DEPLOYMENT PRECHECK ==="
+echo "=== HA-GENERAL DNS + DASHBOARD PRECHECK ==="
 date -Is
 echo "runner=$(hostname)"
 echo
 
-sudo -u jns-mcp ssh -o BatchMode=yes node-b 'bash -s' <<'REMOTE'
+timeout 8s ssh -o BatchMode=yes nodeb 'bash -s' <<'REMOTE'
 set -euo pipefail
 
-echo "=== VM905 CONFIG/STATUS ==="
-qm status 905
-qm config 905 | sed -n '1,80p'
-
-echo
-echo "=== VM905 GUEST NETWORK ==="
-qm guest cmd 905 network-get-interfaces 2>&1 | sed -n '1,160p' || true
-
-echo
-echo "=== HA HTTP ==="
-python3 - <<'PY'
-import urllib.request
-for u in ("http://10.10.10.223/","http://10.10.10.223/api/"):
-    try:
-        r=urllib.request.urlopen(u,timeout=5)
-        print(u, r.status, r.headers.get("Server",""))
-    except Exception as e:
-        print(u, type(e).__name__, str(e)[:160])
-PY
-
-echo
-echo "=== NATURAL AUTOMATION FILES ==="
-find /opt/natural-automation -maxdepth 2 -type f -printf '%p\n' 2>/dev/null | sort | sed -n '1,200p'
-
-echo
-echo "=== NATURAL AUTOMATION SERVICES/STATUS ==="
-systemctl --no-pager --full status natural-automation 2>/dev/null | sed -n '1,60p' || true
-curl -fsS http://127.0.0.1:8099/api/status 2>/dev/null || true
+echo "=== VM905 STATUS ==="
+timeout 5s qm status 905 || true
 echo
 
+echo "=== DNS CT218 ==="
+timeout 5s pct status 218 || true
+timeout 5s pct config 218 | sed -n '1,80p' || true
+echo "-- DNS files --"
+timeout 6s pct exec 218 -- sh -lc '
+  hostname
+  ip -br a
+  printf "\n/etc/hosts\n"; sed -n "1,120p" /etc/hosts
+  printf "\nDNS-related files\n"; find /etc -maxdepth 3 -type f \( -name "dnsmasq.conf" -o -name "*.hosts" -o -name "Corefile" -o -name "named.conf*" -o -name "unbound.conf*" \) -print 2>/dev/null | head -80
+  printf "\nlisteners\n"; ss -ltnup | grep -E ":(53)\\b" || true
+' || true
+
 echo
-echo "=== NON-SECRET CONFIG KEYS ==="
-python3 - <<'PY'
-from pathlib import Path
-import re
-for p in Path('/opt/natural-automation').rglob('*'):
-    if not p.is_file() or p.stat().st_size > 300000:
-        continue
-    if p.suffix.lower() not in ('.py','.json','.yaml','.yml','.env','.conf','.ini',''):
-        continue
-    try:
-        txt=p.read_text(errors='ignore')
-    except Exception:
-        continue
-    hits=[]
-    for pat in [r'HA_URL\s*[:=][^\n]+',r'HOME_ASSISTANT[^\n]{0,100}',r'10\.10\.10\.223[^\n]{0,100}',r'/api/[^\s\"\']+']:
-        for m in re.findall(pat,txt,re.I):
-            s=m if isinstance(m,str) else str(m)
-            s=re.sub(r'(?i)(token|authorization|bearer|password|secret)\s*[:=]\s*[^\s,}\]]+',
-                     r'\1=[REDACTED]',s)
-            if 'token' in s.lower() or 'authorization' in s.lower() or 'bearer' in s.lower() or 'password' in s.lower() or 'secret' in s.lower():
-                continue
-            hits.append(s[:180])
-    if hits:
-        print(p)
-        for h in sorted(set(hits))[:12]:
-            print(' ',h)
-PY
+echo "=== VM905 HA CONFIG ROOT ==="
+timeout 10s qm guest exec 905 --timeout 6 -- /bin/sh -c '
+for p in /mnt/data/supervisor/homeassistant /config; do
+  if [ -f "$p/configuration.yaml" ]; then
+    echo ROOT=$p
+    echo "--- configuration.yaml lovelace lines ---"
+    grep -n "^lovelace:" "$p/configuration.yaml" || true
+    echo "--- .storage dashboards ---"
+    ls -1 "$p/.storage" 2>/dev/null | grep -E "lovelace|dash" || true
+    exit 0
+  fi
+done
+exit 2
+' || true
+
+echo
+echo "=== HA GENERAL HTTP/DNS CURRENT ==="
+getent hosts ha-general 2>/dev/null || true
+curl -I -sS --max-time 4 http://10.10.10.223/ | head -8 || true
 REMOTE
