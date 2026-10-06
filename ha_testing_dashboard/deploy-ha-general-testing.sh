@@ -51,7 +51,7 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 
 # Catalogue this reusable script on the Node C documentation web root when present.
 DOC_DIR="/home/github-runner/steward-web/docs"
-if [[ -d "$DOC_DIR" ]]; then
+if [[ -d "$DOC_DIR" && -w "$DOC_DIR" ]]; then
   DOC_FILE="$DOC_DIR/script-catalogue.txt"
   DOC_LINE="deploy-ha-general-testing.sh - Deploys the stable ha-general.home.arpa DNS name and the HA-General Testing dashboard with automatic light/switch/fan/sensor discovery and native HA commissioning via Areas and Labels; validates configuration before restart."
   touch "$DOC_FILE"
