@@ -44,6 +44,19 @@
 
 set -euo pipefail
 
+DOC_DIR="/home/github-runner/steward-web/docs"
+DOC_CATALOG="$DOC_DIR/script-catalogue.txt"
+DOC_LINE="jns-zigbee-walkround-test.sh - One-minute supervised Zigbee walk-round test. Pulses selected mains-powered lights, relays and extractor/fan devices ON/OFF every 10 seconds to identify which physical Zigbee devices are online and where they are located, without resetting or re-pairing anything."
+
+if [[ -d "$DOC_DIR" ]]; then
+  touch "$DOC_CATALOG"
+  tmp="$(mktemp)"
+  grep -v '^jns-zigbee-walkround-test\.sh - ' "$DOC_CATALOG" > "$tmp" || true
+  printf '%s\n' "$DOC_LINE" >> "$tmp"
+  cat "$tmp" > "$DOC_CATALOG"
+  rm -f "$tmp"
+fi
+
 MODE="${1:-run}"
 if [[ "$MODE" != "run" && "$MODE" != "--off-only" ]]; then
   echo "Usage: $0 [--off-only]" >&2
