@@ -42,52 +42,52 @@ TARGET="$PKG_DIR/$PACKAGE_NAME"
 STAMP="$(date +%Y%m%dT%H%M%S)"
 BACKUP="$TARGET.jns-backup-$STAMP"
 
-ssh -o BatchMode=yes -o ConnectTimeout=10 "root@$NODEB_IP" \
+ssh -o BatchMode=yes -o ConnectTimeout=10 -o HostName="$NODEB_IP" "$NODEB_HOST" \
   "qm status $VMID | grep -q 'status: running'"
 
 # Back up only the target package, never unrelated automations/packages.
-ssh "root@$NODEB_IP" \
+ssh -o HostName="$NODEB_IP" "$NODEB_HOST" \
   "qm guest exec $VMID -- /bin/bash -lc 'mkdir -p $PKG_DIR; if [ -f "$TARGET" ]; then cp -a "$TARGET" "$BACKUP"; fi' >/dev/null"
 
 # Write package content to a temporary file and atomically move into place.
 printf '%s' "$CONTENT_B64" | base64 -d > "/tmp/$PACKAGE_NAME"
-ssh "root@$NODEB_IP" \
+ssh -o HostName="$NODEB_IP" "$NODEB_HOST" \
   "qm guest exec $VMID -- /bin/bash -lc 'cat > "$TARGET.jns-new"' --input-data "$(cat "/tmp/$PACKAGE_NAME")" >/dev/null"
 rm -f "/tmp/$PACKAGE_NAME"
-ssh "root@$NODEB_IP" \
+ssh -o HostName="$NODEB_IP" "$NODEB_HOST" \
   "qm guest exec $VMID -- /bin/bash -lc 'mv "$TARGET.jns-new" "$TARGET"' >/dev/null"
 
 set +e
-CHECK_OUT="$(ssh "root@$NODEB_IP" "qm guest exec $VMID -- /bin/bash -lc 'ha core check'" 2>&1)"
+CHECK_OUT="$(ssh -o HostName="$NODEB_IP" "$NODEB_HOST" "qm guest exec $VMID -- /bin/bash -lc 'ha core check'" 2>&1)"
 CHECK_RC=$?
 set -e
 printf '%s\n' "$CHECK_OUT"
 if [ "$CHECK_RC" -ne 0 ]; then
   echo "HA config validation failed; restoring package backup"
-  ssh "root@$NODEB_IP" \
+  ssh -o HostName="$NODEB_IP" "$NODEB_HOST" \
     "qm guest exec $VMID -- /bin/bash -lc 'if [ -f "$BACKUP" ]; then mv -f "$BACKUP" "$TARGET"; else rm -f "$TARGET"; fi'" >/dev/null
   exit 42
 fi
 
 # Packages can span helpers/scripts/automations; a Core restart is the reliable
 # native application path after a successful full config check.
-ssh "root@$NODEB_IP" \
+ssh -o HostName="$NODEB_IP" "$NODEB_HOST" \
   "qm guest exec $VMID -- /bin/bash -lc 'ha core restart'" >/dev/null
 
 # Verify Core returns healthy.
 for _ in $(seq 1 30); do
-  if ssh "root@$NODEB_IP" "qm guest exec $VMID -- /bin/bash -lc 'ha core info'" >/dev/null 2>&1; then
+  if ssh -o HostName="$NODEB_IP" "$NODEB_HOST" "qm guest exec $VMID -- /bin/bash -lc 'ha core info'" >/dev/null 2>&1; then
     break
   fi
   sleep 2
 done
-ssh "root@$NODEB_IP" "qm guest exec $VMID -- /bin/bash -lc 'ha core info'"
+ssh -o HostName="$NODEB_IP" "$NODEB_HOST" "qm guest exec $VMID -- /bin/bash -lc 'ha core info'"
 
 # Verify requested entities/IDs are represented in HA's entity registry where applicable.
 if [ -n "${VERIFY_ENTITIES:-}" ]; then
   while IFS= read -r item; do
     [ -z "$item" ] && continue
-    ssh "root@$NODEB_IP" \
+    ssh -o HostName="$NODEB_IP" "$NODEB_HOST" \
       "qm guest exec $VMID -- /bin/bash -lc 'grep -Fq -- "$item" /mnt/data/supervisor/homeassistant/.storage/core.entity_registry'"
     echo "verified=$item"
   done <<< "$VERIFY_ENTITIES"
@@ -95,7 +95,7 @@ fi
 
 echo "HA_PACKAGE_INSTALL_OK"
 echo "target=ha-general"
-echo "nodeb_ip=$NODEB_IP"
+echo "nodeb_host=$NODEB_HOST"\necho "nodeb_ip=$NODEB_IP"
 echo "vmid=$VMID"
 echo "ha_ip=$HA_IP"
 echo "package=$TARGET"
