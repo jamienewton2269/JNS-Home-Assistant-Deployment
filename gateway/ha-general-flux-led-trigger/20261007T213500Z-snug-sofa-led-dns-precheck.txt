@@ -1,0 +1,1 @@
+resolve DNS hostname for 10.10.10.170 and check HA-General for existing flux_led entry
