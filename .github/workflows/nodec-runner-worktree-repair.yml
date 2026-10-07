@@ -23,21 +23,24 @@ jobs:
         run: |
           set -Eeuo pipefail
           repo="$GITHUB_WORKSPACE"
-          echo "workspace=$repo"
-          cd "$repo"
+          me="$(id -un)"
+          group="$(id -gn)"
+          echo "workspace=$repo owner=$me:$group"
 
-          # Remove only stale Git transaction/lock state. The runner is
-          # serialized, so no other checkout is active when this job runs.
+          # This is the dedicated self-hosted runner checkout. Earlier
+          # root-assisted gateway maintenance left Git objects root-owned,
+          # preventing actions/checkout from fetching.
+          sudo -n chown -R "$me:$group" "$repo"
+
+          cd "$repo"
           rm -f .git/index.lock .git/shallow.lock .git/HEAD.lock
           rm -rf .git/rebase-apply .git/rebase-merge
 
           git fetch --prune origin main
           git reset --hard origin/main
-
-          # Gateway queue/result files are repository-managed. Remove only
-          # untracked build/check-out debris, never ignored secrets.
           git clean -ffd
 
           git status --short
           git fsck --no-progress --connectivity-only
+          test -w .git/objects
           echo "NODEC_WORKTREE_REPAIR_OK"
