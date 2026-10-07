@@ -251,13 +251,6 @@ public partial class MainWindow : Window
         Terminal.Focus();
     }
 
-    private void Terminal_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-    {
-        // Selection is the copy gesture. No extra shortcut required.
-        if (TerminalControl.CopyCommand.CanExecute(null, Terminal))
-            TerminalControl.CopyCommand.Execute(null, Terminal);
-    }
-
     private void Terminal_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
         // Right-click is always paste. Selection already copied on left mouse-up.
