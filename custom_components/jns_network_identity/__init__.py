@@ -25,9 +25,11 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
 DOMAIN = "jns_network_identity"
+CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 SERVICE_IMPORT = "import_bindings"
 STATUS_ENTITY = "sensor.jns_network_identity_status"
 DNS_A = "10.10.10.247"
