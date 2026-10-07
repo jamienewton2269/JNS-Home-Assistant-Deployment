@@ -1,0 +1,21 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261007T142300Z-ha-general-network-identity-install-05
+started=2026-10-07T15:19:27+01:00
+runner=nodec
+
+{
+   "pid" : 31133
+}
+timeout reached, returning pid
+timeout reached, returning pid
+{
+   "exitcode" : 0,
+   "exited" : 1,
+   "out-data" : "arch: amd64\naudio_input: null\naudio_output: null\nbackups_exclude_database: false\nboot: true\nduplicate_log_file: false\nimage: ghcr.io/home-assistant/qemux86-64-homeassistant\nip_address: 172.30.32.1\nmachine: qemux86-64\nport: 80\nssl: false\nupdate_available: false\nversion: 2026.9.4\nversion_latest: 2026.9.4\nwatchdog: true\n",
+   "out-truncated" : 0
+}
+/usr/local/libexec/jns-gateway-ha-network-identity-install: line 78: network: command not found
+bash: -c: line 1: unexpected EOF while looking for matching `''
+
+finished=2026-10-07T15:21:08+01:00
+exit_code=127

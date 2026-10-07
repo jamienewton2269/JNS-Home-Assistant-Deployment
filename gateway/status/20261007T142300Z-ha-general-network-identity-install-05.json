@@ -1,0 +1,7 @@
+{
+  "exit_code": 127,
+  "finished": "2026-10-07T15:21:08+01:00",
+  "job_id": "20261007T142300Z-ha-general-network-identity-install-05",
+  "started": "2026-10-07T15:19:27+01:00",
+  "state": "failed"
+}
