@@ -1,0 +1,10 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261007T193300Z-ha-general-network-identity-install-07
+started=2026-10-07T20:32:42+01:00
+runner=nodec
+
+awk: cmd. line:1: Unexpected token
+ROLLBACK: restoring previous JNS Network Identity deployment
+
+finished=2026-10-07T20:33:08+01:00
+exit_code=1
