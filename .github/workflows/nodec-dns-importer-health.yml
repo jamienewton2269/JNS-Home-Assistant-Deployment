@@ -1,0 +1,64 @@
+name: Node C DNS Importer Health
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/nodec-dns-importer-health.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify Node C importer and primary DNS
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo "=== NODE C DNS IMPORTER HEALTH ==="
+          date -Is
+
+          echo "--- service ---"
+          systemctl is-active jns-dns-reservation-importer
+          systemctl --no-pager --full status jns-dns-reservation-importer | sed -n '1,18p'
+
+          echo "--- port 8770 ---"
+          ss -ltn | grep -E '(^|:)8770[[:space:]]'
+
+          echo "--- HTTP health ---"
+          curl -fsS --max-time 5 http://127.0.0.1:8770/health
+          echo
+
+          echo "--- primary DNS 10.10.10.247 port 53 ---"
+          python3 - <<'PY'
+          import socket
+          for kind,stype in (("tcp",socket.SOCK_STREAM),("udp",socket.SOCK_DGRAM)):
+              s=socket.socket(socket.AF_INET,stype)
+              s.settimeout(3)
+              try:
+                  if kind=="tcp":
+                      s.connect(("10.10.10.247",53))
+                  else:
+                      s.connect(("10.10.10.247",53))
+                  print(f"{kind}_53=reachable")
+              except Exception as e:
+                  print(f"{kind}_53=error:{e}")
+              finally:
+                  s.close()
+          PY
+
+          echo "--- backend detection / no-write preview ---"
+          set +e
+          /usr/local/sbin/jns-dns-static-apply preview '[]'
+          rc=$?
+          set -e
+          echo "backend_preview_exit=$rc"
+
+          echo "=== HEALTH CHECK COMPLETE ==="
