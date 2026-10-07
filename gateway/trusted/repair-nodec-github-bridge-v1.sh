@@ -76,7 +76,11 @@ if [ -f "$RESULT" ] && [ -f "$STATUS" ]; then
   fi
 fi
 
-log "7/8 push and resync"
+log "7/8 integrate remote history, push, and resync"
+if ! sudo -u "$RUNNER" git rebase origin/main; then
+  sudo -u "$RUNNER" git rebase --abort || true
+  fail "Rebase onto origin/main failed; repository restored to pre-rebase state" 84
+fi
 sudo -u "$RUNNER" git push origin main
 sudo -u "$RUNNER" git pull --ff-only origin main
 
