@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace JnsSshTerminal.Models;
 
 public enum CommandHistoryKind
@@ -13,6 +15,7 @@ public sealed class CommandHistoryEntry
     public CommandHistoryKind Kind { get; set; }
     public bool Pinned { get; set; }
 
+    [JsonIgnore]
     public string DisplayText
     {
         get
@@ -23,7 +26,8 @@ public sealed class CommandHistoryEntry
                 oneLine = oneLine[..90] + "…";
             }
 
-            return Kind == CommandHistoryKind.ScriptBlock ? $"[BLOCK] {oneLine}" : oneLine;
+            string prefix = Pinned ? "★ " : "";
+            return prefix + (Kind == CommandHistoryKind.ScriptBlock ? $"[BLOCK] {oneLine}" : oneLine);
         }
     }
 }
