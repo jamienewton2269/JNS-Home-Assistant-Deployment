@@ -22,8 +22,12 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="275"/>
-            <ColumnDefinition Width="*"/>
+            <ColumnDefinition x:Name="ConnectionPanelColumn"
+                              Width="275"
+                              MinWidth="220"
+                              MaxWidth="520"/>
+            <ColumnDefinition Width="6"/>
+            <ColumnDefinition Width="*" MinWidth="350"/>
             <ColumnDefinition x:Name="HistoryColumn" Width="0"/>
         </Grid.ColumnDefinitions>
 
@@ -125,7 +129,18 @@
             </ScrollViewer>
         </Border>
 
-        <Grid Grid.Column="1">
+        <GridSplitter Grid.Column="1"
+                      Width="6"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch"
+                      Background="#343941"
+                      ResizeDirection="Columns"
+                      ResizeBehavior="PreviousAndNext"
+                      ShowsPreview="False"
+                      Cursor="SizeWE"
+                      ToolTip="Drag to resize the connection/session panel"/>
+
+        <Grid Grid.Column="2">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
@@ -267,7 +282,7 @@
             </StatusBar>
         </Grid>
 
-        <Border Grid.Column="2"
+        <Border Grid.Column="3"
                 Background="#202329"
                 BorderBrush="#343941"
                 BorderThickness="1,0,0,0"

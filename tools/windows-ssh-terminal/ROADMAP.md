@@ -113,6 +113,17 @@ Acceptance gates:
 - [ ] live registry test across Windows reboot
 - [ ] live remote discovery + ended cleanup test
 
+## v0.1.8.1 - resizable connection panel
+
+Acceptance gates:
+
+- [x] draggable internal divider between left connection/session pane and terminal workspace
+- [x] left pane starts at 275 px
+- [x] left pane constrained to a practical 220-520 px range
+- [x] terminal workspace retains a minimum usable width
+- [ ] Windows build validated
+- [ ] live drag-resize test while multiple terminal tabs are connected
+
 ## v0.1.9 - hardened self-contained release (after v0.1.8 live tests)
 
 Planned release gates:
