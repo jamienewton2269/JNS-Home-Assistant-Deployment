@@ -17,6 +17,12 @@ BACKUP_ROOT="$HA_ROOT/.jns-backups"
 PATCHED_CALL='await asyncio.wait_for(device.async_refresh(), timeout=3.0)'
 ORIGINAL_CALL='await device.async_refresh()'
 
+ssh_as_runner() {
+  /usr/sbin/runuser -u github-runner -- /usr/bin/ssh \
+    -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new \
+    -o HostName="$NODEB_IP" "$NODEB_HOST" "$@"
+}
+
 python3 - "$JOB_JSON" <<'PY' > /tmp/jns-tuya-wake-job.env
 import json,sys
 d=json.load(open(sys.argv[1],encoding="utf-8"))
@@ -31,7 +37,7 @@ PY
 source /tmp/jns-tuya-wake-job.env
 rm -f /tmp/jns-tuya-wake-job.env
 
-ssh -o BatchMode=yes -o ConnectTimeout=10 -o HostName="$NODEB_IP" "$NODEB_HOST" \
+ssh_as_runner \
   "qm status $VMID | grep -q 'status: running'"
 
 STAMP="$(date +%Y%m%dT%H%M%S)"
@@ -40,7 +46,7 @@ BACKUP="$BACKUP_ROOT/tuya-local-event-wake-$STAMP"
 # Inspect and back up before any mutation. The patch is deliberately
 # preconditioned on exactly two stock refresh calls so an upstream Tuya Local
 # change cannot be silently patched in the wrong place.
-PRECHECK="$(ssh -o HostName="$NODEB_IP" "$NODEB_HOST" \
+PRECHECK="$(ssh_as_runner \
   "qm guest exec $VMID -- /bin/bash -lc 'test -f \"$TARGET\"; printf \"original=%s patched=%s\\n\" \"\$(grep -Fc \"$ORIGINAL_CALL\" \"$TARGET\" || true)\" \"\$(grep -Fc \"$PATCHED_CALL\" \"$TARGET\" || true)\"'" 2>&1)"
 printf '%s\n' "$PRECHECK"
 
@@ -52,12 +58,12 @@ else
     exit 43
   }
 
-  ssh -o HostName="$NODEB_IP" "$NODEB_HOST" \
+  ssh_as_runner \
     "qm guest exec $VMID -- /bin/bash -lc 'mkdir -p \"$BACKUP\"; cp -a \"$TARGET\" \"$BACKUP/config_flow.py\"; sed -i \"s|$ORIGINAL_CALL|$PATCHED_CALL|g\" \"$TARGET\"; test \"\$(grep -Fc \"$PATCHED_CALL\" \"$TARGET\")\" -eq 2'" >/dev/null
 fi
 
 set +e
-CHECK_OUT="$(ssh -o HostName="$NODEB_IP" "$NODEB_HOST" \
+CHECK_OUT="$(ssh_as_runner \
   "qm guest exec $VMID -- /bin/bash -lc 'ha core check'" 2>&1)"
 CHECK_RC=$?
 set -e
@@ -66,17 +72,17 @@ printf '%s\n' "$CHECK_OUT"
 if [ "$CHECK_RC" -ne 0 ]; then
   echo "HA config validation failed; restoring Tuya Local backup"
   if [ -f /dev/null ]; then :; fi
-  ssh -o HostName="$NODEB_IP" "$NODEB_HOST" \
+  ssh_as_runner \
     "qm guest exec $VMID -- /bin/bash -lc 'if [ -f \"$BACKUP/config_flow.py\" ]; then cp -af \"$BACKUP/config_flow.py\" \"$TARGET\"; fi'" >/dev/null
   exit 42
 fi
 
-ssh -o HostName="$NODEB_IP" "$NODEB_HOST" \
+ssh_as_runner \
   "qm guest exec $VMID -- /bin/bash -lc 'ha core restart'" >/dev/null
 
 healthy=0
 for _ in $(seq 1 45); do
-  if ssh -o HostName="$NODEB_IP" "$NODEB_HOST" \
+  if ssh_as_runner \
     "qm guest exec $VMID -- /bin/bash -lc 'ha core info'" >/dev/null 2>&1; then
     healthy=1
     break
@@ -86,14 +92,14 @@ done
 
 if [ "$healthy" -ne 1 ]; then
   echo "HA Core did not recover after patch; restoring backup" >&2
-  ssh -o HostName="$NODEB_IP" "$NODEB_HOST" \
+  ssh_as_runner \
     "qm guest exec $VMID -- /bin/bash -lc 'if [ -f \"$BACKUP/config_flow.py\" ]; then cp -af \"$BACKUP/config_flow.py\" \"$TARGET\"; ha core restart; fi'" >/dev/null
   exit 44
 fi
 
-ssh -o HostName="$NODEB_IP" "$NODEB_HOST" \
+ssh_as_runner \
   "qm guest exec $VMID -- /bin/bash -lc 'ha core info'"
-ssh -o HostName="$NODEB_IP" "$NODEB_HOST" \
+ssh_as_runner \
   "qm guest exec $VMID -- /bin/bash -lc 'grep -nF \"$PATCHED_CALL\" \"$TARGET\"; ha core logs | tail -n 120 | grep -i -E \"tuya_local|tuya local\" || true'"
 
 echo "HA_TUYA_LOCAL_EVENT_WAKE_PATCH_OK"
