@@ -136,7 +136,7 @@ Acceptance gates:
 - [x] visible up/down controls
 - [x] track remains clickable for page-up/page-down
 - [x] same style applied to startup and dynamically-created terminal tabs
-- [ ] Windows build validated
+- [x] Windows build validated
 - [ ] live drag/hover/page-scroll test
 
 ## v0.1.9 - hardened self-contained release (after v0.1.8 live tests)
