@@ -1,5 +1,5 @@
-deploy_requested_at=2026-10-07T20:37:00+01:00
+deploy_requested_at=2026-10-07T20:40:00+01:00
 target=ha-general
 artifact=ha_infrastructure_launchpad/index.html
-retry=2
-fix=pass-ha-ip-and-wait-for-qga-validation
+retry=3
+fix=export-ha-ip-into-remote-shell
