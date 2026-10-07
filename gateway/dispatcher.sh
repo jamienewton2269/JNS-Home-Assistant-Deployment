@@ -7,6 +7,7 @@ RESULTS="$ROOT/results"
 STATUS="$ROOT/status"
 INDEX="$ROOT/index.tsv"
 TIMEOUT_SECONDS="${JNS_GATEWAY_JOB_TIMEOUT:-900}"
+EXECUTOR="/usr/local/sbin/jns-gateway-exec"
 
 mkdir -p "$QUEUE" "$RESULTS" "$STATUS"
 
@@ -42,9 +43,14 @@ with open(index,"w",encoding="utf-8") as f:
 PY
 }
 
+[[ -x "$EXECUTOR" ]] || {
+  echo "Trusted executor missing: $EXECUTOR" >&2
+  exit 78
+}
+
 processed=0
 while IFS= read -r jobfile; do
-  base="$(basename "$jobfile" .sh)"
+  base="$(basename "$jobfile" .json)"
   result="$RESULTS/$base.txt"
   status="$STATUS/$base.json"
 
@@ -59,12 +65,13 @@ while IFS= read -r jobfile; do
   tmp="$result.tmp"
   set +e
   {
-    echo "=== JNS NODE C GATEWAY JOB ==="
+    echo "=== JNS NODE C TRUSTED GATEWAY JOB ==="
     echo "job_id=$base"
     echo "started=$started"
     echo "runner=$(hostname)"
     echo
-    timeout --signal=TERM --kill-after=15s "$TIMEOUT_SECONDS" bash "$jobfile"
+    timeout --signal=TERM --kill-after=15s "$TIMEOUT_SECONDS" \
+      sudo "$EXECUTOR" "$jobfile"
   } >"$tmp" 2>&1
   rc=$?
   set -e
@@ -84,7 +91,7 @@ while IFS= read -r jobfile; do
   json_status "$status" "$base" "$state" "$started" "$finished" "$rc"
   rebuild_index
   processed=$((processed+1))
-done < <(find "$QUEUE" -maxdepth 1 -type f -name '*.sh' -print | LC_ALL=C sort)
+done < <(find "$QUEUE" -maxdepth 1 -type f -name '*.json' -print | LC_ALL=C sort)
 
 rebuild_index
-echo "gateway_jobs_processed=$processed"
+echo "gateway_json_jobs_processed=$processed"
