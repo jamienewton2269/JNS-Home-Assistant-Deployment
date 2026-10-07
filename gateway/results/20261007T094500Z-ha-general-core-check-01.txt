@@ -1,0 +1,16 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261007T094500Z-ha-general-core-check-01
+started=2026-10-07T10:15:06+01:00
+runner=nodec
+
+{
+  "state": "failed",
+  "job_type": "ha_core_check",
+  "target": "ha-general",
+  "exit_code": 255,
+  "output": "ssh: Could not resolve hostname nodeb: Temporary failure in name resolution\n",
+  "job_id": "20261007T094500Z-ha-general-core-check-01"
+}
+
+finished=2026-10-07T10:15:14+01:00
+exit_code=1
