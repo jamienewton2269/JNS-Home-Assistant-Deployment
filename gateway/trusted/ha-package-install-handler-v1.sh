@@ -5,6 +5,7 @@
 set -Eeuo pipefail
 
 JOB_JSON="${1:?job json required}"
+NODEB_HOST="nodeb"
 NODEB_IP="10.10.10.235"
 VMID="905"
 HA_IP="10.10.10.223"
@@ -95,7 +96,8 @@ fi
 
 echo "HA_PACKAGE_INSTALL_OK"
 echo "target=ha-general"
-echo "nodeb_host=$NODEB_HOST"\necho "nodeb_ip=$NODEB_IP"
+echo "nodeb_host=$NODEB_HOST"
+echo "nodeb_ip=$NODEB_IP"
 echo "vmid=$VMID"
 echo "ha_ip=$HA_IP"
 echo "package=$TARGET"
