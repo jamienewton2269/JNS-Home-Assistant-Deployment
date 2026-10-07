@@ -24,7 +24,8 @@ set -Eeuo pipefail
 
 guest() {
   local cmd="$1"
-  qm guest exec "$VMID" -- /bin/bash -lc "$cmd"
+  local seconds="${2:-120}"
+  qm guest exec "$VMID" --timeout "$seconds" -- /bin/bash -lc "$cmd"
 }
 
 echo "[1/7] Confirm VM905 is running"
@@ -58,10 +59,10 @@ else
 fi" >/dev/null
 
 echo "[5/7] Validate Home Assistant configuration"
-guest "ha core check"
+guest "ha core check" 150
 
 echo "[6/7] Restart Home Assistant Core"
-guest "ha core restart" >/dev/null || true
+guest "ha core restart" 20 >/dev/null || true
 
 echo "[7/7] Verify HA and launchpad endpoint"
 ok=0
