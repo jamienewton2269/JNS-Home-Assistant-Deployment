@@ -36,3 +36,16 @@ echo "JNS trusted gateway extension installed"
 echo "executor=$CURRENT"
 echo "network_identity_handler=$NET_HELPER"
 echo "tuya_event_wake_handler=$TUYA_WAKE_HELPER"
+
+
+# LIVE WRAPPER VERIFICATION
+grep -q 'ha_network_identity_install)' "$CURRENT" || {
+  echo "ERROR: live executor does not contain ha_network_identity_install" >&2
+  exit 79
+}
+[ -x "$NET_HELPER" ] || {
+  echo "ERROR: network identity helper is not executable" >&2
+  exit 79
+}
+echo "live_network_identity_allowlist=OK"
+sha256sum "$CURRENT" "$NET_HELPER"
