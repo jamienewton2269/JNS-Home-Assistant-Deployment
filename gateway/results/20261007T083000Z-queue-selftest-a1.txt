@@ -1,0 +1,11 @@
+=== JNS NODE C GATEWAY JOB ===
+job_id=20261007T083000Z-queue-selftest-a1
+started=2026-10-07T09:33:09+01:00
+runner=nodec
+
+QUEUE_SELFTEST_OK
+host=nodec
+time=2026-10-07T09:33:09+01:00
+
+finished=2026-10-07T09:33:09+01:00
+exit_code=0
