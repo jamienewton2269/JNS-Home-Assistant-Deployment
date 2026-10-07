@@ -1,0 +1,220 @@
+<Window x:Class="JnsSshTerminal.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vt="clr-namespace:VirtualTerminal;assembly=VirtualTerminal.WPF"
+        Title="JNS SSH Terminal"
+        Width="1280"
+        Height="820"
+        MinWidth="920"
+        MinHeight="620"
+        Background="#17191C"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="9,5"/>
+            <Setter Property="Margin" Value="0,0,6,6"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Padding" Value="5"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="275"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition x:Name="HistoryColumn" Width="0"/>
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0"
+                Background="#202329"
+                BorderBrush="#343941"
+                BorderThickness="0,0,1,0"
+                Padding="12">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock Text="JNS SSH" FontSize="22" FontWeight="SemiBold" Foreground="White"/>
+                    <TextBlock Text="simple • local • no cloud" Margin="0,0,0,18" Foreground="#AAB1BC"/>
+
+                    <TextBlock Text="Saved host" Foreground="#D5D8DC"/>
+                    <ComboBox x:Name="SavedHosts"
+                              Margin="0,4,0,8"
+                              SelectionChanged="SavedHosts_SelectionChanged"/>
+
+                    <TextBlock Text="Name" Foreground="#D5D8DC"/>
+                    <TextBox x:Name="ProfileName" Margin="0,4,0,8"/>
+
+                    <TextBlock Text="Host / IP" Foreground="#D5D8DC"/>
+                    <TextBox x:Name="HostName" Margin="0,4,0,8"/>
+
+                    <TextBlock Text="Port" Foreground="#D5D8DC"/>
+                    <TextBox x:Name="Port" Text="22" Margin="0,4,0,8"/>
+
+                    <TextBlock Text="Username" Foreground="#D5D8DC"/>
+                    <TextBox x:Name="Username" Margin="0,4,0,8"/>
+
+                    <TextBlock Text="Password / key passphrase" Foreground="#D5D8DC"/>
+                    <PasswordBox x:Name="Password" Padding="5" Margin="0,4,0,8"/>
+
+                    <TextBlock Text="Private key (optional)" Foreground="#D5D8DC"/>
+                    <Grid Margin="0,4,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="KeyFile" Grid.Column="0" Margin="0,0,6,0"/>
+                        <Button Grid.Column="1" Content="…" Width="34" Click="BrowseKey_Click"/>
+                    </Grid>
+
+                    <WrapPanel>
+                        <Button Content="Save Host" MinWidth="105" Click="SaveHost_Click"/>
+                        <Button Content="Connect" MinWidth="105" Click="Connect_Click"/>
+                    </WrapPanel>
+                    <Button Content="Disconnect" Click="Disconnect_Click" Margin="0,0,0,18"/>
+
+                    <Separator/>
+                    <TextBlock Text="Credentials are never saved."
+                               Margin="0,12,0,4"
+                               Foreground="#AAB1BC"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="First connection shows the SHA256 host key. Later mismatches are rejected."
+                               Foreground="#AAB1BC"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0"
+                    Background="#202329"
+                    Padding="8"
+                    BorderBrush="#343941"
+                    BorderThickness="0,0,0,1">
+                <DockPanel LastChildFill="False">
+                    <WrapPanel DockPanel.Dock="Left">
+                        <Button Content="Copy" Click="Copy_Click"/>
+                        <Button Content="Paste" Click="Paste_Click"/>
+                        <Button Content="Clear Screen Buffer"
+                                FontWeight="SemiBold"
+                                Click="ClearBuffer_Click"/>
+                        <Button Content="Command History" Click="ToggleHistory_Click"/>
+                    </WrapPanel>
+                    <TextBlock x:Name="StatusText"
+                               DockPanel.Dock="Right"
+                               Text="Disconnected"
+                               Foreground="#AAB1BC"
+                               VerticalAlignment="Center"
+                               Margin="10,0,4,6"/>
+                </DockPanel>
+            </Border>
+
+            <vt:TerminalControl x:Name="Terminal"
+                                Grid.Row="1"
+                                AllowDirectInput="True"
+                                ScrollDownVisible="True"
+                                ScrollbackLines="3000"
+                                Background="#080A0C"
+                                Foreground="#E7E9EC"
+                                FontFamily="Cascadia Mono"
+                                FontSize="14"
+                                MouseLeftButtonUp="Terminal_MouseLeftButtonUp"
+                                PreviewMouseRightButtonDown="Terminal_PreviewMouseRightButtonDown"/>
+
+            <Border Grid.Row="2"
+                    Background="#202329"
+                    BorderBrush="#343941"
+                    BorderThickness="0,1,0,0"
+                    Padding="8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Command Bar — commands sent here are added to history; direct terminal keystrokes are never logged."
+                                   Foreground="#AAB1BC"
+                                   Margin="0,0,0,4"/>
+                        <TextBox x:Name="CommandEntry"
+                                 MinHeight="34"
+                                 MaxHeight="130"
+                                 AcceptsReturn="True"
+                                 VerticalScrollBarVisibility="Auto"
+                                 FontFamily="Cascadia Mono"
+                                 FontSize="13"
+                                 KeyDown="CommandEntry_KeyDown"/>
+                    </StackPanel>
+                    <Button Grid.Column="1"
+                            Content="Send"
+                            MinWidth="80"
+                            Margin="8,22,0,0"
+                            VerticalAlignment="Top"
+                            Click="SendCommand_Click"/>
+                </Grid>
+            </Border>
+
+            <StatusBar Grid.Row="3" Background="#17191C" Foreground="#AAB1BC">
+                <StatusBarItem>
+                    <TextBlock Text="Select = copy • Right-click = paste • Ctrl+V = paste • Ctrl+C = copy selection or interrupt when nothing selected"/>
+                </StatusBarItem>
+            </StatusBar>
+        </Grid>
+
+        <Border Grid.Column="2"
+                Background="#202329"
+                BorderBrush="#343941"
+                BorderThickness="1,0,0,0"
+                Padding="10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <DockPanel Grid.Row="0" Margin="0,0,0,8">
+                    <TextBlock Text="Command History"
+                               FontSize="17"
+                               FontWeight="SemiBold"
+                               Foreground="White"
+                               VerticalAlignment="Center"/>
+                    <Button Content="×"
+                            DockPanel.Dock="Right"
+                            Width="32"
+                            Margin="8,0,0,0"
+                            Click="ToggleHistory_Click"/>
+                </DockPanel>
+
+                <ListBox x:Name="HistoryList"
+                         Grid.Row="1"
+                         Background="#17191C"
+                         Foreground="#E7E9EC"
+                         BorderBrush="#343941"
+                         ItemsSource="{Binding}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="4">
+                                <TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding When, StringFormat={}{0:yyyy-MM-dd HH:mm}}"
+                                           FontSize="10"
+                                           Foreground="#8E96A3"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <WrapPanel Grid.Row="2" Margin="0,8,0,0">
+                    <Button Content="Load" Click="LoadHistory_Click"/>
+                    <Button Content="Pin / Unpin" Click="PinHistory_Click"/>
+                    <Button Content="Delete" Click="DeleteHistory_Click"/>
+                </WrapPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
