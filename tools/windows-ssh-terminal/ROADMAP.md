@@ -38,17 +38,16 @@ Acceptance gates:
 - [ ] Windows build validated
 - [ ] live simultaneous two-host test
 
-## v0.1.3 - reliable interrupt
+## v0.1.4 - explicit stop button
 
 Acceptance gates:
 
-- [x] Ctrl+C in a focused terminal always sends ETX / SIGINT
+- [x] Ctrl+C remains a copy shortcut and never interrupts the remote process
 - [x] select-to-copy remains unchanged
-- [x] Ctrl+Shift+C remains explicit copy
-- [x] Stop (^C) button interrupts the foreground process on the active tab
+- [x] Stop Current (^C) sends ETX / SIGINT to the foreground process on the active tab
 - [x] no dependency on remote process names such as `killall watch`
 - [ ] Windows build validated
-- [ ] live interrupt test against a running `watch`
+- [ ] live Stop Current test against a running `watch`
 
 ## v0.2 - ChatGPT integration
 

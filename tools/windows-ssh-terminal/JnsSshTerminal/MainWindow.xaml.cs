@@ -335,19 +335,22 @@ public partial class MainWindow : Window
         if (_slots.Length == 0)
             return;
 
-        var focusedSlot = _slots
-            .FirstOrDefault(slot => slot.Terminal.IsKeyboardFocusWithin);
+        var terminal = _slots
+            .Select(slot => slot.Terminal)
+            .FirstOrDefault(candidate => candidate.IsKeyboardFocusWithin);
 
-        if (focusedSlot is null)
+        if (terminal is null)
             return;
 
         if (e.Key == Key.C &&
             Keyboard.Modifiers.HasFlag(ModifierKeys.Control) &&
             !Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
         {
-            // Selection already auto-copies on mouse-up. Plain Ctrl+C is therefore
-            // unambiguous: always send ETX (0x03) to the active remote PTY.
-            SendInterrupt(focusedSlot);
+            // JNS clipboard rule: Ctrl+C is reserved for copy and must never
+            // accidentally interrupt a running remote command.
+            if (TerminalControl.CopyCommand.CanExecute(null, terminal))
+                TerminalControl.CopyCommand.Execute(null, terminal);
+
             e.Handled = true;
         }
     }

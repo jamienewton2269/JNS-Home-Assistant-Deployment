@@ -175,7 +175,7 @@
                                 Orientation="Horizontal"
                                 Margin="8,22,0,0"
                                 VerticalAlignment="Top">
-                        <Button Content="Stop (^C)"
+                        <Button Content="Stop Current (^C)"
                                 MinWidth="90"
                                 Click="StopCommand_Click"/>
                         <Button Content="Send"
@@ -187,7 +187,7 @@
 
             <StatusBar Grid.Row="3" Background="#17191C" Foreground="#AAB1BC">
                 <StatusBarItem>
-                    <TextBlock Text="Two independent SSH sessions • Select = copy • Right-click = paste • Ctrl+V = paste • Ctrl+C = interrupt • Ctrl+Shift+C = copy"/>
+                    <TextBlock Text="Two independent SSH sessions • Select = copy • Right-click = paste • Ctrl+V = paste • Ctrl+C = copy • Stop Current (^C) = interrupt"/>
                 </StatusBarItem>
             </StatusBar>
         </Grid>
