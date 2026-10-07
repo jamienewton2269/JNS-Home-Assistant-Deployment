@@ -44,8 +44,11 @@ BACKUP="$HA_ROOT/.jns-backups/network-identity-$STAMP"
 ssh_as_runner   "qm guest exec $VMID -- /bin/bash -lc 'mkdir -p "$HA_ROOT/.jns-backups" "$TARGET_DIR" "$HA_ROOT/packages"; if [ -d "$TARGET_DIR" ]; then cp -a "$TARGET_DIR" "$BACKUP"; fi' >/dev/null"
 
 for f in __init__.py manifest.json services.yaml card.js; do
-  ssh_as_runner     "qm guest exec $VMID -- /bin/bash -lc 'cat > "$TARGET_DIR/$f.jns-new"' --input-data "$(cat "$SRC/$f")" >/dev/null"
-  ssh_as_runner     "qm guest exec $VMID -- /bin/bash -lc 'mv "$TARGET_DIR/$f.jns-new" "$TARGET_DIR/$f"'" >/dev/null
+  B64="$(base64 -w0 "$SRC/$f")"
+  ssh_as_runner \
+    "qm guest exec $VMID -- /bin/bash -lc 'base64 -d > \"$TARGET_DIR/$f.jns-new\"' --input-data '$B64'" >/dev/null
+  ssh_as_runner \
+    "qm guest exec $VMID -- /bin/bash -lc 'mv \"$TARGET_DIR/$f.jns-new\" \"$TARGET_DIR/$f\"'" >/dev/null
 done
 
 ssh_as_runner   "qm guest exec $VMID -- /bin/bash -lc 'printf "%s\n" "jns_network_identity:" > "$ENABLE_FILE"'" >/dev/null
