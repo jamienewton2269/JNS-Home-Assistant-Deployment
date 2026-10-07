@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # Root-owned wrapper for /usr/local/sbin/jns-gateway-exec.
-# Adds narrowly scoped HA package, JNS Network Identity, and Tuya Local event-wake patch job types.
 set -Eeuo pipefail
 
 JOB="${1:?immutable queue job JSON required}"
@@ -32,6 +31,9 @@ case "$JOB_TYPE" in
     ;;
   gateway_bridge_selftest)
     exec /usr/local/libexec/jns-gateway-bridge-selftest "$REAL"
+    ;;
+  dns_reservation_importer_install)
+    exec /usr/local/libexec/jns-gateway-dns-reservation-importer-install "$REAL"
     ;;
   *)
     exec /usr/local/sbin/jns-gateway-exec.base "$REAL"
