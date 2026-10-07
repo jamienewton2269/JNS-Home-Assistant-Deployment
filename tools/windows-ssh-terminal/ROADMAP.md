@@ -11,7 +11,7 @@ Acceptance gates:
 - [x] select-to-copy
 - [x] right-click paste
 - [x] Ctrl+V paste
-- [x] Ctrl+C copies a selection, otherwise remains terminal interrupt
+- [x] Ctrl+C is reserved for copy
 - [x] bounded terminal scrollback
 - [x] Clear Screen Buffer purges local scrollback without disconnecting
 - [x] Live clear-buffer test without dropping SSH
@@ -19,7 +19,7 @@ Acceptance gates:
 - [x] separate bounded command history
 - [x] script/multiline history session-only unless pinned
 - [x] credentials are not persisted
-- [ ] Release build validated on Windows
+- [x] Release build validated on Windows
 - [x] Live SSH test against Node C
 - [x] Clipboard round-trip test with long multiline ChatGPT commands
 
@@ -46,8 +46,20 @@ Acceptance gates:
 - [x] select-to-copy remains unchanged
 - [x] Stop Current (^C) sends ETX / SIGINT to the foreground process on the active tab
 - [x] no dependency on remote process names such as `killall watch`
+- [x] Windows build validated
+- [x] live Stop Current test against a running `watch`
+
+## v0.1.5 - dynamic terminal tabs
+
+Acceptance gates:
+
+- [x] + New Terminal button
+- [x] create Terminal 3, 4, 5, etc. on demand
+- [x] every added tab gets an independent SSH connection, screen buffer and scrollback
+- [x] adding a tab does not disconnect or clear existing tabs
+- [x] Connect / Disconnect / Copy / Paste / Clear Buffer / Stop Current target the active tab
 - [ ] Windows build validated
-- [ ] live Stop Current test against a running `watch`
+- [ ] live test creating a third terminal while two sessions remain connected
 
 ## v0.2 - ChatGPT integration
 
@@ -81,7 +93,6 @@ Planned capabilities:
 
 Potential additions must earn their complexity:
 
-- tabs for multiple SSH sessions,
 - SFTP drop/send,
 - SSH jump-host profile,
 - Windows OpenSSH-agent support,

@@ -38,10 +38,12 @@ public partial class MainWindow : Window
     private readonly KnownHostsStore _knownHosts = new();
 
     private List<HostProfile> _profiles = new();
-    private SessionSlot[] _slots = [];
+    private readonly List<SessionSlot> _slots = [];
+    private int _nextTerminalNumber = 2;
 
     private SessionSlot ActiveSlot =>
-        _slots[Math.Clamp(TerminalTabs.SelectedIndex, 0, _slots.Length - 1)];
+        _slots.FirstOrDefault(slot => ReferenceEquals(slot.Tab, TerminalTabs.SelectedItem))
+        ?? _slots[0];
 
     private TerminalControl ActiveTerminal => ActiveSlot.Terminal;
 
@@ -49,11 +51,8 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        _slots =
-        [
-            new SessionSlot("Terminal 1", TerminalTab1, Terminal1),
-            new SessionSlot("Terminal 2", TerminalTab2, Terminal2)
-        ];
+        _slots.Add(new SessionSlot("Terminal 1", TerminalTab1, Terminal1));
+        _slots.Add(new SessionSlot("Terminal 2", TerminalTab2, Terminal2));
 
         _profiles = _profileStore.Load();
         SavedHosts.ItemsSource = _profiles;
@@ -250,6 +249,38 @@ public partial class MainWindow : Window
         await DisconnectSlotAsync(ActiveSlot, updateUi: true);
     }
 
+    private void NewTerminal_Click(object sender, RoutedEventArgs e)
+    {
+        int number = ++_nextTerminalNumber;
+        string title = $"Terminal {number}";
+
+        var terminal = new TerminalControl
+        {
+            AllowDirectInput = true,
+            ScrollDownVisible = true,
+            ScrollbackLines = 3000,
+            Background = Terminal1.Background,
+            Foreground = Terminal1.Foreground,
+            FontFamily = Terminal1.FontFamily,
+            FontSize = Terminal1.FontSize
+        };
+        terminal.PreviewMouseRightButtonDown += Terminal_PreviewMouseRightButtonDown;
+
+        var tab = new TabItem
+        {
+            Header = title,
+            Content = terminal
+        };
+
+        var slot = new SessionSlot(title, tab, terminal);
+        _slots.Add(slot);
+        TerminalTabs.Items.Add(tab);
+        TerminalTabs.SelectedItem = tab;
+
+        UpdateActiveStatus();
+        terminal.Focus();
+    }
+
     private async Task DisconnectSlotAsync(SessionSlot slot, bool updateUi)
     {
         var session = slot.Session;
@@ -287,7 +318,7 @@ public partial class MainWindow : Window
 
     private void TerminalTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_slots.Length == 0 || e.Source != TerminalTabs)
+        if (_slots.Count == 0 || e.Source != TerminalTabs)
             return;
 
         UpdateActiveStatus();
@@ -295,7 +326,7 @@ public partial class MainWindow : Window
 
     private void UpdateActiveStatus()
     {
-        if (_slots.Length == 0)
+        if (_slots.Count == 0)
             return;
 
         StatusText.Text = $"{ActiveSlot.BaseTitle}: {ActiveSlot.Status}";
@@ -332,7 +363,7 @@ public partial class MainWindow : Window
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (_slots.Length == 0)
+        if (_slots.Count == 0)
             return;
 
         var terminal = _slots

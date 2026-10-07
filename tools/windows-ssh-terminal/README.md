@@ -10,7 +10,7 @@ ChatGPT / shell workflow reliable:
 - Ctrl+V -> paste
 - Ctrl+C -> copy when text is selected; otherwise send the normal terminal interrupt
 - saved hosts without saved credentials
-- two fixed independent terminal tabs; switching tabs does not disconnect either session
+- independent terminal tabs; two are present at startup and **+ New Terminal** creates additional sessions on demand
 - clear the complete local screen/scrollback buffer without dropping the SSH connection
 - release references held by the cleared buffer and request managed/Windows working-set reclamation
 - useful command history kept separately from terminal scrollback
@@ -102,6 +102,10 @@ runtime into every copy of this small application.
 ## v0.1.2 - second terminal tab
 
 The application provides two fixed terminal tabs. Each tab owns its own SSH client, shell stream, screen buffer and scrollback. Connect, Disconnect, Copy, Paste, Clear Screen Buffer and the Command Bar always target the active tab. Command history remains deliberately shared because it is a reusable command library rather than terminal output.
+
+## v0.1.5 - dynamic terminal tabs
+
+Two terminal tabs are available at startup. **+ New Terminal** adds more without reconnecting or disturbing existing sessions. Every tab owns an independent SSH client, shell stream, screen buffer and scrollback. All terminal actions operate on the currently active tab.
 
 ## v0.2 - native ChatGPT workspace
 
