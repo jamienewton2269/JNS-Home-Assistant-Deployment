@@ -43,9 +43,11 @@ chown "$RUNNER:$RUNNER" "$SSH_DIR/config"
 chmod 600 "$SSH_DIR/config"
 
 log "3/8 test GitHub SSH authentication"
-set +e
-AUTH="$(sudo -u "$RUNNER" ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -T git@github.com 2>&1)"
-set -e
+if AUTH="$(sudo -u "$RUNNER" ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -T git@github.com 2>&1)"; then
+  AUTH_RC=0
+else
+  AUTH_RC=$?
+fi
 printf '%s\n' "$AUTH"
 if ! printf '%s\n' "$AUTH" | grep -qi 'successfully authenticated'; then
   echo
@@ -56,6 +58,7 @@ if ! printf '%s\n' "$AUTH" | grep -qi 'successfully authenticated'; then
   exit 10
 fi
 
+log "GitHub SSH authentication accepted (ssh_rc=$AUTH_RC)"
 log "4/8 switch origin to SSH"
 sudo -u "$RUNNER" git remote set-url origin "$REMOTE"
 [ "$(sudo -u "$RUNNER" git remote get-url origin)" = "$REMOTE" ] || fail "Origin switch failed" 81
