@@ -1,0 +1,9 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261007T123700Z-ha-general-network-identity-install-02
+started=2026-10-07T13:36:08+01:00
+runner=nodec
+
+root@10.10.10.235: Permission denied (publickey,password).
+
+finished=2026-10-07T13:36:08+01:00
+exit_code=255
