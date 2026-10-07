@@ -73,9 +73,22 @@ Acceptance gates:
 - [x] non-tmux hosts refuse safe detach rather than falsely claiming persistence
 - [x] closing the Windows app records live tmux sessions for later reattachment
 - [x] Connect cannot silently replace an already-connected terminal
-- [ ] Windows build validated
+- [x] Windows build validated
 - [ ] live detach / reconnect test
 - [ ] live kill-session cleanup test
+
+## v0.1.7 - visible scrollbars and active-tab select all
+
+Acceptance gates:
+
+- [x] retain 3000 scrollback lines per terminal (well above requested 500 minimum)
+- [x] visible vertical scrollbar on every startup and dynamically-created terminal tab
+- [x] scrollbar operates only on its own terminal buffer
+- [x] mouse-wheel scroll remains synchronized with the visible scrollbar
+- [x] Select All button beside Copy / Paste
+- [x] Select All targets only the active terminal tab
+- [ ] Windows build validated
+- [ ] live scrollbar + Select All test with multiple connected tabs
 
 ## v0.2 - ChatGPT integration
 

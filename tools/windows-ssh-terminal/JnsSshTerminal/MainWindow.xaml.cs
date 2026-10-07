@@ -1,3 +1,4 @@
+using JnsSshTerminal.Controls;
 using JnsSshTerminal.Models;
 using JnsSshTerminal.Services;
 using Microsoft.Win32;
@@ -6,6 +7,7 @@ using Renci.SshNet.Common;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using VirtualTerminal;
 
@@ -15,17 +17,19 @@ public partial class MainWindow : Window
 {
     private sealed class SessionSlot
     {
-        public SessionSlot(string baseTitle, TabItem tab, TerminalControl terminal)
+        public SessionSlot(string baseTitle, TabItem tab, JnsTerminalControl terminal, ScrollBar scrollBar)
         {
             BaseTitle = baseTitle;
             Tab = tab;
             Terminal = terminal;
+            ScrollBar = scrollBar;
             Status = "Disconnected";
         }
 
         public string BaseTitle { get; }
         public TabItem Tab { get; }
-        public TerminalControl Terminal { get; }
+        public JnsTerminalControl Terminal { get; }
+        public ScrollBar ScrollBar { get; }
 
         public JnsSecureShellSession? Session { get; set; }
         public SshClient? Client { get; set; }
@@ -57,14 +61,14 @@ public partial class MainWindow : Window
         _slots.FirstOrDefault(slot => ReferenceEquals(slot.Tab, TerminalTabs.SelectedItem))
         ?? _slots[0];
 
-    private TerminalControl ActiveTerminal => ActiveSlot.Terminal;
+    private JnsTerminalControl ActiveTerminal => ActiveSlot.Terminal;
 
     public MainWindow()
     {
         InitializeComponent();
 
-        _slots.Add(new SessionSlot("Terminal 1", TerminalTab1, Terminal1));
-        _slots.Add(new SessionSlot("Terminal 2", TerminalTab2, Terminal2));
+        RegisterSlot(new SessionSlot("Terminal 1", TerminalTab1, Terminal1, TerminalScrollBar1));
+        RegisterSlot(new SessionSlot("Terminal 2", TerminalTab2, Terminal2, TerminalScrollBar2));
 
         _profiles = _profileStore.Load();
         SavedHosts.ItemsSource = _profiles;
@@ -299,6 +303,9 @@ public partial class MainWindow : Window
             };
 
             slot.Session = new JnsSecureShellSession(slot.Client);
+            slot.Session.BufferUpdated += (_, _) =>
+                Dispatcher.BeginInvoke(() => UpdateScrollBar(slot));
+
             await slot.Session.ConnectAsync();
 
             bool tmuxAvailable = await RemoteCommandSucceedsAsync(
@@ -391,7 +398,7 @@ public partial class MainWindow : Window
         int number = ++_nextTerminalNumber;
         string title = $"Terminal {number}";
 
-        var terminal = new TerminalControl
+        var terminal = new JnsTerminalControl
         {
             AllowDirectInput = true,
             ScrollDownVisible = true,
@@ -403,14 +410,34 @@ public partial class MainWindow : Window
         };
         terminal.PreviewMouseRightButtonDown += Terminal_PreviewMouseRightButtonDown;
 
+        var scrollBar = new ScrollBar
+        {
+            Orientation = Orientation.Vertical,
+            Minimum = 0,
+            Maximum = 0,
+            SmallChange = 3,
+            LargeChange = 25,
+            Width = 18
+        };
+        scrollBar.ValueChanged += TerminalScrollBar_ValueChanged;
+
+        var host = new Grid();
+        host.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        host.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
+
+        Grid.SetColumn(terminal, 0);
+        Grid.SetColumn(scrollBar, 1);
+        host.Children.Add(terminal);
+        host.Children.Add(scrollBar);
+
         var tab = new TabItem
         {
             Header = title,
-            Content = terminal
+            Content = host
         };
 
-        var slot = new SessionSlot(title, tab, terminal);
-        _slots.Add(slot);
+        var slot = new SessionSlot(title, tab, terminal, scrollBar);
+        RegisterSlot(slot);
         TerminalTabs.Items.Add(tab);
 
         if (select)
@@ -418,6 +445,13 @@ public partial class MainWindow : Window
 
         UpdateActiveStatus();
         return slot;
+    }
+
+    private void RegisterSlot(SessionSlot slot)
+    {
+        _slots.Add(slot);
+        slot.Terminal.ScrollPositionChanged += (_, _) => UpdateScrollBar(slot);
+        UpdateScrollBar(slot);
     }
 
     private async void DetachClose_Click(object sender, RoutedEventArgs e)
@@ -521,6 +555,8 @@ public partial class MainWindow : Window
         slot.Client = null;
         slot.PrivateKeyFile = null;
         slot.Terminal.Session = null;
+        slot.Terminal.ResetTrackedScroll();
+        UpdateScrollBar(slot);
 
         if (session is not null)
         {
@@ -629,6 +665,46 @@ public partial class MainWindow : Window
             return;
 
         UpdateActiveStatus();
+        UpdateScrollBar(ActiveSlot);
+    }
+
+    private void TerminalScrollBar_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (sender is not ScrollBar scrollBar)
+            return;
+
+        var slot = _slots.FirstOrDefault(candidate => ReferenceEquals(candidate.ScrollBar, scrollBar));
+        if (slot is null || scrollBar.Tag as string == "sync")
+            return;
+
+        int max = slot.Session?.Buffer.ScrollbackCount ?? 0;
+        int targetOffset = Math.Clamp(
+            max - (int)Math.Round(scrollBar.Value),
+            0,
+            max);
+
+        slot.Terminal.ScrollToOffset(targetOffset);
+        UpdateScrollBar(slot);
+        slot.Terminal.Focus();
+    }
+
+    private void UpdateScrollBar(SessionSlot slot)
+    {
+        int max = slot.Session?.Buffer.ScrollbackCount ?? 0;
+        int offset = Math.Clamp(slot.Terminal.ScrollOffset, 0, max);
+
+        slot.ScrollBar.Tag = "sync";
+        try
+        {
+            slot.ScrollBar.Maximum = max;
+            slot.ScrollBar.ViewportSize = Math.Max(1, slot.Terminal.ActualHeight / Math.Max(1, slot.Terminal.FontSize));
+            slot.ScrollBar.Value = Math.Clamp(max - offset, 0, max);
+            slot.ScrollBar.IsEnabled = max > 0;
+        }
+        finally
+        {
+            slot.ScrollBar.Tag = null;
+        }
     }
 
     private void UpdateActiveStatus()
@@ -637,6 +713,15 @@ public partial class MainWindow : Window
             return;
 
         StatusText.Text = $"{ActiveSlot.BaseTitle}: {ActiveSlot.Status}";
+    }
+
+    private void SelectAll_Click(object sender, RoutedEventArgs e)
+    {
+        var terminal = ActiveTerminal;
+        if (TerminalControl.SelectAllCommand.CanExecute(null, terminal))
+            TerminalControl.SelectAllCommand.Execute(null, terminal);
+
+        terminal.Focus();
     }
 
     private void Copy_Click(object sender, RoutedEventArgs e)
@@ -723,6 +808,9 @@ public partial class MainWindow : Window
 
         int linesBefore = slot.Session.Buffer.ScrollbackCount;
         slot.Session.PurgeLocalScreenBuffer(slot.Terminal.ScrollbackLines);
+        slot.Terminal.ResetTrackedScroll();
+        UpdateScrollBar(slot);
+
         var trim = MemoryTrimmer.ReclaimAfterBufferPurge();
 
         long managedFreed = Math.Max(0, trim.ManagedBefore - trim.ManagedAfter);

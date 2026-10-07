@@ -8,9 +8,11 @@ ChatGPT / shell workflow reliable:
 - select terminal text -> copied to the Windows clipboard
 - right-click -> paste
 - Ctrl+V -> paste
-- Ctrl+C -> copy when text is selected; otherwise send the normal terminal interrupt
+- Ctrl+C -> copy only; remote interrupt is the explicit Stop Current (^C) button
 - saved hosts without saved credentials
 - independent terminal tabs; two are present at startup and **+ New Terminal** creates additional sessions on demand
+- 3000 retained scrollback lines and a visible vertical scrollbar per terminal
+- **Select All** / Copy / Paste operate only on the active terminal
 - clear the complete local screen/scrollback buffer without dropping the SSH connection
 - release references held by the cleared buffer and request managed/Windows working-set reclamation
 - useful command history kept separately from terminal scrollback
@@ -37,9 +39,8 @@ The terminal intentionally uses ordinary Windows expectations:
 - right-click: paste
 - Ctrl+V: paste
 - Ctrl+Shift+C: copy
-- Ctrl+C:
-  - selection exists -> copy
-  - no selection -> terminal Ctrl+C / SIGINT
+- Ctrl+C: copy only
+- Stop Current (^C): send the terminal interrupt / SIGINT to the active session
 
 ## Clear Screen Buffer
 
@@ -114,6 +115,10 @@ On hosts with **tmux** installed, new terminals are automatically wrapped in a u
 **Kill Remote Session** is intentionally destructive: it kills the remote tmux session and closes the local tab. If tmux is not available, the app refuses a persistence detach rather than implying an ordinary SSH PTY can be reconstructed later.
 
 Closing the Windows application records connected tmux sessions as detached, so they can be found after reopening the app. This survives closing/restarting the client, but a reboot of the remote server normally destroys tmux sessions unless the workload has separate reboot persistence.
+
+## v0.1.7 - terminal scrolling and selection
+
+Every terminal retains up to **3000 scrollback lines** and has its own visible vertical scrollbar. The bar and mouse wheel navigate only that tab's retained buffer. **Select All** is beside Copy and Paste and applies only to the active terminal tab.
 
 ## v0.2 - native ChatGPT workspace
 
