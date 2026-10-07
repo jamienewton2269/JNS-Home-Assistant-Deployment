@@ -1,0 +1,84 @@
+name: JNS Node C to Node B SSH Repair
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/repair/nodeb-ssh-trigger/**'
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - name: Recover Node B SSH identity mapping
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          SSH_DIR="$HOME/.ssh"
+          NODEB_IP="10.10.10.235"
+          mkdir -p "$SSH_DIR"
+          chmod 700 "$SSH_DIR"
+
+          echo "=== SSH inventory (names/permissions only) ==="
+          find "$SSH_DIR" -maxdepth 1 -type f -printf '%f mode=%m bytes=%s\n' | sort || true
+
+          echo "=== Existing SSH config ==="
+          if [ -f "$SSH_DIR/config" ]; then
+            cat "$SSH_DIR/config"
+          else
+            echo "(none)"
+          fi
+
+          working_key=""
+          for key in "$SSH_DIR"/*; do
+            [ -f "$key" ] || continue
+            base="$(basename "$key")"
+            case "$base" in
+              *.pub|config|known_hosts|known_hosts.old|authorized_keys) continue ;;
+            esac
+            echo "Testing candidate key: $base"
+            chmod 600 "$key" 2>/dev/null || true
+            if ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new root@"$NODEB_IP" true >/dev/null 2>&1; then
+              working_key="$key"
+              echo "NODEB_KEY_OK=$base"
+              break
+            fi
+          done
+
+          if [ -z "$working_key" ]; then
+            echo "NODEB_SSH_REPAIR_FAILED=no_existing_runner_key_authenticates_as_root" >&2
+            echo "Available public keys:"
+            for pub in "$SSH_DIR"/*.pub; do
+              [ -f "$pub" ] || continue
+              ssh-keygen -lf "$pub" || true
+              cat "$pub"
+            done
+            exit 42
+          fi
+
+          tmp="$SSH_DIR/config.jns-new"
+          cat >"$tmp" <<EOF
+          Host github.com
+              HostName github.com
+              User git
+              IdentityFile $SSH_DIR/jns_github_deploy
+              IdentitiesOnly yes
+
+          Host nodeb
+              HostName $NODEB_IP
+              User root
+              IdentityFile $working_key
+              IdentitiesOnly yes
+              BatchMode yes
+              ConnectTimeout 10
+              StrictHostKeyChecking accept-new
+          EOF
+          mv "$tmp" "$SSH_DIR/config"
+          chmod 600 "$SSH_DIR/config"
+
+          echo "=== Verify repaired nodeb alias ==="
+          ssh nodeb 'printf "NODEB_SSH_OK host=%s uid=%s\n" "$(hostname)" "$(id -u)"; qm status 905'
