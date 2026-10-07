@@ -1,0 +1,43 @@
+name: Windows SSH Terminal
+
+on:
+  push:
+    branches:
+      - feature/windows-ssh-terminal-v0.1
+    paths:
+      - "tools/windows-ssh-terminal/**"
+      - ".github/workflows/windows-ssh-terminal-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore tools/windows-ssh-terminal/JnsSshTerminal/JnsSshTerminal.csproj
+
+      - name: Build
+        run: dotnet build tools/windows-ssh-terminal/JnsSshTerminal/JnsSshTerminal.csproj -c Release --no-restore
+
+      - name: Publish framework-dependent build
+        run: dotnet publish tools/windows-ssh-terminal/JnsSshTerminal/JnsSshTerminal.csproj -c Release --no-restore --no-self-contained -o artifacts/JNS-SshTerminal
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: JNS-SshTerminal-windows
+          path: artifacts/JNS-SshTerminal
+          if-no-files-found: error
