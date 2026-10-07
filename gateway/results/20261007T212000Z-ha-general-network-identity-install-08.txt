@@ -1,0 +1,10 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261007T212000Z-ha-general-network-identity-install-08
+started=2026-10-07T23:29:54+01:00
+runner=nodec
+
+/bin/bash: python3: not found
+ROLLBACK: restoring previous JNS Network Identity deployment
+
+finished=2026-10-07T23:30:29+01:00
+exit_code=125
