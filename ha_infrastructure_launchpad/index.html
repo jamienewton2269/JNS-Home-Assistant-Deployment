@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JNS Infrastructure Launchpad</title>
+<style>
+  :root{
+    --bg:#071018; --panel:#0c1722; --panel2:#0f1e2b; --line:#213447;
+    --text:#e9f3fb; --muted:#8fa6b8; --cyan:#62d8ff; --green:#67e8a5;
+    --amber:#ffd166; --red:#ff7d7d; --shadow:0 14px 40px rgba(0,0,0,.28);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; color:var(--text); background:
+      radial-gradient(circle at 20% 0%, rgba(38,126,167,.18), transparent 28%),
+      linear-gradient(180deg,#071018 0%,#08121b 45%,#060d14 100%);
+    font:15px/1.45 Inter,Segoe UI,Roboto,Arial,sans-serif; min-height:100vh;
+  }
+  header{max-width:1400px;margin:auto;padding:34px 22px 18px}
+  .brand{display:flex;align-items:flex-start;gap:16px}
+  .logo{
+    width:50px;height:50px;border-radius:14px;display:grid;place-items:center;
+    background:linear-gradient(135deg,#113147,#0a202e);border:1px solid #2d5a74;
+    color:var(--cyan);font-weight:800;letter-spacing:.08em;box-shadow:var(--shadow)
+  }
+  h1{margin:0;font-size:clamp(26px,4vw,42px);letter-spacing:-.03em}
+  .subtitle{margin:6px 0 0;color:var(--muted);max-width:850px}
+  .toolbar{
+    margin-top:24px;display:flex;gap:10px;flex-wrap:wrap;align-items:center
+  }
+  input,select{
+    background:#0a1520;color:var(--text);border:1px solid var(--line);border-radius:10px;
+    padding:11px 13px;outline:none
+  }
+  input{min-width:min(420px,100%);flex:1}
+  select{min-width:180px}
+  .legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px;color:var(--muted);font-size:13px}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px}
+  main{max-width:1400px;margin:auto;padding:12px 22px 42px}
+  .group-title{
+    margin:28px 0 12px;font-size:16px;color:#bcd1df;text-transform:uppercase;
+    letter-spacing:.12em;font-weight:700
+  }
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(285px,1fr));gap:14px}
+  .card{
+    background:linear-gradient(180deg,rgba(15,30,43,.96),rgba(10,22,32,.96));
+    border:1px solid var(--line);border-radius:15px;padding:16px;box-shadow:var(--shadow);
+    position:relative;overflow:hidden
+  }
+  .card:before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cyan);opacity:.7
+  }
+  .row{display:flex;gap:10px;justify-content:space-between;align-items:flex-start}
+  .name{font-size:18px;font-weight:750}
+  .role{color:var(--muted);font-size:13px;margin-top:2px}
+  .badge{
+    white-space:nowrap;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:750;
+    border:1px solid var(--line)
+  }
+  .confirmed{color:var(--green);border-color:#285f48;background:rgba(45,145,92,.10)}
+  .standard{color:var(--amber);border-color:#6a5627;background:rgba(170,127,25,.10)}
+  .none{color:#aab8c4;border-color:#344657;background:rgba(100,120,140,.08)}
+  .ip{font:600 14px ui-monospace,SFMono-Regular,Consolas,monospace;margin:13px 0 8px;color:#cce9f6}
+  .desc{color:#b3c3cf;min-height:44px}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  a.btn,button.btn{
+    appearance:none;text-decoration:none;border:1px solid #31546a;background:#10283a;color:#e9f8ff;
+    padding:9px 11px;border-radius:9px;font-weight:700;cursor:pointer;font-size:13px
+  }
+  a.btn:hover,button.btn:hover{border-color:var(--cyan);background:#123147}
+  .secondary{background:#0b1823!important;color:#a9bfce!important}
+  .note{
+    margin-top:11px;padding-top:10px;border-top:1px dashed #243a4c;color:#7f96a7;font-size:12px
+  }
+  footer{max-width:1400px;margin:auto;padding:0 22px 30px;color:#71889a;font-size:12px}
+  .hidden{display:none!important}
+  @media (max-width:600px){header,main,footer{padding-left:14px;padding-right:14px}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo">JNS</div>
+    <div>
+      <h1>Infrastructure Launchpad</h1>
+      <p class="subtitle">Local control page for the JNS home network. Links open directly to known management interfaces on the 10.10.10.x LAN.</p>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <input id="search" type="search" placeholder="Search server, role, IP or service…">
+    <select id="filter">
+      <option value="all">All groups</option>
+      <option value="compute">Proxmox / Compute</option>
+      <option value="ha">Home Assistant</option>
+      <option value="zigbee">Zigbee / MQTT</option>
+      <option value="dns">DNS</option>
+      <option value="monitoring">Monitoring</option>
+      <option value="network">Network infrastructure</option>
+    </select>
+  </div>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--green)"></i>Confirmed interface</span>
+    <span><i class="dot" style="background:var(--amber)"></i>Standard/likely endpoint — not recently re-confirmed</span>
+    <span><i class="dot" style="background:#91a0ad"></i>No browser interface currently known</span>
+  </div>
+</header>
+
+<main id="cards">
+
+<section data-group-section="compute">
+  <div class="group-title">Proxmox / Compute</div>
+  <div class="grid">
+    <article class="card" data-group="compute" data-search="node a proxmox 10.10.10.225 hypervisor">
+      <div class="row"><div><div class="name">Node A</div><div class="role">Proxmox hypervisor</div></div><span class="badge confirmed">WEB</span></div>
+      <div class="ip">10.10.10.225 : 8006</div>
+      <div class="desc">Primary Proxmox host; also physically hosts the Zigbee USB coordinator path.</div>
+      <div class="actions"><a class="btn" href="https://10.10.10.225:8006" target="_blank" rel="noopener">Open Proxmox</a><button class="btn secondary" data-copy="10.10.10.225">Copy IP</button></div>
+    </article>
+
+    <article class="card" data-group="compute" data-search="node b proxmox 10.10.10.235 hypervisor">
+      <div class="row"><div><div class="name">Node B</div><div class="role">Proxmox hypervisor</div></div><span class="badge confirmed">WEB</span></div>
+      <div class="ip">10.10.10.235 : 8006</div>
+      <div class="desc">Hosts the current lean HA VMs plus MQTT and Zigbee2MQTT services.</div>
+      <div class="actions"><a class="btn" href="https://10.10.10.235:8006" target="_blank" rel="noopener">Open Proxmox</a><button class="btn secondary" data-copy="10.10.10.235">Copy IP</button></div>
+    </article>
+
+    <article class="card" data-group="compute" data-search="node c proxmox 10.10.10.236 management github runner">
+      <div class="row"><div><div class="name">Node C</div><div class="role">Proxmox / management host</div></div><span class="badge confirmed">WEB</span></div>
+      <div class="ip">10.10.10.236 : 8006</div>
+      <div class="desc">Management and deployment host, including the GitHub runner / JNS management bridge path.</div>
+      <div class="actions"><a class="btn" href="https://10.10.10.236:8006" target="_blank" rel="noopener">Open Proxmox</a><button class="btn secondary" data-copy="10.10.10.236">Copy IP</button></div>
+    </article>
+  </div>
+</section>
+
+<section data-group-section="ha">
+  <div class="group-title">Home Assistant</div>
+  <div class="grid">
+    <article class="card" data-group="ha" data-search="ha900 production monolith legacy home assistant 10.10.10.226">
+      <div class="row"><div><div class="name">HA900 — Production / Legacy</div><div class="role">Home Assistant</div></div><span class="badge confirmed">WEB</span></div>
+      <div class="ip">10.10.10.226 : 8123</div>
+      <div class="desc">Existing production monolithic HA instance retained while services are moved to lean nodes.</div>
+      <div class="actions"><a class="btn" href="http://10.10.10.226:8123" target="_blank" rel="noopener">Open Home Assistant</a><button class="btn secondary" data-copy="10.10.10.226">Copy IP</button></div>
+    </article>
+
+    <article class="card" data-group="ha" data-search="ha902 primary lite p0 home assistant 10.10.10.220">
+      <div class="row"><div><div class="name">HA902 — Primary Lite</div><div class="role">HA-P0 / lean primary</div></div><span class="badge confirmed">WEB</span></div>
+      <div class="ip">10.10.10.220 : 8123</div>
+      <div class="desc">Lean Home Assistant primary-lite instance used for trusted minimal services and resilience work.</div>
+      <div class="actions"><a class="btn" href="http://10.10.10.220:8123" target="_blank" rel="noopener">Open Home Assistant</a><button class="btn secondary" data-copy="10.10.10.220">Copy IP</button></div>
+    </article>
+
+    <article class="card" data-group="ha" data-search="ha903 plant grow home assistant 10.10.10.221">
+      <div class="row"><div><div class="name">HA903 — Plant</div><div class="role">Plant / grow services</div></div><span class="badge confirmed">WEB</span></div>
+      <div class="ip">10.10.10.221 : 8123</div>
+      <div class="desc">Dedicated Home Assistant instance for plant / grow automation services where used.</div>
+      <div class="actions"><a class="btn" href="http://10.10.10.221:8123" target="_blank" rel="noopener">Open Home Assistant</a><button class="btn secondary" data-copy="10.10.10.221">Copy IP</button></div>
+    </article>
+
+    <article class="card" data-group="ha" data-search="ha905 ha general s2 home assistant 10.10.10.223 testing dashboard natural automation">
+      <div class="row"><div><div class="name">HA905 — HA-General</div><div class="role">General household HA</div></div><span class="badge confirmed">WEB</span></div>
+      <div class="ip">10.10.10.223 : 8123</div>
+      <div class="desc">Main lean general-purpose HA node for household devices, testing dashboard and Natural Automation work.</div>
+      <div class="actions"><a class="btn" href="http://10.10.10.223:8123" target="_blank" rel="noopener">Open Home Assistant</a><button class="btn secondary" data-copy="10.10.10.223">Copy IP</button></div>
+    </article>
+  </div>
+</section>
+
+<section data-group-section="zigbee">
+  <div class="group-title">Zigbee / MQTT</div>
+  <div class="grid">
+    <article class="card" data-group="zigbee" data-search="ct214 zigbee2mqtt z2m 10.10.10.231 8080">
+      <div class="row"><div><div class="name">CT214 — Zigbee2MQTT</div><div class="role">Zigbee network controller</div></div><span class="badge confirmed">WEB</span></div>
+      <div class="ip">10.10.10.231 : 8080</div>
+      <div class="desc">Zigbee2MQTT service controlling the restored Zigbee network through the remote serial bridge.</div>
+      <div class="actions"><a class="btn" href="http://10.10.10.231:8080" target="_blank" rel="noopener">Open Zigbee2MQTT</a><button class="btn secondary" data-copy="10.10.10.231">Copy IP</button></div>
+    </article>
+
+    <article class="card" data-group="zigbee" data-search="ct212 mqtt mosquitto broker 10.10.10.230 1884">
+      <div class="row"><div><div class="name">CT212 — MQTT</div><div class="role">MQTT broker</div></div><span class="badge none">NO WEB UI</span></div>
+      <div class="ip">10.10.10.230 : 1884</div>
+      <div class="desc">MQTT message broker between Zigbee2MQTT and Home Assistant services.</div>
+      <div class="actions"><button class="btn secondary" data-copy="10.10.10.230">Copy IP</button></div>
+      <div class="note">Broker port is 1884. No browser management interface is currently confirmed.</div>
+    </article>
+
+    <article class="card" data-group="zigbee" data-search="ct210 jns zigbee gateway serial bridge 10.10.10.11 6638 cc2652">
+      <div class="row"><div><div class="name">CT210 — Zigbee Serial Bridge</div><div class="role">CC2652 TCP serial bridge</div></div><span class="badge none">NO WEB UI</span></div>
+      <div class="ip">10.10.10.11 : 6638</div>
+      <div class="desc">Exposes the Sonoff / TI CC2652 Zigbee coordinator on Node A to Zigbee2MQTT over TCP.</div>
+      <div class="actions"><button class="btn secondary" data-copy="10.10.10.11">Copy IP</button></div>
+    </article>
+  </div>
+</section>
+
+<section data-group-section="dns">
+  <div class="group-title">DNS</div>
+  <div class="grid">
+    <article class="card" data-group="dns" data-search="ct217 jns dns a adguard 10.10.10.247 master">
+      <div class="row"><div><div class="name">CT217 — JNS DNS A</div><div class="role">AdGuard DNS master</div></div><span class="badge standard">CHECK PORT</span></div>
+      <div class="ip">10.10.10.247</div>
+      <div class="desc">Primary AdGuard DNS / rewrite master. Replicates rewrite data to DNS B.</div>
+      <div class="actions"><a class="btn" href="http://10.10.10.247" target="_blank" rel="noopener">Try Web UI</a><button class="btn secondary" data-copy="10.10.10.247">Copy IP</button></div>
+      <div class="note">Server and role are confirmed; the current AdGuard web port was not recently re-confirmed.</div>
+    </article>
+
+    <article class="card" data-group="dns" data-search="ct218 jns dns b adguard 10.10.10.248 replica">
+      <div class="row"><div><div class="name">CT218 — JNS DNS B</div><div class="role">AdGuard DNS replica</div></div><span class="badge standard">CHECK PORT</span></div>
+      <div class="ip">10.10.10.248</div>
+      <div class="desc">Secondary DNS / AdGuard replica, receiving rewrite updates from DNS A.</div>
+      <div class="actions"><a class="btn" href="http://10.10.10.248" target="_blank" rel="noopener">Try Web UI</a><button class="btn secondary" data-copy="10.10.10.248">Copy IP</button></div>
+      <div class="note">Server and role are confirmed; the current AdGuard web port was not recently re-confirmed.</div>
+    </article>
+  </div>
+</section>
+
+<section data-group-section="monitoring">
+  <div class="group-title">Monitoring</div>
+  <div class="grid">
+    <article class="card" data-group="monitoring" data-search="ct130 jns network monitor netmon 10.10.10.240 8080">
+      <div class="row"><div><div class="name">CT130 — JNS Network Monitor</div><div class="role">Topology / health visualiser</div></div><span class="badge confirmed">WEB</span></div>
+      <div class="ip">10.10.10.240 : 8080</div>
+      <div class="desc">Primary JNS topology view for live network health, devices, links, VLANs and utilisation.</div>
+      <div class="actions"><a class="btn" href="http://10.10.10.240:8080" target="_blank" rel="noopener">Open Network Monitor</a><button class="btn secondary" data-copy="10.10.10.240">Copy IP</button></div>
+    </article>
+
+    <article class="card" data-group="monitoring" data-search="librenms 10.10.10.240 8088 background monitor">
+      <div class="row"><div><div class="name">LibreNMS</div><div class="role">Background network monitoring</div></div><span class="badge confirmed">WEB</span></div>
+      <div class="ip">10.10.10.240 : 8088</div>
+      <div class="desc">Background SNMP monitoring engine supporting the JNS network monitoring stack.</div>
+      <div class="actions"><a class="btn" href="http://10.10.10.240:8088" target="_blank" rel="noopener">Open LibreNMS</a></div>
+    </article>
+  </div>
+</section>
+
+<section data-group-section="network">
+  <div class="group-title">Network Infrastructure</div>
+  <div class="grid">
+    <article class="card" data-group="network" data-search="draytek router gateway 10.10.10.254">
+      <div class="row"><div><div class="name">DrayTek Router</div><div class="role">Internet gateway / firewall</div></div><span class="badge standard">LIKELY WEB</span></div>
+      <div class="ip">10.10.10.254</div>
+      <div class="desc">Main LAN gateway and WAN router. Cisco switch uplinks to the router.</div>
+      <div class="actions"><a class="btn" href="https://10.10.10.254" target="_blank" rel="noopener">Open Router</a><button class="btn secondary" data-copy="10.10.10.254">Copy IP</button></div>
+      <div class="note">HTTPS management endpoint is the expected local interface.</div>
+    </article>
+
+    <article class="card" data-group="network" data-search="cisco cbs350 switch switch499dee 10.10.10.250">
+      <div class="row"><div><div class="name">Cisco CBS350</div><div class="role">Core managed switch</div></div><span class="badge standard">LIKELY WEB</span></div>
+      <div class="ip">10.10.10.250</div>
+      <div class="desc">Core managed switch providing LAN distribution, PoE, VLANs, LLDP and SPAN capability.</div>
+      <div class="actions"><a class="btn" href="https://10.10.10.250" target="_blank" rel="noopener">Open Switch</a><button class="btn secondary" data-copy="10.10.10.250">Copy IP</button></div>
+      <div class="note">Device and IP are confirmed; browser protocol/port was not recently re-confirmed.</div>
+    </article>
+
+    <article class="card" data-group="network" data-search="openwrt wifiacp1 access point 10.10.10.251">
+      <div class="row"><div><div class="name">WIFIACP1 — OpenWrt AP</div><div class="role">Wireless access point</div></div><span class="badge standard">LIKELY WEB</span></div>
+      <div class="ip">10.10.10.251</div>
+      <div class="desc">OpenWrt wireless access point connected to the Cisco CBS350.</div>
+      <div class="actions"><a class="btn" href="http://10.10.10.251" target="_blank" rel="noopener">Open OpenWrt</a><button class="btn secondary" data-copy="10.10.10.251">Copy IP</button></div>
+      <div class="note">Host/IP are confirmed; the LuCI web port was not recently re-confirmed.</div>
+    </article>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  JNS Infrastructure Launchpad — single-file local HTML. Amber items are intentionally marked where the service exists but the browser endpoint has not yet been re-confirmed.
+</footer>
+
+<script>
+  const search = document.getElementById('search');
+  const filter = document.getElementById('filter');
+  const cards = [...document.querySelectorAll('.card')];
+  const sections = [...document.querySelectorAll('[data-group-section]')];
+
+  function applyFilter(){
+    const q = search.value.trim().toLowerCase();
+    const group = filter.value;
+    cards.forEach(card => {
+      const matchesGroup = group === 'all' || card.dataset.group === group;
+      const hay = (card.dataset.search + ' ' + card.innerText).toLowerCase();
+      const matchesSearch = !q || hay.includes(q);
+      card.classList.toggle('hidden', !(matchesGroup && matchesSearch));
+    });
+    sections.forEach(section => {
+      const visible = [...section.querySelectorAll('.card')].some(c => !c.classList.contains('hidden'));
+      section.classList.toggle('hidden', !visible);
+    });
+  }
+
+  search.addEventListener('input', applyFilter);
+  filter.addEventListener('change', applyFilter);
+
+  document.querySelectorAll('[data-copy]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const ip = btn.dataset.copy;
+      try{
+        await navigator.clipboard.writeText(ip);
+        const old = btn.textContent;
+        btn.textContent = 'Copied';
+        setTimeout(()=>btn.textContent=old, 1200);
+      }catch(e){
+        prompt('Copy IP:', ip);
+      }
+    });
+  });
+</script>
+</body>
+</html>
