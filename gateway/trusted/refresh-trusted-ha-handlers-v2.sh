@@ -16,12 +16,11 @@ install -d -o root -g root -m 0755 /usr/local/libexec
   chmod 0755 "$BASE"
 }
 
-install -o root -g root -m 0755 "$SRC_ROOT/ha-package-install-handler-v1.sh"   /usr/local/libexec/jns-gateway-ha-package-install
-install -o root -g root -m 0755 "$SRC_ROOT/ha-network-identity-install-handler-v1.sh"   /usr/local/libexec/jns-gateway-ha-network-identity-install
-install -o root -g root -m 0755 "$SRC_ROOT/ha-tuya-local-event-wake-patch-handler-v1.sh"   /usr/local/libexec/jns-gateway-ha-tuya-local-event-wake-patch \
-  /usr/local/libexec/jns-gateway-bridge-selftest
-install -o root -g root -m 0755 "$SRC_ROOT/gateway-bridge-selftest-handler-v1.sh"   /usr/local/libexec/jns-gateway-bridge-selftest
-install -o root -g root -m 0755 "$SRC_ROOT/jns-gateway-exec-wrapper-v2.sh"   "$CURRENT"
+install -o root -g root -m 0755 "$SRC_ROOT/ha-package-install-handler-v1.sh" /usr/local/libexec/jns-gateway-ha-package-install
+install -o root -g root -m 0755 "$SRC_ROOT/ha-network-identity-install-handler-v1.sh" /usr/local/libexec/jns-gateway-ha-network-identity-install
+install -o root -g root -m 0755 "$SRC_ROOT/ha-tuya-local-event-wake-patch-handler-v1.sh" /usr/local/libexec/jns-gateway-ha-tuya-local-event-wake-patch
+install -o root -g root -m 0755 "$SRC_ROOT/gateway-bridge-selftest-handler-v1.sh" /usr/local/libexec/jns-gateway-bridge-selftest
+install -o root -g root -m 0755 "$SRC_ROOT/jns-gateway-exec-wrapper-v2.sh" "$CURRENT"
 
 echo "=== TRUSTED HANDLERS REFRESHED ==="
-sha256sum "$CURRENT"   /usr/local/libexec/jns-gateway-ha-package-install   /usr/local/libexec/jns-gateway-ha-network-identity-install   /usr/local/libexec/jns-gateway-ha-tuya-local-event-wake-patch
+sha256sum   "$CURRENT"   /usr/local/libexec/jns-gateway-ha-package-install   /usr/local/libexec/jns-gateway-ha-network-identity-install   /usr/local/libexec/jns-gateway-ha-tuya-local-event-wake-patch   /usr/local/libexec/jns-gateway-bridge-selftest
