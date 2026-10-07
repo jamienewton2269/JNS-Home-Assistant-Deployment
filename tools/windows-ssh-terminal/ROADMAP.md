@@ -124,15 +124,16 @@ Acceptance gates:
 - [x] Windows build validated
 - [ ] live drag-resize test while multiple terminal tabs are connected
 
-## v0.1.8.2 - high-visibility terminal scrollbars
+## v0.1.8.3 - high-visibility terminal scrollbars
 
 Acceptance gates:
 
-- [x] terminal scrollbar widened from 18 px to 28 px
+- [x] preserve the existing 18 px scrollbar width
 - [x] draggable thumb has a 48 px minimum grab height
+- [x] thumb uses a bright high-contrast idle state against the dark terminal
 - [x] thumb has a visible three-line grip
-- [x] high-contrast normal, hover and active-drag states
-- [x] visible up/down controls with larger hit targets
+- [x] near-white hover and active-drag states
+- [x] visible up/down controls
 - [x] track remains clickable for page-up/page-down
 - [x] same style applied to startup and dynamically-created terminal tabs
 - [ ] Windows build validated
