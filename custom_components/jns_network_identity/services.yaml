@@ -1,0 +1,10 @@
+import_bindings:
+  name: Import DrayTek DHCP/MAC bindings
+  description: Parse an uploaded DrayTek binding export and create/update deterministic JNS DNS identities on DNS-A.
+  fields:
+    file_id:
+      name: Uploaded file
+      description: Temporary Home Assistant file_upload ID.
+      required: true
+      selector:
+        text:
