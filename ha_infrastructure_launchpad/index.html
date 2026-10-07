@@ -74,6 +74,15 @@
     margin-top:11px;padding-top:10px;border-top:1px dashed #243a4c;color:#7f96a7;font-size:12px
   }
   footer{max-width:1400px;margin:auto;padding:0 22px 30px;color:#71889a;font-size:12px}
+  .scan-summary{color:var(--muted);font-size:13px;min-width:230px}
+  .btn:disabled{opacity:.55;cursor:wait}
+  .badge.live{color:var(--green);border-color:#285f48;background:rgba(45,145,92,.10)}
+  .badge.offline{color:var(--red);border-color:#6d3434;background:rgba(170,55,55,.10)}
+  .dynamic-card:before{background:var(--green)}
+  .empty-state{
+    border:1px dashed var(--line);border-radius:14px;padding:18px;color:var(--muted);
+    background:rgba(10,22,32,.5)
+  }
   .hidden{display:none!important}
   @media (max-width:600px){header,main,footer{padding-left:14px;padding-right:14px}.grid{grid-template-columns:1fr}}
 </style>
@@ -98,13 +107,17 @@
       <option value="dns">DNS</option>
       <option value="monitoring">Monitoring</option>
       <option value="network">Network infrastructure</option>
+      <option value="discovered">Discovered on LAN</option>
     </select>
+    <button class="btn" id="rescanBtn" type="button">Rescan LAN</button>
+    <span id="scanSummary" class="scan-summary">Discovery service loading…</span>
   </div>
 
   <div class="legend">
     <span><i class="dot" style="background:var(--green)"></i>Confirmed interface</span>
     <span><i class="dot" style="background:var(--amber)"></i>Standard/likely endpoint — not recently re-confirmed</span>
     <span><i class="dot" style="background:#91a0ad"></i>No browser interface currently known</span>
+    <span><i class="dot" style="background:var(--green)"></i>Live scan result</span>
   </div>
 </header>
 
@@ -265,6 +278,12 @@
   </div>
 </section>
 
+<section data-group-section="discovered" id="discoveredSection">
+  <div class="group-title">Discovered on LAN</div>
+  <div id="discoveredGrid" class="grid"></div>
+  <div id="discoveredEmpty" class="empty-state">Run a LAN rescan to look for new servers and management interfaces.</div>
+</section>
+
 </main>
 
 <footer>
@@ -272,42 +291,182 @@
 </footer>
 
 <script>
+  const DISCOVERY_API = 'http://10.10.10.235:8765';
   const search = document.getElementById('search');
   const filter = document.getElementById('filter');
-  const cards = [...document.querySelectorAll('.card')];
-  const sections = [...document.querySelectorAll('[data-group-section]')];
+  const rescanBtn = document.getElementById('rescanBtn');
+  const scanSummary = document.getElementById('scanSummary');
+  const discoveredGrid = document.getElementById('discoveredGrid');
+  const discoveredEmpty = document.getElementById('discoveredEmpty');
+  const staticCards = [...document.querySelectorAll('.card:not(.dynamic-card)')];
+
+  function allCards(){
+    return [...document.querySelectorAll('.card')];
+  }
+
+  function allSections(){
+    return [...document.querySelectorAll('[data-group-section]')];
+  }
+
+  function cardEndpoint(card){
+    const value = card.querySelector('.ip')?.textContent || '';
+    const m = value.match(/(10\.10\.10\.\d+)(?:\s*:\s*(\d+))?/);
+    return m ? {ip:m[1], port:m[2] ? Number(m[2]) : null} : {ip:null, port:null};
+  }
+
+  const knownIps = new Set(staticCards.map(c => cardEndpoint(c).ip).filter(Boolean));
+
+  function esc(value){
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[ch]));
+  }
 
   function applyFilter(){
     const q = search.value.trim().toLowerCase();
     const group = filter.value;
-    cards.forEach(card => {
+    allCards().forEach(card => {
       const matchesGroup = group === 'all' || card.dataset.group === group;
-      const hay = (card.dataset.search + ' ' + card.innerText).toLowerCase();
+      const hay = ((card.dataset.search || '') + ' ' + card.innerText).toLowerCase();
       const matchesSearch = !q || hay.includes(q);
       card.classList.toggle('hidden', !(matchesGroup && matchesSearch));
     });
-    sections.forEach(section => {
+    allSections().forEach(section => {
+      if(section.id === 'discoveredSection' && !discoveredGrid.children.length){
+        section.classList.toggle('hidden', group !== 'all' && group !== 'discovered');
+        return;
+      }
       const visible = [...section.querySelectorAll('.card')].some(c => !c.classList.contains('hidden'));
       section.classList.toggle('hidden', !visible);
     });
   }
 
-  search.addEventListener('input', applyFilter);
-  filter.addEventListener('change', applyFilter);
+  function serviceLinks(host){
+    const web = (host.services || []).filter(s => s.web && s.url);
+    if(!web.length) return '';
+    return web.slice(0,5).map(s =>
+      '<a class="btn" href="' + esc(s.url) + '" target="_blank" rel="noopener">' +
+      'Open ' + esc(s.label || ('Port ' + s.port)) + '</a>'
+    ).join('');
+  }
 
-  document.querySelectorAll('[data-copy]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const ip = btn.dataset.copy;
-      try{
-        await navigator.clipboard.writeText(ip);
-        const old = btn.textContent;
-        btn.textContent = 'Copied';
-        setTimeout(()=>btn.textContent=old, 1200);
-      }catch(e){
-        prompt('Copy IP:', ip);
+  function renderDiscovered(data){
+    const hosts = Array.isArray(data.hosts) ? data.hosts : [];
+    const byIp = new Map(hosts.map(h => [h.ip, h]));
+
+    staticCards.forEach(card => {
+      const ep = cardEndpoint(card);
+      if(!ep.ip) return;
+      const host = byIp.get(ep.ip);
+      const badge = card.querySelector('.badge');
+      if(!badge) return;
+
+      if(host){
+        const endpointLive = !ep.port || (host.open_ports || []).includes(ep.port);
+        badge.classList.remove('standard','none','confirmed','live','offline');
+        badge.classList.add(endpointLive ? 'live' : 'offline');
+        badge.textContent = endpointLive ? 'LIVE' : 'PORT DOWN';
+      }else{
+        badge.classList.remove('standard','none','confirmed','live');
+        badge.classList.add('offline');
+        badge.textContent = 'NOT SEEN';
       }
     });
+
+    const newlyFound = hosts.filter(h => !knownIps.has(h.ip));
+    discoveredGrid.innerHTML = newlyFound.map(host => {
+      const title = host.hostname || ('New host — ' + host.ip);
+      const ports = (host.open_ports || []).join(', ');
+      const webCount = (host.services || []).filter(s => s.web).length;
+      const detail = (host.services || []).map(s => {
+        const bits = [s.label || ('TCP ' + s.port)];
+        if(s.title) bits.push(s.title);
+        if(s.http_status) bits.push('HTTP ' + s.http_status);
+        return bits.join(' · ');
+      }).join(' | ');
+      return '<article class="card dynamic-card" data-group="discovered" data-search="' +
+        esc([title,host.ip,host.role,ports,detail].join(' ')) + '">' +
+        '<div class="row"><div><div class="name">' + esc(title) + '</div>' +
+        '<div class="role">' + esc(host.role || 'Discovered LAN host') + '</div></div>' +
+        '<span class="badge live">DISCOVERED</span></div>' +
+        '<div class="ip">' + esc(host.ip) + '</div>' +
+        '<div class="desc">' + esc(detail || ('Open TCP ports: ' + ports)) + '</div>' +
+        '<div class="actions">' + serviceLinks(host) +
+        '<button class="btn secondary" data-copy="' + esc(host.ip) + '">Copy IP</button></div>' +
+        '<div class="note">Open ports: ' + esc(ports || 'none') +
+        (webCount ? ' · Web interfaces: ' + webCount : ' · No web interface identified') + '</div>' +
+        '</article>';
+    }).join('');
+
+    discoveredEmpty.classList.toggle('hidden', newlyFound.length > 0);
+    if(!newlyFound.length){
+      discoveredEmpty.textContent = hosts.length
+        ? 'No previously unknown hosts were found in this scan.'
+        : 'No hosts have been discovered yet.';
+    }
+
+    const when = data.finished_at ? new Date(data.finished_at).toLocaleString() : 'never';
+    const seconds = data.duration_seconds == null ? '' : ' · ' + data.duration_seconds + 's';
+    scanSummary.textContent = 'Last scan: ' + when + ' · ' + (data.host_count ?? hosts.length) +
+      ' hosts · ' + newlyFound.length + ' new' + seconds;
+    applyFilter();
+  }
+
+  async function loadState(){
+    try{
+      const r = await fetch(DISCOVERY_API + '/api/state', {cache:'no-store'});
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      renderDiscovered(await r.json());
+    }catch(err){
+      scanSummary.textContent = 'Discovery API unavailable — curated links remain usable';
+    }
+  }
+
+  async function rescan(){
+    rescanBtn.disabled = true;
+    const old = rescanBtn.textContent;
+    rescanBtn.textContent = 'Scanning…';
+    scanSummary.textContent = 'Scanning 10.10.10.0/24 for infrastructure services…';
+    try{
+      const r = await fetch(DISCOVERY_API + '/api/scan', {
+        method:'POST',
+        cache:'no-store',
+        headers:{'Content-Type':'application/json'},
+        body:'{}'
+      });
+      if(!r.ok){
+        let detail = '';
+        try{ detail = (await r.json()).error || ''; }catch(e){}
+        throw new Error(detail || ('HTTP ' + r.status));
+      }
+      renderDiscovered(await r.json());
+    }catch(err){
+      scanSummary.textContent = 'Scan failed: ' + err.message;
+    }finally{
+      rescanBtn.disabled = false;
+      rescanBtn.textContent = old;
+    }
+  }
+
+  search.addEventListener('input', applyFilter);
+  filter.addEventListener('change', applyFilter);
+  rescanBtn.addEventListener('click', rescan);
+
+  document.addEventListener('click', async (event) => {
+    const btn = event.target.closest('[data-copy]');
+    if(!btn) return;
+    const ip = btn.dataset.copy;
+    try{
+      await navigator.clipboard.writeText(ip);
+      const old = btn.textContent;
+      btn.textContent = 'Copied';
+      setTimeout(()=>btn.textContent=old, 1200);
+    }catch(e){
+      prompt('Copy IP:', ip);
+    }
   });
+
+  loadState();
 </script>
 </body>
 </html>
