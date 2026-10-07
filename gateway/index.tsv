@@ -9,3 +9,4 @@ job_id	state	exit_code	started	finished
 20261007T123700Z-ha-general-network-identity-install-02	failed	255	2026-10-07T13:36:08+01:00	2026-10-07T13:36:08+01:00
 20261007T132100Z-ha-general-lux-dusk-02	failed	1	2026-10-07T13:31:27+01:00	2026-10-07T13:31:27+01:00
 20261007T133800Z-ha-general-lux-dusk-03	failed	255	2026-10-07T13:37:04+01:00	2026-10-07T13:37:04+01:00
+20261007T140900Z-ha-general-network-identity-install-03	failed	64	2026-10-07T15:07:55+01:00	2026-10-07T15:07:55+01:00

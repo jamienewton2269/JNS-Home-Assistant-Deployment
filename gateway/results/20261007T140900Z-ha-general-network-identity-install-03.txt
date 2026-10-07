@@ -1,0 +1,12 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261007T140900Z-ha-general-network-identity-install-03
+started=2026-10-07T15:07:55+01:00
+runner=nodec
+
+{
+  "state": "rejected",
+  "reason": "job_type is not allow-listed"
+}
+
+finished=2026-10-07T15:07:55+01:00
+exit_code=64
