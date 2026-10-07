@@ -1,42 +1,69 @@
-name: JNS Node C Gateway
+name: JNS Node C Gateway Queue
 
 on:
   push:
     branches: [main]
     paths:
       - 'gateway/request.sh'
+      - 'gateway/queue/**.sh'
 
 permissions:
   contents: write
 
+concurrency:
+  group: jns-nodec-gateway-queue
+  cancel-in-progress: false
+
 jobs:
   nodec:
     runs-on: [self-hosted, linux, x64, nodec]
-    timeout-minutes: 10
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Execute gateway request
+      - name: Ingest legacy request
         shell: bash
         run: |
-          set -o pipefail
-          mkdir -p gateway
-          chmod +x gateway/request.sh
-          {
-            echo "=== JNS NODE C GATEWAY ==="
-            date -Is
-            echo "runner=$(hostname)"
-            echo
-            bash gateway/request.sh
-          } 2>&1 | tee gateway/result.txt
+          set -Eeuo pipefail
+          mkdir -p gateway/queue gateway/results gateway/status
+          if git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep -qx 'gateway/request.sh'; then
+            stamp="$(TZ=UTC date -d "$(git show -s --format=%cI "$GITHUB_SHA")" +%Y%m%dT%H%M%SZ)"
+            job="gateway/queue/${stamp}-legacy-${GITHUB_SHA:0:12}.sh"
+            if [[ ! -e "$job" ]]; then
+              cp gateway/request.sh "$job"
+              chmod +x "$job"
+              echo "legacy_job=$job"
+            fi
+          fi
 
-      - name: Return result
+      - name: Dispatch queued jobs
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          chmod +x gateway/dispatcher.sh
+          gateway/dispatcher.sh gateway
+
+      - name: Return queue state and per-job results
         if: always()
         shell: bash
         run: |
+          set -Eeuo pipefail
           git config user.name "jns-nodec-gateway"
           git config user.email "jns-nodec-gateway@users.noreply.github.com"
-          git add gateway/result.txt
-          git diff --cached --quiet && exit 0
-          git commit -m "gateway: return Node C command result"
-          git push
+          git add gateway/queue gateway/results gateway/status gateway/index.tsv
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "gateway: record queued Node C job results"
+
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Unable to publish gateway results after 3 attempts" >&2
+          exit 1
