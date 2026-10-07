@@ -1,0 +1,6 @@
+{
+  "job_id": "20261007T122800Z-tuya-event-wake-patch-01",
+  "job_type": "ha_tuya_local_event_wake_patch",
+  "target": "ha-general",
+  "patch": "bounded-config-flow-v1"
+}
