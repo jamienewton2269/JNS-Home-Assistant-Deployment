@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - 'gateway/request.sh'
-      - 'gateway/queue/**.sh'
+      - 'gateway/queue/**.json'
 
 permissions:
   contents: write
