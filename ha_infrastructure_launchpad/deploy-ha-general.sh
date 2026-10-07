@@ -19,7 +19,7 @@ echo "target=HA-General vmid=$VMID ip=$HA_IP"
 HTML_B64="$(base64 -w0 "$HTML")"
 HTML_SHA="$(sha256sum "$HTML" | awk '{print $1}')"
 
-timeout 180s ssh -o BatchMode=yes "$NODE_B"   "VMID='$VMID' HA_ROOT='$HA_ROOT' TARGET='$TARGET' CFG='$CFG' STAMP='$STAMP' HTML_SHA='$HTML_SHA' HTML_B64='$HTML_B64' bash -s" <<'NODEB'
+timeout 240s ssh -o BatchMode=yes "$NODE_B"   "VMID='$VMID' HA_IP='$HA_IP' HA_ROOT='$HA_ROOT' TARGET='$TARGET' CFG='$CFG' STAMP='$STAMP' HTML_SHA='$HTML_SHA' HTML_B64='$HTML_B64' bash -s" <<'NODEB'
 set -Eeuo pipefail
 
 guest() {
