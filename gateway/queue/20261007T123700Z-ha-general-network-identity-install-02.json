@@ -1,0 +1,5 @@
+{
+  "job_id": "20261007T123700Z-ha-general-network-identity-install-02",
+  "job_type": "ha_network_identity_install",
+  "target": "ha-general"
+}
