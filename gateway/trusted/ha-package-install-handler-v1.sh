@@ -89,7 +89,7 @@ trap 'rc=$?; if [ "$rc" -ne 0 ]; then rollback; fi; exit "$rc"' EXIT
 guest_exec "mkdir -p '$PKG_DIR'; if [ -f '$TARGET' ]; then cp -a '$TARGET' '$BACKUP'; fi" >/dev/null
 guest_exec "printf '%s' '$CONTENT_B64' | base64 -d > '$TARGET.jns-new' && test -s '$TARGET.jns-new' && mv '$TARGET.jns-new' '$TARGET'" >/dev/null
 
-ACTUAL_SHA="$(guest_exec "sha256sum '$TARGET' | awk '{print \\$1}'" | tr -d '\r\n')"
+ACTUAL_SHA="$(guest_exec "sha256sum '$TARGET' | cut -d ' ' -f1" | tr -d '\r\n')"
 [ "$ACTUAL_SHA" = "$CONTENT_SHA256" ] || {
   echo "Package integrity mismatch expected=$CONTENT_SHA256 actual=$ACTUAL_SHA" >&2
   exit 43
