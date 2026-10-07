@@ -1,7 +1,7 @@
 {
-  "exit_code": null,
-  "finished": null,
+  "exit_code": 125,
+  "finished": "2026-10-07T22:23:59+01:00",
   "job_id": "20261007T203500Z-infrastructure-socket-interlocks-01",
-  "started": "2026-10-07T20:43:18+01:00",
-  "state": "running"
+  "started": "2026-10-07T22:23:12+01:00",
+  "state": "failed"
 }

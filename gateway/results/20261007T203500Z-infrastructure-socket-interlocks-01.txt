@@ -1,0 +1,13 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261007T203500Z-infrastructure-socket-interlocks-01
+started=2026-10-07T22:23:12+01:00
+runner=nodec
+
+{
+   "pid" : 38403
+}
+timeout reached, returning pid
+ROLLBACK: restoring previous package
+
+finished=2026-10-07T22:23:59+01:00
+exit_code=125

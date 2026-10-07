@@ -19,3 +19,4 @@ job_id	state	exit_code	started	finished
 20261007T191500Z-gateway-bridge-selftest-03	done	0	2026-10-07T20:13:07+01:00	2026-10-07T20:13:14+01:00
 20261007T193300Z-ha-general-network-identity-install-07	failed	1	2026-10-07T20:32:42+01:00	2026-10-07T20:33:08+01:00
 20261007T203200Z-ha-general-lux-dusk-05	failed	1	2026-10-07T20:34:54+01:00	2026-10-07T20:35:07+01:00
+20261007T203500Z-infrastructure-socket-interlocks-01	failed	125	2026-10-07T22:23:12+01:00	2026-10-07T22:23:59+01:00
