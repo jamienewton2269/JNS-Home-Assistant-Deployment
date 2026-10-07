@@ -75,7 +75,7 @@ for _ in $(seq 1 45); do
 done
 
 ssh_as_runner   "qm guest exec $VMID -- /bin/bash -lc 'ha core info'"
-ssh_as_runner   "qm guest exec $VMID -- /bin/bash -lc 'ha core logs | tail -n 120 | grep -i -E "jns_network_identity|network identity" || true'"
+ssh_as_runner "qm guest exec $VMID -- /bin/bash -lc \"ha core logs | tail -n 120 | grep -i -E 'jns_network_identity|network identity' || true\""
 
 echo "HA_NETWORK_IDENTITY_INSTALL_OK"
 echo "job_id=$JOB_ID"
