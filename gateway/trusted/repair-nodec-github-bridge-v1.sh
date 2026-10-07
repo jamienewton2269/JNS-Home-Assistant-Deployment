@@ -38,6 +38,15 @@ Host github.com
     User git
     IdentityFile $KEY
     IdentitiesOnly yes
+
+Host nodeb
+    HostName 10.10.10.235
+    User root
+    IdentityFile $SSH_DIR/id_ed25519
+    IdentitiesOnly yes
+    BatchMode yes
+    ConnectTimeout 10
+    StrictHostKeyChecking accept-new
 EOF
 chown "$RUNNER:$RUNNER" "$SSH_DIR/config"
 chmod 600 "$SSH_DIR/config"
