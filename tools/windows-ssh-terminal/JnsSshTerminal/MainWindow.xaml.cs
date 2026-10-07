@@ -30,14 +30,26 @@ public partial class MainWindow : Window
         public JnsSecureShellSession? Session { get; set; }
         public SshClient? Client { get; set; }
         public PrivateKeyFile? PrivateKeyFile { get; set; }
+
         public string Status { get; set; }
+        public string Host { get; set; } = "";
+        public int Port { get; set; } = 22;
+        public string Username { get; set; } = "";
+        public string Label { get; set; } = "";
+        public string? KeyFilePath { get; set; }
+
+        public bool Persistent { get; set; }
+        public string? TmuxSessionName { get; set; }
     }
 
     private readonly ProfileStore _profileStore = new();
     private readonly CommandHistoryStore _history = new();
     private readonly KnownHostsStore _knownHosts = new();
+    private readonly DetachedSessionStore _detachedStore = new();
 
     private List<HostProfile> _profiles = new();
+    private List<DetachedSessionInfo> _detachedSessions = new();
+
     private readonly List<SessionSlot> _slots = [];
     private int _nextTerminalNumber = 2;
 
@@ -57,6 +69,9 @@ public partial class MainWindow : Window
         _profiles = _profileStore.Load();
         SavedHosts.ItemsSource = _profiles;
 
+        _detachedSessions = _detachedStore.Load();
+        RefreshDetachedSessions();
+
         _history.Load();
         HistoryList.ItemsSource = _history.Entries;
 
@@ -73,6 +88,24 @@ public partial class MainWindow : Window
         Port.Text = profile.Port.ToString();
         Username.Text = profile.Username;
         KeyFile.Text = profile.KeyFile ?? "";
+    }
+
+    private void DetachedSessions_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (DetachedSessions.SelectedItem is not DetachedSessionInfo detached)
+            return;
+
+        ProfileName.Text = detached.Label;
+        HostName.Text = detached.Host;
+        Port.Text = detached.Port.ToString();
+        Username.Text = detached.Username;
+
+        var matchingProfile = _profiles.FirstOrDefault(p =>
+            string.Equals(p.Host, detached.Host, StringComparison.OrdinalIgnoreCase) &&
+            p.Port == detached.Port &&
+            string.Equals(p.Username, detached.Username, StringComparison.OrdinalIgnoreCase));
+
+        KeyFile.Text = matchingProfile?.KeyFile ?? detached.KeyFile ?? "";
     }
 
     private void SaveHost_Click(object sender, RoutedEventArgs e)
@@ -119,6 +152,57 @@ public partial class MainWindow : Window
 
     private async void Connect_Click(object sender, RoutedEventArgs e)
     {
+        if (ActiveSlot.Session?.IsConnected == true)
+        {
+            MessageBox.Show(
+                this,
+                "The active terminal is already connected.\n\n" +
+                "Use + New Terminal for another connection, or explicitly Detach & Close / Kill Remote Session first.",
+                "JNS SSH",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        await ConnectActiveAsync(null);
+    }
+
+    private async void ReattachDetached_Click(object sender, RoutedEventArgs e)
+    {
+        if (DetachedSessions.SelectedItem is not DetachedSessionInfo detached)
+        {
+            MessageBox.Show(
+                this,
+                "Select a detached session first.",
+                "JNS SSH",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        if (ActiveSlot.Session?.IsConnected == true)
+            CreateTerminalSlot(select: true);
+
+        ProfileName.Text = detached.Label;
+        HostName.Text = detached.Host;
+        Port.Text = detached.Port.ToString();
+        Username.Text = detached.Username;
+
+        if (string.IsNullOrWhiteSpace(KeyFile.Text))
+        {
+            var matchingProfile = _profiles.FirstOrDefault(p =>
+                string.Equals(p.Host, detached.Host, StringComparison.OrdinalIgnoreCase) &&
+                p.Port == detached.Port &&
+                string.Equals(p.Username, detached.Username, StringComparison.OrdinalIgnoreCase));
+
+            KeyFile.Text = matchingProfile?.KeyFile ?? detached.KeyFile ?? "";
+        }
+
+        await ConnectActiveAsync(detached);
+    }
+
+    private async Task ConnectActiveAsync(DetachedSessionInfo? reattach)
+    {
         if (!TryReadConnectionFields(out var profileName, out var host, out var port, out var username))
             return;
 
@@ -133,9 +217,11 @@ public partial class MainWindow : Window
         }
 
         var slot = ActiveSlot;
-        await DisconnectSlotAsync(slot, updateUi: false);
+        await CloseTransportAsync(slot);
 
-        slot.Status = $"Connecting to {host}:{port}…";
+        slot.Status = reattach is null
+            ? $"Connecting to {host}:{port}…"
+            : $"Reattaching {reattach.SessionName}…";
         UpdateActiveStatus();
 
         string endpoint = $"{host}:{port}";
@@ -144,12 +230,13 @@ public partial class MainWindow : Window
 
         try
         {
-            if (!string.IsNullOrWhiteSpace(KeyFile.Text))
+            string? keyPath = string.IsNullOrWhiteSpace(KeyFile.Text) ? null : KeyFile.Text.Trim();
+
+            if (keyPath is not null)
             {
-                string path = KeyFile.Text.Trim();
                 slot.PrivateKeyFile = string.IsNullOrEmpty(Password.Password)
-                    ? new PrivateKeyFile(path)
-                    : new PrivateKeyFile(path, Password.Password);
+                    ? new PrivateKeyFile(keyPath)
+                    : new PrivateKeyFile(keyPath, Password.Password);
 
                 slot.Client = new SshClient(host, port, username, slot.PrivateKeyFile);
             }
@@ -157,6 +244,12 @@ public partial class MainWindow : Window
             {
                 slot.Client = new SshClient(host, port, username, Password.Password);
             }
+
+            slot.Host = host;
+            slot.Port = port;
+            slot.Username = username;
+            slot.Label = string.IsNullOrWhiteSpace(profileName) ? host : profileName;
+            slot.KeyFilePath = keyPath;
 
             slot.Client.HostKeyReceived += (_, args) =>
             {
@@ -206,10 +299,52 @@ public partial class MainWindow : Window
             };
 
             slot.Session = new JnsSecureShellSession(slot.Client);
-
-            // The SSH transport and ShellStream must exist before the terminal
-            // control is attached because attaching can immediately trigger Resize().
             await slot.Session.ConnectAsync();
+
+            bool tmuxAvailable = await RemoteCommandSucceedsAsync(
+                slot.Client,
+                "command -v tmux >/dev/null 2>&1");
+
+            if (reattach is not null)
+            {
+                if (!tmuxAvailable)
+                {
+                    throw new InvalidOperationException(
+                        "This host no longer has tmux available, so the detached terminal cannot be reattached.");
+                }
+
+                bool exists = await RemoteCommandSucceedsAsync(
+                    slot.Client,
+                    $"tmux has-session -t {ShellQuote(reattach.SessionName)} 2>/dev/null");
+
+                if (!exists)
+                {
+                    RemoveDetachedRecord(reattach.SessionName);
+                    throw new InvalidOperationException(
+                        "The detached tmux session no longer exists on the remote host. " +
+                        "It may have been killed or the remote machine may have rebooted.");
+                }
+
+                slot.Persistent = true;
+                slot.TmuxSessionName = reattach.SessionName;
+                slot.Session.Write(Encoding.UTF8.GetBytes(
+                    $"tmux attach-session -t {ShellQuote(reattach.SessionName)}\n"));
+
+                RemoveDetachedRecord(reattach.SessionName);
+            }
+            else if (tmuxAvailable)
+            {
+                slot.Persistent = true;
+                slot.TmuxSessionName = GenerateTmuxSessionName();
+                slot.Session.Write(Encoding.UTF8.GetBytes(
+                    $"tmux new-session -s {ShellQuote(slot.TmuxSessionName)}\n"));
+            }
+            else
+            {
+                slot.Persistent = false;
+                slot.TmuxSessionName = null;
+            }
+
             slot.Terminal.Session = slot.Session;
 
             if (pendingTrust is not null)
@@ -222,9 +357,10 @@ public partial class MainWindow : Window
 
             Password.Clear();
 
-            string label = string.IsNullOrWhiteSpace(profileName) ? host : profileName;
-            slot.Tab.Header = $"{slot.BaseTitle} • {label}";
-            slot.Status = $"Connected: {username}@{host}:{port}";
+            slot.Tab.Header = $"{slot.BaseTitle} • {slot.Label}";
+            slot.Status = slot.Persistent
+                ? $"Connected: {username}@{host}:{port} • persistent tmux"
+                : $"Connected: {username}@{host}:{port} • tmux unavailable";
 
             UpdateActiveStatus();
             slot.Terminal.Focus();
@@ -233,7 +369,8 @@ public partial class MainWindow : Window
         {
             Password.Clear();
             string message = hostKeyFailure ?? FriendlyConnectionError(ex);
-            await DisconnectSlotAsync(slot, updateUi: true);
+            await CloseTransportAsync(slot);
+            ResetSlot(slot);
 
             MessageBox.Show(
                 this,
@@ -244,12 +381,12 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void Disconnect_Click(object sender, RoutedEventArgs e)
+    private void NewTerminal_Click(object sender, RoutedEventArgs e)
     {
-        await DisconnectSlotAsync(ActiveSlot, updateUi: true);
+        CreateTerminalSlot(select: true);
     }
 
-    private void NewTerminal_Click(object sender, RoutedEventArgs e)
+    private SessionSlot CreateTerminalSlot(bool select)
     {
         int number = ++_nextTerminalNumber;
         string title = $"Terminal {number}";
@@ -275,13 +412,106 @@ public partial class MainWindow : Window
         var slot = new SessionSlot(title, tab, terminal);
         _slots.Add(slot);
         TerminalTabs.Items.Add(tab);
-        TerminalTabs.SelectedItem = tab;
+
+        if (select)
+            TerminalTabs.SelectedItem = tab;
 
         UpdateActiveStatus();
-        terminal.Focus();
+        return slot;
     }
 
-    private async Task DisconnectSlotAsync(SessionSlot slot, bool updateUi)
+    private async void DetachClose_Click(object sender, RoutedEventArgs e)
+    {
+        var slot = ActiveSlot;
+
+        if (slot.Session?.IsConnected != true)
+        {
+            RemoveSlot(slot);
+            return;
+        }
+
+        if (!slot.Persistent || string.IsNullOrWhiteSpace(slot.TmuxSessionName))
+        {
+            MessageBox.Show(
+                this,
+                "This remote host does not have a tmux-backed persistent session.\n\n" +
+                "Closing this view would terminate its SSH PTY, so it has not been closed. " +
+                "Use Kill Remote Session if you intentionally want to end it.",
+                "Cannot safely detach",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        try
+        {
+            await RunRemoteCommandAsync(
+                slot.Client!,
+                $"tmux detach-client -s {ShellQuote(slot.TmuxSessionName)} 2>/dev/null || true");
+
+            SaveDetachedRecord(slot);
+            await CloseTransportAsync(slot);
+            RemoveSlot(slot);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                this,
+                $"Could not detach the remote terminal safely: {ex.Message}",
+                "Detach failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private async void KillSession_Click(object sender, RoutedEventArgs e)
+    {
+        var slot = ActiveSlot;
+
+        if (slot.Session?.IsConnected != true)
+        {
+            RemoveSlot(slot);
+            return;
+        }
+
+        var answer = MessageBox.Show(
+            this,
+            "Terminate the remote terminal session and close this tab?\n\n" +
+            "Any foreground command running inside this terminal will be terminated. " +
+            "This cannot be reattached afterwards.",
+            "Kill remote session",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (answer != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            if (slot.Persistent && !string.IsNullOrWhiteSpace(slot.TmuxSessionName))
+            {
+                await RunRemoteCommandAsync(
+                    slot.Client!,
+                    $"tmux kill-session -t {ShellQuote(slot.TmuxSessionName)} 2>/dev/null || true");
+
+                RemoveDetachedRecord(slot.TmuxSessionName);
+            }
+
+            await CloseTransportAsync(slot);
+            RemoveSlot(slot);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                this,
+                $"Remote session termination reported an error: {ex.Message}",
+                "Kill remote session",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private async Task CloseTransportAsync(SessionSlot slot)
     {
         var session = slot.Session;
         var client = slot.Client;
@@ -300,7 +530,7 @@ public partial class MainWindow : Window
             }
             catch
             {
-                // Disconnect is best-effort.
+                // Transport shutdown is best-effort.
             }
 
             session.Dispose();
@@ -308,12 +538,89 @@ public partial class MainWindow : Window
 
         client?.Dispose();
         key?.Dispose();
+    }
 
+    private void RemoveSlot(SessionSlot slot)
+    {
+        int index = TerminalTabs.Items.IndexOf(slot.Tab);
+
+        TerminalTabs.Items.Remove(slot.Tab);
+        _slots.Remove(slot);
+
+        if (_slots.Count == 0)
+        {
+            CreateTerminalSlot(select: true);
+            return;
+        }
+
+        int nextIndex = Math.Clamp(index, 0, TerminalTabs.Items.Count - 1);
+        TerminalTabs.SelectedIndex = nextIndex;
+        UpdateActiveStatus();
+        ActiveTerminal.Focus();
+    }
+
+    private void ResetSlot(SessionSlot slot)
+    {
         slot.Tab.Header = slot.BaseTitle;
         slot.Status = "Disconnected";
+        slot.Persistent = false;
+        slot.TmuxSessionName = null;
+        slot.Host = "";
+        slot.Username = "";
+        slot.Label = "";
+        slot.KeyFilePath = null;
 
-        if (updateUi && ReferenceEquals(slot, ActiveSlot))
+        if (ReferenceEquals(slot, ActiveSlot))
             UpdateActiveStatus();
+    }
+
+    private void SaveDetachedRecord(SessionSlot slot)
+    {
+        if (!slot.Persistent || string.IsNullOrWhiteSpace(slot.TmuxSessionName))
+            return;
+
+        var record = new DetachedSessionInfo
+        {
+            SessionName = slot.TmuxSessionName,
+            Label = string.IsNullOrWhiteSpace(slot.Label) ? slot.Host : slot.Label,
+            Host = slot.Host,
+            Port = slot.Port,
+            Username = slot.Username,
+            KeyFile = slot.KeyFilePath,
+            DetachedAtUtc = DateTime.UtcNow
+        };
+
+        _detachedSessions.RemoveAll(item =>
+            string.Equals(item.SessionName, record.SessionName, StringComparison.Ordinal));
+
+        _detachedSessions.Add(record);
+        _detachedStore.Save(_detachedSessions);
+        RefreshDetachedSessions(record.SessionName);
+    }
+
+    private void RemoveDetachedRecord(string sessionName)
+    {
+        _detachedSessions.RemoveAll(item =>
+            string.Equals(item.SessionName, sessionName, StringComparison.Ordinal));
+
+        _detachedStore.Save(_detachedSessions);
+        RefreshDetachedSessions();
+    }
+
+    private void RefreshDetachedSessions(string? selectSessionName = null)
+    {
+        _detachedSessions = _detachedSessions
+            .OrderByDescending(item => item.DetachedAtUtc)
+            .ToList();
+
+        DetachedSessions.ItemsSource = null;
+        DetachedSessions.ItemsSource = _detachedSessions;
+
+        if (selectSessionName is not null)
+        {
+            DetachedSessions.SelectedItem = _detachedSessions.FirstOrDefault(item =>
+                string.Equals(item.SessionName, selectSessionName, StringComparison.Ordinal));
+        }
     }
 
     private void TerminalTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -353,7 +660,6 @@ public partial class MainWindow : Window
         if (sender is not TerminalControl terminal)
             return;
 
-        // Right-click is always paste into the terminal that was clicked.
         if (TerminalControl.PasteCommand.CanExecute(null, terminal))
             TerminalControl.PasteCommand.Execute(null, terminal);
 
@@ -377,8 +683,6 @@ public partial class MainWindow : Window
             Keyboard.Modifiers.HasFlag(ModifierKeys.Control) &&
             !Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
         {
-            // JNS clipboard rule: Ctrl+C is reserved for copy and must never
-            // accidentally interrupt a running remote command.
             if (TerminalControl.CopyCommand.CanExecute(null, terminal))
                 TerminalControl.CopyCommand.Execute(null, terminal);
 
@@ -537,6 +841,21 @@ public partial class MainWindow : Window
         return true;
     }
 
+    private static string GenerateTmuxSessionName() =>
+        $"jns-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}"[..32];
+
+    private static string ShellQuote(string value) =>
+        "'" + value.Replace("'", "'\"'\"'", StringComparison.Ordinal) + "'";
+
+    private static async Task<bool> RemoteCommandSucceedsAsync(SshClient client, string command)
+    {
+        var result = await RunRemoteCommandAsync(client, command);
+        return result.ExitStatus == 0;
+    }
+
+    private static Task<SshCommand> RunRemoteCommandAsync(SshClient client, string command) =>
+        Task.Run(() => client.RunCommand(command));
+
     private static string FriendlyConnectionError(Exception ex)
     {
         return ex switch
@@ -551,18 +870,27 @@ public partial class MainWindow : Window
     {
         _history.Save();
 
-        try
+        foreach (var slot in _slots)
         {
-            foreach (var slot in _slots)
+            try
             {
-                slot.Session?.Dispose();
-                slot.Client?.Dispose();
-                slot.PrivateKeyFile?.Dispose();
+                if (slot.Persistent &&
+                    slot.Session?.IsConnected == true &&
+                    !string.IsNullOrWhiteSpace(slot.TmuxSessionName))
+                {
+                    SaveDetachedRecord(slot);
+                }
             }
+            catch
+            {
+                // Do not block application shutdown if persistence metadata fails.
+            }
+
+            slot.Session?.Dispose();
+            slot.Client?.Dispose();
+            slot.PrivateKeyFile?.Dispose();
         }
-        finally
-        {
-            base.OnClosed(e);
-        }
+
+        base.OnClosed(e);
     }
 }

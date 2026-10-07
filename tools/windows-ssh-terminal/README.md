@@ -107,6 +107,14 @@ The application provides two fixed terminal tabs. Each tab owns its own SSH clie
 
 Two terminal tabs are available at startup. **+ New Terminal** adds more without reconnecting or disturbing existing sessions. Every tab owns an independent SSH client, shell stream, screen buffer and scrollback. All terminal actions operate on the currently active tab.
 
+## v0.1.6 - persistent remote terminals
+
+On hosts with **tmux** installed, new terminals are automatically wrapped in a uniquely named tmux session. **Detach & Close** removes the local view and SSH transport while leaving the remote terminal and its foreground command running. The app stores only the host/user/tmux identifier and optional key-file path in `%LOCALAPPDATA%\\JNS\\SshTerminal\\detached-sessions.json`; passwords and passphrases are never stored. **Reattach Detached Session** authenticates again and attaches to the same tmux session.
+
+**Kill Remote Session** is intentionally destructive: it kills the remote tmux session and closes the local tab. If tmux is not available, the app refuses a persistence detach rather than implying an ordinary SSH PTY can be reconstructed later.
+
+Closing the Windows application records connected tmux sessions as detached, so they can be found after reopening the app. This survives closing/restarting the client, but a reboot of the remote server normally destroys tmux sessions unless the workload has separate reboot persistence.
+
 ## v0.2 - native ChatGPT workspace
 
 The next version removes the browser copy/paste loop.

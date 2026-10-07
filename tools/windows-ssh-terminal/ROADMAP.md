@@ -58,8 +58,24 @@ Acceptance gates:
 - [x] every added tab gets an independent SSH connection, screen buffer and scrollback
 - [x] adding a tab does not disconnect or clear existing tabs
 - [x] Connect / Disconnect / Copy / Paste / Clear Buffer / Stop Current target the active tab
-- [ ] Windows build validated
+- [x] Windows build validated
 - [ ] live test creating a third terminal while two sessions remain connected
+
+## v0.1.6 - persistent detach / reattach
+
+Acceptance gates:
+
+- [x] tmux-backed persistence when tmux is available on the remote host
+- [x] Detach & Close removes the local tab without stopping the remote terminal
+- [x] detached session metadata persists locally without credentials
+- [x] Reattach Detached Session reconnects to the same tmux terminal after authentication
+- [x] Kill Remote Session terminates the tmux session and closes the local tab
+- [x] non-tmux hosts refuse safe detach rather than falsely claiming persistence
+- [x] closing the Windows app records live tmux sessions for later reattachment
+- [x] Connect cannot silently replace an already-connected terminal
+- [ ] Windows build validated
+- [ ] live detach / reconnect test
+- [ ] live kill-session cleanup test
 
 ## v0.2 - ChatGPT integration
 
