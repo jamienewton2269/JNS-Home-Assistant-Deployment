@@ -20,21 +20,75 @@ ssh_as_runner() {
 # command failed. Always parse the guest exitcode and surface guest output.
 guest_exec() {
   local shell_cmd="$1"
-  local json rc
+  local raw rc pid status exited
   set +e
-  json="$(ssh_as_runner "qm guest exec $VMID -- /bin/bash -lc $(printf '%q' "$shell_cmd")" 2>&1)"
+  raw="$(ssh_as_runner "qm guest exec $VMID -- /bin/bash -lc $(printf '%q' "$shell_cmd")" 2>&1)"
   rc=$?
   set -e
   if [ "$rc" -ne 0 ]; then
-    printf '%s\n' "$json" >&2
+    printf '%s\n' "$raw" >&2
     return "$rc"
   fi
 
-  printf '%s\n' "$json" | python3 -c '
+  pid="$(printf '%s\n' "$raw" | python3 -c '
 import json,sys
 raw=sys.stdin.read()
+start=raw.find("{")
+if start < 0:
+    raise SystemExit(0)
 try:
-    d=json.loads(raw)
+    d=json.loads(raw[start:])
+except Exception:
+    raise SystemExit(0)
+p=d.get("pid")
+if p is not None:
+    print(int(p))
+' || true)"
+
+  if [ -n "$pid" ]; then
+    raw=""
+    for _ in $(seq 1 180); do
+      set +e
+      status="$(ssh_as_runner "qm guest exec-status $VMID $pid" 2>&1)"
+      rc=$?
+      set -e
+      if [ "$rc" -ne 0 ]; then
+        printf '%s\n' "$status" >&2
+        return "$rc"
+      fi
+      exited="$(printf '%s\n' "$status" | python3 -c '
+import json,sys
+raw=sys.stdin.read()
+start=raw.find("{")
+if start < 0:
+    print(0); raise SystemExit
+try:
+    d=json.loads(raw[start:])
+except Exception:
+    print(0); raise SystemExit
+print(1 if d.get("exited") else 0)
+')"
+      if [ "$exited" = "1" ]; then
+        raw="$status"
+        break
+      fi
+      sleep 1
+    done
+    [ -n "$raw" ] || {
+      echo "guest command did not finish within 180 seconds pid=$pid" >&2
+      return 124
+    }
+  fi
+
+  printf '%s\n' "$raw" | python3 -c '
+import json,sys
+raw=sys.stdin.read()
+start=raw.find("{")
+if start < 0:
+    sys.stderr.write(raw)
+    raise SystemExit(125)
+try:
+    d=json.loads(raw[start:])
 except Exception:
     sys.stderr.write(raw)
     raise SystemExit(125)
