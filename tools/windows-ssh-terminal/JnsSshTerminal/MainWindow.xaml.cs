@@ -335,22 +335,45 @@ public partial class MainWindow : Window
         if (_slots.Length == 0)
             return;
 
-        var terminal = _slots
-            .Select(slot => slot.Terminal)
-            .FirstOrDefault(candidate => candidate.IsKeyboardFocusWithin);
+        var focusedSlot = _slots
+            .FirstOrDefault(slot => slot.Terminal.IsKeyboardFocusWithin);
 
-        if (terminal is null)
+        if (focusedSlot is null)
             return;
 
         if (e.Key == Key.C &&
             Keyboard.Modifiers.HasFlag(ModifierKeys.Control) &&
-            !Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) &&
-            TerminalControl.CopyCommand.CanExecute(null, terminal))
+            !Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
         {
-            // With a selection Ctrl+C means copy. With no selection we leave the
-            // event alone so the terminal sends the normal Ctrl+C / SIGINT.
-            TerminalControl.CopyCommand.Execute(null, terminal);
+            // Selection already auto-copies on mouse-up. Plain Ctrl+C is therefore
+            // unambiguous: always send ETX (0x03) to the active remote PTY.
+            SendInterrupt(focusedSlot);
             e.Handled = true;
+        }
+    }
+
+    private void StopCommand_Click(object sender, RoutedEventArgs e)
+    {
+        SendInterrupt(ActiveSlot);
+    }
+
+    private void SendInterrupt(SessionSlot slot)
+    {
+        if (slot.Session?.IsConnected != true)
+        {
+            slot.Status = "Not connected";
+            if (ReferenceEquals(slot, ActiveSlot))
+                UpdateActiveStatus();
+            return;
+        }
+
+        slot.Session.Write([0x03]);
+        slot.Status = "Interrupt sent (^C)";
+
+        if (ReferenceEquals(slot, ActiveSlot))
+        {
+            UpdateActiveStatus();
+            slot.Terminal.Focus();
         }
     }
 

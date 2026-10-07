@@ -38,6 +38,18 @@ Acceptance gates:
 - [ ] Windows build validated
 - [ ] live simultaneous two-host test
 
+## v0.1.3 - reliable interrupt
+
+Acceptance gates:
+
+- [x] Ctrl+C in a focused terminal always sends ETX / SIGINT
+- [x] select-to-copy remains unchanged
+- [x] Ctrl+Shift+C remains explicit copy
+- [x] Stop (^C) button interrupts the foreground process on the active tab
+- [x] no dependency on remote process names such as `killall watch`
+- [ ] Windows build validated
+- [ ] live interrupt test against a running `watch`
+
 ## v0.2 - ChatGPT integration
 
 Goal: the JNS SSH Terminal becomes the normal work surface so browser copy/paste is no

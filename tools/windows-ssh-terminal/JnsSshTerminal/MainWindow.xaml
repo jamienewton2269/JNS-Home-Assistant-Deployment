@@ -171,18 +171,23 @@
                                  FontSize="13"
                                  KeyDown="CommandEntry_KeyDown"/>
                     </StackPanel>
-                    <Button Grid.Column="1"
-                            Content="Send"
-                            MinWidth="80"
-                            Margin="8,22,0,0"
-                            VerticalAlignment="Top"
-                            Click="SendCommand_Click"/>
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                Margin="8,22,0,0"
+                                VerticalAlignment="Top">
+                        <Button Content="Stop (^C)"
+                                MinWidth="90"
+                                Click="StopCommand_Click"/>
+                        <Button Content="Send"
+                                MinWidth="80"
+                                Click="SendCommand_Click"/>
+                    </StackPanel>
                 </Grid>
             </Border>
 
             <StatusBar Grid.Row="3" Background="#17191C" Foreground="#AAB1BC">
                 <StatusBarItem>
-                    <TextBlock Text="Two independent SSH sessions • Select = copy • Right-click = paste • Ctrl+V = paste • Ctrl+C = copy selection or interrupt"/>
+                    <TextBlock Text="Two independent SSH sessions • Select = copy • Right-click = paste • Ctrl+V = paste • Ctrl+C = interrupt • Ctrl+Shift+C = copy"/>
                 </StatusBarItem>
             </StatusBar>
         </Grid>
