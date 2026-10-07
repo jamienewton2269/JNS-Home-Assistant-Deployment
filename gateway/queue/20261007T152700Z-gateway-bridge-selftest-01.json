@@ -1,0 +1,5 @@
+{
+  "job_id": "20261007T152700Z-gateway-bridge-selftest-01",
+  "job_type": "gateway_bridge_selftest",
+  "target": "ha-general"
+}
