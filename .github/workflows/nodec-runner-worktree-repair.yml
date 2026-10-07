@@ -1,0 +1,43 @@
+name: Node C Runner Worktree Repair
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/nodec-runner-worktree-repair.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nodec-runner-worktree-repair
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - name: Repair runner worktree without checkout
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          repo="$GITHUB_WORKSPACE"
+          echo "workspace=$repo"
+          cd "$repo"
+
+          # Remove only stale Git transaction/lock state. The runner is
+          # serialized, so no other checkout is active when this job runs.
+          rm -f .git/index.lock .git/shallow.lock .git/HEAD.lock
+          rm -rf .git/rebase-apply .git/rebase-merge
+
+          git fetch --prune origin main
+          git reset --hard origin/main
+
+          # Gateway queue/result files are repository-managed. Remove only
+          # untracked build/check-out debris, never ignored secrets.
+          git clean -ffd
+
+          git status --short
+          git fsck --no-progress --connectivity-only
+          echo "NODEC_WORKTREE_REPAIR_OK"
