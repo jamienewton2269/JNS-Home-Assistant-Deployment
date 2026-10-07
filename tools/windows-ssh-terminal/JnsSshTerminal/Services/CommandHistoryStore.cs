@@ -7,7 +7,6 @@ public sealed class CommandHistoryStore
 {
     private const string FileName = "command-history.json";
     private const int MaxEntries = 500;
-    private const int MaxPersistentBlockLength = 8192;
     private const int MaxUnpinnedCharacters = 262_144;
 
     public ObservableCollection<CommandHistoryEntry> Entries { get; } = new();
@@ -57,12 +56,10 @@ public sealed class CommandHistoryStore
 
     public void Save()
     {
-        // Large pasted blocks stay available for the current process, but are
-        // not silently persisted unless the user explicitly pins them.
+        // Multiline/script blocks stay available for the current process only.
+        // They become durable history only when the user explicitly pins them.
         var persistent = Entries
-            .Where(e => e.Pinned ||
-                        e.Kind == CommandHistoryKind.Command ||
-                        e.Text.Length <= MaxPersistentBlockLength)
+            .Where(e => e.Pinned || e.Kind == CommandHistoryKind.Command)
             .ToList();
 
         JsonStore.Save(FileName, persistent);
