@@ -1,0 +1,30 @@
+name: Deploy HA-General Infrastructure Launchpad
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ha_infrastructure_launchpad/deploy.request'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jns-ha-general-infrastructure-launchpad
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Deploy launchpad to HA-General
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          chmod +x ha_infrastructure_launchpad/deploy-ha-general.sh
+          bash ha_infrastructure_launchpad/deploy-ha-general.sh
