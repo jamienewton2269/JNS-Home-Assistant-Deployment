@@ -14,13 +14,14 @@ Acceptance gates:
 - [x] Ctrl+C copies a selection, otherwise remains terminal interrupt
 - [x] bounded terminal scrollback
 - [x] Clear Screen Buffer purges local scrollback without disconnecting
+- [x] Live clear-buffer test without dropping SSH
 - [x] explicit memory reclamation after buffer purge
 - [x] separate bounded command history
 - [x] script/multiline history session-only unless pinned
 - [x] credentials are not persisted
 - [ ] Release build validated on Windows
-- [ ] Live SSH test against Node C
-- [ ] Clipboard round-trip test with long multiline ChatGPT commands
+- [x] Live SSH test against Node C
+- [x] Clipboard round-trip test with long multiline ChatGPT commands
 
 ## v0.2 - ChatGPT integration
 
