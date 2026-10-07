@@ -6,7 +6,7 @@ SRC_ROOT="$(cd "$(dirname "$0")" && pwd)"
 CURRENT=/usr/local/sbin/jns-gateway-exec
 BASE=/usr/local/sbin/jns-gateway-exec.base
 PKG_HELPER=/usr/local/libexec/jns-gateway-ha-package-install
-NET_HELPER=/usr/local/libexec/jns-gateway-ha-network-identity-install
+NET_HELPER=/usr/local/libexec/jns-gateway-ha-network-identity-install\nTUYA_WAKE_HELPER=/usr/local/libexec/jns-gateway-ha-tuya-local-event-wake-patch
 
 [ "$(id -u)" -eq 0 ] || { echo "Run locally on Node C as root" >&2; exit 77; }
 [ -x "$CURRENT" ] || { echo "Missing $CURRENT" >&2; exit 78; }
@@ -22,9 +22,9 @@ fi
 if [ -f "$SRC_ROOT/ha-package-install-handler-v1.sh" ]; then
   install -o root -g root -m 0755 "$SRC_ROOT/ha-package-install-handler-v1.sh" "$PKG_HELPER"
 fi
-install -o root -g root -m 0755 "$SRC_ROOT/ha-network-identity-install-handler-v1.sh" "$NET_HELPER"
+install -o root -g root -m 0755 "$SRC_ROOT/ha-network-identity-install-handler-v1.sh" "$NET_HELPER"\nif [ -f "$SRC_ROOT/ha-tuya-local-event-wake-patch-handler-v1.sh" ]; then\n  install -o root -g root -m 0755 "$SRC_ROOT/ha-tuya-local-event-wake-patch-handler-v1.sh" "$TUYA_WAKE_HELPER"\nfi
 install -o root -g root -m 0755 "$SRC_ROOT/jns-gateway-exec-wrapper-v2.sh" "$CURRENT"
 
 echo "JNS trusted gateway Network Identity extension installed"
 echo "executor=$CURRENT"
-echo "network_identity_handler=$NET_HELPER"
+echo "network_identity_handler=$NET_HELPER"\necho "tuya_event_wake_handler=$TUYA_WAKE_HELPER"
