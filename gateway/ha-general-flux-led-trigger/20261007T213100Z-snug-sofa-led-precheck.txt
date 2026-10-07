@@ -1,0 +1,1 @@
+check HA-General reachability and duplicate state for Snug sofa LED
