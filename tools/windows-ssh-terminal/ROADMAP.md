@@ -87,7 +87,7 @@ Acceptance gates:
 - [x] mouse-wheel scroll remains synchronized with the visible scrollbar
 - [x] Select All button beside Copy / Paste
 - [x] Select All targets only the active terminal tab
-- [ ] Windows build validated
+- [x] Windows build validated
 - [ ] live scrollbar + Select All test with multiple connected tabs
 
 ## v0.2 - ChatGPT integration
