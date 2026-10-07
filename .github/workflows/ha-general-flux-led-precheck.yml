@@ -1,0 +1,20 @@
+name: JNS HA-General Magic Home Precheck
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/ha-general-flux-led-trigger/**'
+
+permissions:
+  contents: read
+
+jobs:
+  precheck:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check HA-General for Snug sofa LED
+        shell: bash
+        run: bash gateway/ha_general_flux_led_precheck.sh
