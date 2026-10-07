@@ -1,0 +1,9 @@
+{
+  "domain": "jns_network_identity",
+  "name": "JNS Network Identity",
+  "version": "0.1.0",
+  "documentation": "https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment",
+  "dependencies": ["file_upload", "lovelace"],
+  "after_dependencies": ["adguard"],
+  "codeowners": []
+}
