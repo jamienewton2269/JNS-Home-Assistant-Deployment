@@ -1,0 +1,10 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261007T152700Z-gateway-bridge-selftest-01
+started=2026-10-07T20:09:56+01:00
+runner=nodec
+
+stage=nodec-runner status=ok
+github-runner@10.10.10.235: Permission denied (publickey,password).
+
+finished=2026-10-07T20:09:56+01:00
+exit_code=255
