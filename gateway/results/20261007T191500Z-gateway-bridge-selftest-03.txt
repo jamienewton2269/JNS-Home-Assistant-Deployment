@@ -1,0 +1,13 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261007T191500Z-gateway-bridge-selftest-03
+started=2026-10-07T20:13:07+01:00
+runner=nodec
+
+stage=nodec-runner status=ok
+stage=nodec-to-nodeb-ssh status=ok
+stage=nodeb-to-vm905 status=ok
+stage=vm905-ha-core status=ok
+GATEWAY_BRIDGE_SELFTEST_OK
+
+finished=2026-10-07T20:13:14+01:00
+exit_code=0
