@@ -30,6 +30,9 @@ case "$JOB_TYPE" in
   ha_tuya_local_event_wake_patch)
     exec /usr/local/libexec/jns-gateway-ha-tuya-local-event-wake-patch "$REAL"
     ;;
+  gateway_bridge_selftest)
+    exec /usr/local/libexec/jns-gateway-bridge-selftest "$REAL"
+    ;;
   *)
     exec /usr/local/sbin/jns-gateway-exec.base "$REAL"
     ;;
