@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # JNS Trusted Gateway: narrowly scoped HA-General package deployment handler.
-# Intended to be installed root-owned and invoked ONLY by /usr/local/sbin/jns-gateway-exec
-# for job_type=ha_package_install. It is not a general command runner.
+# Transaction succeeds only when the command inside the HA VM succeeds,
+# deployed bytes match, HA config validates, Core restarts, and requested checks pass.
 set -Eeuo pipefail
 
 JOB_JSON="${1:?job json required}"
@@ -12,13 +12,41 @@ HA_IP="10.10.10.223"
 PKG_DIR="/mnt/data/supervisor/homeassistant/packages"
 
 ssh_as_runner() {
-  /usr/sbin/runuser -u github-runner -- /usr/bin/ssh \
-    -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new \
-    -o HostName="$NODEB_IP" "$NODEB_HOST" "$@"
+  /usr/sbin/runuser -u github-runner -- /usr/bin/ssh     -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new     -o HostName="$NODEB_IP" "$NODEB_HOST" "$@"
+}
+
+guest_exec() {
+  local shell_cmd="$1"
+  local json rc
+  set +e
+  json="$(ssh_as_runner "qm guest exec $VMID -- /bin/bash -lc $(printf '%q' "$shell_cmd")" 2>&1)"
+  rc=$?
+  set -e
+  if [ "$rc" -ne 0 ]; then
+    printf '%s\n' "$json" >&2
+    return "$rc"
+  fi
+  printf '%s\n' "$json" | python3 -c '
+import json,sys
+raw=sys.stdin.read()
+try:
+    d=json.loads(raw)
+except Exception:
+    sys.stderr.write(raw)
+    raise SystemExit(125)
+out=d.get("out-data") or ""
+err=d.get("err-data") or ""
+if out: sys.stdout.write(out)
+if err: sys.stderr.write(err)
+if not d.get("exited"):
+    raise SystemExit(124)
+rc=int(d.get("exitcode",125))
+raise SystemExit(rc if 0 <= rc <= 125 else 125)
+'
 }
 
 python3 - "$JOB_JSON" <<'PY' > /tmp/jns-ha-package-job.env
-import base64, json, re, shlex, sys
+import base64, hashlib, json, re, shlex, sys
 p=sys.argv[1]
 d=json.load(open(p,encoding="utf-8"))
 if d.get("job_type")!="ha_package_install":
@@ -40,6 +68,7 @@ for v in verify:
         raise SystemExit("invalid verify entity")
 print("PACKAGE_NAME="+shlex.quote(name))
 print("CONTENT_B64="+shlex.quote(content))
+print("CONTENT_SHA256="+shlex.quote(hashlib.sha256(raw).hexdigest()))
 print("VERIFY_ENTITIES="+shlex.quote("\n".join(verify)))
 PY
 source /tmp/jns-ha-package-job.env
@@ -49,57 +78,45 @@ TARGET="$PKG_DIR/$PACKAGE_NAME"
 STAMP="$(date +%Y%m%dT%H%M%S)"
 BACKUP="$TARGET.jns-backup-$STAMP"
 
-ssh_as_runner \
-  "qm status $VMID | grep -q 'status: running'"
+ssh_as_runner "qm status $VMID | grep -q 'status: running'"
 
-# Back up only the target package, never unrelated automations/packages.
-ssh_as_runner \
-  "qm guest exec $VMID -- /bin/bash -lc 'mkdir -p $PKG_DIR; if [ -f "$TARGET" ]; then cp -a "$TARGET" "$BACKUP"; fi' >/dev/null"
+rollback() {
+  echo "ROLLBACK: restoring previous package" >&2
+  guest_exec "if [ -f '$BACKUP' ]; then mv -f '$BACKUP' '$TARGET'; else rm -f '$TARGET'; fi" >/dev/null || true
+}
+trap 'rc=$?; if [ "$rc" -ne 0 ]; then rollback; fi; exit "$rc"' EXIT
 
-# Write package content to a temporary file and atomically move into place.
-printf '%s' "$CONTENT_B64" | base64 -d > "/tmp/$PACKAGE_NAME"
-ssh_as_runner \
-  "qm guest exec $VMID -- /bin/bash -lc 'cat > "$TARGET.jns-new"' --input-data "$(cat "/tmp/$PACKAGE_NAME")" >/dev/null"
-rm -f "/tmp/$PACKAGE_NAME"
-ssh_as_runner \
-  "qm guest exec $VMID -- /bin/bash -lc 'mv "$TARGET.jns-new" "$TARGET"' >/dev/null"
+guest_exec "mkdir -p '$PKG_DIR'; if [ -f '$TARGET' ]; then cp -a '$TARGET' '$BACKUP'; fi" >/dev/null
+guest_exec "printf '%s' '$CONTENT_B64' | base64 -d > '$TARGET.jns-new' && test -s '$TARGET.jns-new' && mv '$TARGET.jns-new' '$TARGET'" >/dev/null
 
-set +e
-CHECK_OUT="$(ssh_as_runner "qm guest exec $VMID -- /bin/bash -lc 'ha core check'" 2>&1)"
-CHECK_RC=$?
-set -e
-printf '%s\n' "$CHECK_OUT"
-if [ "$CHECK_RC" -ne 0 ]; then
-  echo "HA config validation failed; restoring package backup"
-  ssh_as_runner \
-    "qm guest exec $VMID -- /bin/bash -lc 'if [ -f "$BACKUP" ]; then mv -f "$BACKUP" "$TARGET"; else rm -f "$TARGET"; fi'" >/dev/null
-  exit 42
-fi
+ACTUAL_SHA="$(guest_exec "sha256sum '$TARGET' | awk '{print \\$1}'" | tr -d '\r\n')"
+[ "$ACTUAL_SHA" = "$CONTENT_SHA256" ] || {
+  echo "Package integrity mismatch expected=$CONTENT_SHA256 actual=$ACTUAL_SHA" >&2
+  exit 43
+}
 
-# Packages can span helpers/scripts/automations; a Core restart is the reliable
-# native application path after a successful full config check.
-ssh_as_runner \
-  "qm guest exec $VMID -- /bin/bash -lc 'ha core restart'" >/dev/null
+guest_exec "ha core check"
+guest_exec "ha core restart" >/dev/null
 
-# Verify Core returns healthy.
-for _ in $(seq 1 30); do
-  if ssh_as_runner "qm guest exec $VMID -- /bin/bash -lc 'ha core info'" >/dev/null 2>&1; then
+healthy=0
+for _ in $(seq 1 45); do
+  if guest_exec "ha core info" >/dev/null 2>&1; then
+    healthy=1
     break
   fi
   sleep 2
 done
-ssh_as_runner "qm guest exec $VMID -- /bin/bash -lc 'ha core info'"
+[ "$healthy" -eq 1 ] || { echo "Home Assistant Core did not return healthy" >&2; exit 44; }
 
-# Verify requested entities/IDs are represented in HA's entity registry where applicable.
 if [ -n "${VERIFY_ENTITIES:-}" ]; then
   while IFS= read -r item; do
     [ -z "$item" ] && continue
-    ssh_as_runner \
-      "qm guest exec $VMID -- /bin/bash -lc 'grep -Fq -- "$item" /mnt/data/supervisor/homeassistant/.storage/core.entity_registry'"
+    guest_exec "grep -Fq -- '$item' /mnt/data/supervisor/homeassistant/.storage/core.entity_registry"
     echo "verified=$item"
   done <<< "$VERIFY_ENTITIES"
 fi
 
+trap - EXIT
 echo "HA_PACKAGE_INSTALL_OK"
 echo "target=ha-general"
 echo "nodeb_host=$NODEB_HOST"
@@ -107,4 +124,5 @@ echo "nodeb_ip=$NODEB_IP"
 echo "vmid=$VMID"
 echo "ha_ip=$HA_IP"
 echo "package=$TARGET"
+echo "sha256=$CONTENT_SHA256"
 echo "backup=$BACKUP"
