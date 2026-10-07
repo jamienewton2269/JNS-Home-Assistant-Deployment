@@ -1,0 +1,9 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261007T132100Z-ha-general-lux-dusk-02
+started=2026-10-07T13:31:27+01:00
+runner=nodec
+
+/usr/local/libexec/jns-gateway-ha-package-install: line 45: NODEB_HOST: unbound variable
+
+finished=2026-10-07T13:31:27+01:00
+exit_code=1
