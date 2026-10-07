@@ -59,10 +59,22 @@
                     <TextBox x:Name="Username" Margin="0,4,0,8"/>
 
                     <TextBlock Text="Password / key passphrase" Foreground="#D5D8DC"/>
-                    <PasswordBox x:Name="Password" Padding="5" Margin="0,4,0,8"/>
+                    <PasswordBox x:Name="Password" Padding="5" Margin="0,4,0,6"/>
+                    <CheckBox x:Name="RememberPassword"
+                              Content="Remember SSH account password securely"
+                              Foreground="#D5D8DC"
+                              Margin="0,0,0,4"/>
+                    <TextBlock x:Name="CredentialStatusText"
+                               Text="Saved password status: not checked"
+                               Foreground="#8E96A3"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,4"/>
+                    <Button Content="Forget Saved Password"
+                            Click="ForgetSavedPassword_Click"
+                            Margin="0,0,0,10"/>
 
                     <TextBlock Text="Private key (optional)" Foreground="#D5D8DC"/>
-                    <Grid Margin="0,4,0,12">
+                    <Grid Margin="0,4,0,6">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
@@ -70,6 +82,12 @@
                         <TextBox x:Name="KeyFile" Grid.Column="0" Margin="0,0,6,0"/>
                         <Button Grid.Column="1" Content="…" Width="34" Click="BrowseKey_Click"/>
                     </Grid>
+                    <WrapPanel Margin="0,0,0,10">
+                        <Button Content="Generate Secure Key"
+                                Click="GenerateSecureKey_Click"/>
+                        <Button Content="Copy Public Key"
+                                Click="CopyPublicKey_Click"/>
+                    </WrapPanel>
 
                     <WrapPanel>
                         <Button Content="Save Host" MinWidth="105" Click="SaveHost_Click"/>
@@ -77,20 +95,26 @@
                     </WrapPanel>
 
                     <Separator Margin="0,8,0,8"/>
-                    <TextBlock Text="Detached sessions" Foreground="#D5D8DC"/>
+                    <TextBlock Text="Persistent remote sessions" Foreground="#D5D8DC"/>
                     <ComboBox x:Name="DetachedSessions"
                               Margin="0,4,0,8"
                               SelectionChanged="DetachedSessions_SelectionChanged"/>
-                    <Button Content="Reattach Detached Session"
+                    <WrapPanel>
+                        <Button Content="Refresh / Discover"
+                                Click="RefreshSessions_Click"/>
+                        <Button Content="Remove Ended"
+                                Click="RemoveEndedSession_Click"/>
+                    </WrapPanel>
+                    <Button Content="Reattach Selected Session"
                             Click="ReattachDetached_Click"
-                            Margin="0,0,0,12"/>
-                    <TextBlock Text="Reattach requires authentication again; credentials are never stored."
+                            Margin="0,0,0,8"/>
+                    <TextBlock Text="Registry survives Windows restarts. Refresh asks the remote tmux server which JNS sessions actually still exist."
                                Foreground="#AAB1BC"
                                TextWrapping="Wrap"
                                Margin="0,0,0,10"/>
 
                     <Separator/>
-                    <TextBlock Text="Credentials are never saved."
+                    <TextBlock Text="Remembered SSH account passwords use Windows Credential Manager. They are never written to JNS JSON or the registry."
                                Margin="0,12,0,4"
                                Foreground="#AAB1BC"
                                TextWrapping="Wrap"/>

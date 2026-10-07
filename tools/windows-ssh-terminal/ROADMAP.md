@@ -90,6 +90,42 @@ Acceptance gates:
 - [x] Windows build validated
 - [ ] live scrollbar + Select All test with multiple connected tabs
 
+## v0.1.8 - persistent registry, secure credentials and generated keys
+
+Acceptance gates:
+
+- [x] persistent tmux-session registry survives Windows restart/reboot
+- [x] statuses are explicitly UNKNOWN / RUNNING DETACHED / RUNNING ATTACHED / ENDED
+- [x] Refresh / Discover reconciles local state against remote tmux
+- [x] orphaned remote `jns-*` tmux sessions can be rediscovered
+- [x] New Terminal remains available regardless of old registry entries
+- [x] ended entries are retained briefly for visibility, then watchdog-pruned after 7 days
+- [x] UNKNOWN and RUNNING sessions are never age-pruned
+- [x] startup + 24-hour watchdog removes stale temp files and enforces bounded history
+- [x] optional SSH passwords use Windows Credential Manager, never JNS JSON/registry
+- [x] password byte buffers are zeroed after authentication where SSH.NET permits
+- [x] automated ECDSA P-256 key generation
+- [x] generated private keys are DPAPI current-user protected at rest
+- [x] public key can be copied for authorized_keys installation
+- [x] Clear Screen Buffer also clears the active selection highlight immediately
+- [ ] Windows build validated
+- [ ] live generated-key login test
+- [ ] live registry test across Windows reboot
+- [ ] live remote discovery + ended cleanup test
+
+## v0.1.9 - hardened self-contained release (after v0.1.8 live tests)
+
+Planned release gates:
+
+- [ ] win-x64 self-contained single executable
+- [ ] no loose managed runtime/library files required beside the EXE
+- [ ] ReadyToRun/startup-performance review where it improves real use
+- [ ] no unsafe WPF trimming that risks runtime breakage
+- [ ] dependency/security audit and pinned versions
+- [ ] secret lifetime / memory-copy review
+- [ ] filesystem and credential-storage permission review
+- [ ] release integrity hash and signed-release path
+
 ## v0.2 - ChatGPT integration
 
 Goal: the JNS SSH Terminal becomes the normal work surface so browser copy/paste is no

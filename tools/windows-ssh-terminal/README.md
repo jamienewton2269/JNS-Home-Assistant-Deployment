@@ -79,6 +79,10 @@ The Command Bar is the explicit history boundary:
 Saved profiles contain host, port, username and optional key-file path only.
 Passwords and key passphrases are never written to the profile store.
 
+When the user explicitly enables **Remember SSH account password securely**, the password is stored in Windows Credential Manager under the current Windows account, not in JNS JSON files or the registry. During password authentication JNS uses SSH.NET's byte-array authentication path and zeroes the temporary password byte array after authentication.
+
+**Generate Secure Key** creates an ECDSA P-256 keypair. The private PKCS#8 key is protected with Windows DPAPI in current-user scope before it is written under `%LOCALAPPDATA%\\JNS\\SshTerminal\\keys`. The OpenSSH-format public key is stored separately and can be copied for installation in `~/.ssh/authorized_keys`.
+
 On first connection the SHA256 server host-key fingerprint is shown for approval.
 The accepted key is stored locally. A later mismatch is rejected rather than silently
 accepted.
@@ -119,6 +123,18 @@ Closing the Windows application records connected tmux sessions as detached, so 
 ## v0.1.7 - terminal scrolling and selection
 
 Every terminal retains up to **3000 scrollback lines** and has its own visible vertical scrollbar. The bar and mouse wheel navigate only that tab's retained buffer. **Select All** is beside Copy and Paste and applies only to the active terminal tab.
+
+## v0.1.8 - persistent registry and local-data watchdog
+
+Every JNS-created tmux session is written to the local registry as soon as it is created, so even an unexpected Windows reboot leaves enough metadata to find it again. On the next application start the status is deliberately **UNKNOWN / NOT CHECKED** until **Refresh / Discover** authenticates to the remote host and asks tmux for the authoritative state. Remote `jns-*` sessions missing from the laptop registry are rediscovered. Missing registered sessions are marked **ENDED**.
+
+The local-data watchdog runs at startup and every 24 hours while the application is open. It removes stale transaction `*.tmp` files, reapplies command-history bounds, deduplicates the session registry and removes only entries that the remote host previously confirmed ended and that have then been ended for seven days. Unknown or running sessions are never removed because of age.
+
+Clear Screen Buffer also clears any local selection highlight before purging the screen/scrollback, so the viewport returns immediately to the normal black background.
+
+## v0.1.9 - hardened self-contained Windows release
+
+After v0.1.8 has passed the live key/registry/reboot tests, the next packaging pass will publish a win-x64 self-contained single executable so the installed folder does not depend on loose .NET/runtime library files. That pass will also include the dependency, secret-lifetime, file-permission and startup-performance review. WPF trimming will not be enabled merely to reduce size if it compromises reliability.
 
 ## v0.2 - native ChatGPT workspace
 

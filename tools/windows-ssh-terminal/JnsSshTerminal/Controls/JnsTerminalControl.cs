@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Windows.Input;
 using VirtualTerminal;
 using VirtualTerminal.Buffer;
@@ -10,6 +11,9 @@ namespace JnsSshTerminal.Controls;
 /// </summary>
 public sealed class JnsTerminalControl : TerminalControl
 {
+    private static readonly FieldInfo? SelectionField =
+        typeof(TerminalControl).GetField("_selection", BindingFlags.Instance | BindingFlags.NonPublic);
+
     private const int WheelLines = 3;
     private int _scrollOffset;
 
@@ -36,6 +40,13 @@ public sealed class JnsTerminalControl : TerminalControl
         _scrollOffset = 0;
         ScrollToBottom();
         ScrollPositionChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void ClearLocalSelection()
+    {
+        SelectionField?.SetValue(this, null);
+        CommandManager.InvalidateRequerySuggested();
+        InvalidateVisual();
     }
 
     protected override void OnPreviewMouseWheel(MouseWheelEventArgs e)

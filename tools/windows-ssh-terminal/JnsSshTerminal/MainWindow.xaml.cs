@@ -4,11 +4,13 @@ using JnsSshTerminal.Services;
 using Microsoft.Win32;
 using Renci.SshNet;
 using Renci.SshNet.Common;
+using System.Security.Cryptography;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Threading;
 using VirtualTerminal;
 
 namespace JnsSshTerminal;
@@ -34,6 +36,7 @@ public partial class MainWindow : Window
         public JnsSecureShellSession? Session { get; set; }
         public SshClient? Client { get; set; }
         public PrivateKeyFile? PrivateKeyFile { get; set; }
+        public PasswordAuthenticationMethod? PasswordAuthentication { get; set; }
 
         public string Status { get; set; }
         public string Host { get; set; } = "";
@@ -50,6 +53,10 @@ public partial class MainWindow : Window
     private readonly CommandHistoryStore _history = new();
     private readonly KnownHostsStore _knownHosts = new();
     private readonly DetachedSessionStore _detachedStore = new();
+    private readonly WindowsCredentialStore _credentialStore = new();
+    private readonly SecureKeyStore _secureKeyStore = new();
+    private readonly LocalDataWatchdog _localDataWatchdog = new();
+    private readonly DispatcherTimer _maintenanceTimer = new();
 
     private List<HostProfile> _profiles = new();
     private List<DetachedSessionInfo> _detachedSessions = new();
@@ -74,10 +81,17 @@ public partial class MainWindow : Window
         SavedHosts.ItemsSource = _profiles;
 
         _detachedSessions = _detachedStore.Load();
-        RefreshDetachedSessions();
 
         _history.Load();
         HistoryList.ItemsSource = _history.Entries;
+
+        RunLocalMaintenance();
+        RefreshDetachedSessions();
+        UpdateCredentialStatus();
+
+        _maintenanceTimer.Interval = TimeSpan.FromHours(24);
+        _maintenanceTimer.Tick += (_, _) => RunLocalMaintenance();
+        _maintenanceTimer.Start();
 
         UpdateActiveStatus();
     }
@@ -92,6 +106,7 @@ public partial class MainWindow : Window
         Port.Text = profile.Port.ToString();
         Username.Text = profile.Username;
         KeyFile.Text = profile.KeyFile ?? "";
+        UpdateCredentialStatus();
     }
 
     private void DetachedSessions_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -110,6 +125,7 @@ public partial class MainWindow : Window
             string.Equals(p.Username, detached.Username, StringComparison.OrdinalIgnoreCase));
 
         KeyFile.Text = matchingProfile?.KeyFile ?? detached.KeyFile ?? "";
+        UpdateCredentialStatus();
     }
 
     private void SaveHost_Click(object sender, RoutedEventArgs e)
@@ -147,11 +163,58 @@ public partial class MainWindow : Window
             Title = "Select SSH private key",
             CheckFileExists = true,
             Multiselect = false,
-            Filter = "SSH keys|id_*;*.key;*.pem;*.ppk|All files|*.*"
+            Filter = "SSH keys|*.jnskey;id_*;*.key;*.pem;*.ppk|JNS protected keys|*.jnskey|All files|*.*"
         };
 
         if (dialog.ShowDialog(this) == true)
             KeyFile.Text = dialog.FileName;
+    }
+
+    private void GenerateSecureKey_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var generated = _secureKeyStore.GenerateKey();
+            KeyFile.Text = generated.PrivateKeyPath;
+            Clipboard.SetText(generated.PublicKey);
+            StatusText.Text = "Secure key generated; public key copied to clipboard";
+
+            MessageBox.Show(
+                this,
+                $"A new JNS SSH key has been generated.\n\n" +
+                $"Protected private key:\n{generated.PrivateKeyPath}\n\n" +
+                $"Public key:\n{generated.PublicKeyPath}\n\n" +
+                "The public key is already on the clipboard. Install it in the remote account's ~/.ssh/authorized_keys, then save this host profile.",
+                "SSH key generated",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                this,
+                $"Could not generate the SSH key: {ex.Message}",
+                "SSH key generation failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private void CopyPublicKey_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_secureKeyStore.TryReadPublicKey(KeyFile.Text.Trim(), out string publicKey))
+        {
+            MessageBox.Show(
+                this,
+                "No matching public key was found for the selected private key.",
+                "JNS SSH",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        Clipboard.SetText(publicKey);
+        StatusText.Text = "Public key copied to clipboard";
     }
 
     private async void Connect_Click(object sender, RoutedEventArgs e)
@@ -177,7 +240,18 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(
                 this,
-                "Select a detached session first.",
+                "Select a persistent remote session first.",
+                "JNS SSH",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        if (detached.State == DetachedSessionState.Ended)
+        {
+            MessageBox.Show(
+                this,
+                "That remote tmux session has been confirmed ended and cannot be reattached.",
                 "JNS SSH",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -210,16 +284,6 @@ public partial class MainWindow : Window
         if (!TryReadConnectionFields(out var profileName, out var host, out var port, out var username))
             return;
 
-        if (string.IsNullOrWhiteSpace(KeyFile.Text) && string.IsNullOrEmpty(Password.Password))
-        {
-            MessageBox.Show(this,
-                "Enter a password, or select a private key.",
-                "JNS SSH",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-            return;
-        }
-
         var slot = ActiveSlot;
         await CloseTransportAsync(slot);
 
@@ -231,6 +295,8 @@ public partial class MainWindow : Window
         string endpoint = $"{host}:{port}";
         KnownHostEntry? pendingTrust = null;
         string? hostKeyFailure = null;
+        byte[]? passwordUtf8 = null;
+        bool typedPassword = false;
 
         try
         {
@@ -238,15 +304,47 @@ public partial class MainWindow : Window
 
             if (keyPath is not null)
             {
-                slot.PrivateKeyFile = string.IsNullOrEmpty(Password.Password)
-                    ? new PrivateKeyFile(keyPath)
-                    : new PrivateKeyFile(keyPath, Password.Password);
+                if (_secureKeyStore.IsManagedKey(keyPath))
+                {
+                    slot.PrivateKeyFile = _secureKeyStore.OpenPrivateKey(keyPath);
+                }
+                else
+                {
+                    using var securePassphrase = Password.SecurePassword;
+                    string? passphrase = securePassphrase.Length == 0
+                        ? null
+                        : SecureSecret.ToManagedString(securePassphrase);
+
+                    slot.PrivateKeyFile = passphrase is null
+                        ? new PrivateKeyFile(keyPath)
+                        : new PrivateKeyFile(keyPath, passphrase);
+
+                    passphrase = null;
+                }
 
                 slot.Client = new SshClient(host, port, username, slot.PrivateKeyFile);
             }
             else
             {
-                slot.Client = new SshClient(host, port, username, Password.Password);
+                using var securePassword = Password.SecurePassword;
+                typedPassword = securePassword.Length > 0;
+
+                passwordUtf8 = typedPassword
+                    ? SecureSecret.ToUtf8Bytes(securePassword)
+                    : _credentialStore.ReadPassword(host, port, username);
+
+                if (passwordUtf8 is null || passwordUtf8.Length == 0)
+                {
+                    throw new InvalidOperationException(
+                        "Enter the SSH account password, select a private key, or save the password securely for this host/user.");
+                }
+
+                slot.PasswordAuthentication = new PasswordAuthenticationMethod(username, passwordUtf8);
+                slot.Client = new SshClient(new ConnectionInfo(
+                    host,
+                    port,
+                    username,
+                    slot.PasswordAuthentication));
             }
 
             slot.Host = host;
@@ -308,6 +406,22 @@ public partial class MainWindow : Window
 
             await slot.Session.ConnectAsync();
 
+            if (keyPath is null &&
+                typedPassword &&
+                RememberPassword.IsChecked == true &&
+                passwordUtf8 is { Length: > 0 })
+            {
+                _credentialStore.SavePassword(host, port, username, passwordUtf8);
+            }
+
+            if (passwordUtf8 is not null)
+            {
+                CryptographicOperations.ZeroMemory(passwordUtf8);
+                passwordUtf8 = null;
+            }
+
+            UpdateCredentialStatus();
+
             bool tmuxAvailable = await RemoteCommandSucceedsAsync(
                 slot.Client,
                 "command -v tmux >/dev/null 2>&1");
@@ -326,10 +440,14 @@ public partial class MainWindow : Window
 
                 if (!exists)
                 {
-                    RemoveDetachedRecord(reattach.SessionName);
+                    MarkSessionEnded(
+                        reattach.Host,
+                        reattach.Port,
+                        reattach.Username,
+                        reattach.SessionName);
+
                     throw new InvalidOperationException(
-                        "The detached tmux session no longer exists on the remote host. " +
-                        "It may have been killed or the remote machine may have rebooted.");
+                        "The persistent tmux session no longer exists on the remote host. It has been marked Ended in the local registry.");
                 }
 
                 slot.Persistent = true;
@@ -337,14 +455,24 @@ public partial class MainWindow : Window
                 slot.Session.Write(Encoding.UTF8.GetBytes(
                     $"tmux attach-session -t {ShellQuote(reattach.SessionName)}\n"));
 
-                RemoveDetachedRecord(reattach.SessionName);
+                SaveDetachedRecord(slot, DetachedSessionState.RunningAttached);
             }
             else if (tmuxAvailable)
             {
                 slot.Persistent = true;
                 slot.TmuxSessionName = GenerateTmuxSessionName();
+
+                var createTmux = await RunRemoteCommandAsync(
+                    slot.Client,
+                    $"tmux new-session -d -s {ShellQuote(slot.TmuxSessionName)}");
+
+                if (createTmux.ExitStatus != 0)
+                    throw new InvalidOperationException($"tmux could not create the persistent session: {createTmux.Error}");
+
                 slot.Session.Write(Encoding.UTF8.GetBytes(
-                    $"tmux new-session -s {ShellQuote(slot.TmuxSessionName)}\n"));
+                    $"tmux attach-session -t {ShellQuote(slot.TmuxSessionName)}\n"));
+
+                SaveDetachedRecord(slot, DetachedSessionState.RunningAttached);
             }
             else
             {
@@ -385,6 +513,11 @@ public partial class MainWindow : Window
                 "SSH connection failed",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
+        }
+        finally
+        {
+            if (passwordUtf8 is not null)
+                CryptographicOperations.ZeroMemory(passwordUtf8);
         }
     }
 
@@ -483,7 +616,7 @@ public partial class MainWindow : Window
                 slot.Client!,
                 $"tmux detach-client -s {ShellQuote(slot.TmuxSessionName)} 2>/dev/null || true");
 
-            SaveDetachedRecord(slot);
+            SaveDetachedRecord(slot, DetachedSessionState.RunningDetached);
             await CloseTransportAsync(slot);
             RemoveSlot(slot);
         }
@@ -528,7 +661,11 @@ public partial class MainWindow : Window
                     slot.Client!,
                     $"tmux kill-session -t {ShellQuote(slot.TmuxSessionName)} 2>/dev/null || true");
 
-                RemoveDetachedRecord(slot.TmuxSessionName);
+                MarkSessionEnded(
+                    slot.Host,
+                    slot.Port,
+                    slot.Username,
+                    slot.TmuxSessionName);
             }
 
             await CloseTransportAsync(slot);
@@ -550,10 +687,12 @@ public partial class MainWindow : Window
         var session = slot.Session;
         var client = slot.Client;
         var key = slot.PrivateKeyFile;
+        var passwordAuthentication = slot.PasswordAuthentication;
 
         slot.Session = null;
         slot.Client = null;
         slot.PrivateKeyFile = null;
+        slot.PasswordAuthentication = null;
         slot.Terminal.Session = null;
         slot.Terminal.ResetTrackedScroll();
         UpdateScrollBar(slot);
@@ -573,6 +712,7 @@ public partial class MainWindow : Window
         }
 
         client?.Dispose();
+        passwordAuthentication?.Dispose();
         key?.Dispose();
     }
 
@@ -610,43 +750,65 @@ public partial class MainWindow : Window
             UpdateActiveStatus();
     }
 
-    private void SaveDetachedRecord(SessionSlot slot)
+    private void SaveDetachedRecord(
+        SessionSlot slot,
+        DetachedSessionState state = DetachedSessionState.RunningDetached)
     {
         if (!slot.Persistent || string.IsNullOrWhiteSpace(slot.TmuxSessionName))
             return;
 
-        var record = new DetachedSessionInfo
+        DateTime now = DateTime.UtcNow;
+        var existing = _detachedSessions.FirstOrDefault(item =>
+            SameSession(item, slot.Host, slot.Port, slot.Username, slot.TmuxSessionName));
+
+        var record = existing ?? new DetachedSessionInfo
         {
             SessionName = slot.TmuxSessionName,
-            Label = string.IsNullOrWhiteSpace(slot.Label) ? slot.Host : slot.Label,
             Host = slot.Host,
             Port = slot.Port,
             Username = slot.Username,
-            KeyFile = slot.KeyFilePath,
-            DetachedAtUtc = DateTime.UtcNow
+            FirstRecordedUtc = now
         };
 
-        _detachedSessions.RemoveAll(item =>
-            string.Equals(item.SessionName, record.SessionName, StringComparison.Ordinal));
+        record.Label = string.IsNullOrWhiteSpace(slot.Label) ? slot.Host : slot.Label;
+        record.KeyFile = slot.KeyFilePath;
+        record.State = state;
+        record.LastSeenUtc = now;
+        record.LastCheckedUtc = now;
+        record.ConfirmedEndedUtc = null;
 
-        _detachedSessions.Add(record);
+        if (existing is null)
+            _detachedSessions.Add(record);
+
         _detachedStore.Save(_detachedSessions);
         RefreshDetachedSessions(record.SessionName);
     }
 
-    private void RemoveDetachedRecord(string sessionName)
+    private void MarkSessionEnded(
+        string host,
+        int port,
+        string username,
+        string sessionName)
     {
-        _detachedSessions.RemoveAll(item =>
-            string.Equals(item.SessionName, sessionName, StringComparison.Ordinal));
+        DateTime now = DateTime.UtcNow;
+
+        foreach (var item in _detachedSessions.Where(item =>
+                     SameSession(item, host, port, username, sessionName)))
+        {
+            item.State = DetachedSessionState.Ended;
+            item.LastCheckedUtc = now;
+            item.ConfirmedEndedUtc ??= now;
+        }
 
         _detachedStore.Save(_detachedSessions);
-        RefreshDetachedSessions();
+        RefreshDetachedSessions(sessionName);
     }
 
     private void RefreshDetachedSessions(string? selectSessionName = null)
     {
         _detachedSessions = _detachedSessions
-            .OrderByDescending(item => item.DetachedAtUtc)
+            .OrderBy(item => item.State == DetachedSessionState.Ended ? 1 : 0)
+            .ThenByDescending(item => item.LastSeenUtc ?? item.FirstRecordedUtc)
             .ToList();
 
         DetachedSessions.ItemsSource = null;
@@ -657,6 +819,376 @@ public partial class MainWindow : Window
             DetachedSessions.SelectedItem = _detachedSessions.FirstOrDefault(item =>
                 string.Equals(item.SessionName, selectSessionName, StringComparison.Ordinal));
         }
+    }
+
+    private async void RefreshSessions_Click(object sender, RoutedEventArgs e)
+    {
+        if (!TryReadConnectionFields(out var label, out var host, out var port, out var username))
+            return;
+
+        ProbeConnection? probe = null;
+
+        try
+        {
+            probe = await OpenProbeConnectionAsync(host, port, username);
+
+            bool tmuxAvailable = await RemoteCommandSucceedsAsync(
+                probe.Client,
+                "command -v tmux >/dev/null 2>&1");
+
+            if (!tmuxAvailable)
+            {
+                MarkHostSessionsEnded(host, port, username);
+
+                MessageBox.Show(
+                    this,
+                    "The host is reachable, but tmux is not available. Previously registered JNS tmux sessions for this account are marked Ended.",
+                    "Session refresh",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var command = await RunRemoteCommandAsync(
+                probe.Client,
+                "tmux list-sessions -F '#{session_name}\\t#{session_created}\\t#{session_attached}' 2>/dev/null || true");
+
+            ReconcileRemoteSessions(
+                label,
+                host,
+                port,
+                username,
+                string.IsNullOrWhiteSpace(KeyFile.Text) ? null : KeyFile.Text.Trim(),
+                command.Result);
+
+            StatusText.Text = $"Session registry refreshed: {username}@{host}:{port}";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                this,
+                FriendlyConnectionError(ex),
+                "Session refresh failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            probe?.Dispose();
+            Password.Clear();
+            UpdateCredentialStatus();
+        }
+    }
+
+    private void RemoveEndedSession_Click(object sender, RoutedEventArgs e)
+    {
+        if (DetachedSessions.SelectedItem is not DetachedSessionInfo item ||
+            item.State != DetachedSessionState.Ended)
+        {
+            MessageBox.Show(
+                this,
+                "Select a session marked ENDED first.",
+                "JNS SSH",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        _detachedSessions.Remove(item);
+        _detachedStore.Save(_detachedSessions);
+        RefreshDetachedSessions();
+    }
+
+    private void ReconcileRemoteSessions(
+        string label,
+        string host,
+        int port,
+        string username,
+        string? keyFile,
+        string output)
+    {
+        DateTime now = DateTime.UtcNow;
+        var remote = new Dictionary<string, (DateTime? CreatedUtc, bool Attached)>(
+            StringComparer.Ordinal);
+
+        foreach (string line in output.Split(
+                     ['\r', '\n'],
+                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            string[] parts = line.Split('\t');
+
+            if (parts.Length < 3 ||
+                !parts[0].StartsWith("jns-", StringComparison.Ordinal))
+                continue;
+
+            DateTime? createdUtc = null;
+            if (long.TryParse(parts[1], out long epoch))
+                createdUtc = DateTimeOffset.FromUnixTimeSeconds(epoch).UtcDateTime;
+
+            bool attached =
+                int.TryParse(parts[2], out int attachedCount) &&
+                attachedCount > 0;
+
+            remote[parts[0]] = (createdUtc, attached);
+        }
+
+        foreach (var local in _detachedSessions.Where(item =>
+                     SameHost(item, host, port, username)))
+        {
+            local.LastCheckedUtc = now;
+
+            if (remote.Remove(local.SessionName, out var remoteState))
+            {
+                local.State = remoteState.Attached
+                    ? DetachedSessionState.RunningAttached
+                    : DetachedSessionState.RunningDetached;
+                local.LastSeenUtc = now;
+                local.ConfirmedEndedUtc = null;
+                local.RemoteCreatedUtc ??= remoteState.CreatedUtc;
+            }
+            else
+            {
+                local.State = DetachedSessionState.Ended;
+                local.ConfirmedEndedUtc ??= now;
+            }
+        }
+
+        foreach (var pair in remote)
+        {
+            _detachedSessions.Add(new DetachedSessionInfo
+            {
+                SessionName = pair.Key,
+                Label = string.IsNullOrWhiteSpace(label) ? $"{host} (discovered)" : label,
+                Host = host,
+                Port = port,
+                Username = username,
+                KeyFile = keyFile,
+                FirstRecordedUtc = now,
+                RemoteCreatedUtc = pair.Value.CreatedUtc,
+                LastSeenUtc = now,
+                LastCheckedUtc = now,
+                State = pair.Value.Attached
+                    ? DetachedSessionState.RunningAttached
+                    : DetachedSessionState.RunningDetached
+            });
+        }
+
+        _detachedStore.Save(_detachedSessions);
+        RefreshDetachedSessions();
+        RunLocalMaintenance();
+    }
+
+    private void MarkHostSessionsEnded(string host, int port, string username)
+    {
+        DateTime now = DateTime.UtcNow;
+
+        foreach (var item in _detachedSessions.Where(item =>
+                     SameHost(item, host, port, username)))
+        {
+            item.State = DetachedSessionState.Ended;
+            item.LastCheckedUtc = now;
+            item.ConfirmedEndedUtc ??= now;
+        }
+
+        _detachedStore.Save(_detachedSessions);
+        RefreshDetachedSessions();
+    }
+
+    private static bool SameHost(
+        DetachedSessionInfo item,
+        string host,
+        int port,
+        string username) =>
+        string.Equals(item.Host, host, StringComparison.OrdinalIgnoreCase) &&
+        item.Port == port &&
+        string.Equals(item.Username, username, StringComparison.OrdinalIgnoreCase);
+
+    private static bool SameSession(
+        DetachedSessionInfo item,
+        string host,
+        int port,
+        string username,
+        string sessionName) =>
+        SameHost(item, host, port, username) &&
+        string.Equals(item.SessionName, sessionName, StringComparison.Ordinal);
+
+    private void ForgetSavedPassword_Click(object sender, RoutedEventArgs e)
+    {
+        if (!TryReadConnectionFields(out _, out var host, out var port, out var username))
+            return;
+
+        _credentialStore.DeletePassword(host, port, username);
+        RememberPassword.IsChecked = false;
+        UpdateCredentialStatus();
+        StatusText.Text = $"Saved password removed: {username}@{host}:{port}";
+    }
+
+    private void UpdateCredentialStatus()
+    {
+        string host = HostName.Text.Trim();
+        string username = Username.Text.Trim();
+
+        if (!int.TryParse(Port.Text, out int port) ||
+            string.IsNullOrWhiteSpace(host) ||
+            string.IsNullOrWhiteSpace(username))
+        {
+            CredentialStatusText.Text = "Saved password status: select a host";
+            return;
+        }
+
+        CredentialStatusText.Text = _credentialStore.HasPassword(host, port, username)
+            ? "Saved password available in Windows Credential Manager"
+            : "No saved SSH account password for this host/user";
+    }
+
+    private async Task<ProbeConnection> OpenProbeConnectionAsync(string host, int port, string username)
+    {
+        byte[]? passwordUtf8 = null;
+        PrivateKeyFile? keyFile = null;
+        PasswordAuthenticationMethod? passwordAuthentication = null;
+        SshClient? client = null;
+        bool typedPassword = false;
+
+        string endpoint = $"{host}:{port}";
+        KnownHostEntry? pendingTrust = null;
+        string? hostKeyFailure = null;
+
+        try
+        {
+            string? keyPath = string.IsNullOrWhiteSpace(KeyFile.Text) ? null : KeyFile.Text.Trim();
+
+            if (keyPath is not null)
+            {
+                if (_secureKeyStore.IsManagedKey(keyPath))
+                    keyFile = _secureKeyStore.OpenPrivateKey(keyPath);
+                else
+                {
+                    using var securePassphrase = Password.SecurePassword;
+                    string? passphrase = securePassphrase.Length == 0
+                        ? null
+                        : SecureSecret.ToManagedString(securePassphrase);
+                    keyFile = passphrase is null
+                        ? new PrivateKeyFile(keyPath)
+                        : new PrivateKeyFile(keyPath, passphrase);
+                    passphrase = null;
+                }
+
+                client = new SshClient(host, port, username, keyFile);
+            }
+            else
+            {
+                using var securePassword = Password.SecurePassword;
+                typedPassword = securePassword.Length > 0;
+                passwordUtf8 = typedPassword
+                    ? SecureSecret.ToUtf8Bytes(securePassword)
+                    : _credentialStore.ReadPassword(host, port, username);
+
+                if (passwordUtf8 is null || passwordUtf8.Length == 0)
+                    throw new InvalidOperationException("Enter the SSH account password, select a private key, or save the password securely for this host/user.");
+
+                passwordAuthentication = new PasswordAuthenticationMethod(username, passwordUtf8);
+                client = new SshClient(new ConnectionInfo(host, port, username, passwordAuthentication));
+            }
+
+            client.HostKeyReceived += (_, args) =>
+            {
+                string fingerprint = args.FingerPrintSHA256;
+                var known = _knownHosts.Find(endpoint);
+
+                if (known is not null)
+                {
+                    bool matches =
+                        string.Equals(known.FingerprintSha256, fingerprint, StringComparison.Ordinal) &&
+                        string.Equals(known.Algorithm, args.HostKeyName, StringComparison.Ordinal);
+                    args.CanTrust = matches;
+                    if (!matches)
+                        hostKeyFailure =
+                            $"HOST KEY CHANGED for {endpoint}.\n\n" +
+                            $"Expected SHA256:{known.FingerprintSha256}\n" +
+                            $"Received SHA256:{fingerprint}\n\nConnection rejected.";
+                    return;
+                }
+
+                bool accepted = Dispatcher.Invoke(() =>
+                    MessageBox.Show(
+                        this,
+                        $"First connection to {endpoint}.\n\nAlgorithm: {args.HostKeyName}\nSHA256:{fingerprint}\n\nTrust this host key?",
+                        "Verify SSH host key",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question) == MessageBoxResult.Yes);
+                args.CanTrust = accepted;
+                if (accepted)
+                    pendingTrust = new KnownHostEntry
+                    {
+                        Endpoint = endpoint,
+                        Algorithm = args.HostKeyName,
+                        FingerprintSha256 = fingerprint
+                    };
+            };
+
+            await Task.Run(client.Connect);
+
+            if (hostKeyFailure is not null)
+                throw new InvalidOperationException(hostKeyFailure);
+
+            if (pendingTrust is not null)
+                _knownHosts.Trust(pendingTrust.Endpoint, pendingTrust.Algorithm, pendingTrust.FingerprintSha256);
+
+            if (keyPath is null &&
+                typedPassword &&
+                RememberPassword.IsChecked == true &&
+                passwordUtf8 is { Length: > 0 })
+                _credentialStore.SavePassword(host, port, username, passwordUtf8);
+
+            if (passwordUtf8 is not null)
+            {
+                CryptographicOperations.ZeroMemory(passwordUtf8);
+                passwordUtf8 = null;
+            }
+
+            return new ProbeConnection(client, keyFile, passwordAuthentication);
+        }
+        catch
+        {
+            if (passwordUtf8 is not null)
+                CryptographicOperations.ZeroMemory(passwordUtf8);
+            client?.Dispose();
+            passwordAuthentication?.Dispose();
+            keyFile?.Dispose();
+            if (hostKeyFailure is not null)
+                throw new InvalidOperationException(hostKeyFailure);
+            throw;
+        }
+    }
+
+    private sealed class ProbeConnection : IDisposable
+    {
+        public ProbeConnection(SshClient client, PrivateKeyFile? keyFile, PasswordAuthenticationMethod? passwordAuthentication)
+        {
+            Client = client;
+            KeyFile = keyFile;
+            PasswordAuthentication = passwordAuthentication;
+        }
+
+        public SshClient Client { get; }
+        private PrivateKeyFile? KeyFile { get; }
+        private PasswordAuthenticationMethod? PasswordAuthentication { get; }
+
+        public void Dispose()
+        {
+            Client.Dispose();
+            PasswordAuthentication?.Dispose();
+            KeyFile?.Dispose();
+        }
+    }
+
+    private void RunLocalMaintenance()
+    {
+        _localDataWatchdog.CleanupTransientFiles();
+        _history.RunMaintenance();
+        _detachedSessions = _localDataWatchdog.PruneSessionRegistry(_detachedSessions).ToList();
+        _detachedStore.Save(_detachedSessions);
+        RefreshDetachedSessions();
     }
 
     private void TerminalTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -807,6 +1339,7 @@ public partial class MainWindow : Window
             return;
 
         int linesBefore = slot.Session.Buffer.ScrollbackCount;
+        slot.Terminal.ClearLocalSelection();
         slot.Session.PurgeLocalScreenBuffer(slot.Terminal.ScrollbackLines);
         slot.Terminal.ResetTrackedScroll();
         UpdateScrollBar(slot);
@@ -966,7 +1499,7 @@ public partial class MainWindow : Window
                     slot.Session?.IsConnected == true &&
                     !string.IsNullOrWhiteSpace(slot.TmuxSessionName))
                 {
-                    SaveDetachedRecord(slot);
+                    SaveDetachedRecord(slot, DetachedSessionState.RunningDetached);
                 }
             }
             catch
@@ -976,9 +1509,11 @@ public partial class MainWindow : Window
 
             slot.Session?.Dispose();
             slot.Client?.Dispose();
+            slot.PasswordAuthentication?.Dispose();
             slot.PrivateKeyFile?.Dispose();
         }
 
+        _maintenanceTimer.Stop();
         base.OnClosed(e);
     }
 }

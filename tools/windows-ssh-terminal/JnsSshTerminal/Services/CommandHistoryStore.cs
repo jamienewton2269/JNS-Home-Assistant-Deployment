@@ -54,6 +54,12 @@ public sealed class CommandHistoryStore
         Save();
     }
 
+    public void RunMaintenance()
+    {
+        Prune();
+        Save();
+    }
+
     public void Save()
     {
         // Multiline/script blocks stay available for the current process only.
