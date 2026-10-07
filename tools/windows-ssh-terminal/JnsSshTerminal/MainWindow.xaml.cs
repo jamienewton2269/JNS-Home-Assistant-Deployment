@@ -550,13 +550,14 @@ public partial class MainWindow : Window
             Maximum = 0,
             SmallChange = 3,
             LargeChange = 25,
-            Width = 18
+            Width = 28,
+            Style = (Style)FindResource("TerminalScrollBarStyle")
         };
         scrollBar.ValueChanged += TerminalScrollBar_ValueChanged;
 
         var host = new Grid();
         host.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        host.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
+        host.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });
 
         Grid.SetColumn(terminal, 0);
         Grid.SetColumn(scrollBar, 1);

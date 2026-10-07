@@ -18,6 +18,163 @@
         <Style TargetType="TextBox">
             <Setter Property="Padding" Value="5"/>
         </Style>
+
+        <Style x:Key="TerminalScrollPageButtonStyle"
+               TargetType="{x:Type RepeatButton}">
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Background" Value="#15191E"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type RepeatButton}">
+                        <Border x:Name="PageSurface"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="4"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="PageSurface" Property="Background" Value="#252C34"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="PageSurface" Property="Background" Value="#303945"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="TerminalScrollArrowButtonStyle"
+               TargetType="{x:Type RepeatButton}">
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Foreground" Value="#DCE2E9"/>
+            <Setter Property="Background" Value="#252B32"/>
+            <Setter Property="BorderBrush" Value="#4A535E"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type RepeatButton}">
+                        <Border x:Name="ArrowSurface"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <TextBlock Text="{TemplateBinding Content}"
+                                       Foreground="{TemplateBinding Foreground}"
+                                       FontSize="13"
+                                       FontWeight="Bold"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ArrowSurface" Property="Background" Value="#39434E"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ArrowSurface" Property="Background" Value="#586675"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="TerminalScrollThumbStyle"
+               TargetType="{x:Type Thumb}">
+            <Setter Property="MinHeight" Value="48"/>
+            <Setter Property="Margin" Value="3,2"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="#747F8C"/>
+            <Setter Property="BorderBrush" Value="#AAB3BE"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Border x:Name="ThumbSurface"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="7">
+                            <StackPanel HorizontalAlignment="Center"
+                                        VerticalAlignment="Center">
+                                <Border Width="10" Height="2" Background="#242A31" CornerRadius="1" Margin="0,1"/>
+                                <Border Width="10" Height="2" Background="#242A31" CornerRadius="1" Margin="0,1"/>
+                                <Border Width="10" Height="2" Background="#242A31" CornerRadius="1" Margin="0,1"/>
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ThumbSurface" Property="Background" Value="#AAB4C0"/>
+                                <Setter TargetName="ThumbSurface" Property="BorderBrush" Value="#E1E6EC"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="ThumbSurface" Property="Background" Value="#E3E8EE"/>
+                                <Setter TargetName="ThumbSurface" Property="BorderBrush" Value="White"/>
+                                <Setter TargetName="ThumbSurface" Property="BorderThickness" Value="2"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ThumbSurface" Property="Opacity" Value="0.35"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="TerminalScrollBarStyle"
+               TargetType="{x:Type ScrollBar}">
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="Background" Value="#101317"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ScrollBar}">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="#343B44"
+                                BorderThickness="1,0,0,0">
+                            <Grid Margin="2">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="28"/>
+                                </Grid.RowDefinitions>
+
+                                <RepeatButton Grid.Row="0"
+                                              Content="▲"
+                                              Style="{StaticResource TerminalScrollArrowButtonStyle}"
+                                              Command="{x:Static ScrollBar.LineUpCommand}"
+                                              CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}"
+                                              ToolTip="Scroll up"/>
+
+                                <Track x:Name="PART_Track"
+                                       Grid.Row="1"
+                                       IsDirectionReversed="True"
+                                       Focusable="False">
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton Style="{StaticResource TerminalScrollPageButtonStyle}"
+                                                      Command="{x:Static ScrollBar.PageUpCommand}"
+                                                      CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}"/>
+                                    </Track.DecreaseRepeatButton>
+                                    <Track.Thumb>
+                                        <Thumb Style="{StaticResource TerminalScrollThumbStyle}"/>
+                                    </Track.Thumb>
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton Style="{StaticResource TerminalScrollPageButtonStyle}"
+                                                      Command="{x:Static ScrollBar.PageDownCommand}"
+                                                      CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}"/>
+                                    </Track.IncreaseRepeatButton>
+                                </Track>
+
+                                <RepeatButton Grid.Row="2"
+                                              Content="▼"
+                                              Style="{StaticResource TerminalScrollArrowButtonStyle}"
+                                              Command="{x:Static ScrollBar.LineDownCommand}"
+                                              CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}"
+                                              ToolTip="Scroll down"/>
+                            </Grid>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid>
@@ -188,7 +345,7 @@
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="18"/>
+                            <ColumnDefinition Width="28"/>
                         </Grid.ColumnDefinitions>
                         <local:JnsTerminalControl x:Name="Terminal1"
                                                   Grid.Column="0"
@@ -202,6 +359,7 @@
                                                   PreviewMouseRightButtonDown="Terminal_PreviewMouseRightButtonDown"/>
                         <ScrollBar x:Name="TerminalScrollBar1"
                                    Grid.Column="1"
+                                   Style="{StaticResource TerminalScrollBarStyle}"
                                    Orientation="Vertical"
                                    Minimum="0"
                                    Maximum="0"
@@ -214,7 +372,7 @@
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="18"/>
+                            <ColumnDefinition Width="28"/>
                         </Grid.ColumnDefinitions>
                         <local:JnsTerminalControl x:Name="Terminal2"
                                                   Grid.Column="0"
@@ -228,6 +386,7 @@
                                                   PreviewMouseRightButtonDown="Terminal_PreviewMouseRightButtonDown"/>
                         <ScrollBar x:Name="TerminalScrollBar2"
                                    Grid.Column="1"
+                                   Style="{StaticResource TerminalScrollBarStyle}"
                                    Orientation="Vertical"
                                    Minimum="0"
                                    Maximum="0"
