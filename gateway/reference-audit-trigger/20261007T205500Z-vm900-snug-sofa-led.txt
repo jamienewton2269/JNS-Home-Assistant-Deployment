@@ -1,0 +1,1 @@
+audit offline VM900 for Snug sofa LED controller; do not boot VM900
