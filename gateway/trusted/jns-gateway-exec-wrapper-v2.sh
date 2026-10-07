@@ -27,6 +27,9 @@ case "$JOB_TYPE" in
   ha_network_identity_install)
     exec /usr/local/libexec/jns-gateway-ha-network-identity-install "$REAL"
     ;;
+  ha_tuya_local_event_wake_patch)
+    exec /usr/local/libexec/jns-gateway-ha-tuya-local-event-wake-patch "$REAL"
+    ;;
   *)
     exec /usr/local/sbin/jns-gateway-exec.base "$REAL"
     ;;
