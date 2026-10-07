@@ -384,6 +384,7 @@ public partial class MainWindow : Window
         name = ProfileName.Text.Trim();
         host = HostName.Text.Trim();
         username = Username.Text.Trim();
+        port = 0;
 
         if (string.IsNullOrWhiteSpace(name))
             name = host;
