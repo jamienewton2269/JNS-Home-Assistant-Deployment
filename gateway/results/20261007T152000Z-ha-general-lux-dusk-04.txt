@@ -1,0 +1,10 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261007T152000Z-ha-general-lux-dusk-04
+started=2026-10-07T15:44:43+01:00
+runner=nodec
+
+awk: cmd. line:1: Unexpected token
+ROLLBACK: restoring previous package
+
+finished=2026-10-07T15:44:53+01:00
+exit_code=1
