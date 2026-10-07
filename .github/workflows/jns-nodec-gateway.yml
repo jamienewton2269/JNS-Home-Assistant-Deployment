@@ -54,21 +54,21 @@ jobs:
 
           rebuild_index() {
             python3 - <<'PY'
-import glob,json,os
-rows=[]
-for p in sorted(glob.glob("gateway/status/*.json")):
-    try:
-        with open(p,encoding="utf-8") as f:
-            d=json.load(f)
-    except Exception:
-        continue
-    rows.append((d.get("job_id",""),d.get("state",""),d.get("exit_code"),
-                 d.get("started") or "",d.get("finished") or ""))
-with open("gateway/index.tsv","w",encoding="utf-8") as f:
-    f.write("job_id\tstate\texit_code\tstarted\tfinished\n")
-    for r in rows:
-        f.write("\t".join("" if x is None else str(x) for x in r)+"\n")
-PY
+          import glob,json
+          rows=[]
+          for p in sorted(glob.glob("gateway/status/*.json")):
+              try:
+                  with open(p,encoding="utf-8") as fh:
+                      d=json.load(fh)
+              except Exception:
+                  continue
+              rows.append((d.get("job_id",""),d.get("state",""),d.get("exit_code"),
+                           d.get("started") or "",d.get("finished") or ""))
+          with open("gateway/index.tsv","w",encoding="utf-8") as fh:
+              fh.write("job_id\\tstate\\texit_code\\tstarted\\tfinished\\n")
+              for row in rows:
+                  fh.write("\\t".join("" if x is None else str(x) for x in row)+"\\n")
+          PY
           }
 
           rebuild_index
