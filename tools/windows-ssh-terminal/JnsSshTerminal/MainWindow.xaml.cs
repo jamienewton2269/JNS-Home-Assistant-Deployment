@@ -171,9 +171,12 @@ public partial class MainWindow : Window
             };
 
             _session = new JnsSecureShellSession(_client);
-            Terminal.Session = _session;
 
+            // Connect before binding the WPF terminal control. Binding first can
+            // cause TerminalControl to issue an initial Resize(), and the SSH
+            // session correctly rejects resize requests until ShellStream exists.
             await _session.ConnectAsync();
+            Terminal.Session = _session;
 
             if (pendingTrust is not null)
             {
