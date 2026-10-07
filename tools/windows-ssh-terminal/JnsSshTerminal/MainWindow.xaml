@@ -35,6 +35,10 @@
                 <StackPanel>
                     <TextBlock Text="JNS SSH" FontSize="22" FontWeight="SemiBold" Foreground="White"/>
                     <TextBlock Text="simple • local • no cloud" Margin="0,0,0,18" Foreground="#AAB1BC"/>
+                    <TextBlock Text="Connect / disconnect applies to the active terminal tab."
+                               Margin="0,0,0,14"
+                               Foreground="#AAB1BC"
+                               TextWrapping="Wrap"/>
 
                     <TextBlock Text="Saved host" Foreground="#D5D8DC"/>
                     <ComboBox x:Name="SavedHosts"
@@ -70,7 +74,7 @@
                         <Button Content="Save Host" MinWidth="105" Click="SaveHost_Click"/>
                         <Button Content="Connect" MinWidth="105" Click="Connect_Click"/>
                     </WrapPanel>
-                    <Button Content="Disconnect" Click="Disconnect_Click" Margin="0,0,0,18"/>
+                    <Button Content="Disconnect Active Tab" Click="Disconnect_Click" Margin="0,0,0,18"/>
 
                     <Separator/>
                     <TextBlock Text="Credentials are never saved."
@@ -108,23 +112,41 @@
                     </WrapPanel>
                     <TextBlock x:Name="StatusText"
                                DockPanel.Dock="Right"
-                               Text="Disconnected"
+                               Text="Terminal 1: Disconnected"
                                Foreground="#AAB1BC"
                                VerticalAlignment="Center"
                                Margin="10,0,4,6"/>
                 </DockPanel>
             </Border>
 
-            <vt:TerminalControl x:Name="Terminal"
-                                Grid.Row="1"
-                                AllowDirectInput="True"
-                                ScrollDownVisible="True"
-                                ScrollbackLines="3000"
-                                Background="#080A0C"
-                                Foreground="#E7E9EC"
-                                FontFamily="Cascadia Mono"
-                                FontSize="14"
-                                PreviewMouseRightButtonDown="Terminal_PreviewMouseRightButtonDown"/>
+            <TabControl x:Name="TerminalTabs"
+                        Grid.Row="1"
+                        Background="#080A0C"
+                        BorderBrush="#343941"
+                        SelectionChanged="TerminalTabs_SelectionChanged">
+                <TabItem x:Name="TerminalTab1" Header="Terminal 1">
+                    <vt:TerminalControl x:Name="Terminal1"
+                                        AllowDirectInput="True"
+                                        ScrollDownVisible="True"
+                                        ScrollbackLines="3000"
+                                        Background="#080A0C"
+                                        Foreground="#E7E9EC"
+                                        FontFamily="Cascadia Mono"
+                                        FontSize="14"
+                                        PreviewMouseRightButtonDown="Terminal_PreviewMouseRightButtonDown"/>
+                </TabItem>
+                <TabItem x:Name="TerminalTab2" Header="Terminal 2">
+                    <vt:TerminalControl x:Name="Terminal2"
+                                        AllowDirectInput="True"
+                                        ScrollDownVisible="True"
+                                        ScrollbackLines="3000"
+                                        Background="#080A0C"
+                                        Foreground="#E7E9EC"
+                                        FontFamily="Cascadia Mono"
+                                        FontSize="14"
+                                        PreviewMouseRightButtonDown="Terminal_PreviewMouseRightButtonDown"/>
+                </TabItem>
+            </TabControl>
 
             <Border Grid.Row="2"
                     Background="#202329"
@@ -137,7 +159,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0">
-                        <TextBlock Text="Command Bar — commands sent here are added to history; direct terminal keystrokes are never logged."
+                        <TextBlock Text="Command Bar — sends to the active terminal tab; commands sent here are added to history."
                                    Foreground="#AAB1BC"
                                    Margin="0,0,0,4"/>
                         <TextBox x:Name="CommandEntry"
@@ -160,7 +182,7 @@
 
             <StatusBar Grid.Row="3" Background="#17191C" Foreground="#AAB1BC">
                 <StatusBarItem>
-                    <TextBlock Text="Select = copy • Right-click = paste • Ctrl+V = paste • Ctrl+C = copy selection or interrupt when nothing selected"/>
+                    <TextBlock Text="Two independent SSH sessions • Select = copy • Right-click = paste • Ctrl+V = paste • Ctrl+C = copy selection or interrupt"/>
                 </StatusBarItem>
             </StatusBar>
         </Grid>

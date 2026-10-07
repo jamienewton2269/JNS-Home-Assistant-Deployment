@@ -23,6 +23,21 @@ Acceptance gates:
 - [x] Live SSH test against Node C
 - [x] Clipboard round-trip test with long multiline ChatGPT commands
 
+## v0.1.2 - two SSH sessions
+
+Acceptance gates:
+
+- [x] two fixed terminal tabs
+- [x] independent SSH connection per tab
+- [x] independent screen buffer and scrollback per tab
+- [x] switching tabs keeps both SSH sessions alive
+- [x] connect/disconnect targets active tab
+- [x] copy/paste/clear buffer targets active tab
+- [x] Command Bar sends to active tab
+- [x] shared bounded command history
+- [ ] Windows build validated
+- [ ] live simultaneous two-host test
+
 ## v0.2 - ChatGPT integration
 
 Goal: the JNS SSH Terminal becomes the normal work surface so browser copy/paste is no

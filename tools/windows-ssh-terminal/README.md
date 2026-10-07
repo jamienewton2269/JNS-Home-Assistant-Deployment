@@ -10,6 +10,7 @@ ChatGPT / shell workflow reliable:
 - Ctrl+V -> paste
 - Ctrl+C -> copy when text is selected; otherwise send the normal terminal interrupt
 - saved hosts without saved credentials
+- two fixed independent terminal tabs; switching tabs does not disconnect either session
 - clear the complete local screen/scrollback buffer without dropping the SSH connection
 - release references held by the cleared buffer and request managed/Windows working-set reclamation
 - useful command history kept separately from terminal scrollback
@@ -97,6 +98,10 @@ dotnet publish .\JnsSshTerminal\JnsSshTerminal.csproj -c Release --no-self-conta
 
 A framework-dependent build is intentional: we do not bundle an entire private .NET
 runtime into every copy of this small application.
+
+## v0.1.2 - second terminal tab
+
+The application provides two fixed terminal tabs. Each tab owns its own SSH client, shell stream, screen buffer and scrollback. Connect, Disconnect, Copy, Paste, Clear Screen Buffer and the Command Bar always target the active tab. Command history remains deliberately shared because it is a reusable command library rather than terminal output.
 
 ## v0.2 - native ChatGPT workspace
 

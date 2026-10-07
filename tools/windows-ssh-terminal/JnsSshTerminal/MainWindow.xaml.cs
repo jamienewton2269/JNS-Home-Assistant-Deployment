@@ -5,6 +5,7 @@ using Renci.SshNet;
 using Renci.SshNet.Common;
 using System.Text;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using VirtualTerminal;
 
@@ -12,27 +13,58 @@ namespace JnsSshTerminal;
 
 public partial class MainWindow : Window
 {
+    private sealed class SessionSlot
+    {
+        public SessionSlot(string baseTitle, TabItem tab, TerminalControl terminal)
+        {
+            BaseTitle = baseTitle;
+            Tab = tab;
+            Terminal = terminal;
+            Status = "Disconnected";
+        }
+
+        public string BaseTitle { get; }
+        public TabItem Tab { get; }
+        public TerminalControl Terminal { get; }
+
+        public JnsSecureShellSession? Session { get; set; }
+        public SshClient? Client { get; set; }
+        public PrivateKeyFile? PrivateKeyFile { get; set; }
+        public string Status { get; set; }
+    }
+
     private readonly ProfileStore _profileStore = new();
     private readonly CommandHistoryStore _history = new();
     private readonly KnownHostsStore _knownHosts = new();
 
     private List<HostProfile> _profiles = new();
-    private JnsSecureShellSession? _session;
-    private SshClient? _client;
-    private PrivateKeyFile? _privateKeyFile;
+    private SessionSlot[] _slots = [];
+
+    private SessionSlot ActiveSlot =>
+        _slots[Math.Clamp(TerminalTabs.SelectedIndex, 0, _slots.Length - 1)];
+
+    private TerminalControl ActiveTerminal => ActiveSlot.Terminal;
 
     public MainWindow()
     {
         InitializeComponent();
+
+        _slots =
+        [
+            new SessionSlot("Terminal 1", TerminalTab1, Terminal1),
+            new SessionSlot("Terminal 2", TerminalTab2, Terminal2)
+        ];
 
         _profiles = _profileStore.Load();
         SavedHosts.ItemsSource = _profiles;
 
         _history.Load();
         HistoryList.ItemsSource = _history.Entries;
+
+        UpdateActiveStatus();
     }
 
-    private void SavedHosts_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    private void SavedHosts_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (SavedHosts.SelectedItem is not HostProfile profile)
             return;
@@ -68,7 +100,8 @@ public partial class MainWindow : Window
         _profileStore.Save(_profiles);
         SavedHosts.ItemsSource = null;
         SavedHosts.ItemsSource = _profiles;
-        StatusText.Text = "Host saved";
+
+        StatusText.Text = $"{ActiveSlot.BaseTitle}: host profile saved";
     }
 
     private void BrowseKey_Click(object sender, RoutedEventArgs e)
@@ -87,7 +120,7 @@ public partial class MainWindow : Window
 
     private async void Connect_Click(object sender, RoutedEventArgs e)
     {
-        if (!TryReadConnectionFields(out _, out var host, out var port, out var username))
+        if (!TryReadConnectionFields(out var profileName, out var host, out var port, out var username))
             return;
 
         if (string.IsNullOrWhiteSpace(KeyFile.Text) && string.IsNullOrEmpty(Password.Password))
@@ -100,9 +133,12 @@ public partial class MainWindow : Window
             return;
         }
 
-        await DisconnectInternalAsync();
+        var slot = ActiveSlot;
+        await DisconnectSlotAsync(slot, updateUi: false);
 
-        StatusText.Text = $"Connecting to {host}:{port}…";
+        slot.Status = $"Connecting to {host}:{port}…";
+        UpdateActiveStatus();
+
         string endpoint = $"{host}:{port}";
         KnownHostEntry? pendingTrust = null;
         string? hostKeyFailure = null;
@@ -112,18 +148,18 @@ public partial class MainWindow : Window
             if (!string.IsNullOrWhiteSpace(KeyFile.Text))
             {
                 string path = KeyFile.Text.Trim();
-                _privateKeyFile = string.IsNullOrEmpty(Password.Password)
+                slot.PrivateKeyFile = string.IsNullOrEmpty(Password.Password)
                     ? new PrivateKeyFile(path)
                     : new PrivateKeyFile(path, Password.Password);
 
-                _client = new SshClient(host, port, username, _privateKeyFile);
+                slot.Client = new SshClient(host, port, username, slot.PrivateKeyFile);
             }
             else
             {
-                _client = new SshClient(host, port, username, Password.Password);
+                slot.Client = new SshClient(host, port, username, Password.Password);
             }
 
-            _client.HostKeyReceived += (_, args) =>
+            slot.Client.HostKeyReceived += (_, args) =>
             {
                 string fingerprint = args.FingerPrintSHA256;
                 var known = _knownHosts.Find(endpoint);
@@ -170,13 +206,12 @@ public partial class MainWindow : Window
                 }
             };
 
-            _session = new JnsSecureShellSession(_client);
+            slot.Session = new JnsSecureShellSession(slot.Client);
 
-            // Connect before binding the WPF terminal control. Binding first can
-            // cause TerminalControl to issue an initial Resize(), and the SSH
-            // session correctly rejects resize requests until ShellStream exists.
-            await _session.ConnectAsync();
-            Terminal.Session = _session;
+            // The SSH transport and ShellStream must exist before the terminal
+            // control is attached because attaching can immediately trigger Resize().
+            await slot.Session.ConnectAsync();
+            slot.Terminal.Session = slot.Session;
 
             if (pendingTrust is not null)
             {
@@ -187,14 +222,19 @@ public partial class MainWindow : Window
             }
 
             Password.Clear();
-            StatusText.Text = $"Connected: {username}@{host}:{port}";
-            Terminal.Focus();
+
+            string label = string.IsNullOrWhiteSpace(profileName) ? host : profileName;
+            slot.Tab.Header = $"{slot.BaseTitle} • {label}";
+            slot.Status = $"Connected: {username}@{host}:{port}";
+
+            UpdateActiveStatus();
+            slot.Terminal.Focus();
         }
         catch (Exception ex)
         {
             Password.Clear();
             string message = hostKeyFailure ?? FriendlyConnectionError(ex);
-            await DisconnectInternalAsync();
+            await DisconnectSlotAsync(slot, updateUi: true);
 
             MessageBox.Show(
                 this,
@@ -207,19 +247,19 @@ public partial class MainWindow : Window
 
     private async void Disconnect_Click(object sender, RoutedEventArgs e)
     {
-        await DisconnectInternalAsync();
+        await DisconnectSlotAsync(ActiveSlot, updateUi: true);
     }
 
-    private async Task DisconnectInternalAsync()
+    private async Task DisconnectSlotAsync(SessionSlot slot, bool updateUi)
     {
-        var session = _session;
-        var client = _client;
-        var key = _privateKeyFile;
+        var session = slot.Session;
+        var client = slot.Client;
+        var key = slot.PrivateKeyFile;
 
-        _session = null;
-        _client = null;
-        _privateKeyFile = null;
-        Terminal.Session = null;
+        slot.Session = null;
+        slot.Client = null;
+        slot.PrivateKeyFile = null;
+        slot.Terminal.Session = null;
 
         if (session is not null)
         {
@@ -238,64 +278,99 @@ public partial class MainWindow : Window
         client?.Dispose();
         key?.Dispose();
 
-        StatusText.Text = "Disconnected";
+        slot.Tab.Header = slot.BaseTitle;
+        slot.Status = "Disconnected";
+
+        if (updateUi && ReferenceEquals(slot, ActiveSlot))
+            UpdateActiveStatus();
+    }
+
+    private void TerminalTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_slots.Length == 0 || e.Source != TerminalTabs)
+            return;
+
+        UpdateActiveStatus();
+    }
+
+    private void UpdateActiveStatus()
+    {
+        if (_slots.Length == 0)
+            return;
+
+        StatusText.Text = $"{ActiveSlot.BaseTitle}: {ActiveSlot.Status}";
     }
 
     private void Copy_Click(object sender, RoutedEventArgs e)
     {
-        if (TerminalControl.CopyCommand.CanExecute(null, Terminal))
-            TerminalControl.CopyCommand.Execute(null, Terminal);
+        var terminal = ActiveTerminal;
+        if (TerminalControl.CopyCommand.CanExecute(null, terminal))
+            TerminalControl.CopyCommand.Execute(null, terminal);
     }
 
     private void Paste_Click(object sender, RoutedEventArgs e)
     {
-        if (TerminalControl.PasteCommand.CanExecute(null, Terminal))
-            TerminalControl.PasteCommand.Execute(null, Terminal);
-        Terminal.Focus();
+        var terminal = ActiveTerminal;
+        if (TerminalControl.PasteCommand.CanExecute(null, terminal))
+            TerminalControl.PasteCommand.Execute(null, terminal);
+
+        terminal.Focus();
     }
 
     private void Terminal_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
-        // Right-click is always paste. Selection already copied on left mouse-up.
-        if (TerminalControl.PasteCommand.CanExecute(null, Terminal))
-            TerminalControl.PasteCommand.Execute(null, Terminal);
+        if (sender is not TerminalControl terminal)
+            return;
+
+        // Right-click is always paste into the terminal that was clicked.
+        if (TerminalControl.PasteCommand.CanExecute(null, terminal))
+            TerminalControl.PasteCommand.Execute(null, terminal);
 
         e.Handled = true;
-        Terminal.Focus();
+        terminal.Focus();
     }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (!Terminal.IsKeyboardFocusWithin)
+        if (_slots.Length == 0)
+            return;
+
+        var terminal = _slots
+            .Select(slot => slot.Terminal)
+            .FirstOrDefault(candidate => candidate.IsKeyboardFocusWithin);
+
+        if (terminal is null)
             return;
 
         if (e.Key == Key.C &&
             Keyboard.Modifiers.HasFlag(ModifierKeys.Control) &&
             !Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) &&
-            TerminalControl.CopyCommand.CanExecute(null, Terminal))
+            TerminalControl.CopyCommand.CanExecute(null, terminal))
         {
-            // With a selection Ctrl+C means copy. With no selection we do
-            // nothing here and VirtualTerminal sends the normal terminal ^C.
-            TerminalControl.CopyCommand.Execute(null, Terminal);
+            // With a selection Ctrl+C means copy. With no selection we leave the
+            // event alone so the terminal sends the normal Ctrl+C / SIGINT.
+            TerminalControl.CopyCommand.Execute(null, terminal);
             e.Handled = true;
         }
     }
 
     private void ClearBuffer_Click(object sender, RoutedEventArgs e)
     {
-        if (_session is null)
+        var slot = ActiveSlot;
+        if (slot.Session is null)
             return;
 
-        int linesBefore = _session.Buffer.ScrollbackCount;
-        _session.PurgeLocalScreenBuffer(Terminal.ScrollbackLines);
+        int linesBefore = slot.Session.Buffer.ScrollbackCount;
+        slot.Session.PurgeLocalScreenBuffer(slot.Terminal.ScrollbackLines);
         var trim = MemoryTrimmer.ReclaimAfterBufferPurge();
 
         long managedFreed = Math.Max(0, trim.ManagedBefore - trim.ManagedAfter);
-        StatusText.Text =
-            $"Buffer purged: {linesBefore:N0} scrollback lines; " +
+        slot.Status =
+            $"Buffer purged: {linesBefore:N0} lines; " +
             $"{managedFreed / 1024.0 / 1024.0:N1} MB managed memory released";
 
-        Terminal.Focus();
+        UpdateActiveStatus();
+        slot.Terminal.Focus();
     }
 
     private void SendCommand_Click(object sender, RoutedEventArgs e)
@@ -314,9 +389,12 @@ public partial class MainWindow : Window
 
     private void SendCommandBar()
     {
-        if (_session?.IsConnected != true)
+        var slot = ActiveSlot;
+
+        if (slot.Session?.IsConnected != true)
         {
-            StatusText.Text = "Not connected";
+            slot.Status = "Not connected";
+            UpdateActiveStatus();
             return;
         }
 
@@ -331,10 +409,10 @@ public partial class MainWindow : Window
         _history.Add(command);
 
         string payload = command.EndsWith('\n') ? command : command + "\n";
-        _session.Write(Encoding.UTF8.GetBytes(payload));
+        slot.Session.Write(Encoding.UTF8.GetBytes(payload));
 
         CommandEntry.Clear();
-        Terminal.Focus();
+        slot.Terminal.Focus();
     }
 
     private void ToggleHistory_Click(object sender, RoutedEventArgs e)
@@ -418,9 +496,12 @@ public partial class MainWindow : Window
 
         try
         {
-            _session?.Dispose();
-            _client?.Dispose();
-            _privateKeyFile?.Dispose();
+            foreach (var slot in _slots)
+            {
+                slot.Session?.Dispose();
+                slot.Client?.Dispose();
+                slot.PrivateKeyFile?.Dispose();
+            }
         }
         finally
         {
