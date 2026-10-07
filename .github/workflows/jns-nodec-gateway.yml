@@ -42,8 +42,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          chmod +x gateway/dispatcher.sh
-          gateway/dispatcher.sh gateway
+          bash gateway/dispatcher.sh gateway
 
       - name: Return queue state and per-job results
         if: always()
