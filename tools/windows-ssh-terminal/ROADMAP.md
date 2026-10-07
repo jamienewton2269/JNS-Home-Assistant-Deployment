@@ -121,7 +121,7 @@ Acceptance gates:
 - [x] left pane starts at 275 px
 - [x] left pane constrained to a practical 220-520 px range
 - [x] terminal workspace retains a minimum usable width
-- [ ] Windows build validated
+- [x] Windows build validated
 - [ ] live drag-resize test while multiple terminal tabs are connected
 
 ## v0.1.9 - hardened self-contained release (after v0.1.8 live tests)
