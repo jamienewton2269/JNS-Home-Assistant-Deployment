@@ -1,0 +1,30 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261007T143100Z-ha-general-network-identity-install-06
+started=2026-10-07T15:25:10+01:00
+runner=nodec
+
+{
+   "pid" : 31910
+}
+timeout reached, returning pid
+{
+   "exitcode" : 0,
+   "exited" : 1,
+   "out-data" : "arch: amd64\naudio_input: null\naudio_output: null\nbackups_exclude_database: false\nboot: true\nduplicate_log_file: false\nimage: ghcr.io/home-assistant/qemux86-64-homeassistant\nip_address: 172.30.32.1\nmachine: qemux86-64\nport: 80\nssl: false\nupdate_available: false\nversion: 2026.9.4\nversion_latest: 2026.9.4\nwatchdog: true\n",
+   "out-truncated" : 0
+}
+{
+   "exitcode" : 0,
+   "exited" : 1,
+   "out-data" : "\u001b[31m2026-10-07 15:21:23.541 ERROR (MainThread) [homeassistant.config] Invalid package configuration 'packages' at packages/jns_network_identity_enable.yaml, line 1: expected dict or list at 'jns_network_identity_enable'\u001b[0m\n\u001b[31m2026-10-07 15:21:23.626 ERROR (SyncWorker_0) [homeassistant.loader] Error parsing manifest.json file at /config/custom_components/jns_network_identity/manifest.json: Input is a zero-length, empty document: line 1 column 1 (char 0)\u001b[0m\n\u001b[31m2026-10-07 15:21:34.809 ERROR (MainThread) [homeassistant.config] Invalid package configuration 'packages' at packages/jns_network_identity_enable.yaml, line 1: expected dict or list at 'jns_network_identity_enable'\u001b[0m\n",
+   "out-truncated" : 0
+}
+HA_NETWORK_IDENTITY_INSTALL_OK
+job_id=20261007T143100Z-ha-general-network-identity-install-06
+target=ha-general
+vmid=905
+component=/mnt/data/supervisor/homeassistant/custom_components/jns_network_identity
+backup=/mnt/data/supervisor/homeassistant/.jns-backups/network-identity-20261007T152512
+
+finished=2026-10-07T15:26:21+01:00
+exit_code=0

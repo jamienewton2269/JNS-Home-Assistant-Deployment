@@ -12,3 +12,4 @@ job_id	state	exit_code	started	finished
 20261007T140900Z-ha-general-network-identity-install-03	failed	64	2026-10-07T15:07:55+01:00	2026-10-07T15:07:55+01:00
 20261007T141500Z-ha-general-network-identity-install-04	failed	2	2026-10-07T15:10:16+01:00	2026-10-07T15:10:21+01:00
 20261007T142300Z-ha-general-network-identity-install-05	failed	127	2026-10-07T15:19:27+01:00	2026-10-07T15:21:08+01:00
+20261007T143100Z-ha-general-network-identity-install-06	done	0	2026-10-07T15:25:10+01:00	2026-10-07T15:26:21+01:00
