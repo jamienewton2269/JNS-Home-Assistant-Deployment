@@ -96,7 +96,7 @@ guest_exec "printf '%s\n' 'jns_network_identity: {}' > '$ENABLE_FILE'" >/dev/nul
 
 # Verify exact bytes made it through the bridge.
 for f in __init__.py manifest.json services.yaml card.js; do
-  EXPECTED="$(sha256sum "$SRC/$f" | awk '{print $1}')"
+  EXPECTED="$(sha256sum "$SRC/$f" | cut -d' ' -f1)"
   ACTUAL="$(guest_exec "sha256sum '$TARGET_DIR/$f'" | cut -d' ' -f1 | tr -d '\r\n')"
   [ "$EXPECTED" = "$ACTUAL" ] || {
     echo "Integrity mismatch for $f expected=$EXPECTED actual=$ACTUAL" >&2
