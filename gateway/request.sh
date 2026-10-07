@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-echo "=== INSTALL INFRASTRUCTURE SOCKET INTERLOCKS ON HA-GENERAL ==="
+echo "=== INSTALL INFRASTRUCTURE SOCKET INTERLOCKS ON HA-GENERAL (REPUBLISH) ==="
 date -Is
 
 ssh nodeb 'bash -s' <<'NODEB'
@@ -12,6 +12,7 @@ cat > "$PKG" <<'YAML'
 # Infrastructure power interlocks
 # HA-General
 # Router socket currently uses the legacy entity id switch.wdnas_power_socket.
+# Tuya Local config_entry_id: 01M2TRACBN3KHVCGHR65SHPAHS.
 # Do not expose or use that raw switch directly for normal control.
 
 homeassistant:
