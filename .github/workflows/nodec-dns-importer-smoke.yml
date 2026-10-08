@@ -96,3 +96,5 @@ jobs:
           cleanup
           trap - EXIT
           echo "DNS_IMPORTER_SMOKE_OK"
+
+# rerun: exact-domain dnsrewrite syntax
