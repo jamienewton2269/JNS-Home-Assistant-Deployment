@@ -24,6 +24,12 @@ jobs:
           set -Eeuo pipefail
           sudo -n /usr/local/sbin/jns-gateway-exec "$GITHUB_WORKSPACE/gateway/queue/20261008T062000Z-dns-reservation-importer-final-06.json"
 
+      - name: Recent importer journal
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          journalctl -u jns-dns-reservation-importer --since '2 hours ago' --no-pager -n 120 || true
+
       - name: Read-only AdGuard diagnostics
         shell: bash
         run: |
