@@ -93,6 +93,9 @@ public partial class MainWindow : Window
         _maintenanceTimer.Tick += (_, _) => RunLocalMaintenance();
         _maintenanceTimer.Start();
 
+        RemoteCtrlKey.ItemsSource = BuildRemoteCtrlKeyChoices();
+        RemoteCtrlKey.SelectedItem = "Ctrl+C";
+
         UpdateActiveStatus();
     }
 
@@ -1310,10 +1313,56 @@ public partial class MainWindow : Window
 
     private void StopCommand_Click(object sender, RoutedEventArgs e)
     {
-        SendInterrupt(ActiveSlot);
+        SendRemoteControlByte(ActiveSlot, 0x03, "Ctrl+C / interrupt");
     }
 
-    private void SendInterrupt(SessionSlot slot)
+    private void RemoteControlKey_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button ||
+            button.Tag is not string tag ||
+            tag.Length != 1)
+        {
+            return;
+        }
+
+        char key = tag[0];
+        SendRemoteControlCharacter(key);
+    }
+
+    private void SendRemoteCtrl_Click(object sender, RoutedEventArgs e)
+    {
+        if (RemoteCtrlKey.SelectedItem is not string selection ||
+            !TryParseRemoteCtrlChoice(selection, out char key))
+        {
+            return;
+        }
+
+        SendRemoteControlCharacter(key);
+    }
+
+    private void SendRemoteControlCharacter(char key)
+    {
+        if (!TryGetControlByte(key, out byte controlByte))
+        {
+            MessageBox.Show(
+                this,
+                $"Ctrl+{key} is not a supported terminal control character.",
+                "Remote Keys",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        SendRemoteControlByte(
+            ActiveSlot,
+            controlByte,
+            $"Ctrl+{DisplayControlKey(key)}");
+    }
+
+    private void SendRemoteControlByte(
+        SessionSlot slot,
+        byte controlByte,
+        string description)
     {
         if (slot.Session?.IsConnected != true)
         {
@@ -1323,8 +1372,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        slot.Session.Write([0x03]);
-        slot.Status = "Interrupt sent (^C)";
+        // Raw control byte only: no newline, no shell command and no history entry.
+        slot.Session.Write([controlByte]);
+        slot.Status = $"Remote key sent: {description}";
 
         if (ReferenceEquals(slot, ActiveSlot))
         {
@@ -1332,6 +1382,62 @@ public partial class MainWindow : Window
             slot.Terminal.Focus();
         }
     }
+
+    private static IReadOnlyList<string> BuildRemoteCtrlKeyChoices()
+    {
+        var choices = Enumerable.Range('A', 26)
+            .Select(code => $"Ctrl+{(char)code}")
+            .ToList();
+
+        choices.AddRange(
+        [
+            "Ctrl+@",
+            "Ctrl+[",
+            "Ctrl+\\",
+            "Ctrl+]",
+            "Ctrl+^",
+            "Ctrl+_"
+        ]);
+
+        return choices;
+    }
+
+    private static bool TryParseRemoteCtrlChoice(
+        string selection,
+        out char key)
+    {
+        const string prefix = "Ctrl+";
+        key = '\0';
+
+        if (!selection.StartsWith(prefix, StringComparison.Ordinal) ||
+            selection.Length != prefix.Length + 1)
+        {
+            return false;
+        }
+
+        key = selection[^1];
+        return TryGetControlByte(key, out _);
+    }
+
+    private static bool TryGetControlByte(
+        char key,
+        out byte controlByte)
+    {
+        key = char.ToUpperInvariant(key);
+
+        if ((key >= 'A' && key <= 'Z') ||
+            key is '@' or '[' or '\\' or ']' or '^' or '_')
+        {
+            controlByte = (byte)(key & 0x1F);
+            return true;
+        }
+
+        controlByte = 0;
+        return false;
+    }
+
+    private static string DisplayControlKey(char key) =>
+        key == '\\' ? "\\" : key.ToString();
 
     private void ClearBuffer_Click(object sender, RoutedEventArgs e)
     {

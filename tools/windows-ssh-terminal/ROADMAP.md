@@ -139,6 +139,22 @@ Acceptance gates:
 - [x] Windows build validated
 - [ ] live drag/hover/page-scroll test
 
+## v0.1.8.4 - remote terminal control keys
+
+Acceptance gates:
+
+- [x] keep Ctrl+C as the local copy shortcut
+- [x] one-click remote ^C, ^X, ^O, ^W, ^K and ^U buttons
+- [x] generic Ctrl+A through Ctrl+Z sender
+- [x] generic Ctrl+@, Ctrl+[, Ctrl+\\, Ctrl+], Ctrl+^ and Ctrl+_ sender
+- [x] remote keys target only the active terminal tab
+- [x] send the raw PTY control byte with no newline
+- [x] remote control keys do not enter command history
+- [x] existing Stop Current (^C) uses the same raw-control path
+- [ ] Windows build validated
+- [ ] live nano save / exit test
+- [ ] live interactive-program Ctrl+C test
+
 ## v0.1.9 - hardened self-contained release (after v0.1.8 live tests)
 
 Planned release gates:

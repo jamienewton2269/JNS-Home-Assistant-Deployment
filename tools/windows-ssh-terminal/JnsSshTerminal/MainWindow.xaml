@@ -310,30 +310,90 @@
                     Padding="8"
                     BorderBrush="#343941"
                     BorderThickness="0,0,0,1">
-                <DockPanel LastChildFill="False">
-                    <WrapPanel DockPanel.Dock="Left">
-                        <Button Content="+ New Terminal"
-                                FontWeight="SemiBold"
-                                Click="NewTerminal_Click"/>
-                        <Button Content="Detach &amp; Close"
-                                Click="DetachClose_Click"/>
-                        <Button Content="Kill Remote Session"
-                                Click="KillSession_Click"/>
-                        <Button Content="Select All" Click="SelectAll_Click"/>
-                        <Button Content="Copy" Click="Copy_Click"/>
-                        <Button Content="Paste" Click="Paste_Click"/>
-                        <Button Content="Clear Screen Buffer"
-                                FontWeight="SemiBold"
-                                Click="ClearBuffer_Click"/>
-                        <Button Content="Command History" Click="ToggleHistory_Click"/>
-                    </WrapPanel>
-                    <TextBlock x:Name="StatusText"
-                               DockPanel.Dock="Right"
-                               Text="Terminal 1: Disconnected"
-                               Foreground="#AAB1BC"
-                               VerticalAlignment="Center"
-                               Margin="10,0,4,6"/>
-                </DockPanel>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" LastChildFill="False">
+                        <WrapPanel DockPanel.Dock="Left">
+                            <Button Content="+ New Terminal"
+                                    FontWeight="SemiBold"
+                                    Click="NewTerminal_Click"/>
+                            <Button Content="Detach &amp; Close"
+                                    Click="DetachClose_Click"/>
+                            <Button Content="Kill Remote Session"
+                                    Click="KillSession_Click"/>
+                            <Button Content="Select All" Click="SelectAll_Click"/>
+                            <Button Content="Copy" Click="Copy_Click"/>
+                            <Button Content="Paste" Click="Paste_Click"/>
+                            <Button Content="Clear Screen Buffer"
+                                    FontWeight="SemiBold"
+                                    Click="ClearBuffer_Click"/>
+                            <Button Content="Command History" Click="ToggleHistory_Click"/>
+                        </WrapPanel>
+                        <TextBlock x:Name="StatusText"
+                                   DockPanel.Dock="Right"
+                                   Text="Terminal 1: Disconnected"
+                                   Foreground="#AAB1BC"
+                                   VerticalAlignment="Center"
+                                   Margin="10,0,4,6"/>
+                    </DockPanel>
+
+                    <Border Grid.Row="1"
+                            Background="#181C21"
+                            BorderBrush="#343941"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="6,5"
+                            Margin="0,2,0,0">
+                        <WrapPanel VerticalAlignment="Center">
+                            <TextBlock Text="Remote Keys:"
+                                       Foreground="#D5D8DC"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,8,6"/>
+
+                            <Button Content="^C Cancel"
+                                    Tag="C"
+                                    ToolTip="Send Ctrl+C to the active remote terminal"
+                                    Click="RemoteControlKey_Click"/>
+                            <Button Content="^X Exit"
+                                    Tag="X"
+                                    ToolTip="nano: Exit"
+                                    Click="RemoteControlKey_Click"/>
+                            <Button Content="^O Write"
+                                    Tag="O"
+                                    ToolTip="nano: Write Out / save"
+                                    Click="RemoteControlKey_Click"/>
+                            <Button Content="^W Search"
+                                    Tag="W"
+                                    ToolTip="nano: Search"
+                                    Click="RemoteControlKey_Click"/>
+                            <Button Content="^K Cut"
+                                    Tag="K"
+                                    ToolTip="nano: Cut line/selection"
+                                    Click="RemoteControlKey_Click"/>
+                            <Button Content="^U Paste"
+                                    Tag="U"
+                                    ToolTip="nano: Uncut / paste"
+                                    Click="RemoteControlKey_Click"/>
+
+                            <TextBlock Text="Any:"
+                                       Foreground="#AAB1BC"
+                                       VerticalAlignment="Center"
+                                       Margin="8,0,4,6"/>
+                            <ComboBox x:Name="RemoteCtrlKey"
+                                      Width="92"
+                                      Margin="0,0,6,6"
+                                      VerticalContentAlignment="Center"/>
+                            <Button Content="Send Ctrl"
+                                    ToolTip="Send the selected raw Ctrl key to the active SSH PTY"
+                                    Click="SendRemoteCtrl_Click"/>
+                        </WrapPanel>
+                    </Border>
+                </Grid>
             </Border>
 
             <TabControl x:Name="TerminalTabs"
