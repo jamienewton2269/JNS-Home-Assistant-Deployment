@@ -35,8 +35,12 @@ function render(){let b=document.getElementById('rows');b.innerHTML='';parsed.fo
  '<td>'+x.mac+'</td><td>'+x.ip+'</td><td><input value="'+(x.name||'')+'" oninput="parsed['+i+'].name=normName(this.value);this.value=parsed['+i+'].name"></td>'+
  '<td class="'+(x.valid?'ok':'bad')+'">'+(x.message||'OK')+'</td>';b.appendChild(tr);});}
 async function api(path){let active=parsed.filter(x=>x.use).map(x=>({mac:x.mac,ip:x.ip,name:normName(x.name)}));
- let r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({records:active})});let t=await r.text();let d;try{d=JSON.parse(t)}catch{d={error:t}}
- document.getElementById('out').textContent=JSON.stringify(d,null,2);return d}
+ let state=document.getElementById('state'); state.textContent=(path.includes('apply')?'Applying':'Previewing')+' '+active.length+' records...'; state.className='muted';
+ let r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({records:active})});let t=await r.text();let d;try{d=JSON.parse(t)}catch{d={ok:false,error:t}}
+ document.getElementById('out').textContent=JSON.stringify(d,null,2);
+ if(r.ok&&d.ok){state.textContent=(path.includes('apply')?'Applied':'Preview OK')+': '+active.length+' records';state.className='ok'}
+ else{state.textContent='FAILED: '+(d.error||('HTTP '+r.status));state.className='bad'}
+ return d}
 function preview(){api('/api/preview')} function applyChanges(){if(confirm('Apply these reviewed DNS records to the primary DNS server?'))api('/api/apply')}
 </script></body></html>"""
 
@@ -106,8 +110,14 @@ class H(BaseHTTPRequestHandler):
             if self.path=="/api/parse": return self.sendj(200,{"records":parse_text(str(data.get("text","")))})
             records,errs=validate(data.get("records",[]))
             if errs:return self.sendj(400,{"ok":False,"errors":errs})
-            if self.path=="/api/preview": return self.sendj(200,run_apply(records,False))
-            if self.path=="/api/apply": return self.sendj(200,run_apply(records,True))
+            if self.path=="/api/preview":
+                result=run_apply(records,False)
+                print(time.strftime("%FT%T"),"preview_result",json.dumps(result,separators=(",",":")),flush=True)
+                return self.sendj(200 if result.get("ok") else 502,result)
+            if self.path=="/api/apply":
+                result=run_apply(records,True)
+                print(time.strftime("%FT%T"),"apply_result",json.dumps(result,separators=(",",":")),flush=True)
+                return self.sendj(200 if result.get("ok") else 502,result)
             self.sendj(404,{"error":"not found"})
         except Exception as e:self.sendj(500,{"error":str(e)})
 if __name__=="__main__": ThreadingHTTPServer((HOST,PORT),H).serve_forever()
