@@ -81,6 +81,7 @@ def adguard_apply(host,records):
     payload=base64.b64encode(json.dumps(adguard_rules(records),separators=(",",":")).encode()).decode()
     script=r'''set -Eeuo pipefail
 payload_b64="__PAYLOAD__"
+validation_host="__HOST__"
 cfg=""
 for p in /opt/AdGuardHome/AdGuardHome.yaml /etc/AdGuardHome/AdGuardHome.yaml /var/lib/AdGuardHome/AdGuardHome.yaml; do
   if [ -f "$p" ]; then cfg="$p"; break; fi
@@ -208,9 +209,10 @@ if [ "$ready" -ne 1 ]; then
   false
 fi
 
-python3 - "$payload_b64" <<'PY'
+python3 - "$payload_b64" "$validation_host" <<'PY'
 import base64,json,socket,struct,sys,time
 rules=json.loads(base64.b64decode(sys.argv[1]).decode())
+server=sys.argv[2]
 
 def enc(name):
     return b"".join(bytes([len(p)])+p.encode() for p in name.rstrip(".").split("."))+b"\\0"
@@ -243,7 +245,7 @@ def query(name,qtype):
         s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
         s.settimeout(1)
         try:
-            s.sendto(pkt,("127.0.0.1",53))
+            s.sendto(pkt,(server,53))
             data,_=s.recvfrom(4096)
             _,flags,qd,an,_,_=struct.unpack("!HHHHHH",data[:12])
             if flags & 0xF:
@@ -286,7 +288,7 @@ PY
 
 trap - ERR
 printf '{"ok":true,"changed":true,"config":%s,"backup":%s,"rules":%s}\n'   "$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$cfg")"   "$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$backup")"   "$(python3 -c 'import base64,json,sys; print(len(json.loads(base64.b64decode(sys.argv[1]).decode())))' "$payload_b64")"
-'''.replace("__PAYLOAD__",payload)
+'''.replace("__PAYLOAD__",payload).replace("__HOST__",host)
     return ssh(host,script)
 
 def dnsmasq_content(records):
