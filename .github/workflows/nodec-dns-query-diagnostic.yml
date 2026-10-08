@@ -1,0 +1,34 @@
+name: Node C DNS Query Diagnostic
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/nodec-dns-query-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Query primary DNS without checkout
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo "=== live JNS rules ==="
+          ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new root@10.10.10.247             'grep -niE "JNS DNS IMPORT|jns-288328|dnsrewrite" /opt/AdGuardHome/AdGuardHome.yaml | tail -80 || true'
+          echo "=== exact fqdn ==="
+          if command -v dig >/dev/null 2>&1; then
+            dig @10.10.10.247 JNS-288328.home.arpa A +time=3 +tries=1
+            echo "=== bare name ==="
+            dig @10.10.10.247 JNS-288328 A +time=3 +tries=1
+            echo "=== known external name ==="
+            dig @10.10.10.247 example.com A +time=3 +tries=1
+          else
+            nslookup JNS-288328.home.arpa 10.10.10.247 || true
+            nslookup JNS-288328 10.10.10.247 || true
+            nslookup example.com 10.10.10.247 || true
+          fi
