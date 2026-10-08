@@ -12,12 +12,23 @@ permissions:
 jobs:
   check:
     runs-on: [self-hosted, linux, x64, nodec]
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
-      - name: Inspect HA network update CLI
+      - name: Set JNS DNS on HA nodes and verify
         shell: bash
         run: |
           set -Eeuo pipefail
           ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new -o HostName=10.10.10.235 nodeb '
-            qm guest exec 905 -- /bin/bash -lc "ha network update --help || ha network --help"
+            set -Eeuo pipefail
+            for vm in 902 905; do
+              echo "=== VM$vm APPLY DNS ==="
+              qm guest exec "$vm" -- /bin/bash -lc '"'"'
+                set -Eeuo pipefail
+                ha network update enp6s18                   --ipv4-nameserver 10.10.10.247                   --ipv4-nameserver 10.10.10.248                   --no-progress
+                echo "--- network after update ---"
+                ha network info
+                echo "--- exact FQDN resolution ---"
+                nslookup JNS-288328.home.arpa
+              '"'"'
+            done
           '
