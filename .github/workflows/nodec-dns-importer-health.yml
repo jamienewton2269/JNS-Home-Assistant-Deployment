@@ -64,4 +64,4 @@ jobs:
           set -e
           echo "backend_preview_exit=$rc"
 
-          echo "=== HEALTH CHECK COMPLETE ==="
+          echo "=== HEALTH CHECK COMPLETE ===\n          echo "adapter_revision=adguard-v1""
