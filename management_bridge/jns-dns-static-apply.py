@@ -43,31 +43,104 @@ for p in /opt/AdGuardHome/AdGuardHome.yaml /etc/AdGuardHome/AdGuardHome.yaml /va
 done
 [ -n "$cfg" ] || cfg="$(find /opt /etc /var/lib -maxdepth 4 -type f -name AdGuardHome.yaml 2>/dev/null | head -n1 || true)"
 python3 - "$cfg" <<'PY'
-import json,sys
+import json,sys,subprocess,re
 p=sys.argv[1]
-out={"config":p,"filtering_enabled":None,"protection_enabled":None,"rewrites_enabled":None,"hostsfile_enabled":None,"user_rules_count":0}
+out={
+ "config":p,
+ "filtering_enabled":None,
+ "protection_enabled":None,
+ "rewrites_enabled":None,
+ "hostsfile_enabled":None,
+ "user_rules_count":0,
+ "http_address":None,
+ "api":{}
+}
 if not p:
     print(json.dumps(out)); raise SystemExit
+
 lines=open(p,encoding="utf-8").read().splitlines()
-section=None
+
+# Boolean flags and top-level user-rules count.
 for line in lines:
-    if line and not line[0].isspace() and ":" in line:
-        section=line.split(":",1)[0].strip()
     s=line.strip()
     for key in ("filtering_enabled","protection_enabled","rewrites_enabled","hostsfile_enabled"):
         if s.startswith(key+":"):
             v=s.split(":",1)[1].strip().lower()
             out[key]=v=="true"
+
 start=None
 for i,line in enumerate(lines):
     if line.startswith("user_rules:"):
-        start=i+1; break
+        start=i+1
+        break
 if start is not None:
     for line in lines[start:]:
         if line and not line[0].isspace() and not line.lstrip().startswith("#"):
             break
         if line.lstrip().startswith("- "):
             out["user_rules_count"]+=1
+
+# Current schema: http: / address:.  Fall back to legacy bind_host/bind_port.
+http_addr=None
+for i,line in enumerate(lines):
+    if line.startswith("http:"):
+        base_indent=len(line)-len(line.lstrip())
+        for sub in lines[i+1:]:
+            if sub and not sub[0].isspace():
+                break
+            s=sub.strip()
+            if s.startswith("address:"):
+                http_addr=s.split(":",1)[1].strip().strip("'\"")
+                break
+        break
+if not http_addr:
+    bind_host=None; bind_port=None
+    for line in lines:
+        s=line.strip()
+        if s.startswith("bind_host:"):
+            bind_host=s.split(":",1)[1].strip().strip("'\"")
+        elif s.startswith("bind_port:"):
+            bind_port=s.split(":",1)[1].strip()
+    if bind_port:
+        http_addr=f"{bind_host or '0.0.0.0'}:{bind_port}"
+out["http_address"]=http_addr
+
+# Probe only unauthenticated local API accessibility.  Never print bodies except
+# safe aggregate counts from known JSON responses.
+port=None
+if http_addr:
+    m=re.search(r":(\d+)$",http_addr)
+    if m:
+        port=int(m.group(1))
+if port:
+    bases=[f"http://127.0.0.1:{port}",f"https://127.0.0.1:{port}"]
+    for base in bases:
+        scheme=base.split(":",1)[0]
+        for ep in ("/control/status","/control/filtering/status","/control/rewrite/list"):
+            tmp=f"/tmp/jns-agh-api-{scheme}-{ep.rsplit('/',1)[-1]}.json"
+            cmd=["curl","-k","-sS","--max-time","3","-o",tmp,"-w","%{http_code}",base+ep]
+            try:
+                cp=subprocess.run(cmd,capture_output=True,text=True,timeout=5)
+                code=(cp.stdout or "").strip()
+            except Exception:
+                code="error"
+            key=f"{scheme}:{ep}"
+            out["api"][key]={"status":code}
+            if code=="200" and ep in ("/control/filtering/status","/control/rewrite/list"):
+                try:
+                    data=json.load(open(tmp,encoding="utf-8"))
+                    if ep.endswith("filtering/status"):
+                        out["api"][key]["user_rules_count"]=len(data.get("user_rules") or [])
+                        out["api"][key]["enabled"]=data.get("enabled")
+                    elif isinstance(data,list):
+                        out["api"][key]["rewrite_count"]=len(data)
+                except Exception:
+                    pass
+            try:
+                import os; os.unlink(tmp)
+            except Exception:
+                pass
+
 print(json.dumps(out))
 PY
 '''
@@ -75,7 +148,7 @@ PY
     try:
         return json.loads(p.stdout.strip().splitlines()[-1]),p
     except Exception:
-        return {"error":"unable to parse AdGuard config flags","stdout":p.stdout,"stderr":p.stderr},p
+        return {"error":"unable to parse AdGuard diagnostics","stdout":p.stdout,"stderr":p.stderr},p
 
 def adguard_apply(host,records):
     payload=base64.b64encode(json.dumps(adguard_rules(records),separators=(",",":")).encode()).decode()
