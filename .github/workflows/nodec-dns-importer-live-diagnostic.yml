@@ -1,0 +1,26 @@
+name: Node C DNS Importer Live Diagnostic
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/nodec-dns-importer-live-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Inspect live importer without checkout
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo "=== service ==="
+          systemctl is-active jns-dns-reservation-importer || true
+          echo "=== recent importer log ==="
+          journalctl -u jns-dns-reservation-importer --since '4 hours ago' --no-pager -n 160 || true
+          echo "=== installed helper backend preview ==="
+          /usr/local/sbin/jns-dns-static-apply preview '[]' || true
