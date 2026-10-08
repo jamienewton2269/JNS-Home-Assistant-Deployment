@@ -34,7 +34,7 @@ start=raw.find("{")
 if start < 0:
     raise SystemExit(0)
 try:
-    d=json.loads(raw[start:])
+    d,_=json.JSONDecoder().raw_decode(raw[start:])
 except Exception:
     raise SystemExit(0)
 p=d.get("pid")
@@ -60,7 +60,7 @@ start=raw.find("{")
 if start < 0:
     print(0); raise SystemExit
 try:
-    d=json.loads(raw[start:])
+    d,_=json.JSONDecoder().raw_decode(raw[start:])
 except Exception:
     print(0); raise SystemExit
 print(1 if d.get("exited") else 0)
@@ -85,7 +85,7 @@ if start < 0:
     sys.stderr.write(raw)
     raise SystemExit(125)
 try:
-    d=json.loads(raw[start:])
+    d,_=json.JSONDecoder().raw_decode(raw[start:])
 except Exception:
     sys.stderr.write(raw)
     raise SystemExit(125)
