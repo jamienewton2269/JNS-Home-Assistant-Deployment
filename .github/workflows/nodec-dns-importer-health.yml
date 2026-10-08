@@ -169,3 +169,5 @@ jobs:
           PY
 
 # rerun: adguard self-validation v2
+
+# rerun: fixed UDP validator
