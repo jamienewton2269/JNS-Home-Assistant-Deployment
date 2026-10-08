@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import ipaddress, json, os, subprocess, sys
+import base64, ipaddress, json, os, subprocess, sys
 
 PRIMARY=os.environ.get("JNS_DNS_PRIMARY","10.10.10.247")
 SECONDARY=os.environ.get("JNS_DNS_SECONDARY","10.10.10.248")
 DOMAIN=os.environ.get("JNS_DNS_DOMAIN","home.arpa")
 SSH=["ssh","-o","BatchMode=yes","-o","ConnectTimeout=5","-o","StrictHostKeyChecking=accept-new"]
 
-def ssh(host,script,input_data=None):
-    return subprocess.run(SSH+["root@"+host,"bash","-s"],input=input_data if input_data is not None else script,
-                          text=True,capture_output=True,timeout=45)
+def ssh(host,script,args=None):
+    cmd=SSH+["root@"+host,"bash","-s","--"]+(args or [])
+    return subprocess.run(cmd,input=script,text=True,capture_output=True,timeout=45)
 
 def detect(host):
     script=r'''set -e
@@ -42,7 +42,7 @@ def apply_adguard(host,records,commit):
         return result
     payload=json.dumps({"rules":rules},separators=(",",":"))
     remote=r'''set -Eeuo pipefail
-PAYLOAD="$(cat)"
+PAYLOAD="$(printf '%s' "$1" | base64 -d)"
 svc=""
 for s in AdGuardHome adguardhome; do
   if systemctl list-unit-files "$s.service" >/dev/null 2>&1 || systemctl is-active --quiet "$s"; then svc="$s"; break; fi
@@ -101,7 +101,8 @@ trap - ERR
 rm -f "$tmp"
 printf 'service=%s\nconfig=%s\nbackup=%s\n' "$svc" "$config" "$backup"
 '''
-    p=ssh(host,remote,payload)
+    payload_b64=base64.b64encode(payload.encode()).decode()
+    p=ssh(host,remote,[payload_b64])
     result.update({"ok":p.returncode==0,"mode":"apply","host":host})
     if p.returncode==0:
         for line in p.stdout.splitlines():
@@ -123,7 +124,7 @@ def apply_dnsmasq(host,records,commit):
         result.update({"ok":True,"mode":"preview"}); return result
     remote=r'''set -Eeuo pipefail
 tmp=$(mktemp)
-cat >"$tmp"
+printf '%s' "$1" | base64 -d >"$tmp"
 install -d -m 0755 /etc/dnsmasq.d
 backup=""
 if [ -f /etc/dnsmasq.d/jns-draytek-static.conf ]; then
@@ -136,7 +137,8 @@ dnsmasq --test
 systemctl reload dnsmasq || systemctl restart dnsmasq
 printf 'backup=%s\n' "$backup"
 '''
-    p=ssh(host,remote,content)
+    content_b64=base64.b64encode(content.encode()).decode()
+    p=ssh(host,remote,[content_b64])
     result.update({"ok":p.returncode==0,"mode":"apply","host":host})
     if p.returncode!=0:
         result["error"]="dnsmasq apply failed"; result["detail"]=(p.stderr or p.stdout).strip()
