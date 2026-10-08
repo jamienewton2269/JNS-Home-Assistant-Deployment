@@ -19,29 +19,14 @@ jobs:
       - nodec
     timeout-minutes: 6
     steps:
-      - name: Audit Node C
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          echo "===== NODE C 10.10.10.236 ====="
-          hostname
-          echo "--- resolv.conf ---"
-          cat /etc/resolv.conf || true
-          echo "--- default lookup ---"
-          getent ahostsv4 JNS-288328.home.arpa || true
-          echo "--- direct primary .247 ---"
-          timeout 5 nslookup JNS-288328.home.arpa 10.10.10.247 || true
-          echo "--- direct secondary .248 ---"
-          timeout 5 nslookup JNS-288328.home.arpa 10.10.10.248 || true
-
-      - name: Audit Node A
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new -o HostName=10.10.10.225 nodea "hostname; echo ---resolv.conf---; cat /etc/resolv.conf; echo ---default---; getent ahostsv4 JNS-288328.home.arpa || true; echo ---primary---; timeout 5 nslookup JNS-288328.home.arpa 10.10.10.247 || true; echo ---secondary---; timeout 5 nslookup JNS-288328.home.arpa 10.10.10.248 || true"
-
       - name: Audit Node B
         shell: bash
         run: |
           set -Eeuo pipefail
           ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new -o HostName=10.10.10.235 nodeb "hostname; echo ---resolv.conf---; cat /etc/resolv.conf; echo ---default---; getent ahostsv4 JNS-288328.home.arpa || true; echo ---primary---; timeout 5 nslookup JNS-288328.home.arpa 10.10.10.247 || true; echo ---secondary---; timeout 5 nslookup JNS-288328.home.arpa 10.10.10.248 || true"
+
+      - name: Audit Node A through Node B
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new -o HostName=10.10.10.235 nodeb             "ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new root@10.10.10.225 'hostname; echo ---resolv.conf---; cat /etc/resolv.conf; echo ---default---; getent ahostsv4 JNS-288328.home.arpa || true; echo ---primary---; timeout 5 nslookup JNS-288328.home.arpa 10.10.10.247 || true; echo ---secondary---; timeout 5 nslookup JNS-288328.home.arpa 10.10.10.248 || true'"
