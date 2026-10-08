@@ -34,3 +34,4 @@ jobs:
           /usr/local/sbin/jns-dns-static-apply preview '[]'
 
 # diagnostic: native AdGuard API probe
+# adapter-validation: adguard-v1
