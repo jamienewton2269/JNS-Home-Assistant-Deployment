@@ -32,3 +32,5 @@ jobs:
           curl -fsS --max-time 5 http://127.0.0.1:8770/health
           echo
           /usr/local/sbin/jns-dns-static-apply preview '[]'
+
+# diagnostic: native AdGuard API probe
