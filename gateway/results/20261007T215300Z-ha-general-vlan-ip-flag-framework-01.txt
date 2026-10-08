@@ -1,0 +1,9 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261007T215300Z-ha-general-vlan-ip-flag-framework-01
+started=2026-10-08T17:38:51+01:00
+runner=nodec
+
+invalid package_name
+
+finished=2026-10-08T17:38:51+01:00
+exit_code=1
