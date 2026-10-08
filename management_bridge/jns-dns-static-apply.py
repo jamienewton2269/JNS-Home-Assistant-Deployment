@@ -52,19 +52,21 @@ if [ -z "$cfg" ] || [ ! -f "$cfg" ]; then
 fi
 
 backup="$cfg.jns-dns-$(date +%Y%m%dT%H%M%S).bak"
+candidate="$cfg.jns-dns-candidate.$$"
 cp -a "$cfg" "$backup"
+cp -a "$cfg" "$candidate"
 was_active=0
 if systemctl is-active --quiet AdGuardHome; then was_active=1; fi
 
 rollback() {
+  rm -f "$candidate" || true
   cp -a "$backup" "$cfg" || true
   if [ "$was_active" -eq 1 ]; then systemctl start AdGuardHome || true; fi
 }
 trap rollback ERR
 
-systemctl stop AdGuardHome
-python3 - "$cfg" "$payload_b64" <<'PY'
-import base64,json,re,sys
+python3 - "$candidate" "$payload_b64" <<'PY'
+import base64,json,sys
 cfg,payload=sys.argv[1:]
 rules=json.loads(base64.b64decode(payload).decode())
 begin="# JNS_DNS_IMPORT_BEGIN"
@@ -125,15 +127,32 @@ else:
     newsec.extend(managed)
     lines=lines[:start]+newsec+lines[stop:]
 
-newtext="".join(lines)
 with open(cfg,"w",encoding="utf-8") as f:
-    f.write(newtext)
+    f.write("".join(lines))
 PY
 
+if cmp -s "$candidate" "$cfg"; then
+  rm -f "$candidate" "$backup"
+  trap - ERR
+  printf '{"ok":true,"changed":false,"config":%s,"rules":%s}\n'     "$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$cfg")"     "$(python3 -c 'import base64,json,sys; print(len(json.loads(base64.b64decode(sys.argv[1]).decode())))' "$payload_b64")"
+  exit 0
+fi
+
+systemctl stop AdGuardHome
+if ! cmp -s "$backup" "$cfg"; then
+  echo "AdGuard configuration changed concurrently; refusing to overwrite" >&2
+  systemctl start AdGuardHome || true
+  rm -f "$candidate"
+  trap - ERR
+  exit 43
+fi
+
+cat "$candidate" >"$cfg"
+rm -f "$candidate"
 systemctl start AdGuardHome
 systemctl is-active --quiet AdGuardHome
 trap - ERR
-printf '{"ok":true,"config":%s,"backup":%s,"rules":%s}\n'   "$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$cfg")"   "$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$backup")"   "$(python3 -c 'import base64,json,sys; print(len(json.loads(base64.b64decode(sys.argv[1]).decode())))' "$payload_b64")"
+printf '{"ok":true,"changed":true,"config":%s,"backup":%s,"rules":%s}\n'   "$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$cfg")"   "$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$backup")"   "$(python3 -c 'import base64,json,sys; print(len(json.loads(base64.b64decode(sys.argv[1]).decode())))' "$payload_b64")"
 '''.replace("__PAYLOAD__",payload)
     return ssh(host,script)
 
@@ -152,7 +171,7 @@ target=/etc/dnsmasq.d/jns-draytek-static.conf
 backup="$target.jns-dns-$(date +%Y%m%dT%H%M%S).bak"
 if [ -f "$target" ]; then cp -a "$target" "$backup"; fi
 if [ -f "$target" ] && cmp -s "$tmp" "$target"; then
-  rm -f "$tmp"
+  rm -f "$tmp" "$backup"
   echo '{"ok":true,"changed":false}'
   exit 0
 fi
@@ -201,7 +220,7 @@ def main():
     else:
         result["managed_rules"]=adguard_rules(records)
         result["managed_rule_count"]=len(result["managed_rules"])
-        result["strategy"]="AdGuard Home user_rules managed block with automatic backup/rollback"
+        result["strategy"]="AdGuard Home user_rules managed block with backup, rollback and idempotent compare"
 
     if mode=="preview":
         result["ok"]=True
