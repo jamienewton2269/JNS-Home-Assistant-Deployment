@@ -1,0 +1,14 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261007T212100Z-ha-general-lux-dusk-06
+started=2026-10-08T07:27:20+01:00
+runner=nodec
+
+Command completed successfully.
+{
+   "pid" : 45518
+}
+timeout reached, returning pid
+ROLLBACK: restoring previous package
+
+finished=2026-10-08T07:29:59+01:00
+exit_code=125
