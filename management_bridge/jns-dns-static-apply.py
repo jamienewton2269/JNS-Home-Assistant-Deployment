@@ -349,7 +349,7 @@ def query(name,qtype):
 
 for rule in rules:
     prefix,rest=rule.split("^$dnsrewrite=NOERROR;",1)
-    name=prefix[2:]
+    name=prefix[2:] if prefix.startswith("||") else prefix[1:]
     rrtype,value=rest.split(";",1)
     qtype={"A":1,"PTR":12}[rrtype]
     expected=value.rstrip(".")
