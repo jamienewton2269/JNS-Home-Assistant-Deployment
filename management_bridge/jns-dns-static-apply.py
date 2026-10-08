@@ -31,8 +31,8 @@ def adguard_rules(records):
         fqdn=str(r["fqdn"]).rstrip(".").lower()
         ip=str(ipaddress.ip_address(r["ip"]))
         ptr=ipaddress.ip_address(ip).reverse_pointer
-        rules.append(f"||{fqdn}^$dnsrewrite=NOERROR;A;{ip}")
-        rules.append(f"||{ptr}^$dnsrewrite=NOERROR;PTR;{fqdn}.")
+        rules.append(f"|{fqdn}^$dnsrewrite=NOERROR;A;{ip}")
+        rules.append(f"|{ptr}^$dnsrewrite=NOERROR;PTR;{fqdn}.")
     return rules
 
 def adguard_info(host):
