@@ -20,15 +20,18 @@ jobs:
           set -Eeuo pipefail
           ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new -o HostName=10.10.10.235 nodeb '
             set -Eeuo pipefail
-            for vm in 902 905; do
+            apply_vm() {
+              vm="$1"; addr="$2"
               echo "=== VM$vm APPLY DNS ==="
-              qm guest exec "$vm" -- /bin/bash -lc '"'"'
-                set -Eeuo pipefail
-                ha network update enp6s18                   --ipv4-nameserver 10.10.10.247                   --ipv4-nameserver 10.10.10.248                   --no-progress
-                echo "--- network after update ---"
-                ha network info
-                echo "--- exact FQDN resolution ---"
-                nslookup JNS-288328.home.arpa
-              '"'"'
-            done
+              out="$(qm guest exec "$vm" -- /bin/bash -lc "ha network update enp6s18 --ipv4-method static --ipv4-address $addr --ipv4-gateway 10.10.10.254 --ipv4-nameserver 10.10.10.247 --ipv4-nameserver 10.10.10.248 --no-progress")"
+              printf "%s\n" "$out"
+              python3 -c "import json,sys; d=json.load(sys.stdin); raise SystemExit(0 if d.get('exitcode')==0 else 1)" <<<"$out"
+              sleep 2
+              echo "=== VM$vm VERIFY ==="
+              out="$(qm guest exec "$vm" -- /bin/bash -lc "ha network info; echo ---RESOLVE---; nslookup JNS-288328.home.arpa")"
+              printf "%s\n" "$out"
+              python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('exitcode')==0; assert '10.10.10.247' in (d.get('out-data') or ''); assert '10.10.10.248' in (d.get('out-data') or ''); assert '10.10.10.170' in (d.get('out-data') or '')" <<<"$out"
+            }
+            apply_vm 902 10.10.10.220/24
+            apply_vm 905 10.10.10.223/24
           '
