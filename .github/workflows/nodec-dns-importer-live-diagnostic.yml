@@ -14,17 +14,28 @@ jobs:
     runs-on: [self-hosted, linux, x64, nodec]
     timeout-minutes: 5
     steps:
-      - name: Inspect live importer without checkout
+      - name: Deploy pinned DNS importer without checkout
         shell: bash
         run: |
           set -Eeuo pipefail
-          echo "=== service ==="
-          systemctl is-active jns-dns-reservation-importer || true
-          echo "=== recent importer log ==="
-          journalctl -u jns-dns-reservation-importer --since '4 hours ago' --no-pager -n 160 || true
-          echo "=== installed helper backend preview ==="
-          /usr/local/sbin/jns-dns-static-apply preview '[]' || true
-          echo "=== transactional test apply ==="
-          /usr/local/sbin/jns-dns-static-apply apply '[{"mac":"00:00:00:00:00:00","ip":"192.0.2.123","name":"jns-dns-importer-test","fqdn":"jns-dns-importer-test.home.arpa"}]' || true
-          echo "=== AdGuard managed-state check ==="
-          ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new root@10.10.10.247 'set -e; pid=$(systemctl show -p MainPID --value AdGuardHome 2>/dev/null || systemctl show -p MainPID --value adguardhome); exe=$(readlink -f /proc/$pid/exe); cfg=$(tr "\0" "\n" </proc/$pid/cmdline | awk '"'"'p{print;exit} $0=="-c"||$0=="--config"{p=1}'"'"'); [ -n "$cfg" ] || cfg="$(dirname "$exe")/AdGuardHome.yaml"; echo config=$cfg; echo "--- JNS rules ---"; grep -nE "JNS DNS IMPORT|dnsrewrite" "$cfg" || true; echo "--- backups ---"; ls -1t "$cfg".jns-dns.*.bak 2>/dev/null | head -5 || true; echo "--- recent service log ---"; journalctl -u AdGuardHome -u adguardhome --since "30 minutes ago" --no-pager -n 80 2>/dev/null || true'
+          ROOT="$(mktemp -d)"
+          trap 'rm -rf "$ROOT"' EXIT
+          mkdir -p "$ROOT/management_bridge" "$ROOT/gateway/queue"
+          curl -fsSL "https://raw.githubusercontent.com/jamienewton2269/JNS-Home-Assistant-Deployment/c1782472a1fe279bf0355410a57582a00ef1c7c7/management_bridge/dns_reservation_importer.py" -o "$ROOT/management_bridge/dns_reservation_importer.py"
+          curl -fsSL "https://raw.githubusercontent.com/jamienewton2269/JNS-Home-Assistant-Deployment/c1782472a1fe279bf0355410a57582a00ef1c7c7/management_bridge/jns-dns-static-apply.py" -o "$ROOT/management_bridge/jns-dns-static-apply.py"
+          cat >"$ROOT/gateway/queue/dns-importer-hotfix.json" <<'JSON'
+          {"job_id":"dns-importer-hotfix","job_type":"dns_reservation_importer_install","target":"node-c"}
+          JSON
+          sudo -n /usr/local/sbin/jns-gateway-exec "$ROOT/gateway/queue/dns-importer-hotfix.json"
+
+      - name: Verify transactional AdGuard apply
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          systemctl is-active jns-dns-reservation-importer
+          curl -fsS --max-time 5 http://127.0.0.1:8770/health
+          echo
+          /usr/local/sbin/jns-dns-static-apply preview '[]'
+          /usr/local/sbin/jns-dns-static-apply apply '[{"mac":"00:00:00:00:00:00","ip":"192.0.2.123","name":"jns-dns-importer-test","fqdn":"jns-dns-importer-test.home.arpa"}]'
+          echo "=== live managed rules ==="
+          ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new root@10.10.10.247 'grep -nE "JNS DNS IMPORT|jns-dns-importer-test|dnsrewrite" /opt/AdGuardHome/AdGuardHome.yaml | tail -20'
