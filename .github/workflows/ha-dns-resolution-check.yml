@@ -14,21 +14,10 @@ jobs:
     runs-on: [self-hosted, linux, x64, nodec]
     timeout-minutes: 5
     steps:
-      - name: Inspect HA network configuration without checkout
+      - name: Inspect HA network update CLI
         shell: bash
         run: |
           set -Eeuo pipefail
           ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new -o HostName=10.10.10.235 nodeb '
-            set -Eeuo pipefail
-            for vm in 902 905; do
-              echo "=== VM$vm NETWORK ==="
-              qm guest exec "$vm" -- /bin/bash -lc '"'"'
-                echo "--- ha network info ---"
-                ha network info || true
-                echo "--- nmcli connections ---"
-                nmcli -t -f NAME,UUID,TYPE,DEVICE connection show 2>/dev/null || true
-                echo "--- active dns ---"
-                nmcli dev show 2>/dev/null | grep -E "GENERAL.DEVICE|IP4.DNS|IP4.DOMAIN|IP6.DNS|IP6.DOMAIN" || true
-              '"'"'
-            done
+            qm guest exec 905 -- /bin/bash -lc "ha network update --help || ha network --help"
           '
