@@ -35,6 +35,48 @@ def adguard_rules(records):
         rules.append(f"||{ptr}^$dnsrewrite=NOERROR;PTR;{fqdn}.")
     return rules
 
+def adguard_info(host):
+    script=r'''set -Eeuo pipefail
+cfg=""
+for p in /opt/AdGuardHome/AdGuardHome.yaml /etc/AdGuardHome/AdGuardHome.yaml /var/lib/AdGuardHome/AdGuardHome.yaml; do
+  if [ -f "$p" ]; then cfg="$p"; break; fi
+done
+[ -n "$cfg" ] || cfg="$(find /opt /etc /var/lib -maxdepth 4 -type f -name AdGuardHome.yaml 2>/dev/null | head -n1 || true)"
+python3 - "$cfg" <<'PY'
+import json,sys
+p=sys.argv[1]
+out={"config":p,"filtering_enabled":None,"protection_enabled":None,"rewrites_enabled":None,"hostsfile_enabled":None,"user_rules_count":0}
+if not p:
+    print(json.dumps(out)); raise SystemExit
+lines=open(p,encoding="utf-8").read().splitlines()
+section=None
+for line in lines:
+    if line and not line[0].isspace() and ":" in line:
+        section=line.split(":",1)[0].strip()
+    s=line.strip()
+    for key in ("filtering_enabled","protection_enabled","rewrites_enabled","hostsfile_enabled"):
+        if s.startswith(key+":"):
+            v=s.split(":",1)[1].strip().lower()
+            out[key]=v=="true"
+start=None
+for i,line in enumerate(lines):
+    if line.startswith("user_rules:"):
+        start=i+1; break
+if start is not None:
+    for line in lines[start:]:
+        if line and not line[0].isspace() and not line.lstrip().startswith("#"):
+            break
+        if line.lstrip().startswith("- "):
+            out["user_rules_count"]+=1
+print(json.dumps(out))
+PY
+'''
+    p=ssh(host,script)
+    try:
+        return json.loads(p.stdout.strip().splitlines()[-1]),p
+    except Exception:
+        return {"error":"unable to parse AdGuard config flags","stdout":p.stdout,"stderr":p.stderr},p
+
 def adguard_apply(host,records):
     payload=base64.b64encode(json.dumps(adguard_rules(records),separators=(",",":")).encode()).decode()
     script=r'''set -Eeuo pipefail
@@ -312,6 +354,8 @@ def main():
         result["managed_rules"]=adguard_rules(records)
         result["managed_rule_count"]=len(result["managed_rules"])
         result["strategy"]="AdGuard Home user_rules managed block with backup, rollback and idempotent compare"
+        info,_=adguard_info(PRIMARY)
+        result["adguard"]=info
 
     if mode=="preview":
         result["ok"]=True
