@@ -151,7 +151,7 @@ Acceptance gates:
 - [x] send the raw PTY control byte with no newline
 - [x] remote control keys do not enter command history
 - [x] existing Stop Current (^C) uses the same raw-control path
-- [ ] Windows build validated
+- [x] Windows build validated
 - [ ] live nano save / exit test
 - [ ] live interactive-program Ctrl+C test
 
