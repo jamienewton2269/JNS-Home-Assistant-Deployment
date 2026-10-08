@@ -18,16 +18,11 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Refresh trusted DNS handler and install
+      - name: Install through refreshed trusted gateway
         shell: bash
         run: |
           set -Eeuo pipefail
-          echo "--- sudo policy ---"
-          sudo -n -l || true
-          echo "--- refresh trusted handlers ---"
-          sudo -n "$GITHUB_WORKSPACE/gateway/trusted/refresh-trusted-ha-handlers-v2.sh"
-          echo "--- run DNS importer install through trusted gateway ---"
-          sudo -n /usr/local/sbin/jns-gateway-exec "$GITHUB_WORKSPACE/gateway/queue/20261007T233000Z-dns-reservation-importer-verify-04.json"
+          sudo -n /usr/local/sbin/jns-gateway-exec "$GITHUB_WORKSPACE/gateway/queue/20261008T062000Z-dns-reservation-importer-final-06.json"
 
       - name: Verify Node C importer and primary DNS
         shell: bash
