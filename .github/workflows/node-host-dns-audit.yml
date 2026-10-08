@@ -17,16 +17,10 @@ jobs:
       - linux
       - x64
       - nodec
-    timeout-minutes: 6
+    timeout-minutes: 5
     steps:
-      - name: Audit Node B
+      - name: Read Node A and B DNS via Proxmox cluster API
         shell: bash
         run: |
           set -Eeuo pipefail
-          ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new -o HostName=10.10.10.235 nodeb "hostname; echo ---resolv.conf---; cat /etc/resolv.conf; echo ---default---; getent ahostsv4 JNS-288328.home.arpa || true; echo ---primary---; timeout 5 nslookup JNS-288328.home.arpa 10.10.10.247 || true; echo ---secondary---; timeout 5 nslookup JNS-288328.home.arpa 10.10.10.248 || true"
-
-      - name: Audit Node A through Node B
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new -o HostName=10.10.10.235 nodeb             "ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new root@10.10.10.225 'hostname; echo ---resolv.conf---; cat /etc/resolv.conf; echo ---default---; getent ahostsv4 JNS-288328.home.arpa || true; echo ---primary---; timeout 5 nslookup JNS-288328.home.arpa 10.10.10.247 || true; echo ---secondary---; timeout 5 nslookup JNS-288328.home.arpa 10.10.10.248 || true'"
+          ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new -o HostName=10.10.10.235 nodeb             "echo '=== NODE A DNS API ==='; pvesh get /nodes/nodea/dns --output-format json-pretty; echo '=== NODE B DNS API ==='; pvesh get /nodes/nodeb/dns --output-format json-pretty"
