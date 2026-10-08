@@ -167,3 +167,5 @@ jobs:
           assert "jns-dns-importer-test.home.arpa" not in ptr
           print("SMOKE_TEST_ROLLBACK_OK")
           PY
+
+# rerun: adguard self-validation v2
