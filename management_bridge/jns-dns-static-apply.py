@@ -60,6 +60,7 @@ if systemctl is-active --quiet AdGuardHome; then was_active=1; fi
 
 rollback() {
   rm -f "$candidate" || true
+  if [ "$was_active" -eq 1 ]; then systemctl stop AdGuardHome || true; fi
   cp -a "$backup" "$cfg" || true
   if [ "$was_active" -eq 1 ]; then systemctl start AdGuardHome || true; fi
 }
@@ -151,6 +152,96 @@ cat "$candidate" >"$cfg"
 rm -f "$candidate"
 systemctl start AdGuardHome
 systemctl is-active --quiet AdGuardHome
+
+ready=0
+for _ in $(seq 1 30); do
+  if ss -lnt 2>/dev/null | awk '$4 ~ /:53$/ {found=1} END {exit !found}'; then
+    ready=1
+    break
+  fi
+  sleep 0.5
+done
+if [ "$ready" -ne 1 ]; then
+  echo "AdGuard Home became active but TCP/53 did not become ready" >&2
+  false
+fi
+
+python3 - "$payload_b64" <<'PY'
+import base64,json,socket,struct,sys,time
+rules=json.loads(base64.b64decode(sys.argv[1]).decode())
+
+def enc(name):
+    return b"".join(bytes([len(p)])+p.encode() for p in name.rstrip(".").split("."))+b"\\0"
+
+def read_name(data,off):
+    labels=[]; end=None; seen=set()
+    while True:
+        if off in seen:
+            raise RuntimeError("DNS compression loop")
+        seen.add(off)
+        n=data[off]
+        if n==0:
+            off+=1
+            if end is None: end=off
+            break
+        if n & 0xC0 == 0xC0:
+            ptr=((n & 0x3F)<<8)|data[off+1]
+            if end is None: end=off+2
+            off=ptr
+            continue
+        off+=1
+        labels.append(data[off:off+n].decode())
+        off+=n
+    return ".".join(labels),end
+
+def query(name,qtype):
+    pkt=struct.pack("!HHHHHH",0x4A50,0x0100,1,0,0,0)+enc(name)+struct.pack("!HH",qtype,1)
+    last=None
+    for _ in range(8):
+        s=socket.socket(socket.AF_INET,socket.SOCK_UDP)
+        s.settimeout(1)
+        try:
+            s.sendto(pkt,("127.0.0.1",53))
+            data,_=s.recvfrom(4096)
+            _,flags,qd,an,_,_=struct.unpack("!HHHHHH",data[:12])
+            if flags & 0xF:
+                return []
+            off=12
+            for _ in range(qd):
+                _,off=read_name(data,off)
+                off+=4
+            out=[]
+            for _ in range(an):
+                _,off=read_name(data,off)
+                typ,cls,ttl,rdlen=struct.unpack("!HHIH",data[off:off+10])
+                off+=10
+                rstart=off
+                if typ==1 and rdlen==4:
+                    out.append(socket.inet_ntoa(data[rstart:rstart+4]))
+                elif typ==12:
+                    val,_=read_name(data,rstart)
+                    out.append(val.rstrip("."))
+                off=rstart+rdlen
+            return out
+        except Exception as e:
+            last=e
+            time.sleep(0.25)
+        finally:
+            s.close()
+    raise RuntimeError(f"DNS query failed for {name}: {last}")
+
+for rule in rules:
+    prefix,rest=rule.split("^$dnsrewrite=NOERROR;",1)
+    name=prefix[2:]
+    rrtype,value=rest.split(";",1)
+    qtype={"A":1,"PTR":12}[rrtype]
+    expected=value.rstrip(".")
+    answers=[x.rstrip(".") for x in query(name,qtype)]
+    if expected not in answers:
+        raise RuntimeError(f"{rrtype} validation failed for {name}: expected {expected}, got {answers}")
+print(f"validated_rules={len(rules)}")
+PY
+
 trap - ERR
 printf '{"ok":true,"changed":true,"config":%s,"backup":%s,"rules":%s}\n'   "$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$cfg")"   "$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$backup")"   "$(python3 -c 'import base64,json,sys; print(len(json.loads(base64.b64decode(sys.argv[1]).decode())))' "$payload_b64")"
 '''.replace("__PAYLOAD__",payload)
