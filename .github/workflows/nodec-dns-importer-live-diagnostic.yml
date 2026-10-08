@@ -24,3 +24,5 @@ jobs:
           journalctl -u jns-dns-reservation-importer --since '4 hours ago' --no-pager -n 160 || true
           echo "=== installed helper backend preview ==="
           /usr/local/sbin/jns-dns-static-apply preview '[]' || true
+          echo "=== AdGuard managed-state check ==="
+          ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new root@10.10.10.247 'set -e; pid=$(systemctl show -p MainPID --value AdGuardHome 2>/dev/null || systemctl show -p MainPID --value adguardhome); exe=$(readlink -f /proc/$pid/exe); cfg=$(tr "\0" "\n" </proc/$pid/cmdline | awk '"'"'p{print;exit} $0=="-c"||$0=="--config"{p=1}'"'"'); [ -n "$cfg" ] || cfg="$(dirname "$exe")/AdGuardHome.yaml"; echo config=$cfg; echo "--- JNS rules ---"; grep -nE "JNS DNS IMPORT|dnsrewrite" "$cfg" || true; echo "--- backups ---"; ls -1t "$cfg".jns-dns.*.bak 2>/dev/null | head -5 || true; echo "--- recent service log ---"; journalctl -u AdGuardHome -u adguardhome --since "30 minutes ago" --no-pager -n 80 2>/dev/null || true'
