@@ -86,6 +86,9 @@ for l in block:
         skipping=True; continue
     if "JNS DNS IMPORT END" in l:
         skipping=False; continue
+    # One-time cleanup of the original smoke-test rule from pre-managed builds.
+    if "jns-dns-importer-test.home.arpa" in l:
+        continue
     if not skipping: out.append(l)
 managed=["  - "+json.dumps(x)+"\n" for x in rules]
 new=lines[:start+1]+out+managed+lines[end:]
