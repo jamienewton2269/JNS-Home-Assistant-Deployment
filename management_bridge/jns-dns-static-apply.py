@@ -198,7 +198,7 @@ def query(name,qtype):
     pkt=struct.pack("!HHHHHH",0x4A50,0x0100,1,0,0,0)+enc(name)+struct.pack("!HH",qtype,1)
     last=None
     for _ in range(8):
-        s=socket.socket(socket.AF_INET,socket.SOCK_UDP)
+        s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
         s.settimeout(1)
         try:
             s.sendto(pkt,("127.0.0.1",53))
