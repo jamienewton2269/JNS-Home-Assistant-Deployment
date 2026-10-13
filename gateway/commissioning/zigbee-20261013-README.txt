@@ -1,0 +1,1 @@
+JNS bulk Zigbee commissioning package prepared for HA-General. Source Python file downloadable from current conversation; requires copying into /config/jns/ and running within HA Core. This manifest is a planning record, not a gateway queue command. No automatic execution has occurred.
