@@ -1,0 +1,748 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261014T181500Z-veyra-source-full-01
+started=2026-10-14T19:29:45+01:00
+runner=nodec
+
+=== VEYRA SOURCE AUDIT ===
+===== veyra/__init__.py =====
+__version__ = "0.9.1"
+
+===== veyra/state.py =====
+from __future__ import annotations
+import json, sqlite3, threading
+from pathlib import Path
+from typing import Any
+
+class StateStore:
+    def __init__(self, db_path: str = "veyra.db"):
+        self.db_path = Path(db_path)
+        self._lock = threading.Lock()
+        self._init()
+
+    def _connect(self):
+        return sqlite3.connect(self.db_path, timeout=3)
+
+    def _init(self):
+        with self._connect() as con:
+            con.execute("CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+            con.execute("""CREATE TABLE IF NOT EXISTS events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts DATETIME DEFAULT CURRENT_TIMESTAMP,
+                kind TEXT NOT NULL,
+                payload TEXT NOT NULL
+            )""")
+            con.commit()
+
+    def set(self, key: str, value: Any):
+        data = json.dumps(value)
+        with self._lock, self._connect() as con:
+            con.execute("INSERT INTO kv(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, data))
+            con.commit()
+
+    def get(self, key: str, default=None):
+        with self._connect() as con:
+            row = con.execute("SELECT value FROM kv WHERE key=?", (key,)).fetchone()
+        return default if row is None else json.loads(row[0])
+
+    def log_event(self, kind: str, payload: dict):
+        with self._lock, self._connect() as con:
+            con.execute("INSERT INTO events(kind,payload) VALUES(?,?)", (kind, json.dumps(payload)))
+            con.commit()
+
+===== veyra/models.py =====
+from pydantic import BaseModel, Field
+from typing import Literal, Optional
+
+class OverlayRequest(BaseModel):
+    kind: Literal["text", "banner", "pip", "alert"] = "banner"
+    title: str = ""
+    message: str = ""
+    priority: int = Field(default=1, ge=0, le=5)
+    duration: int = Field(default=10, ge=1, le=300)
+    video_url: Optional[str] = None
+    image_url: Optional[str] = None
+    position: Literal["top-left", "top-right", "bottom-left", "bottom-right", "center"] = "top-right"
+
+class LaunchRequest(BaseModel):
+    provider: str
+    url: str
+    title: str = ""
+    season: Optional[int] = None
+    episode: Optional[int] = None
+    live: bool = False
+    profile: str = "default"
+
+class ComplianceAckRequest(BaseModel):
+    profile: str = "default"
+    acknowledged: bool = True
+
+class LocalServerRequest(BaseModel):
+    kind: str = "generic"
+    name: str
+    address: str
+
+class ProvisionRequest(BaseModel):
+    complete: Optional[bool] = None
+    profile: Optional[str] = None
+    device_name: Optional[str] = None
+    ha_configured: Optional[bool] = None
+    audio_sink: Optional[str] = None
+    ui_scale: Optional[int] = Field(default=None, ge=80, le=160)
+
+class AudioSinkRequest(BaseModel):
+    sink: str
+
+class ProviderSessionRequest(BaseModel):
+    provider: str
+    profile: str = "default"
+    signed_in: bool = True
+
+===== veyra/app.py =====
+from __future__ import annotations
+import asyncio
+import json
+import os
+import httpx
+from pathlib import Path
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from . import __version__
+from .state import StateStore
+from .models import OverlayRequest, LaunchRequest, ComplianceAckRequest, LocalServerRequest, ProvisionRequest, AudioSinkRequest, ProviderSessionRequest
+from .policy import apply_policy
+from .providers import PROVIDERS
+from .compliance import acknowledgement_key, needs_tv_licence_notice
+from .local_discovery import discover_jellyfin
+from .config import SETTINGS
+from .appliance import probe as appliance_probe
+from .audio import list_sinks, set_default_sink
+from .browser_profiles import BrowserProfileManager
+from .ha_ws import HomeAssistantEventClient
+from .provisioning import get as get_provisioning, update as update_provisioning
+from .diagnostics import run as run_diagnostics
+from .admin_console import hash_pin, verify_pin
+
+BASE = Path(__file__).resolve().parent.parent
+state_dir = Path(SETTINGS.state_dir)
+try:
+    state_dir.mkdir(parents=True, exist_ok=True)
+except PermissionError:
+    state_dir = BASE
+store = StateStore(str(state_dir / "veyra.db"))
+app = FastAPI(title="Veyra Core", version=__version__)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://127.0.0.1:8766", "http://localhost:8766"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
+)
+profiles = BrowserProfileManager(SETTINGS.browser_profiles_root)
+ha_task = None
+ha_client = None
+
+async def view_alive() -> bool:
+    try:
+        async with httpx.AsyncClient(timeout=0.35) as client:
+            r = await client.get(f"http://{SETTINGS.view_bind}:{SETTINGS.view_port}/health")
+            return r.status_code == 200
+    except Exception:
+        return False
+
+async def send_view(message: dict) -> bool:
+    # View failure must never block or crash Core. Commands are best-effort and journaled by callers.
+    try:
+        async with httpx.AsyncClient(timeout=0.45) as client:
+            r = await client.post(SETTINGS.view_command_url, json=message, headers={"X-Veyra-Token": SETTINGS.view_token})
+            return r.status_code == 200
+    except Exception:
+        store.log_event("view_delivery_failed", {"type": message.get("type")})
+        return False
+
+
+async def handle_ha_event(data: dict):
+    try:
+        req=OverlayRequest.model_validate(data)
+    except Exception as exc:
+        store.log_event("ha_overlay_rejected", {"error":str(exc)[:200]})
+        return
+    payload=apply_policy(req.model_dump(), store.get("context", {}))
+    store.log_event("ha_overlay", payload)
+    if not payload.get("suppressed"):
+        await send_view({"type":"overlay","payload":payload})
+
+@app.on_event("startup")
+async def startup():
+    global ha_task, ha_client
+    if SETTINGS.ha_url and SETTINGS.ha_token:
+        ha_client=HomeAssistantEventClient(SETTINGS.ha_url, SETTINGS.ha_token, handle_ha_event, SETTINGS.ha_event_type)
+        ha_task=asyncio.create_task(ha_client.run(), name="veyra-ha-events")
+
+@app.on_event("shutdown")
+async def shutdown():
+    if ha_client: ha_client.stop()
+    if ha_task:
+        ha_task.cancel()
+        try: await ha_task
+        except BaseException: pass
+
+@app.get("/health")
+async def health():
+    return {"status":"ok","version":__version__,"view_alive":await view_alive(),"appliance":appliance_probe(SETTINGS.browser_cmd)}
+
+@app.post("/api/context")
+async def set_context(context: dict):
+    store.set("context", context)
+    return {"ok": True}
+
+@app.post("/api/overlay")
+async def overlay(req: OverlayRequest):
+    payload = apply_policy(req.model_dump(), store.get("context", {}))
+    store.log_event("overlay", payload)
+    if not payload.get("suppressed"):
+        await send_view({"type":"overlay","payload":payload})
+    return {"ok":True,"resolved":payload}
+
+@app.post("/api/launch")
+async def launch(req: LaunchRequest):
+    key=req.provider.lower().strip()
+    if needs_tv_licence_notice(key, req.live) and not store.get(acknowledgement_key(req.profile), False):
+        return {"ok":False,"requires_acknowledgement":True,"reason":"uk_tv_licence_notice"}
+    adapter=PROVIDERS.get(key)
+    if adapter is None:
+        raise HTTPException(400, "Unknown provider")
+    if not req.url.startswith("https://") or not adapter.validate_url(req.url):
+        raise HTTPException(400, "URL is not permitted for this provider")
+    payload=req.model_dump()
+    payload["browser_profile_key"] = profiles.key(key, req.profile)
+    payload["browser_profile_path"] = str(profiles.path_for(key, req.profile))
+    store.set("last_launch", payload)
+    store.log_event("launch", payload)
+    if SETTINGS.provider_mode == "local":
+        request=state_dir / "browser-control.json"
+        tmp=request.with_suffix(".tmp")
+        tmp.write_text(json.dumps({
+            "provider": key,
+            "url": req.url,
+            "profile": payload["browser_profile_path"],
+            "requested_at": __import__("time").time(),
+        }))
+        os.replace(tmp,request)
+        return {"ok":True,"mode":"local"}
+    await send_view({"type":"launch","payload":payload})
+    return {"ok":True,"mode":"view"}
+
+@app.post("/api/compliance/uk-tv-licence")
+async def set_tv_licence_ack(req: ComplianceAckRequest):
+    store.set(acknowledgement_key(req.profile), bool(req.acknowledged))
+    store.log_event("compliance_ack", {"profile":req.profile,"acknowledged":bool(req.acknowledged)})
+    return {"ok":True,"acknowledged":bool(req.acknowledged)}
+
+@app.get("/api/compliance/uk-tv-licence/{profile}")
+async def get_tv_licence_ack(profile: str):
+    return {"profile":profile,"acknowledged":bool(store.get(acknowledgement_key(profile), False))}
+
+@app.get("/api/local/discover")
+async def local_discover():
+    servers = await asyncio.to_thread(discover_jellyfin)
+    payload=[s.as_dict() for s in servers]
+    store.set("local_servers_discovered", payload)
+    return {"servers":payload}
+
+@app.post("/api/local/servers")
+async def add_local_server(req: LocalServerRequest):
+    from urllib.parse import urlparse
+    p=urlparse(req.address)
+    if p.scheme not in {"http","https"} or not p.hostname:
+        raise HTTPException(400, "Local server address must be http(s)")
+    current=store.get("local_servers_manual", [])
+    item=req.model_dump()
+    current=[x for x in current if x.get("address") != item["address"]]
+    current.append(item)
+    store.set("local_servers_manual", current)
+    return {"ok":True,"server":item}
+
+
+
+@app.get("/api/ui/bootstrap")
+async def ui_bootstrap():
+    discovered = store.get("local_servers_discovered", []) or []
+    return {
+        "version": __version__,
+        "provisioning": get_provisioning(store),
+        "appliance": appliance_probe(SETTINGS.browser_cmd),
+        "providers": {k:{"name":v.name,"home_url":v.home_url} for k,v in PROVIDERS.items()},
+        "local_servers": discovered,
+        "ha_configured": bool(SETTINGS.ha_url and SETTINGS.ha_token),
+    }
+
+@app.get("/api/audio/sinks")
+async def audio_sinks():
+    return {"sinks": list_sinks()}
+
+@app.post("/api/audio/default")
+async def audio_default(req: AudioSinkRequest):
+    ok = await asyncio.to_thread(set_default_sink, req.sink)
+    if ok:
+        update_provisioning(store, {"audio_sink": req.sink})
+        store.log_event("audio_sink", {"sink":req.sink})
+    return {"ok":ok,"sink":req.sink}
+
+@app.post("/api/provider/session")
+async def provider_session(req: ProviderSessionRequest):
+    key=f"provider_session:{profiles.key(req.provider, req.profile)}"
+    store.set(key, {"signed_in":bool(req.signed_in)})
+    return {"ok":True,"provider":req.provider,"profile":req.profile,"signed_in":bool(req.signed_in)}
+
+@app.get("/api/provisioning")
+async def provisioning_status():
+    return get_provisioning(store)
+
+@app.post("/api/provisioning")
+async def provisioning_update(req: ProvisionRequest):
+    changes={k:v for k,v in req.model_dump().items() if v is not None}
+    return update_provisioning(store, changes)
+
+@app.get("/api/appliance")
+async def appliance_status():
+    return appliance_probe(SETTINGS.browser_cmd)
+
+@app.get("/api/diagnostics")
+async def diagnostics_status():
+    return await asyncio.to_thread(run_diagnostics)
+
+@app.get("/api/browser-profile/{profile}/{provider}")
+async def browser_profile(profile: str, provider: str):
+    if provider.lower().strip() not in PROVIDERS:
+        raise HTTPException(404, "Unknown provider")
+    path=profiles.path_for(provider, profile)
+    return {"profile":profile,"provider":provider,"key":profiles.key(provider, profile),"path":str(path)}
+
+
+@app.get('/api/admin-console/status')
+async def admin_console_status():
+    stored=store.get('admin_console_pin_hash','') or ''
+    return {
+        'configured': bool(stored),
+        'active': Path('/run/veyra-control/active').exists(),
+    }
+
+@app.post('/api/admin-console/set-pin')
+async def admin_console_set_pin(payload: dict):
+    pin=str(payload.get('pin','')).strip()
+    old=str(payload.get('current_pin','')).strip()
+    if not (pin.isdigit() and 4 <= len(pin) <= 12):
+        raise HTTPException(400,'PIN must be 4-12 digits')
+    current=store.get('admin_console_pin_hash','') or ''
+    if current and not verify_pin(old,current):
+        store.log_event('admin_console_pin_change_denied',{})
+        raise HTTPException(403,'invalid current PIN')
+    store.set('admin_console_pin_hash',hash_pin(pin))
+    store.log_event('admin_console_pin_changed',{})
+    return {'ok':True}
+
+@app.post('/api/admin-console/open')
+async def admin_console_open(payload: dict):
+    stored=store.get('admin_console_pin_hash','') or ''
+    pin=str(payload.get('pin',''))
+    if not stored:
+        raise HTTPException(409,'PIN not configured')
+    if not verify_pin(pin,stored):
+        store.log_event('admin_console_auth_failed',{})
+        raise HTTPException(403,'invalid PIN')
+    request=Path('/run/veyra-control/enter')
+    try:
+        request.parent.mkdir(parents=True,exist_ok=True)
+        request.touch()
+    except OSError:
+        raise HTTPException(503,'local console broker unavailable')
+    store.log_event('admin_console_open_requested',{})
+    return {'ok':True,'handoff':'tty1','idle_timeout_s':900}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("veyra.app:app", host=SETTINGS.bind_host, port=SETTINGS.port, reload=False)
+
+===== veyra/view.py =====
+from __future__ import annotations
+import json, time
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Header, HTTPException
+from fastapi.responses import HTMLResponse
+from . import __version__
+from .config import SETTINGS
+
+app = FastAPI(title="Veyra View", version=__version__)
+clients: set[WebSocket] = set()
+started = time.monotonic()
+
+HTML = r'''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Veyra</title>
+<style>
+:root{--scale:1;--bg:#070910;--panel:#111622;--panel2:#171d2a;--text:#f7f9fc;--muted:#9da8bb;--focus:#fff;--accent:#7d8cff}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:var(--bg);color:var(--text);font-family:Inter,system-ui,Segoe UI,sans-serif;overflow:hidden;font-size:calc(16px * var(--scale))}
+body{background:radial-gradient(circle at 78% 12%,#18213a 0,#0a0d14 33%,#06080d 72%)}
+#app{height:100%;display:flex;flex-direction:column;padding:3.5vh 4vw 3vh;gap:2.5vh}.top{display:flex;align-items:center;justify-content:space-between}.brand{font-size:2rem;font-weight:800;letter-spacing:.18em}.status{font-size:.9rem;color:var(--muted)}
+.hero{display:grid;grid-template-columns:1.5fr 1fr;gap:2vw;min-height:22vh}.heroMain,.diag{background:linear-gradient(145deg,#151c2b,#0e131d);border:1px solid #222b3e;border-radius:26px;padding:3vh 2.4vw;box-shadow:0 24px 70px #0007}.heroMain h1{font-size:2.7rem;margin:.1em 0}.heroMain p{color:var(--muted);font-size:1.08rem;max-width:55ch}.diag{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem}.metric{padding:1rem;background:#0b1019;border-radius:17px}.metric b{display:block;font-size:1.25rem}.metric span{color:var(--muted);font-size:.82rem}
+.sectionTitle{display:flex;justify-content:space-between;align-items:end}.sectionTitle h2{margin:0;font-size:1.25rem}.sectionTitle span{color:var(--muted);font-size:.85rem}.rail{display:grid;grid-template-columns:repeat(6,1fr);gap:1.1vw}.card{height:15vh;min-height:116px;border-radius:20px;border:2px solid transparent;background:linear-gradient(145deg,#161d2b,#0d1119);padding:1.2rem;display:flex;flex-direction:column;justify-content:space-between;outline:none;transition:.12s transform,.12s border,.12s box-shadow;cursor:pointer}.card small{color:var(--muted)}.card strong{font-size:1.15rem}.card:focus,.card.focus{border-color:var(--focus);transform:scale(1.035);box-shadow:0 10px 35px #000b}.card.action{background:linear-gradient(145deg,#20294a,#11172b)}
+#overlay{position:fixed;inset:0;pointer-events:none;z-index:80}.ov{position:absolute;max-width:36vw;padding:18px 22px;border-radius:16px;background:rgba(15,18,25,.94);box-shadow:0 10px 40px #0008}.top-right{right:3vw;top:3vh}.top-left{left:3vw;top:3vh}.bottom-right{right:3vw;bottom:3vh}.bottom-left{left:3vw;bottom:3vh}.center{left:50%;top:50%;transform:translate(-50%,-50%)}.alert{left:0;right:0;top:0;bottom:0;max-width:none;border-radius:0;display:grid;place-items:center;text-align:center;background:rgba(10,0,0,.95);font-size:2rem}.pip video,.pip img{display:block;width:32vw;max-height:38vh;background:#000;border-radius:10px;margin-top:10px;object-fit:cover}
+.modalWrap{position:fixed;inset:0;background:#000c;z-index:50;display:none;place-items:center}.modalWrap.show{display:grid}.modal{width:min(760px,86vw);max-height:82vh;overflow:auto;background:#111722;border:1px solid #2b3549;border-radius:26px;padding:2rem;box-shadow:0 30px 100px #000}.modal h2{margin-top:0}.row{display:grid;grid-template-columns:1fr 1fr;gap:1rem}.field{margin:1rem 0}.field label{display:block;color:var(--muted);margin-bottom:.4rem}.field input,.field select{width:100%;font:inherit;background:#090d14;color:#fff;border:1px solid #344057;border-radius:12px;padding:.8rem}.buttons{display:flex;gap:.8rem;justify-content:flex-end;margin-top:1.5rem}.btn{font:inherit;border:1px solid #39455d;border-radius:12px;background:#171e2b;color:#fff;padding:.8rem 1.2rem}.btn.primary{background:#eff2ff;color:#10131a}.notice{padding:1rem;border-radius:14px;background:#0b111c;color:var(--muted);margin:.8rem 0}.hidden{display:none!important}
+</style></head><body>
+<div id="app"><div class="top"><div class="brand">VEYRA</div><div class="status" id="status">Starting…</div></div>
+<div class="hero"><div class="heroMain"><small>YOUR VISUAL HOME</small><h1 id="welcome">Ready when you are.</h1><p>Streaming services, local media and Home Assistant information in one resilient TV interface.</p></div><div class="diag"><div class="metric"><b id="mHdmi">—</b><span>HDMI</span></div><div class="metric"><b id="mAudio">—</b><span>Audio</span></div><div class="metric"><b id="mCore">—</b><span>Core</span></div><div class="metric"><b id="mLocal">—</b><span>Local media</span></div></div></div>
+<div class="sectionTitle"><h2>Watch</h2><span>Arrow keys / remote + Enter</span></div><div class="rail" id="providers"></div>
+<div class="sectionTitle"><h2>Veyra</h2><span id="profileLabel">Profile: default</span></div><div class="rail">
+<div class="card action nav" tabindex="0" data-action="local"><strong>Local Media</strong><small>Discover Jellyfin</small></div>
+<div class="card action nav" tabindex="0" data-action="overlaytest"><strong>Overlay Test</strong><small>Verify TV notifications</small></div>
+<div class="card action nav" tabindex="0" data-action="settings"><strong>Settings</strong><small>Audio, profile, Home Assistant</small></div>
+<div class="card action nav" tabindex="0" data-action="diagnostics"><strong>Diagnostics</strong><small>Appliance readiness</small></div>
+</div></div>
+<div id="overlay"></div>
+<div class="modalWrap" id="modalWrap"><div class="modal" id="modal"></div></div>
+<script>
+const providers=[['netflix','Netflix'],['iplayer','BBC iPlayer'],['itvx','ITVX'],['channel4','Channel 4'],['disney','Disney+'],['primevideo','Prime Video']];
+const providerEl=document.getElementById('providers'),statusEl=document.getElementById('status'),modalWrap=document.getElementById('modalWrap'),modal=document.getElementById('modal');let boot={},prov={},focusIndex=0;
+function esc(s){return String(s??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function cards(){return [...document.querySelectorAll('.nav')]}function focusCard(i){const c=cards();if(!c.length)return;focusIndex=(i+c.length)%c.length;c[focusIndex].focus()}
+providers.forEach(([k,n])=>{const d=document.createElement('div');d.className='card nav';d.tabIndex=0;d.dataset.provider=k;d.innerHTML='<strong>'+n+'</strong><small>Open service</small>';providerEl.appendChild(d)});
+document.addEventListener('focusin',e=>{const c=cards();const i=c.indexOf(e.target);if(i>=0)focusIndex=i});
+document.addEventListener('keydown',e=>{if(modalWrap.classList.contains('show')){if(e.key==='Escape')closeModal();return}const c=cards();if(['ArrowRight','ArrowDown'].includes(e.key)){e.preventDefault();focusCard(focusIndex+1)}if(['ArrowLeft','ArrowUp'].includes(e.key)){e.preventDefault();focusCard(focusIndex-1)}if(e.key==='Enter'&&document.activeElement.classList.contains('nav'))document.activeElement.click();if(e.key==='Escape')location.href='/'});
+document.addEventListener('click',e=>{const x=e.target.closest('.card');if(!x)return;if(x.dataset.provider)openProvider(x.dataset.provider);else if(x.dataset.action)action(x.dataset.action)});
+async function api(path,opt={}){const r=await fetch('http://127.0.0.1:8765'+path,{headers:{'Content-Type':'application/json'},...opt});return await r.json()}
+async function load(){try{boot=await api('/api/ui/bootstrap');prov=boot.provisioning||{};document.documentElement.style.setProperty('--scale',(prov.ui_scale||100)/100);document.getElementById('profileLabel').textContent='Profile: '+(prov.profile||'default');document.getElementById('welcome').textContent=prov.complete?'Ready when you are.':'Let’s set up Veyra.';renderHealth(boot);statusEl.textContent='Veyra '+boot.version+' • Ready';if(!prov.complete)firstRun();}catch(e){statusEl.textContent='Core unavailable • View remains alive';document.getElementById('mCore').textContent='Recovering'}}
+function renderHealth(b){const a=b.appliance||{};document.getElementById('mHdmi').textContent=a.hdmi_connected?'Connected':'Check';document.getElementById('mAudio').textContent=a.audio_available?'Ready':'Check';document.getElementById('mCore').textContent='Ready';document.getElementById('mLocal').textContent=(b.local_servers||[]).length?b.local_servers.length+' found':'Discover'}
+function show(html){modal.innerHTML=html;modalWrap.classList.add('show');const f=modal.querySelector('input,select,button');if(f)f.focus()}function closeModal(){modalWrap.classList.remove('show')}
+function firstRun(){show('<h2>Welcome to Veyra</h2><p>This short setup gets the TV endpoint ready for tomorrow’s first-run test.</p><div class="field"><label>Viewer profile</label><input id="pname" value="'+esc(prov.profile||'default')+'"></div><div class="field"><label>Device name</label><input id="dname" value="'+esc(prov.device_name||'Veyra TV')+'"></div><div class="notice">Provider logins are stored in this appliance’s persistent Chromium profile. Veyra does not bypass provider authentication, subscriptions, DRM or licensing controls.</div><div class="buttons"><button class="btn primary" onclick="saveFirstRun()">Continue</button></div>')}
+async function saveFirstRun(){const body={profile:document.getElementById('pname').value||'default',device_name:document.getElementById('dname').value||'Veyra TV'};prov=await api('/api/provisioning',{method:'POST',body:JSON.stringify(body)});audioSetup()}
+async function audioSetup(){const a=await api('/api/audio/sinks');let opts=(a.sinks||[]).map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+(s.default?' (current)':'')+'</option>').join('');show('<h2>HDMI audio</h2><p>Select the TV/receiver output if it is listed. You can change this later.</p><div class="field"><select id="sink"><option value="">Use current default</option>'+opts+'</select></div><div class="buttons"><button class="btn" onclick="finishSetup()">Skip</button><button class="btn primary" onclick="applyAudio()">Use output</button></div>')}
+async function applyAudio(){const sink=document.getElementById('sink').value;if(sink)await api('/api/audio/default',{method:'POST',body:JSON.stringify({sink})});finishSetup()}
+async function finishSetup(){prov=await api('/api/provisioning',{method:'POST',body:JSON.stringify({complete:true})});closeModal();location.reload()}
+async function openProvider(key){const p=boot.providers[key];if(!p)return;const profile=(prov.profile||'default');if(key==='iplayer'){const c=await api('/api/compliance/uk-tv-licence/'+encodeURIComponent(profile));if(!c.acknowledged){showLicence(key,p.home_url);return}}launch(key,p.home_url,false)}
+function showLicence(key,url){show('<h2>UK TV Licence reminder</h2><p>A valid UK TV Licence is required for BBC iPlayer viewing and for watching live television or live streamed broadcasts in the UK.</p><label style="display:flex;gap:.7rem;align-items:flex-start"><input style="width:auto" type="checkbox" id="licAck"> <span>I understand the UK TV Licence requirements and don’t need to be reminded again on this device/profile.</span></label><div class="buttons"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="ackLaunch(\''+key+'\',\''+url+'\')">Continue</button></div>')}
+async function ackLaunch(k,u){if(document.getElementById('licAck').checked)await api('/api/compliance/uk-tv-licence',{method:'POST',body:JSON.stringify({profile:prov.profile||'default',acknowledged:true})});closeModal();launch(k,u,false)}
+async function launch(k,u,live){const r=await api('/api/launch',{method:'POST',body:JSON.stringify({provider:k,url:u,profile:prov.profile||'default',live:!!live})});if(r.requires_acknowledgement){showLicence(k,u)}}
+async function action(a){if(a==='local'){const d=await api('/api/local/discover');boot.local_servers=d.servers||[];renderHealth(boot);show('<h2>Local media</h2>'+(boot.local_servers.length?boot.local_servers.map(s=>'<div class="notice"><b>'+esc(s.name)+'</b><br>'+esc(s.address)+'</div>').join(''):'<div class="notice">No Jellyfin servers responded to LAN discovery. Manual server entry will remain available in a later settings pass.</div>')+'<div class="buttons"><button class="btn primary" onclick="closeModal()">Done</button></div>')}
+if(a==='overlaytest'){await api('/api/overlay',{method:'POST',body:JSON.stringify({kind:'banner',title:'Veyra Overlay',message:'Home Assistant-style TV notification test passed.',priority:2,duration:6,position:'top-right'})})}
+if(a==='settings'){settings()}if(a==='diagnostics'){const d=await api('/api/diagnostics');const rows=(d.checks||[]).map(c=>'<div class="notice"><b>'+(c.ok?'✓ ':'⚠ ')+esc(c.name)+'</b><br>'+esc(c.detail)+'</div>').join('');show('<h2>Appliance Diagnostics</h2><p>Status: <b>'+esc(d.status)+'</b></p>'+rows+'<div class="buttons"><button class="btn" onclick="adminConsole()">Administrative Console</button><button class="btn primary" onclick="closeModal()">Done</button></div>')}}
+async function settings(){const a=await api('/api/audio/sinks');let opts=(a.sinks||[]).map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+(s.default?' (current)':'')+'</option>').join('');show('<h2>Settings</h2><div class="row"><div class="field"><label>Viewer profile</label><input id="setProfile" value="'+esc(prov.profile||'default')+'"></div><div class="field"><label>UI scale</label><select id="setScale">'+[90,100,110,120,130].map(x=>'<option '+((prov.ui_scale||100)==x?'selected':'')+'>'+x+'</option>').join('')+'</select></div></div><div class="field"><label>Audio output</label><select id="setSink"><option value="">Keep current</option>'+opts+'</select></div><div class="buttons"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveSettings()">Save</button></div>')}
+async function saveSettings(){const sink=document.getElementById('setSink').value;if(sink)await api('/api/audio/default',{method:'POST',body:JSON.stringify({sink})});await api('/api/provisioning',{method:'POST',body:JSON.stringify({profile:document.getElementById('setProfile').value||'default',ui_scale:Number(document.getElementById('setScale').value)})});location.reload()}
+
+async function adminConsole(){
+ const st=await api('/api/admin-console/status');
+ if(!st.configured){
+   show('<h2>Create maintenance PIN</h2><p>Choose a 4-12 digit PIN. This unlocks the local maintenance console only; it is not a root password.</p><div class="field"><input id="newPin" type="password" inputmode="numeric" placeholder="Maintenance PIN"></div><div class="buttons"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="adminSetPin()">Save PIN</button></div>');
+   return;
+ }
+ if(st.active){
+   show('<h2>Administrative Console</h2><div class="notice">A local administrative console session is already active on this display.</div><div class="buttons"><button class="btn primary" onclick="closeModal()">Done</button></div>');
+   return;
+ }
+ show('<h2>Administrative Console</h2><p>Unlocking temporarily replaces the Veyra screen with a local <b>jnsadmin</b> console. Sudo remains password-protected. Type <b>veyra-return</b> or <b>exit</b> to return. An idle shell locks after 15 minutes.</p><div class="field"><input id="adminPin" type="password" inputmode="numeric" placeholder="Maintenance PIN"></div><div class="buttons"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="adminUnlock()">Open Console</button></div>');
+}
+async function adminSetPin(){
+ const pin=document.getElementById('newPin').value;
+ const r=await fetch('http://127.0.0.1:8765/api/admin-console/set-pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});
+ if(!r.ok){alert('PIN must contain 4-12 digits.');return}
+ adminConsole();
+}
+async function adminUnlock(){
+ const pin=document.getElementById('adminPin').value;
+ const r=await fetch('http://127.0.0.1:8765/api/admin-console/open',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});
+ if(!r.ok){alert('Administrative console PIN was not accepted.');return}
+ show('<h2>Opening Administrative Console…</h2><p>Veyra is handing this display to the local Linux console.</p>');
+}
+function renderOverlay(m){if(m.suppressed)return;const d=document.createElement('div');d.className='ov '+(m.position||'top-right')+(m.kind==='alert'?' alert':'')+(m.kind==='pip'?' pip':'');let h='<div><b>'+esc(m.title||'')+'</b></div><div>'+esc(m.message||'')+'</div>';if(m.kind==='pip'&&m.image_url)h+='<img class="snapshot" src="'+esc(m.image_url)+'">';if(m.kind==='pip'&&m.video_url)h+='<video class="live" autoplay muted playsinline src="'+esc(m.video_url)+'" style="display:none"></video>';d.innerHTML=h;document.getElementById('overlay').appendChild(d);const v=d.querySelector('video.live'),i=d.querySelector('img.snapshot');if(v){v.addEventListener('canplay',()=>{v.style.display='block';if(i)i.style.display='none'},{once:true});v.addEventListener('error',()=>v.style.display='none')}setTimeout(()=>d.remove(),(m.duration||10)*1000)}
+function connect(){const ws=new WebSocket('ws://'+location.host+'/ws');ws.onopen=()=>statusEl.textContent='Veyra '+(boot.version||'')+' • Ready';ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.type==='overlay')renderOverlay(m.payload);if(m.type==='launch')location.href=m.payload.url};ws.onclose=()=>{statusEl.textContent='Renderer link recovering…';setTimeout(connect,750)}}
+connect();load().then(()=>setTimeout(()=>focusCard(0),350));
+</script></body></html>'''
+
+@app.get("/")
+async def root(): return HTMLResponse(HTML)
+
+@app.get("/health")
+async def health():
+    return {"status":"ok","version":__version__,"clients":len(clients),"uptime_s":int(time.monotonic()-started)}
+
+@app.post("/internal/command")
+async def command(payload: dict, x_veyra_token: str | None = Header(default=None)):
+    if x_veyra_token != SETTINGS.view_token:
+        raise HTTPException(403, "forbidden")
+    dead=[]; message=json.dumps(payload)
+    for ws in list(clients):
+        try: await ws.send_text(message)
+        except Exception: dead.append(ws)
+    for ws in dead: clients.discard(ws)
+    return {"ok":True,"clients":len(clients)}
+
+@app.websocket("/ws")
+async def ws_endpoint(ws: WebSocket):
+    await ws.accept(); clients.add(ws)
+    try:
+        while True: await ws.receive_text()
+    except (WebSocketDisconnect, Exception): clients.discard(ws)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("veyra.view:app", host=SETTINGS.view_bind, port=SETTINGS.view_port, reload=False)
+
+===== veyra/providers/catalog.py =====
+from .base import ProviderAdapter
+
+PROVIDERS = {
+    'netflix': ProviderAdapter('netflix', ('netflix.com',), 'https://www.netflix.com/'),
+    'iplayer': ProviderAdapter('iplayer', ('bbc.co.uk','bbc.com'), 'https://www.bbc.co.uk/iplayer'),
+    'itvx': ProviderAdapter('itvx', ('itv.com','itv.com/watch'), 'https://www.itv.com/watch'),
+    'channel4': ProviderAdapter('channel4', ('channel4.com',), 'https://www.channel4.com/'),
+    'disney': ProviderAdapter('disney', ('disneyplus.com',), 'https://www.disneyplus.com/'),
+    'primevideo': ProviderAdapter('primevideo', ('amazon.co.uk','primevideo.com','amazon.com'), 'https://www.amazon.co.uk/gp/video/storefront'),
+}
+
+===== browser-extension/content.js =====
+(()=>{
+const HOME='http://127.0.0.1:8766/';
+let target=null,box=null;
+const domains=['@gmail.com','@yahoo.co.uk','@googlemail.com','@outlook.com','@icloud.com'];
+document.addEventListener('keydown',e=>{
+  if(e.ctrlKey&&e.shiftKey&&e.key.toLowerCase()==='h'){e.preventDefault();location.href=HOME;return;}
+  if(box&&e.key==='Escape'){hide();}
+},true);
+function eligible(el){if(!el)return false; const t=(el.type||'').toLowerCase(); return el.tagName==='INPUT'&&['email','text','password','search',''].includes(t);}
+document.addEventListener('focusin',e=>{if(eligible(e.target))show(e.target)},true);
+function css(){return 'position:fixed;left:4vw;right:4vw;bottom:3vh;z-index:2147483647;background:#0d1119ee;color:white;border:1px solid #39455d;border-radius:18px;padding:14px;display:grid;gap:8px;font:18px system-ui;box-shadow:0 20px 70px #000a';}
+function button(label,val){const b=document.createElement('button');b.textContent=label;b.style='font:inherit;padding:10px;border-radius:10px;border:1px solid #4a556d;background:#171e2b;color:#fff';b.onclick=()=>press(val);return b;}
+async function show(el){target=el;if(box)box.remove();box=document.createElement('div');box.style=css();
+ const top=document.createElement('div');top.style='display:flex;gap:8px;flex-wrap:wrap';
+ if((el.type||'').toLowerCase()!=='password'){for(const d of domains)top.append(button(d,d));}
+ box.append(top);const rows=document.createElement('div');rows.style='display:flex;gap:7px;flex-wrap:wrap';
+ for(const k of '1234567890qwertyuiopasdfghjklzxcvbnm')rows.append(button(k,k));
+ for(const [l,v] of [['.','.'],['_','_'],['-','-'],['@','@'],['SPACE',' '],['BACK','BACK'],['CLEAR','CLEAR'],['DONE','DONE']])rows.append(button(l,v));
+ box.append(rows);document.documentElement.append(box);
+ if((el.type||'').toLowerCase()!=='password'){chrome.storage.local.get(['emails'],r=>{const a=r.emails||[];for(const m of a.slice(0,5))top.prepend(button(m,m));});}
+}
+function fire(){target.dispatchEvent(new Event('input',{bubbles:true}));target.dispatchEvent(new Event('change',{bubbles:true}));}
+function press(v){if(!target)return;if(v==='BACK'){target.value=target.value.slice(0,-1);fire();return}if(v==='CLEAR'){target.value='';fire();return}
+ if(v==='DONE'){saveEmail();target.blur();hide();return}
+ if(v.startsWith('@')&&target.value&&!target.value.includes('@'))target.value+=v;else if(v.includes('@')&&v.includes('.')&&v.length>5)target.value=v;else target.value+=v;fire();target.focus();}
+function saveEmail(){if(!target||(target.type||'').toLowerCase()==='password')return;const v=(target.value||'').trim();if(!v.includes('@'))return;chrome.storage.local.get(['emails'],r=>{let a=(r.emails||[]).filter(x=>x!==v);a.unshift(v);chrome.storage.local.set({emails:a.slice(0,5)});});}
+function hide(){if(box)box.remove();box=null;target=null;}
+})();
+
+(()=> {
+let host=null,timer=null;
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function ensureHost(){
+  if(host&&host.isConnected)return host;
+  host=document.createElement('div');
+  host.id='veyra-local-overlay-host';
+  host.style='position:fixed;inset:0;z-index:2147483647;pointer-events:none;font-family:system-ui,Segoe UI,sans-serif';
+  document.documentElement.append(host);
+  return host;
+}
+function render(p){
+  if(!p||p.suppressed)return;
+  const h=ensureHost();
+  const box=document.createElement('div');
+  const pos=p.position||'top-right';
+  const loc={ 'top-right':'top:3vh;right:3vw','top-left':'top:3vh;left:3vw','bottom-right':'bottom:3vh;right:3vw','bottom-left':'bottom:3vh;left:3vw','center':'top:50%;left:50%;transform:translate(-50%,-50%)'}[pos]||'top:3vh;right:3vw';
+  const alert=p.kind==='alert';
+  box.style=(alert?'position:absolute;inset:0;display:grid;place-items:center;text-align:center;font-size:2rem;background:#100e;':
+    'position:absolute;max-width:38vw;padding:18px 22px;border-radius:16px;background:#0f1219f2;color:#fff;box-shadow:0 10px 40px #0008;')+loc;
+  box.innerHTML='<div><b>'+esc(p.title||'')+'</b></div><div>'+esc(p.message||'')+'</div>';
+  if(p.kind==='pip'&&p.image_url){
+    const img=document.createElement('img');
+    img.src=p.image_url;
+    img.style='display:block;width:32vw;max-height:38vh;object-fit:cover;border-radius:10px;margin-top:10px';
+    box.append(img);
+  }
+  h.replaceChildren(box);
+  if(timer)clearTimeout(timer);
+  timer=setTimeout(()=>{if(host)host.replaceChildren()},Math.max(1,Number(p.duration||10))*1000);
+}
+chrome.runtime.onMessage.addListener(m=>{if(m&&m.type==='veyra-overlay')render(m.payload)});
+})();
+
+===== browser-extension/manifest.json =====
+{
+  "manifest_version": 3,
+  "name": "Veyra Local Controls",
+  "version": "0.9.1",
+  "description": "Local Veyra navigation, provider login keyboard and local overlays.",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"],
+  "background": {"service_worker": "background.js"},
+  "content_scripts": [{
+    "matches": [
+      "https://*.netflix.com/*",
+      "https://*.bbc.co.uk/*",
+      "https://*.itv.com/*",
+      "https://*.channel4.com/*",
+      "https://*.disneyplus.com/*",
+      "https://*.amazon.co.uk/*",
+      "https://*.primevideo.com/*"
+    ],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }]
+}
+
+===== installer/install_orchestrator.py =====
+#!/usr/bin/env python3
+from __future__ import annotations
+import os, sys, time, socket, queue, threading, subprocess, shutil
+from pathlib import Path
+from datetime import datetime, timedelta
+
+BASE=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(BASE/'installer'/'real-progress'))
+from progress import ProgressModel
+from consumer import JobTracker
+
+LOG=Path('/var/log/veyra-install.log')
+STATS=Path('/var/lib/veyra-installer/progress-stats.json')
+TTY1=Path('/dev/tty1'); TTY2=Path('/dev/tty2')
+REMOTE=('10.10.10.236',5514)
+DEFAULTS={'package-index':60,'packages':420,'users-and-layout':25,'payload':45,'python-venv':35,'pip-bootstrap':30,'app-dependencies':60,'chrome-runtime':50,'services-and-access':35,'validation':45,'finalize':20}
+model=ProgressModel(STATS,defaults=DEFAULTS,stall_multiplier=4.0,stall_min_seconds=30)
+tracker=JobTracker(model)
+job=tracker.start(list(DEFAULTS),metadata={'product':'Veyra','version':'0.9.1'},job_id='veyra-install')
+
+def emit(msg,raw=False):
+    line=f"{datetime.now().isoformat(timespec='seconds')} {msg}"
+    LOG.parent.mkdir(parents=True,exist_ok=True)
+    with LOG.open('a',encoding='utf-8') as f:f.write(line+'\n')
+    if raw:
+        try: TTY2.write_text('',encoding='utf-8') if False else None
+        except Exception: pass
+        try:
+            with TTY2.open('a',encoding='utf-8',errors='ignore') as f:f.write(line+'\n')
+        except Exception: pass
+    try:
+        s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.settimeout(.05); s.sendto(line.encode()[:1400],REMOTE); s.close()
+    except Exception: pass
+
+def render():
+    v=tracker.view(job); p=v['progress']; eta=p['eta_seconds']; pct=p['percent']; stage=v.get('stage') or 'Queued'
+    if eta is None: eta_text='calculating ETA'; finish='unknown'
+    else:
+        eta_text=f"{int(eta//60)}m {int(eta%60)}s remaining"
+        finish=(datetime.now()+timedelta(seconds=eta)).strftime('%H:%M')
+    width=42; n=max(0,min(width,int(width*pct/100))); bar='█'*n+'░'*(width-n)
+    screen=("\033[2J\033[H"+"VEYRA  v0.9.1 INSTALLATION\n"+"="*62+"\n\n"+f"Stage: {stage}\n\n[{bar}] {pct:5.1f}%\n\n{eta_text}   Predicted finish: {finish}\n\nCtrl+Alt+F2: live technical console\n")
+    try:
+        with TTY1.open('w',encoding='utf-8',errors='ignore') as f:f.write(screen)
+    except Exception: pass
+
+def run_stage(name,cmd,cwd=None):
+    tracker.stage(job,name); emit(f'STAGE_START {name}',True)
+    q=queue.Queue()
+    p=subprocess.Popen(cmd,cwd=cwd,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,bufsize=1)
+    def reader():
+        for line in p.stdout:
+            q.put(line.rstrip())
+    threading.Thread(target=reader,daemon=True).start()
+    while p.poll() is None:
+        while True:
+            try: emit(q.get_nowait(),True)
+            except queue.Empty: break
+        render(); time.sleep(.5)
+    while True:
+        try: emit(q.get_nowait(),True)
+        except queue.Empty: break
+    if p.returncode:
+        tracker.fail(job,f'{name} rc={p.returncode}'); emit(f'STAGE_FAIL {name} rc={p.returncode}',True); render(); raise SystemExit(p.returncode)
+    emit(f'STAGE_PASS {name}',True); render()
+
+def py_stage(name,fn):
+    tracker.stage(job,name); emit(f'STAGE_START {name}',True); render()
+    try: fn()
+    except Exception as e:
+        tracker.fail(job,str(e)); emit(f'STAGE_FAIL {name}: {e}',True); render(); raise
+    emit(f'STAGE_PASS {name}',True); render()
+
+run_stage('package-index',['apt-get','update'])
+run_stage('packages',['apt-get','install','-y','--no-install-recommends','python3','python3-venv','sudo','pipewire','pipewire-pulse','wireplumber','dbus-user-session','cage','curl','ca-certificates','ffmpeg','avahi-daemon','logrotate'])
+
+def users_layout():
+    subprocess.run(['id','veyra'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode==0 or subprocess.run(['useradd','--system','--create-home','--home-dir','/var/lib/veyra','--shell','/usr/sbin/nologin','veyra'],check=True)
+    if subprocess.run(['getent','group','veyra-control'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode!=0:
+        subprocess.run(['groupadd','--system','veyra-control'],check=True)
+    for g in ('video','render','audio','input','veyra-control'): subprocess.run(['usermod','-aG',g,'veyra'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    subprocess.run(['usermod','-aG','veyra-control','jnsadmin'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    for p in ('/opt/veyra','/var/lib/veyra/chromium','/var/lib/veyra/provider-profiles','/var/lib/veyra/timeshift','/var/log/veyra','/etc/veyra','/var/lib/veyra-installer'): Path(p).mkdir(parents=True,exist_ok=True)
+    for p in ('/var/lib/veyra','/var/log/veyra'):
+        subprocess.run(['chown','-R','veyra:veyra',p],check=True)
+py_stage('users-and-layout',users_layout)
+
+def payload():
+    dst=Path('/opt/veyra')
+    if dst.exists(): shutil.rmtree(dst)
+    shutil.copytree(BASE,dst,symlinks=True)
+py_stage('payload',payload)
+
+run_stage('python-venv',['python3','-m','venv','/opt/veyra/.venv'])
+run_stage('pip-bootstrap',['/opt/veyra/.venv/bin/pip','install','--upgrade','pip'])
+run_stage('app-dependencies',['/opt/veyra/.venv/bin/pip','install','-r','/opt/veyra/requirements.txt'])
+run_stage('chrome-runtime',['/opt/veyra/scripts/install-google-chrome-runtime.sh'])
+
+def services_access():
+    import secrets, pwd
+    env=Path('/etc/veyra/veyra.env')
+    if not env.exists():
+        token=secrets.token_urlsafe(32)
+        env.write_text('VEYRA_STATE_DIR=/var/lib/veyra\nVEYRA_LOG_DIR=/var/log/veyra\nVEYRA_CHROME_PROFILE=/var/lib/veyra/chromium\nVEYRA_BROWSER_PROFILES=/var/lib/veyra/provider-profiles\nVEYRA_VIEW_TOKEN='+token+'\nVEYRA_KIOSK_URL=http://127.0.0.1:8766/\nVEYRA_VIEW_COMMAND_URL=http://127.0.0.1:8766/internal/command\nVEYRA_PROVIDER_MODE=local\n')
+        os.chmod(env,0o640)
+    Path('/etc/veyra/source.env').write_text('VEYRA_SOURCE_PORT=5500\nVEYRA_TIMESHIFT_DIR=/var/lib/veyra/timeshift\nVEYRA_TIMESHIFT_SEGMENTS=720\n')
+    os.chmod(env,0o640)
+    subprocess.run(['chown','root:veyra',str(env)],check=True)
+    Path('/etc/veyra/source.env').chmod(0o640)
+    subprocess.run(['chown','root:veyra','/etc/veyra/source.env'],check=True)
+    for unit in (BASE/'systemd').glob('veyra*.service'): shutil.copy2(unit,Path('/etc/systemd/system')/unit.name)
+    for unit in (BASE/'systemd').glob('veyra*.timer'): shutil.copy2(unit,Path('/etc/systemd/system')/unit.name)
+    ssh=Path('/home/jnsadmin/.ssh'); ssh.mkdir(parents=True,exist_ok=True); os.chmod(ssh,0o700)
+    pub=(BASE/'config'/'nodec-authorized.pub').read_text().strip()
+    ak=ssh/'authorized_keys'; existing=ak.read_text().splitlines() if ak.exists() else []
+    if pub not in existing: existing.append(pub)
+    ak.write_text('\n'.join(x for x in existing if x.strip())+'\n'); os.chmod(ak,0o600)
+    try:
+        pw=pwd.getpwnam('jnsadmin'); os.chown(ssh,pw.pw_uid,pw.pw_gid); os.chown(ak,pw.pw_uid,pw.pw_gid)
+        subprocess.run(['usermod','-aG','sudo,veyra-control','jnsadmin'],check=True)
+    except KeyError: pass
+    target=Path('/usr/local/bin/veyra-return')
+    if target.exists() or target.is_symlink(): target.unlink()
+    target.symlink_to('/opt/veyra/scripts/veyra-return.sh')
+    Path('/etc/profile.d/veyra-maintenance.sh').write_text(
+        'if [ "$USER" = "jnsadmin" ] && [ -e /run/veyra-control/active ]; then\n'
+        '  TMOUT=900\n  readonly TMOUT\n  export TMOUT\n'
+        '  echo "Veyra maintenance console - type veyra-return or exit to return to Veyra."\n'
+        'fi\n'
+    )
+    Path('/etc/logrotate.d/veyra').write_text('/var/log/veyra/*.log {\n  weekly\n  rotate 4\n  size 10M\n  compress\n  missingok\n  notifempty\n}\n')
+    Path('/etc/systemd/journald.conf.d').mkdir(parents=True,exist_ok=True)
+    Path('/etc/systemd/journald.conf.d/90-veyra.conf').write_text('[Journal]\nSystemMaxUse=100M\nRuntimeMaxUse=50M\n')
+    Path('/etc/avahi/avahi-daemon.conf.d').mkdir(parents=True,exist_ok=True)
+    Path('/etc/avahi/avahi-daemon.conf.d/veyra.conf').write_text('[server]\nhost-name=veyra\n')
+    root_uuid=subprocess.check_output(['findmnt','-no','UUID','/'],text=True).strip()
+    Path('/etc/grub.d/40_custom').write_text('#!/bin/sh\nexec tail -n +3 $0\nmenuentry "Veyra Maintenance Console" {\n  linux /vmlinuz root=UUID='+root_uuid+' ro systemd.unit=multi-user.target systemd.mask=veyra-kiosk.service\n  initrd /initrd.img\n}\n')
+    os.chmod('/etc/grub.d/40_custom',0o755)
+py_stage('services-and-access',services_access)
+
+def validate():
+    subprocess.run(['python3','-m','compileall','-q','/opt/veyra/veyra'],check=True)
+    subprocess.run(['systemctl','daemon-reload'],check=True)
+py_stage('validation',validate)
+
+def finalize():
+    subprocess.run(['systemctl','disable','--now','getty@tty1.service'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    subprocess.run(['systemctl','enable','veyra-boot.service','veyra-view.service','veyra.service','veyra-kiosk.service','veyra-console-broker.service','veyra-healthcheck.timer','avahi-daemon.service'],check=True)
+    subprocess.run(['systemctl','disable','veyra-maintenance-console.service'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    subprocess.run(['systemctl','disable','veyra-source-receiver.service'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    subprocess.run(['update-grub'],check=True)
+    Path('/etc/hostname').write_text('veyra\n')
+    shutil.copy2(LOG,Path('/var/log/veyra/install-v0.9.1.log'))
+py_stage('finalize',finalize)
+tracker.finish(job,{'result':'PASS'}); render(); emit('INSTALL_PASS Veyra v0.9.1',True)
+time.sleep(2)
+
+VEYRA_SOURCE_AUDIT_OK
+
+finished=2026-10-14T19:29:45+01:00
+exit_code=0
