@@ -35,7 +35,7 @@ case "$JOB_TYPE" in
   dns_reservation_importer_install)
     exec /usr/local/libexec/jns-gateway-dns-reservation-importer-install "$REAL"
     ;;
-  veyra_source_audit|veyra_build_v092)
+  veyra_source_audit|veyra_source_full|veyra_apply_release|veyra_build_v092)
     exec /usr/local/libexec/jns-gateway-veyra "$REAL"
     ;;
   *)
