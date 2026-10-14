@@ -14,31 +14,18 @@ jobs:
     runs-on: [self-hosted, linux, x64, nodec]
     timeout-minutes: 10
     steps:
-      - name: Inspect Veyra PXE services and tree
+      - name: Inspect installed PXE components
         shell: bash
         run: |
           set -u
-          echo "=== HOST ==="
-          hostname
-          ip -br addr || true
-          echo "=== PORTS ==="
-          ss -lntup | grep -E ':(69|8097)\b' || true
-          echo "=== SYSTEMD ==="
-          systemctl list-unit-files --type=service | grep -Ei 'dnsmasq|tftp|pxe|veyra|http' || true
-          echo "=== ACTIVE MATCHES ==="
-          systemctl --no-pager --type=service --state=running | grep -Ei 'dnsmasq|tftp|pxe|veyra|http|python' || true
-          echo "=== CONFIG/TREES ==="
-          for p in /etc/dnsmasq.conf /etc/dnsmasq.d /etc/default/tftpd-hpa /srv/tftp /var/lib/tftpboot /tftpboot /srv/http /var/www /opt/veyra-pxe /root/veyra-pxe /root/veyra-live-test /root/veyra-v0.9; do
-            if [ -e "$p" ]; then
-              echo "--- $p ---"
-              ls -ld "$p" 2>&1 || true
-              if [ -d "$p" ]; then
-                find "$p" -maxdepth 3 -type f -printf '%p\n' 2>/dev/null | sort | head -400
-              elif [ -r "$p" ]; then
-                sed -n '1,260p' "$p" 2>/dev/null || true
-              fi
-            fi
-          done
-          echo "=== REFERENCES ==="
-          grep -RniE '8097|VEYRA|veyra|ipxe|pxelinux|tftp|preseed' /etc /srv /var/www /opt 2>/dev/null | head -700 || true
-          echo "=== BINARIES ==="\n          command -v in.tftpd || true\n          command -v tftpd || true\n          command -v dnsmasq || true\n          command -v xorriso || true\n          command -v python3 || true\n          find /usr/lib /usr/share -maxdepth 4 -type f \\( -name "snponly.efi" -o -name "undionly.kpxe" -o -name "ipxe.efi" \\) -print 2>/dev/null | sort | head -100\n          echo "VEYRA_PXE_AUDIT_COMPLETE"
+          echo "=== BINARIES ==="
+          command -v in.tftpd || true
+          command -v tftpd || true
+          command -v dnsmasq || true
+          command -v xorriso || true
+          command -v python3 || true
+          echo "=== IPXE FILES ==="
+          find /usr/lib /usr/share -maxdepth 4 -type f 2>/dev/null | grep -E '/(snponly\.efi|undionly\.kpxe|ipxe\.efi)$' | sort | head -100 || true
+          echo "=== PORTS 69/8097/8098 ==="
+          ss -lntup | grep -E ':(69|8097|8098)\b' || true
+          echo "VEYRA_PXE_COMPONENT_AUDIT_COMPLETE"
