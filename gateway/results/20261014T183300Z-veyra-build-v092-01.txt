@@ -1,0 +1,76 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261014T183300Z-veyra-build-v092-01
+started=2026-10-14T19:33:15+01:00
+runner=nodec
+
+=== VEYRA V0.9.2 BUILD ===
+2026-10-14T19:33:16+01:00
+SOURCE_VALIDATION_OK
+xorriso 1.5.6 : RockRidge filesystem manipulator, libburnia project.
+
+xorriso : NOTE : Loading ISO image tree from LBA 0
+xorriso : UPDATE :    1576 nodes read in 1 seconds
+xorriso : NOTE : Detected El-Torito boot information which currently is set to be discarded
+Drive current: -indev '/root/veyra-v0.9/Veyra-AutoInstall-v0.9.1.iso'
+Media current: stdio file, overwriteable
+Media status : is written , is appendable
+Boot record  : El Torito , MBR isohybrid cyl-align-on GPT APM
+Media summary: 1 session, 484832 data blocks,  947m data, 11.1g free
+Volume id    : 'VEYRA_AUTO_091'
+Drive current: -outdev '/root/veyra-v0.9/.Veyra-AutoInstall-v0.9.2.tmp.iso'
+Media current: stdio file, overwriteable
+Media status : is blank
+Media summary: 0 sessions, 0 data blocks, 0 data, 11.1g free
+xorriso : NOTE : Replayed 23 boot related commands
+Updating '/root/veyra-v0.9/source071/veyra' to '/veyra'
+xorriso : UPDATE : Adjusted attributes of '/veyra/veyra'
+xorriso : UPDATE : Adjusted attributes of '/veyra/veyra/providers'
+xorriso : UPDATE : Adjusted attributes of '/veyra/systemd'
+xorriso : UPDATE : Adjusted attributes of '/veyra/scripts'
+xorriso : UPDATE : Adjusted attributes of '/veyra/config'
+xorriso : UPDATE : Adjusted attributes of '/veyra/browser-extension'
+xorriso : UPDATE : Adjusted attributes of '/veyra/boot'
+xorriso : UPDATE : Adjusted attributes of '/veyra/boot/assets'
+xorriso : UPDATE : Added/overwrote '/veyra/veyra/models.py'  (1925)
+xorriso : UPDATE : Added/overwrote '/veyra/veyra/app.py'  (13k)
+xorriso : UPDATE : Added/overwrote '/veyra/veyra/view.py'  (15k)
+xorriso : UPDATE : Added/overwrote '/veyra/veyra/__init__.py'  (22)
+xorriso : UPDATE : Added/overwrote '/veyra/browser-extension/content.js'  (4714)
+xorriso : UPDATE : Added/overwrote '/veyra/browser-extension/manifest.json'  (688)
+xorriso : UPDATE : Added/overwrote '/veyra/veyra/programmes.py'  (4780)
+Differences detected and updated. (runtime 0.3 s)
+xorriso : NOTE : Copying to System Area: 32768 bytes from file '--interval:imported_iso:0s-15s:zero_mbrpt,zero_gpt,zero_apm:/root/veyra-v0.9/Veyra-AutoInstall-v0.9.1.iso'
+libisofs: NOTE : Aligned image size to cylinder size by 322 blocks
+xorriso : UPDATE : Writing:      24576s    5.1%   fifo  45%  buf  50%
+xorriso : UPDATE : Writing:     114688s   23.6%   fifo 100%  buf  50%  332.3xD 
+xorriso : UPDATE : Writing:     278528s   57.4%   fifo  21%  buf  50%  240.4xD 
+ISO image produced: 484832 sectors
+Written to medium : 484992 sectors at LBA 32
+Writing to '/root/veyra-v0.9/.Veyra-AutoInstall-v0.9.2.tmp.iso' completed successfully.
+
+xorriso : NOTE : Re-assessing -outdev '/root/veyra-v0.9/.Veyra-AutoInstall-v0.9.2.tmp.iso'
+xorriso : NOTE : Loading ISO image tree from LBA 0
+xorriso : UPDATE :    1577 nodes read in 1 seconds
+xorriso : NOTE : Detected El-Torito boot information which currently is set to be discarded
+Drive current: -dev '/root/veyra-v0.9/.Veyra-AutoInstall-v0.9.2.tmp.iso'
+Media current: stdio file, overwriteable
+Media status : is written , is appendable
+Boot record  : El Torito , MBR isohybrid cyl-align-on GPT APM
+Media summary: 1 session, 484832 data blocks,  947m data, 10.2g free
+Volume id    : 'VEYRA_AUTO_092'
+Signature Verified Successfully
+=== BOOT ENTRIES ===
+El Torito catalog  : 583  1
+El Torito images   :   N  Pltf  B   Emul  Ld_seg  Hdpt  Ldsiz         LBA
+El Torito boot img :   1  BIOS  y   none  0x0000  0x00      4        2424
+El Torito boot img :   2  UEFI  y   none  0x0000  0x00   7360         584
+El Torito img path :   1  /isolinux/isolinux.bin
+El Torito img opts :   1  boot-info-table isohybrid-suitable
+El Torito img path :   2  /boot/grub/efi.img
+=== OUTPUT ===
+d3f9bf1bba958749d3239a9dc61eb795f6b7b996fd48343596872c3fc2f656aa  /root/veyra-v0.9/Veyra-AutoInstall-v0.9.2.iso
+signed=true
+VEYRA_V092_BUILD_OK
+
+finished=2026-10-14T19:33:21+01:00
+exit_code=0
