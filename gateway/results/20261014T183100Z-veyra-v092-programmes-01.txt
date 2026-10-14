@@ -1,0 +1,9 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261014T183100Z-veyra-v092-programmes-01
+started=2026-10-14T19:32:42+01:00
+runner=nodec
+
+VEYRA_RELEASE_APPLY_OK backup=/root/veyra-v0.9/backups/20261014T183100Z-veyra-v092-programmes-01
+
+finished=2026-10-14T19:32:42+01:00
+exit_code=0
