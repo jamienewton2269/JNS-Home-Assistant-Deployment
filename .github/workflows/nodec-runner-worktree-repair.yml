@@ -1,4 +1,5 @@
 name: Node C Runner Worktree Repair
+# Trigger note: Veyra gateway repair
 
 on:
   push:
