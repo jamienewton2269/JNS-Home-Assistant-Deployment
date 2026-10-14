@@ -31,31 +31,21 @@ jobs:
           python3 -m py_compile gateway/trusted/veyra-gateway-handler-v1.py
           bash -n gateway/trusted/jns-gateway-exec-wrapper-v3.sh
 
-      - name: Bootstrap through existing Node B doorway
+      - name: Inspect existing trusted privilege paths
         shell: bash
         run: |
-          set -Eeuo pipefail
-          SSH_B="ssh -o BatchMode=yes -o ConnectTimeout=8 nodeb"
-          NESTED="ssh -i /root/.ssh/lunar-transfer -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new root@10.10.10.236"
-
-          cat gateway/trusted/veyra-gateway-handler-v1.py |             $SSH_B "$NESTED 'cat > /tmp/jns-gateway-veyra'"
-          cat gateway/trusted/jns-gateway-exec-wrapper-v3.sh |             $SSH_B "$NESTED 'cat > /tmp/jns-gateway-exec-v3'"
-
-          $SSH_B "$NESTED 'set -Eeuo pipefail;
-            python3 -m py_compile /tmp/jns-gateway-veyra;
-            bash -n /tmp/jns-gateway-exec-v3;
-            install -d -o root -g root -m 0755 /usr/local/libexec;
-            cp -a /usr/local/sbin/jns-gateway-exec /usr/local/sbin/jns-gateway-exec.pre-veyra;
-            install -o root -g root -m 0755 /tmp/jns-gateway-veyra /usr/local/libexec/jns-gateway-veyra;
-            install -o root -g root -m 0755 /tmp/jns-gateway-exec-v3 /usr/local/sbin/jns-gateway-exec;
-            rm -f /tmp/jns-gateway-veyra /tmp/jns-gateway-exec-v3;
-            test -x /usr/local/libexec/jns-gateway-veyra;
-            test -x /usr/local/sbin/jns-gateway-exec;
-            echo VEYRA_GATEWAY_BOOTSTRAP_OK'"
-
-      - name: Verify GitHub runner can invoke trusted executor
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          test -x /usr/local/sbin/jns-gateway-exec
-          echo "VEYRA_GATEWAY_READY"
+          set -u
+          echo "=== ID ==="
+          id
+          echo "=== SUDO POLICY ==="
+          sudo -n -l 2>&1 || true
+          echo "=== TRUSTED WRAPPERS ==="
+          for p in             /usr/local/sbin/jns-gateway-exec             /usr/local/sbin/jns-gateway-exec.base             /usr/local/sbin/jns-gateway-refresh             /usr/local/sbin/jns-gateway-install             /usr/local/sbin/jns-gateway-handler-refresh             /usr/local/sbin/jns-management-deploy; do
+            if [ -e "$p" ]; then
+              ls -l "$p"
+            fi
+          done
+          echo "=== NODE B ROUTE ==="
+          ip route get 10.10.10.235 2>&1 || true
+          ping -c 1 -W 1 10.10.10.235 2>&1 || true
+          echo "VEYRA_BOOTSTRAP_PREFLIGHT_COMPLETE"
