@@ -41,4 +41,4 @@ jobs:
           done
           echo "=== REFERENCES ==="
           grep -RniE '8097|VEYRA|veyra|ipxe|pxelinux|tftp|preseed' /etc /srv /var/www /opt 2>/dev/null | head -700 || true
-          echo "VEYRA_PXE_AUDIT_COMPLETE"
+          echo "=== BINARIES ==="\n          command -v in.tftpd || true\n          command -v tftpd || true\n          command -v dnsmasq || true\n          command -v xorriso || true\n          command -v python3 || true\n          find /usr/lib /usr/share -maxdepth 4 -type f \\( -name "snponly.efi" -o -name "undionly.kpxe" -o -name "ipxe.efi" \\) -print 2>/dev/null | sort | head -100\n          echo "VEYRA_PXE_AUDIT_COMPLETE"
