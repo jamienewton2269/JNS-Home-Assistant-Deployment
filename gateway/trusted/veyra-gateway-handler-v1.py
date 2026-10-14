@@ -8,7 +8,7 @@ from pathlib import Path
 
 BASE = Path("/root/veyra-v0.9/source071/veyra").resolve()
 BACKUPS = Path("/root/veyra-v0.9/backups")
-ALLOWED = {"veyra_source_audit", "veyra_source_full", "veyra_apply_release", "veyra_build_v092"}
+ALLOWED = {"veyra_source_audit", "veyra_source_full", "veyra_apply_release", "veyra_build_v092", "veyra_pxe_prepare"}
 EDITABLE = {
     "veyra/__init__.py",
     "veyra/models.py",
@@ -118,6 +118,13 @@ def build_v092():
         return 78
     return subprocess.call([str(runner)])
 
+def pxe_prepare():
+    runner=Path("/usr/local/libexec/jns-veyra-pxe-v092")
+    if not runner.is_file() or not os.access(runner,os.X_OK):
+        print("Veyra v0.9.2 PXE publisher not installed",file=sys.stderr)
+        return 78
+    return subprocess.call([str(runner)])
+
 def main():
     if len(sys.argv)!=2:
         return 64
@@ -128,6 +135,7 @@ def main():
         if kind=="veyra_source_full": return audit(True)
         if kind=="veyra_apply_release": return apply_release(job)
         if kind=="veyra_build_v092": return build_v092()
+        if kind=="veyra_pxe_prepare": return pxe_prepare()
     except Exception as exc:
         print(f"VEYRA_GATEWAY_ERROR: {exc}",file=sys.stderr)
         return 1
