@@ -1,0 +1,10 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261007T234500Z-dns-reservation-importer-health-trigger-05
+started=2026-10-14T19:10:22+01:00
+runner=nodec
+
+{"ok": true, "primary": "10.10.10.247", "secondary": "10.10.10.248", "domain": "home.arpa"}
+DNS reservation importer installed on Node C: http://10.10.110.13:8770/
+
+finished=2026-10-14T19:10:24+01:00
+exit_code=0

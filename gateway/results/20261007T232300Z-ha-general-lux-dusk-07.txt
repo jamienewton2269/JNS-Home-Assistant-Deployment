@@ -1,0 +1,9 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261007T232300Z-ha-general-lux-dusk-07
+started=2026-10-14T19:10:17+01:00
+runner=nodec
+
+ssh: connect to host 10.10.10.235 port 22: No route to host
+
+finished=2026-10-14T19:10:20+01:00
+exit_code=255
