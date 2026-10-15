@@ -1,0 +1,80 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261015T095200Z-veyra-build-v092-corrected-03
+started=2026-10-15T11:00:14+01:00
+runner=nodec
+
+=== VEYRA V0.9.2 BUILD ===
+2026-10-15T11:00:14+01:00
+SOURCE_VALIDATION_OK
+xorriso 1.5.6 : RockRidge filesystem manipulator, libburnia project.
+
+xorriso : NOTE : Loading ISO image tree from LBA 0
+xorriso : UPDATE :    1576 nodes read in 1 seconds
+xorriso : NOTE : Detected El-Torito boot information which currently is set to be discarded
+Drive current: -indev '/root/veyra-v0.9/Veyra-AutoInstall-v0.9.1.iso'
+Media current: stdio file, overwriteable
+Media status : is written , is appendable
+Boot record  : El Torito , MBR isohybrid cyl-align-on GPT APM
+Media summary: 1 session, 484832 data blocks,  947m data, 9461m free
+Volume id    : 'VEYRA_AUTO_091'
+Drive current: -outdev '/root/veyra-v0.9/.Veyra-AutoInstall-v0.9.2.tmp.iso'
+Media current: stdio file, overwriteable
+Media status : is blank
+Media summary: 0 sessions, 0 data blocks, 0 data, 9461m free
+xorriso : NOTE : Replayed 23 boot related commands
+Updating '/root/veyra-v0.9/source071' to '/'
+xorriso : UPDATE : Adjusted attributes of '/veyra/veyra'
+xorriso : UPDATE : Adjusted attributes of '/veyra/veyra/providers'
+xorriso : UPDATE : Adjusted attributes of '/veyra/systemd'
+xorriso : UPDATE : Adjusted attributes of '/veyra/scripts'
+xorriso : UPDATE : Adjusted attributes of '/veyra/config'
+xorriso : UPDATE : Adjusted attributes of '/veyra/browser-extension'
+xorriso : UPDATE : Adjusted attributes of '/veyra/boot'
+xorriso : UPDATE : Adjusted attributes of '/veyra/boot/assets'
+xorriso : UPDATE : Deleted '/isolinux/real1_boot.cat'
+xorriso : UPDATE : Added/overwrote '/isolinux/isolinux.bin'  (38k)
+xorriso : UPDATE : Added/overwrote '/veyra/veyra/models.py'  (1925)
+xorriso : UPDATE : Added/overwrote '/veyra/veyra/app.py'  (13k)
+xorriso : UPDATE : Added/overwrote '/veyra/veyra/view.py'  (17k)
+xorriso : UPDATE : Added/overwrote '/veyra/veyra/__init__.py'  (22)
+xorriso : UPDATE : Added/overwrote '/veyra/browser-extension/content.js'  (4714)
+xorriso : UPDATE : Added/overwrote '/veyra/browser-extension/manifest.json'  (688)
+xorriso : UPDATE : Added/overwrote '/veyra/veyra/programmes.py'  (4780)
+Differences detected and updated. (runtime 3.3 s)
+xorriso : NOTE : Copying to System Area: 32768 bytes from file '--interval:imported_iso:0s-15s:zero_mbrpt,zero_gpt,zero_apm:/root/veyra-v0.9/Veyra-AutoInstall-v0.9.1.iso'
+libisofs: NOTE : Cannot arrange content of data files in surely reproducible way
+libisofs: NOTE : Aligned image size to cylinder size by 302 blocks
+xorriso : UPDATE : Writing:       8192s    1.7%   fifo 100%  buf  50%
+xorriso : UPDATE : Writing:      73728s   15.2%   fifo 100%  buf  50%  120.7xD 
+xorriso : UPDATE : Writing:     270336s   55.7%   fifo  57%  buf  50%  290.2xD 
+ISO image produced: 484832 sectors
+Written to medium : 484992 sectors at LBA 32
+Writing to '/root/veyra-v0.9/.Veyra-AutoInstall-v0.9.2.tmp.iso' completed successfully.
+
+xorriso : NOTE : Re-assessing -outdev '/root/veyra-v0.9/.Veyra-AutoInstall-v0.9.2.tmp.iso'
+xorriso : NOTE : Loading ISO image tree from LBA 0
+xorriso : UPDATE :    1577 nodes read in 1 seconds
+libisofs: WARNING : Found hidden El-Torito image. Its size could not be figured out, so image modify or boot image patching may lead to bad results.
+xorriso : NOTE : Detected El-Torito boot information which currently is set to be discarded
+Drive current: -dev '/root/veyra-v0.9/.Veyra-AutoInstall-v0.9.2.tmp.iso'
+Media current: stdio file, overwriteable
+Media status : is written , is appendable
+Boot record  : El Torito , MBR cyl-align-on GPT APM
+Media summary: 1 session, 484832 data blocks,  947m data, 8514m free
+Volume id    : 'VEYRA_AUTO_092'
+ISO_PAYLOAD_VALIDATION_OK
+Signature Verified Successfully
+=== BOOT ENTRIES ===
+El Torito catalog  : 583  1
+El Torito images   :   N  Pltf  B   Emul  Ld_seg  Hdpt  Ldsiz         LBA
+El Torito boot img :   1  BIOS  y   none  0x0000  0x00      4        2424
+El Torito boot img :   2  UEFI  y   none  0x0000  0x00   7360         584
+El Torito img blks :   1  19
+El Torito img path :   2  /boot/grub/efi.img
+=== OUTPUT ===
+53e31c84dc0613773e1224215e03004423d3daaaf5ff6cbd518dd1f17f15e246  /root/veyra-v0.9/Veyra-AutoInstall-v0.9.2.iso
+signed=true
+VEYRA_V092_BUILD_OK
+
+finished=2026-10-15T11:00:23+01:00
+exit_code=0
