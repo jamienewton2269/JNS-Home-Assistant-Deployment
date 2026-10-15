@@ -1,0 +1,20 @@
+name: Deploy HA-General Lux Priority and Clock Persistence
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ha_testing_dashboard/lux-priority-clock.request'
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-general-lux-priority-clock
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply clock persistence and lux priority/weather logic
+        shell: bash
+        run: python3 ha_testing_dashboard/apply-lux-priority-clock.py
