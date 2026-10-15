@@ -1,0 +1,30 @@
+name: Diagnose Veyra Installer Media
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/veyra-media-diagnostic.yml']
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - name: Inspect Debian installation media without touching live PXE
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          R=/srv/veyra-pxe/http/veyra/v0.9.2
+          W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
+          echo '=== BASE BOOT HASHES ==='
+          sha256sum "$R/vmlinuz" "$R/initrd.gz"
+          echo '=== EXTRACT INSTALLER ==='
+          (cd "$W"; gzip -dc "$R/initrd.gz" | cpio -idmu --quiet --no-preserve-owner -f dev/console dev/null)
+          echo '=== MEDIA/NETWORK INSTALLER PACKAGES ==='
+          grep -E '^Package: (cdrom|netcfg|net-retriever|choose-mirror|iso-scan|ethdetect|anna|network-console)' "$W/var/lib/dpkg/status" || true
+          echo '=== EARLY BOOT SCRIPTS ==='
+          find "$W/usr/lib/debian-installer-startup.d" -maxdepth 1 -type f -printf '%f\n' | sort
+          echo '=== ISO CONTENT ==='
+          xorriso -indev "$R/Veyra-AutoInstall-v0.9.2.iso" -ls /pool/main/l/linux-signed-amd64 2>&1 | tail -20
+          echo '=== PACKAGE SOURCE MODE ==='
+          ls -l "$W/usr/lib/debian-installer/retriever" || true
+          echo VEYRA_MEDIA_DIAGNOSTIC_COMPLETE
