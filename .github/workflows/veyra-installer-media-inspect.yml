@@ -1,0 +1,29 @@
+name: Veyra Installer Media Mechanism Inspection
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/veyra-installer-media-inspect.yml']
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          R=/srv/veyra-pxe/http/veyra/v0.9.2
+          W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
+          (cd "$W"; gzip -dc "$R/initrd-cd.gz" | cpio -idmu --quiet --no-preserve-owner -f dev/console dev/null)
+          echo '=== NETWORK INIT AND MEDIA CONFIG ==='
+          sed -n '1,140p' "$W/usr/lib/debian-installer-startup.d/S30initrd-preseed"
+          sed -n '1,150p' "$W/usr/lib/debian-installer-startup.d/S01mount"
+          echo '=== CDROM DETECTOR ==='
+          grep -n -C 4 -E 'on /cdrom|/cdrom/.disk/info|set_suite_and_codename' "$W/var/lib/dpkg/info/cdrom-detect.postinst" | head -110
+          echo '=== PRESEED EXISTING ==='
+          grep -inE 'cdrom|mirror|netcfg|preseed|early_command|partman' "$R/preseed.cfg" | head -70
+          echo '=== NETWORK TOOLS AND ISO MODULES ==='
+          find "$W/lib/modules" "$W/usr/lib/modules" -name '*loop*' -o -name '*r8169*' 2>/dev/null | head -30
+          echo '=== HTTP ENDPOINT CHECK ==='
+          for f in .disk/info dists/trixie/Release pool/ veyra-payload.tar.gz; do echo "$f"; curl -sS -o /dev/null -w '%{http_code}\n' "http://127.0.0.1:8098/veyra/v0.9.2/$f"; done
+          echo VEYRA_MEDIA_INSPECTION_DONE
