@@ -1,0 +1,27 @@
+name: Verify Veyra Disk Safety And LAN Logs
+on:
+  push:
+    branches: [main]
+    paths:
+      - gateway/trusted/veyra-safe-disk-and-syslog-v092.sh
+      - .github/workflows/veyra-safe-disk-syslog-check.yml
+permissions: {contents: read}
+jobs:
+  validate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          FILE=gateway/trusted/veyra-safe-disk-and-syslog-v092.sh
+          bash -n "$FILE"
+          grep -Fq 'DISK_SELECTED' "$FILE"
+          grep -Fq 'FATAL disk selection ambiguous' "$FILE"
+          grep -Fq 'partman/early_command' "$FILE"
+          grep -Fq 'VEYRA_5515_SELFTEST' "$FILE"
+          grep -Fq 'preseed/early_command' "$FILE"
+          echo '=== PRESERVED BOOT ==='
+          sha256sum /srv/veyra-pxe/http/autoexec.ipxe /srv/veyra-pxe/http/veyra/v0.9.2/{vmlinuz,initrd.gz} /srv/veyra-pxe/http/veyra/v0.9.2-netboot/{vmlinuz,initrd.gz}
+          echo VEYRA_DISK_LOG_SCRIPT_CHECK_PASS
