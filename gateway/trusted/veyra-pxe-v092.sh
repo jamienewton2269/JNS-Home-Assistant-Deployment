@@ -120,9 +120,17 @@ fi
   echo ':installer'
   if [[ "$kernel_ok" == true && "$initrd_ok" == true ]]; then
     if [[ "$preseed_ok" == true ]]; then
+      echo 'ifstat'
+      echo 'route'
+      echo 'dhcp || goto netfail'
+      echo 'route'
       echo 'imgfree autoexec.ipxe ||'
       echo 'kernel ${base}/vmlinuz initrd=initrd.magic auto=true priority=critical netcfg/choose_interface=auto url=${base}/preseed.cfg --- || goto bootfail'
     else
+      echo 'ifstat'
+      echo 'route'
+      echo 'dhcp || goto netfail'
+      echo 'route'
       echo 'imgfree autoexec.ipxe ||'
       echo 'kernel ${base}/vmlinuz initrd=initrd.magic auto=true priority=critical netcfg/choose_interface=auto --- || goto bootfail'
     fi
@@ -133,6 +141,11 @@ fi
     echo 'echo ISO SAN boot failed and no kernel/initrd fallback was found.'
     echo 'shell'
   fi
+  echo ':netfail'
+  echo 'echo Veyra network refresh FAILED - remaining in iPXE for diagnostics.'
+  echo 'ifstat'
+  echo 'route'
+  echo 'shell'
   echo ':bootfail'
   echo 'echo Veyra installer handoff FAILED - remaining in iPXE for diagnostics.'
   echo 'imgstat'
