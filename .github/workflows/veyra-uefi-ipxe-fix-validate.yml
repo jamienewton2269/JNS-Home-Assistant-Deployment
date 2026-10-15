@@ -1,0 +1,27 @@
+name: Validate Veyra UEFI iPXE Fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-uefi-ipxe-fix-validate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate UEFI iPXE handoff logic
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-pxe-v092.sh
+          grep -Fq "imgfree autoexec.ipxe ||" gateway/trusted/veyra-pxe-v092.sh
+          grep -Fq "initrd=initrd.magic" gateway/trusted/veyra-pxe-v092.sh
+          grep -Fq "initrd --name initrd.gz" gateway/trusted/veyra-pxe-v092.sh
+          grep -Fq "goto bootfail" gateway/trusted/veyra-pxe-v092.sh
+          echo VEYRA_UEFI_IPXE_FIX_VALID
