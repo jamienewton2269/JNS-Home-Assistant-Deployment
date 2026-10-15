@@ -18,8 +18,9 @@ jobs:
           S=gateway/trusted/veyra-netboot-realtek-firmware-v092.sh
           bash -n "$S"
           F=$(mktemp); trap 'rm -f "$F"' EXIT
-          curl -fsSL --retry 1 --max-time 45 https://sources.debian.org/data/non-free-firmware/f/firmware-nonfree/20250410-2/rtl_nic/rtl8106e-1.fw -o "$F"
-          test "$(wc -c < "$F")" -eq 1856
+          curl -fsSL --retry 1 --max-time 60 https://deb.debian.org/debian/pool/non-free-firmware/f/firmware-nonfree/firmware-realtek_20250410-2_all.deb -o "$F"
+          echo '925755a9b0891c7dc39bbb73d28ab8f7193d37303b5022e8bc9d458b9b4aaa4e  '"$F" | sha256sum -c -
+          dpkg-deb -c "$F" | grep -F 'rtl_nic/rtl8106e-1.fw'
           echo '=== FIRMWARE VERIFIED ==='
           sha256sum "$F"
           echo '=== PROTECTED LIVE BOOT BASELINE ==='
