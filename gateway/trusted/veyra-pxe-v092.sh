@@ -61,6 +61,17 @@ for cmd in wget cpio gzip xz dpkg-deb; do
   }
 done
 
+# Preserve the exact currently published boot files before any change.
+BACKUP="$ROOT/backups/veyra-v092-$(date -u +%Y%m%dT%H%M%SZ)"
+mkdir -p "$BACKUP"
+for filename in autoexec.ipxe; do
+  test -f "$HTTP/$filename" && cp -a "$HTTP/$filename" "$BACKUP/$filename" || true
+done
+for filename in vmlinuz initrd.gz preseed.cfg veyra-payload.tar.gz; do
+  test -f "$REL/$filename" && cp -a "$REL/$filename" "$BACKUP/$filename" || true
+done
+echo "VEYRA_PRE_PUBLICATION_BACKUP=$BACKUP"
+
 install -d -o root -g root -m 0755 "$TFTP" "$REL"
 install -o root -g root -m 0644 /usr/lib/ipxe/snponly.efi "$TFTP/snponly.efi"
 install -o root -g root -m 0644 /usr/lib/ipxe/undionly.kpxe "$TFTP/undionly.kpxe"
@@ -94,52 +105,11 @@ if [[ "$kernel_ok" == true && "$initrd_ok" == true ]]; then
   work="$(mktemp -d)"
   trap 'rm -rf "$work"' EXIT
 
-  wget -q -O "$work/vmlinuz" "$DEBIAN_NETBOOT_BASE/linux"
-  wget -q -O "$work/initrd-generic.gz" "$DEBIAN_NETBOOT_BASE/initrd.gz"
-  wget -q -O "$work/Packages.xz" "$DEBIAN_FW_INDEX"
-
-  read -r fw_path fw_sha < <(
-    python3 - "$work/Packages.xz" <<'PY'
-import lzma, sys
-text=lzma.open(sys.argv[1], 'rt', encoding='utf-8', errors='replace').read()
-for block in text.split('\n\n'):
-    fields={}
-    for line in block.splitlines():
-        if ': ' in line:
-            k,v=line.split(': ',1)
-            fields[k]=v
-    if fields.get('Package') == 'firmware-realtek':
-        print(fields['Filename'], fields['SHA256'])
-        break
-else:
-    raise SystemExit('firmware-realtek not found in Debian index')
-PY
-  )
-
-  wget -q -O "$work/firmware-realtek.deb" "$DEBIAN_MIRROR/$fw_path"
-  echo "$fw_sha  $work/firmware-realtek.deb" | sha256sum -c -
-
-  mkdir -p "$work/fw" "$work/initrd"
-  dpkg-deb -x "$work/firmware-realtek.deb" "$work/fw"
-
-  (
-    cd "$work/initrd"
-    gzip -dc "$work/initrd-generic.gz" | cpio -idmu --quiet
-    mkdir -p usr/lib/firmware
-    cp -a "$work/fw/usr/lib/firmware/." usr/lib/firmware/
-    find . -print0 | cpio --null -o --format=newc 2>/dev/null | gzip -9 > "$work/initrd-realtek.gz"
-  )
-
-  gzip -dc "$work/initrd-realtek.gz" | cpio -it 2>/dev/null > "$work/initrd.list"
-  grep -Fq 'drivers/net/ethernet/realtek/r8169.ko' "$work/initrd.list"
-  grep -Fq 'usr/lib/firmware/rtl_nic/' "$work/initrd.list"
-
-  install -o root -g root -m 0644 "$work/vmlinuz" "$REL/vmlinuz"
-  install -o root -g root -m 0644 "$work/initrd-realtek.gz" "$REL/initrd.gz"
-
-  echo "REALTEK_NETBOOT_KERNEL_SHA256=$(sha256sum "$REL/vmlinuz" | awk '{print $1}')"
-  echo "REALTEK_NETBOOT_INITRD_SHA256=$(sha256sum "$REL/initrd.gz" | awk '{print $1}')"
-  echo "VEYRA_REALTEK_NETBOOT_READY"
+  # The Veyra ISO is the authoritative, hardware-proven installer. Never
+  # substitute a generic Debian netboot kernel or initrd here.
+  echo "ISO_MATCHED_KERNEL_SHA256=$(sha256sum "$REL/vmlinuz" | awk '{print $1}')"
+  echo "ISO_MATCHED_INITRD_SHA256=$(sha256sum "$REL/initrd.gz" | awk '{print $1}')"
+  echo "VEYRA_ORIGINAL_ISO_INSTALLER_PRESERVED"
 fi
 
 if [[ "$preseed_ok" == true ]]; then
@@ -198,30 +168,11 @@ fi
   echo 'choose --default shell --timeout 10000 target && goto ${target}'
   echo ':veyra092'
   echo 'echo Booting signed Veyra v0.9.2 from Node C...'
+  echo 'echo Starting original Veyra v0.9.2 ISO installer through iPXE SAN boot'
+  echo 'sanboot --no-describe ${base}/Veyra-AutoInstall-v0.9.2.iso || goto bootfail'
   echo ':installer'
-  if [[ "$kernel_ok" == true && "$initrd_ok" == true ]]; then
-    if [[ "$preseed_ok" == true ]]; then
-      echo 'ifstat'
-      echo 'route'
-      echo 'dhcp || goto netfail'
-      echo 'route'
-      echo 'imgfree autoexec.ipxe ||'
-      echo 'kernel ${base}/vmlinuz initrd=initrd.magic auto=true priority=critical netcfg/choose_interface=auto url=${base}/preseed.cfg --- || goto bootfail'
-    else
-      echo 'ifstat'
-      echo 'route'
-      echo 'dhcp || goto netfail'
-      echo 'route'
-      echo 'imgfree autoexec.ipxe ||'
-      echo 'kernel ${base}/vmlinuz initrd=initrd.magic auto=true priority=critical netcfg/choose_interface=auto --- || goto bootfail'
-    fi
-    echo 'initrd --name initrd.gz ${base}/initrd.gz || goto bootfail'
-    echo 'imgstat'
-    echo 'boot || goto bootfail'
-  else
-    echo 'echo ISO SAN boot failed and no kernel/initrd fallback was found.'
-    echo 'shell'
-  fi
+  echo 'echo Original ISO SAN boot did not complete; retaining diagnostic shell.'
+  echo 'goto bootfail'
   echo ':netfail'
   echo 'echo Veyra network refresh FAILED - remaining in iPXE for diagnostics.'
   echo 'ifstat'
@@ -344,6 +295,10 @@ if command -v tftp >/dev/null 2>&1; then
   rm -rf "$tmp"
 fi
 
+grep -Fq 'sanboot --no-describe ${base}/Veyra-AutoInstall-v0.9.2.iso' "$HTTP/autoexec.ipxe"
+! grep -Eq 'debian-installer/amd64|initrd-generic.gz' "$HTTP/autoexec.ipxe"
+cmp -s "$REL/vmlinuz" "$REL/vmlinuz-cd"
+cmp -s "$REL/initrd.gz" "$REL/initrd-cd.gz"
 echo "=== PXE READY ==="
 echo "TFTP server: $NODE_IP:69"
 echo "UEFI bootfile: snponly.efi"
@@ -353,4 +308,4 @@ echo "ISO: http://$NODE_IP:$PORT/veyra/v0.9.2/Veyra-AutoInstall-v0.9.2.iso"
 echo "sha256=$EXPECTED"
 echo "kernel_fallback=$kernel_ok initrd_fallback=$initrd_ok preseed=$preseed_ok"
 echo "ProxyDHCP target MAC: $VEYRA_MAC"
-echo "VEYRA_PXE_V092_READY"
+echo "VEYRA_ISO_SANBOOT_PUBLISHED_FOR_HARDWARE_TEST"
