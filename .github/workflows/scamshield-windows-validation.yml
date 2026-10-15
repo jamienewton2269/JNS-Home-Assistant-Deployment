@@ -30,6 +30,26 @@ jobs:
           if ($content -match '(?i)\bSet-MpPreference\s+-(DisableRealtimeMonitoring|DisableBehaviorMonitoring)\b') { throw 'Disabling Defender is prohibited' }
           if ($content -match '(?i)\b(Set-ExecutionPolicy|Add-MpPreference\s+-ExclusionPath)\b') { throw 'Prohibited global exclusion / execution policy change' }
           Write-Host 'PowerShell parser and basic security checks passed'
+      - name: Parse pilot PowerShell scripts
+        shell: pwsh
+        run: |
+          foreach ($path in @('scamshield/pilot/ScamShield.ps1','scamshield/pilot/Install-Pilot.ps1')) {
+            $tokens = $null; $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -ne 0) { throw "$path : $($errors | Out-String)" }
+          }
+      - name: Prepare Windows 11 pilot ZIP
+        shell: pwsh
+        run: |
+          Compress-Archive -Path scamshield/pilot/* -DestinationPath "$env:RUNNER_TEMP/scamshield-win11-pilot.zip" -Force
+          Get-FileHash "$env:RUNNER_TEMP/scamshield-win11-pilot.zip" -Algorithm SHA256 | Format-List
+      - name: Upload Windows pilot package
+        uses: actions/upload-artifact@v4
+        with:
+          name: scamshield-win11-pilot
+          path: ${{ runner.temp }}/scamshield-win11-pilot.zip
+          if-no-files-found: error
+          retention-days: 14
       - name: Run non-mutating audit and inspect output
         shell: pwsh
         run: |
