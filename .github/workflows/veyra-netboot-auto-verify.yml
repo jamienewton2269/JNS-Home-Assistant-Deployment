@@ -1,0 +1,30 @@
+name: Verify Veyra Netboot Automatic Install
+on:
+  push:
+    branches: [main]
+    paths:
+      - gateway/trusted/veyra-enable-netboot-auto-v092.sh
+      - .github/workflows/veyra-netboot-auto-verify.yml
+permissions: {contents: read}
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          P=gateway/trusted/veyra-enable-netboot-auto-v092.sh
+          bash -n "$P"
+          grep -Fq 'preseed-auto.cfg' "$P"
+          grep -Fq 'partman/early_command' "$P"
+          grep -Fq 'scripts/install-debian.sh' "$P"
+          grep -Fq 'PXE_BOOT_BINARIES_AND_BOTH_INSTALLER_IMAGES_UNCHANGED' "$P"
+          test -s /srv/veyra-pxe/http/veyra/v0.9.2-netboot/initrd.gz
+          test -s /srv/veyra-pxe/http/veyra/v0.9.2-netboot/vmlinuz
+          echo '=== ORIGINAL PXE IMAGE PROTECTION ==='
+          sha256sum /srv/veyra-pxe/http/veyra/v0.9.2/{vmlinuz,initrd.gz}
+          echo '=== CURRENT N OPTION ==='
+          sed -n '/^:veyra-netboot$/,/^:veyra092$/p' /srv/veyra-pxe/http/autoexec.ipxe
+          echo VEYRA_NETBOOT_AUTO_SCRIPT_STATIC_PASS
