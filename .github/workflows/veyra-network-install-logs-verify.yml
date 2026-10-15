@@ -1,0 +1,30 @@
+name: Verify Veyra Install Text Log Capture
+on:
+  push:
+    branches: [main]
+    paths:
+      - gateway/trusted/veyra-network-install-logs-v092.sh
+      - .github/workflows/veyra-network-install-logs-verify.yml
+permissions: {contents: read}
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          F=gateway/trusted/veyra-network-install-logs-v092.sh
+          bash -n "$F"
+          sed -n "/^cat > \"\$LOGS\/relay.sh\" <<'RELAY'$/,/^RELAY$/p" "$F" | sed '1d;$d' > /tmp/veyra-relay-static-$$.sh
+          sh -n /tmp/veyra-relay-static-$$.sh
+          rm -f /tmp/veyra-relay-static-$$.sh
+          grep -Fq 'preseed/early_command' "$F"
+          grep -Fq 'VEYRA_LOG_RECEIVER_SELFTEST' "$F"
+          echo '=== LIVE PRESEED ==='
+          test -s /srv/veyra-pxe/http/veyra/v0.9.2-netboot/preseed-auto.cfg
+          grep -E 'partman/early_command|preseed/late_command' /srv/veyra-pxe/http/veyra/v0.9.2-netboot/preseed-auto.cfg | cut -c1-150
+          echo '=== CURRENT LISTENERS ==='
+          ss -lun | grep 5514 || true
+          echo VEYRA_INSTALL_LOG_CAPTURE_STATIC_PASS
