@@ -1,0 +1,70 @@
+name: Validate Veyra Realtek Netboot Build
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-realtek-netboot-build.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate helper and rebuild installer in tmp
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-pxe-v092.sh
+
+          BASE=https://deb.debian.org/debian/dists/trixie/main/installer-amd64/current/images/netboot/debian-installer/amd64
+          INDEX=https://deb.debian.org/debian/dists/trixie/non-free-firmware/binary-amd64/Packages.xz
+          MIRROR=https://deb.debian.org/debian
+          W=$(mktemp -d)
+          trap 'rm -rf "$W"' EXIT
+
+          wget -q -O "$W/linux" "$BASE/linux"
+          wget -q -O "$W/initrd.gz" "$BASE/initrd.gz"
+          wget -q -O "$W/Packages.xz" "$INDEX"
+
+          read -r FW_PATH FW_SHA < <(
+            python3 - "$W/Packages.xz" <<'PY'
+import lzma, sys
+text=lzma.open(sys.argv[1], 'rt', encoding='utf-8', errors='replace').read()
+for block in text.split('\n\n'):
+    f={}
+    for line in block.splitlines():
+        if ': ' in line:
+            k,v=line.split(': ',1); f[k]=v
+    if f.get('Package') == 'firmware-realtek':
+        print(f['Filename'], f['SHA256']); break
+else:
+    raise SystemExit(1)
+PY
+          )
+
+          wget -q -O "$W/fw.deb" "$MIRROR/$FW_PATH"
+          echo "$FW_SHA  $W/fw.deb" | sha256sum -c -
+
+          mkdir -p "$W/fw" "$W/tree"
+          dpkg-deb -x "$W/fw.deb" "$W/fw"
+          (
+            cd "$W/tree"
+            gzip -dc "$W/initrd.gz" | cpio -idmu --quiet
+            test -f usr/lib/modules/6.12.107+deb13-amd64/kernel/drivers/net/ethernet/realtek/r8169.ko.xz
+            mkdir -p usr/lib/firmware
+            cp -a "$W/fw/usr/lib/firmware/." usr/lib/firmware/
+            test -d usr/lib/firmware/rtl_nic
+            find usr/lib/firmware/rtl_nic -type f | grep -q .
+            find . -print0 | cpio --null -o --format=newc 2>/dev/null | gzip -9 > "$W/initrd-realtek.gz"
+          )
+
+          gzip -dc "$W/initrd-realtek.gz" | cpio -it 2>/dev/null > "$W/list"
+          grep -Fq 'drivers/net/ethernet/realtek/r8169.ko' "$W/list"
+          grep -Fq 'usr/lib/firmware/rtl_nic/' "$W/list"
+
+          echo "kernel_sha=$(sha256sum "$W/linux" | awk '{print $1}')"
+          echo "initrd_sha=$(sha256sum "$W/initrd-realtek.gz" | awk '{print $1}')"
+          echo "firmware_package=$FW_PATH"
+          echo VEYRA_REALTEK_NETBOOT_BUILD_VALID
