@@ -61,44 +61,33 @@ extract_one "$REL/vmlinuz" /install.amd/vmlinuz /install/vmlinuz && kernel_ok=tr
 extract_one "$REL/initrd.gz" /install.amd/initrd.gz /install/initrd.gz && initrd_ok=true || true
 extract_one "$REL/preseed.cfg" /preseed.cfg /veyra/preseed.cfg /config/preseed.cfg && preseed_ok=true || true
 
-cat > "$HTTP/autoexec.ipxe" <<EOF
-#!ipxe
-set server $NODE_IP
-set base http://${server}:$PORT/veyra/v0.9.2
-menu Veyra Network Deployment
-item --key v veyra092 Veyra v0.9.2 Auto Install
-item --key s shell iPXE shell
-choose --default veyra092 --timeout 5000 target && goto ${target}
-:veyra092
-echo Booting signed Veyra v0.9.2 from Node C...
-sanboot --no-describe ${base}/Veyra-AutoInstall-v0.9.2.iso || goto installer
-:installer
-EOF
-
-if [[ "$kernel_ok" == true && "$initrd_ok" == true ]]; then
-  if [[ "$preseed_ok" == true ]]; then
-    cat >> "$HTTP/autoexec.ipxe" <<EOF
-kernel ${base}/vmlinuz auto=true priority=critical netcfg/choose_interface=auto url=${base}/preseed.cfg ---
-initrd ${base}/initrd.gz
-boot
-EOF
+{
+  echo '#!ipxe'
+  echo "set server $NODE_IP"
+  echo 'set base http://${server}:8098/veyra/v0.9.2'
+  echo 'menu Veyra Network Deployment'
+  echo 'item --key v veyra092 Veyra v0.9.2 Auto Install'
+  echo 'item --key s shell iPXE shell'
+  echo 'choose --default veyra092 --timeout 5000 target && goto ${target}'
+  echo ':veyra092'
+  echo 'echo Booting signed Veyra v0.9.2 from Node C...'
+  echo 'sanboot --no-describe ${base}/Veyra-AutoInstall-v0.9.2.iso || goto installer'
+  echo ':installer'
+  if [[ "$kernel_ok" == true && "$initrd_ok" == true ]]; then
+    if [[ "$preseed_ok" == true ]]; then
+      echo 'kernel ${base}/vmlinuz auto=true priority=critical netcfg/choose_interface=auto url=${base}/preseed.cfg ---'
+    else
+      echo 'kernel ${base}/vmlinuz auto=true priority=critical netcfg/choose_interface=auto ---'
+    fi
+    echo 'initrd ${base}/initrd.gz'
+    echo 'boot'
   else
-    cat >> "$HTTP/autoexec.ipxe" <<EOF
-kernel ${base}/vmlinuz auto=true priority=critical netcfg/choose_interface=auto ---
-initrd ${base}/initrd.gz
-boot
-EOF
+    echo 'echo ISO SAN boot failed and no kernel/initrd fallback was found.'
+    echo 'shell'
   fi
-else
-  cat >> "$HTTP/autoexec.ipxe" <<'EOF'
-echo ISO SAN boot failed and no kernel/initrd fallback was found.
-shell
-EOF
-fi
-cat >> "$HTTP/autoexec.ipxe" <<'EOF'
-:shell
-shell
-EOF
+  echo ':shell'
+  echo 'shell'
+} > "$HTTP/autoexec.ipxe"
 
 cp "$HTTP/autoexec.ipxe" "$TFTP/autoexec.ipxe"
 chmod 0644 "$TFTP/"* "$HTTP/autoexec.ipxe" "$REL/"*
