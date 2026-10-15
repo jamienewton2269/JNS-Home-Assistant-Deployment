@@ -14,47 +14,20 @@ jobs:
     runs-on: [self-hosted, linux, x64, nodec]
     timeout-minutes: 10
     steps:
-      - name: Trace latest Veyra PXE deployment
+      - name: Inspect Veyra ISO layouts
         shell: bash
         run: |
           set -u
-          echo "=== TIME ==="
-          date -Is
-          echo "=== PROXYDHCP ==="
-          journalctl -u veyra-pxe-proxydhcp.service --no-pager -n 200 2>/dev/null || true
-          echo "=== TFTP ==="
-          journalctl -u tftpd-hpa.service --no-pager -n 200 2>/dev/null || true
-          echo "=== HTTP ==="
-          journalctl -u veyra-pxe-http.service --no-pager -n 300 2>/dev/null || true
-          echo "=== REMOTE INSTALL LOG ==="
-          if [ -f /var/log/veyra-remote-install/veyra-install-live.log ]; then
-            tail -300 /var/log/veyra-remote-install/veyra-install-live.log
-          else
-            echo "NO_REMOTE_INSTALL_LOG"
-          fi
-          echo "=== ISO PAYLOAD PATHS ==="
-          ISO=/root/veyra-v0.9/Veyra-AutoInstall-v0.9.2.iso
-          xorriso -indev "$ISO" -find /veyra -maxdepth 3 -type f -print 2>/dev/null | head -400 || true
-          echo "=== ISO VIEW VERSION MARKERS ==="
-          TMP=$(mktemp -d)
-          for p in /veyra/veyra/view.py /veyra/view.py /veyra/veyra/__init__.py /veyra/__init__.py; do
-            if xorriso -indev "$ISO" -ls "$p" >/dev/null 2>&1; then
-              out="$TMP/$(echo "$p" | tr '/' '_')"
-              xorriso -osirrox on -indev "$ISO" -extract "$p" "$out" >/dev/null 2>&1
-              echo "--- $p ---"
-              grep -nE 'My Programmes|YOUR PROGRAMMES|Services|__version__|0\.9\.2|Netflix' "$out" | head -80 || true
-            fi
+          for ISO in /root/veyra-v0.9/Veyra-AutoInstall-v0.9.1.iso /root/veyra-v0.9/Veyra-AutoInstall-v0.9.2.iso; do
+            echo "=== ISO $ISO ==="
+            xorriso -indev "$ISO" -ls / 2>/dev/null || true
+            echo "--- files depth 3 ---"
+            xorriso -indev "$ISO" -find / -maxdepth 3 -type f -print 2>/dev/null | head -800 || true
+            echo "--- view.py locations ---"
+            xorriso -indev "$ISO" -find / -name view.py -print 2>/dev/null || true
+            echo "--- installer locations ---"
+            xorriso -indev "$ISO" -find / -name install_orchestrator.py -print 2>/dev/null || true
+            echo "--- preseed locations ---"
+            xorriso -indev "$ISO" -find / -name preseed.cfg -print 2>/dev/null || true
           done
-          rm -rf "$TMP"
-          echo "=== INSTALLER COPY REFERENCES ==="
-          TMP=$(mktemp -d)
-          for p in /veyra/installer/install_orchestrator.py /installer/install_orchestrator.py; do
-            if xorriso -indev "$ISO" -ls "$p" >/dev/null 2>&1; then
-              out="$TMP/installer.py"
-              xorriso -osirrox on -indev "$ISO" -extract "$p" "$out" >/dev/null 2>&1
-              echo "--- $p ---"
-              grep -nE 'veyra|payload|copy|rsync|/opt/veyra|source' "$out" | head -180 || true
-            fi
-          done
-          rm -rf "$TMP"
-          echo "VEYRA_PXE_DEPLOYMENT_TRACE_COMPLETE"
+          echo "VEYRA_ISO_LAYOUT_AUDIT_COMPLETE"
