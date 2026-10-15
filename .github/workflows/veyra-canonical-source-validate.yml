@@ -1,0 +1,39 @@
+name: Validate Canonical Veyra PXE Sources
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-canonical-source-validate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate canonical Veyra build and PXE scripts
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-build-v092.sh
+          bash -n gateway/trusted/veyra-pxe-v092.sh
+
+          grep -Fq 'SOURCE_ROOT=$WORK/source071' gateway/trusted/veyra-build-v092.sh
+          grep -Fq -- '-update_r "$SOURCE_ROOT" /' gateway/trusted/veyra-build-v092.sh
+          grep -Fq 'ISO_PAYLOAD_VALIDATION_OK' gateway/trusted/veyra-build-v092.sh
+
+          grep -Fq 'EXPECTED=53e31c84dc0613773e1224215e03004423d3daaaf5ff6cbd518dd1f17f15e246' gateway/trusted/veyra-pxe-v092.sh
+          ! grep -Fq 'sanboot --no-describe' gateway/trusted/veyra-pxe-v092.sh
+          grep -Fq 'pxe-service=tag:veyra' gateway/trusted/veyra-pxe-v092.sh
+          grep -Fq "':4011 '" gateway/trusted/veyra-pxe-v092.sh
+          grep -Fq 'choose --default shell --timeout 10000' gateway/trusted/veyra-pxe-v092.sh
+
+          NODE_IP="$(ip -4 -o addr show dev vmbr0 scope global | awk '{split($4,a,"/"); print a[1]; exit}')"
+          sed -n '/cat > \/etc\/veyra-pxe\/dnsmasq.conf <<EOF/,/^EOF$/p' gateway/trusted/veyra-pxe-v092.sh             | sed '1d;$d'             | sed "s/\$VEYRA_MAC/54:e1:ad:69:d1:8e/g; s/\$NODE_IP/$NODE_IP/g; s/\$PORT/8098/g"             > /tmp/veyra-dnsmasq-canonical.conf
+          /usr/sbin/dnsmasq --test --conf-file=/tmp/veyra-dnsmasq-canonical.conf
+
+          echo "VEYRA_CANONICAL_SOURCE_VALID"
