@@ -3,23 +3,14 @@ set -Eeuo pipefail
 SSH=(ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes -o HostName=10.10.110.12 nodeb)
 qga(){ "${SSH[@]}" "qm guest exec 905 -- /bin/sh -c $(printf '%q' "$1")"; }
 
-echo "=== QGA ==="
-"${SSH[@]}" 'qm status 905; timeout 8 qm agent 905 ping'
+echo "=== LIGHTING VIEW EXACT ==="
+qga 'sed -n "630,730p" /mnt/data/supervisor/homeassistant/dashboards/testing.yaml'
 
-echo "=== DASHBOARD MATCHES ==="
-qga 'grep -nEi "lighting.settings|live outdoor lux|10-minute average lux|lights on below|lights off above|path:|title:" /mnt/data/supervisor/homeassistant/dashboards/testing.yaml | tail -120'
+echo "=== CLOCK SOUND HELPER SOURCE ==="
+qga 'grep -Rli "general_clock_sound" /mnt/data/supervisor/homeassistant --exclude="*.db" --exclude="home-assistant.log*" 2>/dev/null | head -20'
 
-echo "=== WESTMINSTER PACKAGE ==="
-qga 'sed -n "1,260p" /mnt/data/supervisor/homeassistant/packages/ha_general_westminster.yaml'
+echo "=== CLOCK SOUND HELPER DEFINITIONS ==="
+qga 'grep -RnA12 -B4 "general_clock_sound" /mnt/data/supervisor/homeassistant/packages /mnt/data/supervisor/homeassistant/*.yaml /mnt/data/supervisor/homeassistant/jns 2>/dev/null | head -100'
 
-echo "=== LUX PHASE2 PACKAGE ==="
-qga 'sed -n "1,300p" /mnt/data/supervisor/homeassistant/jns/jns_lux_phase2_package.yaml'
-
-echo "=== OUTDOOR ENVIRONMENT ==="
-qga 'sed -n "1,260p" /mnt/data/supervisor/homeassistant/packages/outdoor_environment.yaml'
-
-echo "=== AUTOMATION LUX REFERENCES ==="
-qga 'grep -nEi "lux|illuminance|house_lighting|lighting_area|target_light|below|above" /mnt/data/supervisor/homeassistant/automations.yaml | tail -160'
-
-echo "=== RESTORED LIVE STATE HINTS ==="
-qga 'grep -nEi "lux|illuminance|westminster|music_player_daemon" /mnt/data/supervisor/homeassistant/.storage/core.restore_state | tail -160'
+echo "=== CURRENT LIVE LUX RESTORE ==="
+qga 'grep -nE "sensor.0xa4c1383917c90309_(illuminance|outdoor_lux_10_minute_average)" /mnt/data/supervisor/homeassistant/.storage/core.restore_state | tail -20'
