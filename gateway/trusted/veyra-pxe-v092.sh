@@ -8,6 +8,7 @@ TFTP=$ROOT/tftp
 HTTP=$ROOT/http
 REL=$HTTP/veyra/v0.9.2
 PORT=8098
+VEYRA_MAC=54:e1:ad:69:d1:8e
 
 echo "=== VEYRA PXE v0.9.2 PREPARE ==="
 date -Is
@@ -24,10 +25,22 @@ if ss -lnt | awk '{print $4}' | grep -q ':8098$'; then
   [[ "$existing" == active ]] || { echo "Port 8098 already in use by another service" >&2; exit 98; }
 fi
 
+need_apt=false
 if ! command -v in.tftpd >/dev/null 2>&1 && [[ ! -x /usr/sbin/in.tftpd ]]; then
+  need_apt=true
+fi
+if ! command -v dnsmasq >/dev/null 2>&1 && [[ ! -x /usr/sbin/dnsmasq ]]; then
+  need_apt=true
+fi
+if [[ "$need_apt" == true ]]; then
   export DEBIAN_FRONTEND=noninteractive
   apt-get update
-  apt-get install -y --no-install-recommends tftpd-hpa
+  if [[ ! -x /usr/sbin/in.tftpd ]]; then
+    apt-get install -y --no-install-recommends tftpd-hpa
+  fi
+  if [[ ! -x /usr/sbin/dnsmasq ]]; then
+    apt-get install -y --no-install-recommends dnsmasq-base
+  fi
 fi
 
 test -f /usr/lib/ipxe/snponly.efi
@@ -123,14 +136,63 @@ ReadOnlyPaths=$HTTP
 WantedBy=multi-user.target
 EOF
 
+install -d -o root -g root -m 0755 /etc/veyra-pxe
+cat > /etc/veyra-pxe/dnsmasq.conf <<EOF
+port=0
+interface=vmbr0
+bind-dynamic
+log-dhcp
+dhcp-range=10.10.0.0,proxy
+dhcp-mac=set:veyra,$VEYRA_MAC
+dhcp-ignore=tag:!veyra
+dhcp-userclass=set:ipxe,iPXE
+dhcp-match=set:efi64,option:client-arch,7
+dhcp-match=set:efi64,option:client-arch,9
+dhcp-boot=tag:veyra,tag:ipxe,http://$NODE_IP:$PORT/autoexec.ipxe
+dhcp-boot=tag:veyra,tag:!ipxe,tag:efi64,snponly.efi,,$NODE_IP
+dhcp-boot=tag:veyra,tag:!ipxe,tag:!efi64,undionly.kpxe,,$NODE_IP
+EOF
+
+/usr/sbin/dnsmasq --test --conf-file=/etc/veyra-pxe/dnsmasq.conf
+
+cat > /etc/systemd/system/veyra-pxe-proxydhcp.service <<EOF
+[Unit]
+Description=Veyra PXE ProxyDHCP
+After=network-online.target tftpd-hpa.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/dnsmasq --keep-in-foreground --conf-file=/etc/veyra-pxe/dnsmasq.conf
+Restart=always
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+if ss -lunp 2>/dev/null | grep -E ':(67|4011)[[:space:]]' | grep -vq 'dnsmasq'; then
+  echo "Unexpected existing DHCP/ProxyDHCP listener on Node C; refusing to collide" >&2
+  ss -lunp 2>/dev/null | grep -E ':(67|4011)[[:space:]]' >&2 || true
+  exit 98
+fi
+
 systemctl daemon-reload
-systemctl enable --now tftpd-hpa.service
+systemctl enable tftpd-hpa.service
+systemctl restart tftpd-hpa.service
 systemctl enable --now veyra-pxe-http.service
+systemctl enable --now veyra-pxe-proxydhcp.service
+systemctl restart veyra-pxe-proxydhcp.service
 sleep 2
 
 systemctl is-active --quiet tftpd-hpa.service
 systemctl is-active --quiet veyra-pxe-http.service
+systemctl is-active --quiet veyra-pxe-proxydhcp.service
 ss -lun | grep -q ':69 '
+ss -lun | grep -q ':67 '
 ss -lnt | grep -q ':8098 '
 
 curl -fsS "http://127.0.0.1:$PORT/autoexec.ipxe" >/dev/null
@@ -152,4 +214,5 @@ echo "iPXE script: http://$NODE_IP:$PORT/autoexec.ipxe"
 echo "ISO: http://$NODE_IP:$PORT/veyra/v0.9.2/Veyra-AutoInstall-v0.9.2.iso"
 echo "sha256=$EXPECTED"
 echo "kernel_fallback=$kernel_ok initrd_fallback=$initrd_ok preseed=$preseed_ok"
+echo "ProxyDHCP target MAC: $VEYRA_MAC"
 echo "VEYRA_PXE_V092_READY"
