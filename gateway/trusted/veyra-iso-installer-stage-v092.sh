@@ -24,11 +24,12 @@ echo '=== INSPECT ORIGINAL ISO INSTALLER WITHOUT DEVICE-NODE RECREATION ==='
 mkdir -p "$OUT/unpack/usr/lib/modules"
 cp -an "$OUT/nic/lib/modules/." "$OUT/unpack/usr/lib/modules/"
 test -f "$OUT/unpack/usr/lib/modules/6.12.107+deb13-amd64/kernel/drivers/net/ethernet/realtek/r8169.ko.xz"
-if command -v depmod >/dev/null; then
-  depmod -b "$OUT/unpack" '6.12.107+deb13-amd64'
-else
-  echo 'STOP: depmod unavailable; refusing unverifiable module dependencies' >&2; exit 65
+DEPMOD="$(command -v depmod || true)"
+if [[ -z "$DEPMOD" ]]; then
+  for p in /usr/sbin/depmod /sbin/depmod /usr/bin/depmod; do if [[ -x "$p" ]]; then DEPMOD="$p"; break; fi; done
 fi
+[[ -n "$DEPMOD" ]] || { echo 'STOP: depmod unavailable; refusing unverifiable module dependencies' >&2; exit 65; }
+"$DEPMOD" -b "$OUT/unpack" '6.12.107+deb13-amd64'
 echo '=== CREATE MODULE-ONLY CPIO OVERLAY, KEEP BASE INTACT ==='
 mkdir -p "$OUT/overlay/usr/lib/modules/6.12.107+deb13-amd64/kernel/drivers/net/ethernet/realtek"
 cp "$OUT/nic/lib/modules/6.12.107+deb13-amd64/kernel/drivers/net/ethernet/realtek/r8169.ko.xz" "$OUT/overlay/usr/lib/modules/6.12.107+deb13-amd64/kernel/drivers/net/ethernet/realtek/"
