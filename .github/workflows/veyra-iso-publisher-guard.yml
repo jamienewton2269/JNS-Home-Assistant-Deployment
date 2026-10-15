@@ -18,7 +18,9 @@ jobs:
           set -Eeuo pipefail
           f=gateway/trusted/veyra-pxe-v092.sh
           bash -n "$f"
-          grep -Fq 'Veyra-AutoInstall-v0.9.2.iso || goto bootfail' "$f"
+          grep -Fq 'kernel ${base}/vmlinuz initrd=initrd.magic' "$f"
+          grep -Fq 'initrd --name initrd.gz ${base}/initrd.gz' "$f"
+          ! grep -Fq "sanboot --no-describe" "$f"
           grep -Fq 'VEYRA_PRE_PUBLICATION_BACKUP' "$f"
           grep -Fq 'cmp -s "$REL/initrd.gz" "$REL/initrd-cd.gz"' "$f"
           ! grep -q 'wget -q -O "$work/vmlinuz"' "$f"
