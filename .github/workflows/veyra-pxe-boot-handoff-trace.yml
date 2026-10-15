@@ -37,3 +37,5 @@ jobs:
           ip -br addr show vmbr0 2>/dev/null || true
           ip route show 2>/dev/null | head -80 || true
           echo "VEYRA_PXE_HANDOFF_TRACE_COMPLETE"
+
+# refresh: 2026-10-15
