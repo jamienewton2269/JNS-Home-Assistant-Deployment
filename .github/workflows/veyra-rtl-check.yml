@@ -1,0 +1,21 @@
+name: Check Veyra RTL Firmware
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-rtl-check.yml'
+permissions:
+  contents: read
+jobs:
+  rtl:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Check RTL support
+        shell: bash
+        run: |
+          REL=/srv/veyra-pxe/http/veyra/v0.9.2
+          echo CD
+          lsinitramfs "$REL/initrd-cd.gz" | grep -iE 'r8169|rtl_nic|rtl816|rtl810' || true
+          echo NET
+          lsinitramfs "$REL/initrd.gz" | grep -iE 'r8169|rtl_nic|rtl816|rtl810' || true
