@@ -1,0 +1,48 @@
+name: Diagnose Veyra iPXE Handoff
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-ipxe-handoff-diagnose.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Inspect live iPXE assets and compatibility
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          REL=/srv/veyra-pxe/http/veyra/v0.9.2
+
+          echo "=== AUTOEXEC ==="
+          cat /srv/veyra-pxe/http/autoexec.ipxe
+
+          echo "=== HTTP ASSETS ==="
+          for f in vmlinuz initrd.gz preseed.cfg veyra-payload.tar.gz; do
+            echo "--- $f ---"
+            curl -fsSI "http://127.0.0.1:8098/veyra/v0.9.2/$f" | sed -n '1,12p'
+          done
+
+          echo "=== FILE INFO ==="
+          file "$REL/vmlinuz" "$REL/initrd.gz"
+          sha256sum "$REL/vmlinuz" "$REL/initrd.gz"
+
+          echo "=== PE/EFI INFO ==="
+          command -v objdump >/dev/null && objdump -x "$REL/vmlinuz" 2>/dev/null | grep -E 'file format|Subsystem|ImageBase|start address' | head -20 || true
+          command -v pesign >/dev/null && pesign -S -i "$REL/vmlinuz" 2>/dev/null || true
+          command -v sbverify >/dev/null && sbverify --list "$REL/vmlinuz" 2>/dev/null || true
+
+          echo "=== IPXE FILES ==="
+          file /srv/veyra-pxe/tftp/snponly.efi /srv/veyra-pxe/tftp/undionly.kpxe
+          ls -lh /srv/veyra-pxe/tftp/snponly.efi /srv/veyra-pxe/tftp/undionly.kpxe
+
+          echo "=== SECURE BOOT / PLATFORM HINTS ==="
+          strings /srv/veyra-pxe/tftp/snponly.efi | grep -Ei 'EFI|Secure|bzImage|Linux|IMAGE_EFI' | head -60 || true
+
+          echo "VEYRA_IPXE_HANDOFF_DIAG_COMPLETE"
