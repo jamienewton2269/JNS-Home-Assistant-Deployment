@@ -43,6 +43,19 @@ jobs:
               ( gzip -t "$f" && gzip -dc "$f" | cpio -it 2>/dev/null | grep -Ei '(^|/)(preseed.cfg|r8169.ko.*|rtl_nic|cdrom-detect|netcfg|firmware)' | head -90 ) || true
             fi
           done
+          echo '=== EXACT KERNEL ABI / NETWORK MODULES ==='
+          if test -r "$REL/initrd.gz"; then
+            gzip -dc "$REL/initrd.gz" | cpio -it 2>/dev/null > /tmp/veyra-provenance-initrd-entries.txt || true
+            grep -Ei '(r8169|r8125|realtek|nic-modules|ethernet|netcfg|cdrom-detect|udeb|modprobe)' /tmp/veyra-provenance-initrd-entries.txt | head -120 || true
+          fi
+          echo '=== ISO INSTALLER PACKAGES / DRIVER UDEBS ==='
+          if command -v xorriso >/dev/null 2>&1 && test -r "$REL/Veyra-AutoInstall-v0.9.2.iso"; then
+            xorriso -indev "$REL/Veyra-AutoInstall-v0.9.2.iso" -find / -type f -print 2>/dev/null | grep -Ei '(nic-modules|ethernet|firmware-realtek|preseed.cfg|initrd.gz|vmlinuz|cdrom-detect|netcfg)' | head -160 || true
+          fi
+          echo '=== KERNEL VERSION FROM IMAGE ==='
+          if command -v strings >/dev/null 2>&1; then
+            strings "$REL/vmlinuz" | grep -m 2 -E 'Linux version 6\\.|6\\.12\\.[0-9]+\\+deb13' || true
+          fi
           echo '=== PRESEED DEPENDENCIES ==='
           if test -r "$REL/preseed.cfg"; then grep -nE '(late_command|early_command|/cdrom|url=|veyra-payload|grub-install|netcfg|firmware)' "$REL/preseed.cfg" || true; fi
           echo '=== PXE SERVICES ==='
