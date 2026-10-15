@@ -14,11 +14,15 @@ BEFORE=$(sha256sum "$M" "$T" "$V/vmlinuz" "$V/initrd.gz" "$D/vmlinuz")
 W=$(mktemp -d /tmp/veyra-realtek-XXXXXXXX)
 trap 'rm -rf "$W"' EXIT
 mkdir "$W/root"
-# The Ubuntu/Linux firmware name is supplied by the official Debian Trixie
-# firmware-nonfree source; download only the exact 1856-byte blob.
-URL=https://sources.debian.org/data/non-free-firmware/f/firmware-nonfree/20250410-2/rtl_nic/rtl8106e-1.fw
-curl -fsSL --retry 2 --connect-timeout 10 --max-time 60 "$URL" -o "$W/rtl8106e-1.fw"
-test "$(wc -c < "$W/rtl8106e-1.fw")" -eq 1856 || { echo 'STOP: unexpected firmware size'; exit 65; }
+# Download Debian Trixie firmware-realtek, using Debian's published SHA256.
+URL=https://deb.debian.org/debian/pool/non-free-firmware/f/firmware-nonfree/firmware-realtek_20250410-2_all.deb
+curl -fsSL --retry 2 --connect-timeout 10 --max-time 90 "$URL" -o "$W/firmware-realtek.deb"
+echo '925755a9b0891c7dc39bbb73d28ab8f7193d37303b5022e8bc9d458b9b4aaa4e  '"$W"'/firmware-realtek.deb' | sha256sum -c -
+mkdir "$W/pkg"
+dpkg-deb -x "$W/firmware-realtek.deb" "$W/pkg"
+test -s "$W/pkg/usr/lib/firmware/rtl_nic/rtl8106e-1.fw"
+cp "$W/pkg/usr/lib/firmware/rtl_nic/rtl8106e-1.fw" "$W/rtl8106e-1.fw"
+test "$(wc -c < "$W/rtl8106e-1.fw")" -eq 1856
 # Rebuild one standard initramfs, retaining ownership, symlinks and special device nodes.
 (cd "$W/root"; gzip -dc "$D/initrd.gz" | cpio --extract --make-directories --unconditional --quiet)
 test -c "$W/root/dev/console" && test -c "$W/root/dev/null" || { echo 'STOP: unpacked initrd missing device nodes'; exit 66; }
