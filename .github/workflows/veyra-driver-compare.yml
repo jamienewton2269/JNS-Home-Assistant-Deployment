@@ -1,0 +1,45 @@
+name: Compare Veyra Installer Network Drivers
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-driver-compare.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Compare CD and netboot initrds
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          REL=/srv/veyra-pxe/http/veyra/v0.9.2
+          mkdir -p /tmp/veyra-initrd-cd /tmp/veyra-initrd-net
+          rm -rf /tmp/veyra-initrd-cd/* /tmp/veyra-initrd-net/*
+
+          echo "=== CURRENT FILES ==="
+          ls -lh "$REL"/initrd*.gz "$REL"/vmlinuz* 2>/dev/null || true
+
+          cd /tmp/veyra-initrd-cd
+          zcat "$REL/initrd-cd.gz" | cpio -idmu --quiet || true
+
+          cd /tmp/veyra-initrd-net
+          zcat "$REL/initrd.gz" | cpio -idmu --quiet || true
+
+          echo "=== CD NIC MODULES ==="
+          find /tmp/veyra-initrd-cd -type f | grep -Ei '/(r8169|r8168|e1000e|igb|igc|atl1|alx|tg3|bnx|realtek|ethernet|nic).*\.(ko|udeb|fw|bin)$' | head -200 || true
+
+          echo "=== NETBOOT NIC MODULES ==="
+          find /tmp/veyra-initrd-net -type f | grep -Ei '/(r8169|r8168|e1000e|igb|igc|atl1|alx|tg3|bnx|realtek|ethernet|nic).*\.(ko|udeb|fw|bin)$' | head -200 || true
+
+          echo "=== FIRMWARE COUNTS ==="
+          echo -n "cd_firmware="; find /tmp/veyra-initrd-cd -type f | grep -c '/firmware/' || true
+          echo -n "net_firmware="; find /tmp/veyra-initrd-net -type f | grep -c '/firmware/' || true
+
+          echo "=== MODULE COUNTS ==="
+          echo -n "cd_ko="; find /tmp/veyra-initrd-cd -type f -name '*.ko' | wc -l
+          echo -n "net_ko="; find /tmp/veyra-initrd-net -type f -name '*.ko' | wc -l
+
+          echo "VEYRA_DRIVER_COMPARE_COMPLETE"
