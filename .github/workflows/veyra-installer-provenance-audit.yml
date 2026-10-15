@@ -1,0 +1,50 @@
+name: Veyra Installer Provenance Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-installer-provenance-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  provenance:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Read-only historical and live installer audit
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          REL=/srv/veyra-pxe/http/veyra/v0.9.2
+          echo '=== HOST ==='
+          hostname; date -Is
+          echo '=== LIVE HASHES (NO MODIFICATION) ==='
+          for f in vmlinuz initrd.gz vmlinuz-cd initrd-cd.gz preseed.cfg preseed-iso.cfg veyra-payload.tar.gz; do
+            if test -r "$REL/$f"; then sha256sum "$REL/$f"; ls -lh "$REL/$f"; else echo "NOT READABLE: $f"; fi
+          done
+          echo '=== LIVE IPXE BOOT COMMAND ==='
+          sed -n '1,120p' /srv/veyra-pxe/http/autoexec.ipxe || true
+          echo '=== INSTALLED PXE HELPER VS GIT SOURCE ==='
+          sha256sum /usr/local/libexec/jns-veyra-pxe-v092 gateway/trusted/veyra-pxe-v092.sh || true
+          grep -nE 'DEBIAN_NETBOOT_BASE|initrd-generic|initrd-cd|vmlinuz-cd|kernel .*vmlinuz|initrd --name' /usr/local/libexec/jns-veyra-pxe-v092 || true
+          echo '=== PRESERVED RELEASE HISTORY REFERENCES ==='
+          git log --all --format='%h %as %s' -- gateway/trusted/veyra-pxe-v092.sh | head -100
+          git log --all -G '(cpio|initrd|cdrom-detect|preseed|netboot)' --format='%h %as %s' -- gateway .github/workflows | head -120
+          echo '=== OTHER READABLE INSTALLER CANDIDATES ==='
+          find /srv/veyra-pxe /opt /var/lib/tftpboot -type f \( -iname '*initrd*' -o -iname '*vmlinuz*' -o -iname '*preseed*' -o -iname '*veyra*install*.sh' \) -printf '%p %s bytes\n' 2>/dev/null | head -240 || true
+          echo '=== INITRD FORMAT AND CONTENT MARKERS ==='
+          for f in "$REL/initrd.gz" "$REL/initrd-cd.gz"; do
+            if test -r "$f"; then
+              file "$f" || true
+              ( gzip -t "$f" && gzip -dc "$f" | cpio -it 2>/dev/null | grep -Ei '(^|/)(preseed.cfg|r8169.ko.*|rtl_nic|cdrom-detect|netcfg|firmware)' | head -90 ) || true
+            fi
+          done
+          echo '=== PRESEED DEPENDENCIES ==='
+          if test -r "$REL/preseed.cfg"; then grep -nE '(late_command|early_command|/cdrom|url=|veyra-payload|grub-install|netcfg|firmware)' "$REL/preseed.cfg" || true; fi
+          echo '=== PXE SERVICES ==='
+          systemctl is-active veyra-pxe-http.service veyra-pxe-proxydhcp.service tftpd-hpa.service || true
+          echo 'VEYRA_PROVENANCE_READ_ONLY_AUDIT_COMPLETE'
