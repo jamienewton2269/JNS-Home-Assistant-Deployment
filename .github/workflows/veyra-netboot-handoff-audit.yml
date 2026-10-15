@@ -1,0 +1,20 @@
+name: Audit Live Veyra N Handoff
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/veyra-netboot-handoff-audit.yml']
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo '=== LIVE IPXE MENU ==='
+          nl -ba /srv/veyra-pxe/http/autoexec.ipxe | head -100
+          echo '=== NETBOOT CHILD SCRIPT ==='
+          nl -ba /srv/veyra-pxe/http/veyra/v0.9.2-netboot/boot.ipxe
+          echo '=== HTTP ==='
+          for p in autoexec.ipxe veyra/v0.9.2-netboot/boot.ipxe veyra/v0.9.2-netboot/vmlinuz veyra/v0.9.2-netboot/initrd.gz; do curl -s -o /dev/null -w "$p %{http_code}\n" "http://127.0.0.1:8098/$p"; done
