@@ -3,6 +3,7 @@
 set -Eeuo pipefail
 BASE=/srv/veyra-pxe/http/veyra/v0.9.2
 DEST="${1:?output directory required}"
+[[ $(id -u) -eq 0 ]] || { echo 'STOP: rebuilding ISO initrd requires root to preserve /dev/console and /dev/null' >&2; exit 77; }
 [[ "$DEST" == /tmp/veyra-media-*-* ]] || { echo 'STOP: need /tmp/veyra-media-*-*' >&2; exit 64; }
 mkdir -p "$DEST"/{original,overlay,extract}
 sha256sum "$BASE/vmlinuz-cd" "$BASE/initrd-cd.gz"
@@ -11,7 +12,7 @@ echo '8de544ab627ab794504c530c82de621814386b5b67a492f1e3133390c47ea933  '"$BASE"
 echo '53e31c84dc0613773e1224215e03004423d3daaaf5ff6cbd518dd1f17f15e246  '"$BASE"'/Veyra-AutoInstall-v0.9.2.iso' | sha256sum -c -
 (
  cd "$DEST/original"
- gzip -dc "$BASE/initrd-cd.gz" | cpio -idmu --quiet --no-preserve-owner -f dev/console dev/null
+ gzip -dc "$BASE/initrd-cd.gz" | cpio -idmu --quiet
 )
 ISO="$BASE/Veyra-AutoInstall-v0.9.2.iso"
 NIC=/pool/main/l/linux-signed-amd64/nic-modules-6.12.107+deb13-amd64-di_6.12.107-1_amd64.udeb
@@ -78,11 +79,20 @@ fi
 exit 0
 HOOK
 chmod +x "$DEST/overlay/usr/lib/debian-installer-startup.d/S29veyra-media"
-(cd "$DEST/overlay"; find . -print0 | cpio --null --format=newc -o 2>/dev/null | gzip -9 > "$DEST/overlay.gz")
-cp "$BASE/initrd-cd.gz" "$DEST/initrd.gz"
-cat "$DEST/overlay.gz" >> "$DEST/initrd.gz"
+# Merge staged files into an extracted copy of the ORIGINAL ISO initrd.
+# Never concatenate multiple gzip members; Linux initramfs parser may reject them.
+cp -a "$DEST/overlay/." "$DEST/original/"
+test -c "$DEST/original/dev/console" || { echo 'STOP: console device missing'; exit 65; }
+test -c "$DEST/original/dev/null" || { echo 'STOP: null device missing'; exit 65; }
+test -f "$DEST/original/usr/lib/debian-installer-startup.d/S29veyra-media"
+(cd "$DEST/original"; find . -print0 | cpio --null --format=newc -o 2>/dev/null | gzip -9 > "$DEST/initrd.gz")
 gzip -t "$DEST/initrd.gz"
+mkdir -p "$DEST/reinspect"
+(cd "$DEST/reinspect"; gzip -dc "$DEST/initrd.gz" | cpio -idmu --quiet)
+test -c "$DEST/reinspect/dev/console"
+test -c "$DEST/reinspect/dev/null"
+test -f "$DEST/reinspect/usr/lib/debian-installer-startup.d/S29veyra-media"
 test "$(sha256sum "$BASE/vmlinuz" | awk '{print $1}')" = 2b2358b37674d2505350528875bb17afae2a36522a9e8a9417eaca65a7da0e08
-echo '=== STAGED MEDIA INITRD ==='
-sha256sum "$DEST/initrd.gz" "$DEST/overlay.gz"
-echo 'VEYRA_MEDIA_CANDIDATE_STAGED_NO_LIVE_CHANGE'
+echo '=== STAGED SINGLE-ARCHIVE MEDIA INITRD ==='
+sha256sum "$DEST/initrd.gz"
+echo 'VEYRA_MEDIA_SINGLE_ARCHIVE_CANDIDATE_STAGED_NO_LIVE_CHANGE'
