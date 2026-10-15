@@ -1,0 +1,34 @@
+name: PJ2101A DHCP records direct on Node C
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/pj2101a-dhcp-direct.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lookup:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - name: Inspect published DNS master and DHCP servers read-only
+        shell: bash
+        run: |
+          set +e
+          echo "=== NODE C NETWORK ==="
+          hostname; ip -br address; ip route get 10.10.110.247
+          echo "=== RELEVANT PUBLISHED DNS RECORDS ==="
+          for root in /mnt/jns-dns-publish/jns-dns /opt/jns-deployment/jns-dns-kit; do
+            test -d "$root" || continue
+            find "$root" -type f \( -name 'hosts.static' -o -name 'reservations.conf' -o -name '*leases*' \) -print 2>/dev/null | head -25 |
+              while read -r f; do
+                echo "FILE: $f"
+                grep -iE 'tuya|pj2101|meter|smart|10\.10\.10\.177' "$f" 2>/dev/null | head -70
+              done
+          done
+          echo "=== LEASE SOURCES 247/248 ==="
+          for ip in 10.10.110.247 10.10.110.248 10.10.10.247 10.10.10.248; do
+            echo "HOST $ip"
+            timeout 7 ssh -o BatchMode=yes -o ConnectTimeout=4 -o StrictHostKeyChecking=accept-new root@"$ip" 'hostname; for f in /var/lib/misc/dnsmasq.leases /var/lib/dnsmasq/dnsmasq.leases /run/dnsmasq.leases; do if test -r "$f"; then echo "$f"; grep -iE "tuya|pj2101|meter|smart|10\.10\.10\.177" "$f" | head -40; wc -l "$f"; fi; done' 2>&1 | head -60
+          done
+          echo "=== END ==="
