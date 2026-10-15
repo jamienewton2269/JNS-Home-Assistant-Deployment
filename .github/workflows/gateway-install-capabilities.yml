@@ -1,0 +1,29 @@
+name: Inspect Gateway Install Capabilities
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/gateway-install-capabilities.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Inspect trusted executor capabilities
+        shell: bash
+        run: |
+          set -u
+          echo "=== WRAPPER ==="
+          sed -n '1,240p' /usr/local/sbin/jns-gateway-exec 2>/dev/null || true
+          echo "=== BASE STRINGS ==="
+          if [ -r /usr/local/sbin/jns-gateway-exec.base ]; then
+            strings /usr/local/sbin/jns-gateway-exec.base | grep -Ei 'job_type|install|copy|deploy|script|file|gateway' | head -300 || true
+          fi
+          echo "=== LIBEXEC ==="
+          ls -l /usr/local/libexec/jns-gateway-* /usr/local/libexec/jns-veyra-* 2>/dev/null || true
+          echo "GATEWAY_INSTALL_CAPABILITIES_COMPLETE"
