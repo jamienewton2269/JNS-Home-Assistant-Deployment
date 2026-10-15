@@ -1,0 +1,20 @@
+name: HA-General Chimes Live Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ha_testing_dashboard/chimes-audit.request'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit live chimes and dashboard
+        shell: bash
+        run: bash ha_testing_dashboard/audit-live-chimes.sh
