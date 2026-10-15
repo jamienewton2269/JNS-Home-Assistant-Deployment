@@ -1,0 +1,32 @@
+name: Validate Veyra ISO Publisher Guard
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/trusted/veyra-pxe-v092.sh'
+      - '.github/workflows/veyra-iso-publisher-guard.yml'
+permissions: {contents: read}
+jobs:
+  validate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify ISO source, safe boot and no generic Debian substitution
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          f=gateway/trusted/veyra-pxe-v092.sh
+          bash -n "$f"
+          grep -Fq 'Veyra-AutoInstall-v0.9.2.iso || goto bootfail' "$f"
+          grep -Fq 'VEYRA_PRE_PUBLICATION_BACKUP' "$f"
+          grep -Fq 'cmp -s "$REL/initrd.gz" "$REL/initrd-cd.gz"' "$f"
+          ! grep -q 'wget -q -O "$work/vmlinuz"' "$f"
+          ! grep -q 'initrd-generic.gz' "$f" || grep -q '! grep -Eq' "$f"
+          echo '=== ORIGINAL ISO FILES ==='
+          D=/srv/veyra-pxe/http/veyra/v0.9.2
+          echo '2b2358b37674d2505350528875bb17afae2a36522a9e8a9417eaca65a7da0e08  '"$D"'/vmlinuz-cd' | sha256sum -c -
+          echo '8de544ab627ab794504c530c82de621814386b5b67a492f1e3133390c47ea933  '"$D"'/initrd-cd.gz' | sha256sum -c -
+          echo '=== INSTALLED HELPER VERSION ==='
+          sha256sum /usr/local/libexec/jns-veyra-pxe-v092 "$f"
+          echo VEYRA_ISO_PUBLISHER_GUARD_PASS
