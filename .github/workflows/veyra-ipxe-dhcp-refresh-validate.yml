@@ -1,0 +1,27 @@
+name: Validate Veyra iPXE DHCP Refresh
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-ipxe-dhcp-refresh-validate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate DHCP refresh logic
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-pxe-v092.sh
+          grep -Fq "echo 'dhcp || goto netfail'" gateway/trusted/veyra-pxe-v092.sh
+          grep -Fq "echo 'ifstat'" gateway/trusted/veyra-pxe-v092.sh
+          grep -Fq "echo 'route'" gateway/trusted/veyra-pxe-v092.sh
+          grep -Fq "Veyra network refresh FAILED" gateway/trusted/veyra-pxe-v092.sh
+          echo VEYRA_IPXE_DHCP_REFRESH_VALID
