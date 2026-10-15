@@ -1,0 +1,49 @@
+name: Verify Veyra Media Independent Netboot Live
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-netboot-live-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Verify live generated netboot assets
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          REL=/srv/veyra-pxe/http/veyra/v0.9.2
+
+          echo "=== FILES ==="
+          ls -lh "$REL"/preseed.cfg "$REL"/preseed-iso.cfg "$REL"/veyra-payload.tar.gz "$REL"/vmlinuz "$REL"/initrd.gz
+
+          echo "=== PRESEED CHECK ==="
+          grep -F 'veyra-payload.tar.gz' "$REL/preseed.cfg"
+          ! grep -Fq '/cdrom/veyra' "$REL/preseed.cfg"
+          ! grep -Fq '10.10.10.236' "$REL/preseed.cfg"
+          grep -Fq 'http://10.10.110.13:8098/veyra/v0.9.2/veyra-payload.tar.gz' "$REL/preseed.cfg"
+          grep -Fq '/cdrom/veyra' "$REL/preseed-iso.cfg"
+
+          echo "=== PAYLOAD CHECK ==="
+          tar -tzf "$REL/veyra-payload.tar.gz" | head -50
+          tar -tzf "$REL/veyra-payload.tar.gz" | grep -Fq 'veyra/scripts/install-debian.sh'
+          tar -tzf "$REL/veyra-payload.tar.gz" | grep -Fq 'veyra/veyra/app.py'
+
+          echo "=== HTTP CHECK ==="
+          curl -fsSI http://127.0.0.1:8098/veyra/v0.9.2/veyra-payload.tar.gz
+          curl -fsS http://127.0.0.1:8098/veyra/v0.9.2/preseed.cfg | grep -Fq 'veyra-payload.tar.gz'
+
+          echo "=== BOOT SCRIPT ==="
+          curl -fsS http://127.0.0.1:8098/autoexec.ipxe | tee /tmp/autoexec-final.ipxe
+          grep -Fq 'goto bootfail' /tmp/autoexec-final.ipxe
+          grep -Fq 'Veyra installer handoff FAILED' /tmp/autoexec-final.ipxe
+          grep -Fq 'imgstat' /tmp/autoexec-final.ipxe
+          grep -Fq 'choose --default shell --timeout 10000' /tmp/autoexec-final.ipxe
+
+          echo "VEYRA_MEDIA_INDEPENDENT_NETBOOT_LIVE_VALID"
