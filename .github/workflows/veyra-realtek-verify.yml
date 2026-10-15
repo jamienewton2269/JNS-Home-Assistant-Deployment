@@ -34,7 +34,7 @@ jobs:
           dpkg-deb -x "$W/fw.deb" "$W/fw"
           cd "$W/tree"
           gzip -dc "$W/initrd.gz" | cpio -idmu --quiet
-          test -f usr/lib/modules/6.12.107+deb13-amd64/kernel/drivers/net/ethernet/realtek/r8169.ko.xz
+          test -n "$(find usr/lib/modules -type f -path '*/drivers/net/ethernet/realtek/r8169.ko*' -print -quit)"
           mkdir -p usr/lib/firmware
           cp -a "$W/fw/usr/lib/firmware/." usr/lib/firmware/
           test -n "$(find usr/lib/firmware/rtl_nic -type f -print -quit)"
