@@ -14,9 +14,13 @@ curl -fsSL --retry 2 --connect-timeout 15 --max-time 120 "$URL" -o "$OUT/work/ni
 echo "195b7eabe935648a0fa858caea2d6d59c51e0fbda99837e5020c6186c9dbca51  $OUT/work/nic.udeb" | sha256sum -c -
 dpkg-deb -x "$OUT/work/nic.udeb" "$OUT/nic"
 test -f "$OUT/nic/lib/modules/6.12.107+deb13-amd64/kernel/drivers/net/ethernet/realtek/r8169.ko.xz"
-echo '=== EXTRACT ORIGINAL ISO INSTALLER ==='
-(cd "$OUT/unpack"; gzip -dc "$SRC/initrd-cd.gz" | cpio -idmu --quiet)
-test -d "$OUT/unpack/usr/lib/modules/6.12.107+deb13-amd64"
+echo '=== INSPECT ORIGINAL ISO INSTALLER WITHOUT DEVICE-NODE RECREATION ==='
+(
+  cd "$OUT/unpack"
+  gzip -dc "$SRC/initrd-cd.gz" | cpio -idmu --quiet --no-preserve-owner -f 'dev/console' 'dev/null' || status=$?
+  # GNU cpio returns nonzero for excluded device nodes; confirm its useful files.
+  test -d usr/lib/modules/6.12.107+deb13-amd64
+)
 mkdir -p "$OUT/unpack/usr/lib/modules"
 cp -an "$OUT/nic/lib/modules/." "$OUT/unpack/usr/lib/modules/"
 test -f "$OUT/unpack/usr/lib/modules/6.12.107+deb13-amd64/kernel/drivers/net/ethernet/realtek/r8169.ko.xz"
@@ -25,11 +29,19 @@ if command -v depmod >/dev/null; then
 else
   echo 'STOP: depmod unavailable; refusing unverifiable module dependencies' >&2; exit 65
 fi
-echo '=== REPACK CANDIDATE, WITHOUT LIVE PUBLICATION ==='
-(cd "$OUT/unpack"; find . -print0 | cpio --null --format=newc -o 2>/dev/null | gzip -9 > "$OUT/initrd.gz")
+echo '=== CREATE MODULE-ONLY CPIO OVERLAY, KEEP BASE INTACT ==='
+mkdir -p "$OUT/overlay/usr/lib/modules/6.12.107+deb13-amd64/kernel/drivers/net/ethernet/realtek"
+cp "$OUT/nic/lib/modules/6.12.107+deb13-amd64/kernel/drivers/net/ethernet/realtek/r8169.ko.xz" "$OUT/overlay/usr/lib/modules/6.12.107+deb13-amd64/kernel/drivers/net/ethernet/realtek/"
+for f in modules.dep modules.dep.bin modules.alias modules.alias.bin modules.symbols modules.symbols.bin; do
+  test -f "$OUT/unpack/usr/lib/modules/6.12.107+deb13-amd64/$f" || continue
+  cp "$OUT/unpack/usr/lib/modules/6.12.107+deb13-amd64/$f" "$OUT/overlay/usr/lib/modules/6.12.107+deb13-amd64/$f"
+done
+grep -q 'r8169.ko' "$OUT/overlay/usr/lib/modules/6.12.107+deb13-amd64/modules.dep"
+(cd "$OUT/overlay"; find . -print0 | cpio --null --format=newc -o 2>/dev/null | gzip -9 > "$OUT/overlay.gz")
+cp "$SRC/initrd-cd.gz" "$OUT/initrd.gz"
+cat "$OUT/overlay.gz" >> "$OUT/initrd.gz"
 gzip -t "$OUT/initrd.gz"
-gzip -dc "$OUT/initrd.gz" | cpio -it 2>/dev/null > "$OUT/initrd.list"
-grep -Fq 'usr/lib/modules/6.12.107+deb13-amd64/kernel/drivers/net/ethernet/realtek/r8169.ko.xz' "$OUT/initrd.list"
-grep -q 'r8169.ko' "$OUT/unpack/usr/lib/modules/6.12.107+deb13-amd64/modules.dep"
-sha256sum "$OUT/vmlinuz" "$OUT/initrd.gz"
+gzip -dc "$OUT/overlay.gz" | cpio -it 2>/dev/null > "$OUT/overlay.list"
+grep -Fq 'usr/lib/modules/6.12.107+deb13-amd64/kernel/drivers/net/ethernet/realtek/r8169.ko.xz' "$OUT/overlay.list"
+sha256sum "$OUT/vmlinuz" "$OUT/initrd.gz" "$OUT/overlay.gz"
 echo 'VEYRA_ISO_MATCHED_NIC_CANDIDATE_STAGED_ONLY'
