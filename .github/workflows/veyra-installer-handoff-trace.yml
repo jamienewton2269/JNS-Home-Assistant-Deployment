@@ -1,0 +1,37 @@
+name: Trace Veyra Installer Handoff
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-installer-handoff-trace.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Trace latest Veyra install handoff
+        shell: bash
+        run: |
+          set -u
+          echo "=== TIME ==="
+          date -Is
+          echo "=== PROXYDHCP ==="
+          journalctl -u veyra-pxe-proxydhcp.service --since '-10 min' --no-pager || true
+          echo "=== TFTP ==="
+          journalctl -u tftpd-hpa.service --since '-10 min' --no-pager || true
+          echo "=== HTTP ==="
+          journalctl -u veyra-pxe-http.service --since '-10 min' --no-pager || true
+          echo "=== INSTALLER REMOTE LOG ==="
+          tail -200 /var/log/veyra-remote-install/veyra-install-live.log 2>/dev/null || true
+          echo "=== AUTOEXEC ==="
+          cat /srv/veyra-pxe/http/autoexec.ipxe 2>/dev/null || true
+          echo "=== SERVED FILES ==="
+          ls -lh /srv/veyra-pxe/http/veyra/v0.9.2/ 2>/dev/null || true
+          echo "=== FILE TYPES ==="
+          file /srv/veyra-pxe/http/veyra/v0.9.2/vmlinuz /srv/veyra-pxe/http/veyra/v0.9.2/initrd.gz 2>/dev/null || true
+          echo "VEYRA_INSTALLER_HANDOFF_TRACE_COMPLETE"
