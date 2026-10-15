@@ -1,0 +1,29 @@
+name: Veyra Media Hook Capabilities
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/veyra-media-hook-capabilities.yml']
+permissions: {contents: read}
+jobs:
+  check:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          D=/srv/veyra-pxe/http/veyra/v0.9.2
+          T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
+          (cd "$T"; gzip -dc "$D/initrd.gz" | cpio -idmu --quiet --no-preserve-owner -f dev/console dev/null)
+          echo '=== TARGET ABIs AND MODULES ==='
+          ls "$T"/usr/lib/modules/6.12.107+deb13-amd64/kernel/drivers/{block,net/ethernet/realtek} 2>&1 || true
+          echo '=== DETECTION SCRIPT BOOT ==='
+          sed -n '1,100p' "$T/usr/lib/debian-installer-startup.d/S60auto-install"
+          echo '=== PRESEED EARLY HOOK ==='
+          cat "$T/usr/lib/debian-installer-startup.d/S33preseed_early_command"
+          echo '=== EARLY ENVIRONMENT ==='
+          ls -l "$T"/usr/sbin/{udhcpc,ip,modprobe} "$T"/usr/bin/{wget,mount} || true
+          echo '=== NIC UDEB CONTENT INSIDE ORIGINAL ISO ==='
+          xorriso -osirrox on -indev "$D/Veyra-AutoInstall-v0.9.2.iso" -extract /pool/main/l/linux-signed-amd64/nic-modules-6.12.107+deb13-amd64-di_6.12.107-1_amd64.udeb "$T/nic.udeb" >/dev/null 2>&1
+          dpkg-deb -c "$T/nic.udeb" | grep -E 'r8169|r8125|modules\.dep' | head -15
+          echo VEYRA_MEDIA_HOOK_PREREQ_PASS
