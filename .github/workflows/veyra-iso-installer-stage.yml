@@ -1,0 +1,26 @@
+name: Stage Veyra ISO-Matched Installer
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/trusted/veyra-iso-installer-stage-v092.sh'
+      - '.github/workflows/veyra-iso-installer-stage.yml'
+permissions: {contents: read}
+jobs:
+  stage:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stage and check matching NIC without touching PXE
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-iso-installer-stage-v092.sh
+          DEST="$(mktemp -d /tmp/veyra-v092-stage-XXXXXXXX)"
+          trap 'rm -rf "$DEST"' EXIT
+          bash gateway/trusted/veyra-iso-installer-stage-v092.sh "$DEST"
+          cmp "$DEST/vmlinuz" /srv/veyra-pxe/http/veyra/v0.9.2/vmlinuz-cd
+          echo '=== VERIFY LIVE PXE UNCHANGED ==='
+          sha256sum /srv/veyra-pxe/http/veyra/v0.9.2/{vmlinuz,initrd.gz}
+          echo 'VEYRA_ISO_NIC_STAGE_TEST_COMPLETE'
