@@ -79,9 +79,9 @@ extract_one "$REL/preseed.cfg" /preseed.cfg /veyra/preseed.cfg /config/preseed.c
   echo "set server $NODE_IP"
   echo 'set base http://${server}:8098/veyra/v0.9.2'
   echo 'menu Veyra Network Deployment'
-  echo 'item --key v veyra092 Veyra v0.9.2 Auto Install'
-  echo 'item --key s shell iPXE shell'
-  echo 'choose --default veyra092 --timeout 5000 target && goto ${target}'
+  echo 'item --key v veyra092 Veyra v0.9.2 Auto Install (DESTRUCTIVE)'
+  echo 'item --key s shell Safe iPXE shell / PXE test'
+  echo 'choose --default shell --timeout 10000 target && goto ${target}'
   echo ':veyra092'
   echo 'echo Booting signed Veyra v0.9.2 from Node C...'
   echo 'sanboot --no-describe ${base}/Veyra-AutoInstall-v0.9.2.iso || goto installer'
@@ -142,12 +142,14 @@ port=0
 interface=vmbr0
 bind-dynamic
 log-dhcp
-dhcp-range=10.10.0.0,proxy
+dhcp-range=10.10.0.0,proxy,255.255.0.0
 dhcp-mac=set:veyra,$VEYRA_MAC
 dhcp-ignore=tag:!veyra
 dhcp-userclass=set:ipxe,iPXE
 dhcp-match=set:efi64,option:client-arch,7
 dhcp-match=set:efi64,option:client-arch,9
+pxe-service=tag:veyra,tag:efi64,x86-64_EFI,"Veyra UEFI Network Install",snponly.efi,$NODE_IP
+pxe-service=tag:veyra,tag:!efi64,x86PC,"Veyra BIOS Network Install",undionly.kpxe,$NODE_IP
 dhcp-boot=tag:veyra,tag:ipxe,http://$NODE_IP:$PORT/autoexec.ipxe
 dhcp-boot=tag:veyra,tag:!ipxe,tag:efi64,snponly.efi,,$NODE_IP
 dhcp-boot=tag:veyra,tag:!ipxe,tag:!efi64,undionly.kpxe,,$NODE_IP
@@ -193,6 +195,7 @@ systemctl is-active --quiet veyra-pxe-http.service
 systemctl is-active --quiet veyra-pxe-proxydhcp.service
 ss -lun | grep -q ':69 '
 ss -lun | grep -q ':67 '
+ss -lun | grep -q ':4011 '
 ss -lnt | grep -q ':8098 '
 
 curl -fsS "http://127.0.0.1:$PORT/autoexec.ipxe" >/dev/null
