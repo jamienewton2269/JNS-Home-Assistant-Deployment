@@ -1,0 +1,25 @@
+name: Veyra Installer Log Receiver Audit
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/veyra-logging-audit.yml']
+permissions: {contents: read}
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo '=== UDP 5514 LISTENERS ==='
+          ss -lunp | grep -E ':5514\b' || true
+          echo '=== LOG RELATED SERVICES ==='
+          systemctl --no-pager --plain is-active rsyslog syslog-ng systemd-journald 2>&1 || true
+          echo '=== LOG DIRECTORIES ==='
+          ls -ld /var/log/veyra* /srv/veyra-pxe/logs 2>&1 || true
+          echo '=== PRESEED FORWARD CONFIGURATION ==='
+          grep -nE '5514|netcat|nc -u|anna|late_command|early_command' /srv/veyra-pxe/http/veyra/v0.9.2-netboot/preseed-auto.cfg 2>&1 || true
+          echo '=== SYSLOG NETCAT ==='
+          command -v nc || true
+          echo VEYRA_LOG_RECEIVER_AUDIT_DONE
