@@ -9,10 +9,12 @@ HTTP=$ROOT/http
 REL=$HTTP/veyra/v0.9.2
 PORT=8098
 VEYRA_MAC=54:e1:ad:69:d1:8e
+SOURCE_PAYLOAD=/root/veyra-v0.9/source071/veyra
 
 echo "=== VEYRA PXE v0.9.2 PREPARE ==="
 date -Is
 test -f "$ISO"
+test -d "$SOURCE_PAYLOAD"
 actual="$(sha256sum "$ISO" | awk '{print $1}')"
 [[ "$actual" == "$EXPECTED" ]] || { echo "ISO SHA mismatch: $actual" >&2; exit 65; }
 
@@ -74,6 +76,37 @@ extract_one "$REL/vmlinuz" /install.amd/vmlinuz /install/vmlinuz && kernel_ok=tr
 extract_one "$REL/initrd.gz" /install.amd/initrd.gz /install/initrd.gz && initrd_ok=true || true
 extract_one "$REL/preseed.cfg" /preseed.cfg /veyra/preseed.cfg /config/preseed.cfg && preseed_ok=true || true
 
+if [[ "$preseed_ok" == true ]]; then
+  cp "$REL/preseed.cfg" "$REL/preseed-iso.cfg"
+  tar -C "$(dirname "$SOURCE_PAYLOAD")" -czf "$REL/veyra-payload.tar.gz" "$(basename "$SOURCE_PAYLOAD")"
+  python3 - "$REL/preseed.cfg" "$NODE_IP" "$PORT" <<'PY'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1])
+host=sys.argv[2]
+port=sys.argv[3]
+lines=p.read_text(encoding="utf-8").splitlines()
+out=[]
+late=(
+    "d-i preseed/late_command string "
+    f"in-target /usr/bin/curl -fsSL http://{host}:{port}/veyra/v0.9.2/veyra-payload.tar.gz -o /root/veyra-payload.tar.gz; "
+    "in-target /bin/tar -xzf /root/veyra-payload.tar.gz -C /root; "
+    "in-target /bin/bash -c 'cd /root/veyra && chmod +x scripts/*.sh && ./scripts/install-debian.sh'; "
+    "in-target grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Veyra --removable --no-nvram --recheck; "
+    "in-target update-grub; "
+    "in-target rm -rf /root/veyra /root/veyra-payload.tar.gz"
+)
+for line in lines:
+    if line.startswith("d-i preseed/late_command string "):
+        out.append(late)
+    else:
+        out.append(line.replace("10.10.10.236", host))
+p.write_text("\n".join(out)+"\n", encoding="utf-8")
+PY
+  grep -Fq "http://$NODE_IP:$PORT/veyra/v0.9.2/veyra-payload.tar.gz" "$REL/preseed.cfg"
+  ! grep -Fq "/cdrom/veyra" "$REL/preseed.cfg"
+fi
+
 {
   echo '#!ipxe'
   echo "set server $NODE_IP"
@@ -87,16 +120,21 @@ extract_one "$REL/preseed.cfg" /preseed.cfg /veyra/preseed.cfg /config/preseed.c
   echo ':installer'
   if [[ "$kernel_ok" == true && "$initrd_ok" == true ]]; then
     if [[ "$preseed_ok" == true ]]; then
-      echo 'kernel ${base}/vmlinuz auto=true priority=critical netcfg/choose_interface=auto url=${base}/preseed.cfg ---'
+      echo 'kernel ${base}/vmlinuz auto=true priority=critical netcfg/choose_interface=auto url=${base}/preseed.cfg --- || goto bootfail'
     else
-      echo 'kernel ${base}/vmlinuz auto=true priority=critical netcfg/choose_interface=auto ---'
+      echo 'kernel ${base}/vmlinuz auto=true priority=critical netcfg/choose_interface=auto --- || goto bootfail'
     fi
-    echo 'initrd ${base}/initrd.gz'
-    echo 'boot'
+    echo 'initrd ${base}/initrd.gz || goto bootfail'
+    echo 'imgstat'
+    echo 'boot || goto bootfail'
   else
     echo 'echo ISO SAN boot failed and no kernel/initrd fallback was found.'
     echo 'shell'
   fi
+  echo ':bootfail'
+  echo 'echo Veyra installer handoff FAILED - remaining in iPXE for diagnostics.'
+  echo 'imgstat'
+  echo 'shell'
   echo ':shell'
   echo 'shell'
 } > "$HTTP/autoexec.ipxe"
@@ -198,6 +236,8 @@ ss -lun | grep -q ':4011 '
 ss -lnt | grep -q ':8098 '
 
 curl -fsS "http://127.0.0.1:$PORT/autoexec.ipxe" >/dev/null
+curl -fsS "http://127.0.0.1:$PORT/veyra/v0.9.2/preseed.cfg" | grep -Fq "veyra-payload.tar.gz"
+curl -fsSI "http://127.0.0.1:$PORT/veyra/v0.9.2/veyra-payload.tar.gz" >/dev/null
 curl -fsS "http://127.0.0.1:$PORT/veyra/v0.9.2/Veyra-AutoInstall-v0.9.2.sha256" | grep -q "$EXPECTED"
 curl -fsSI "http://127.0.0.1:$PORT/veyra/v0.9.2/Veyra-AutoInstall-v0.9.2.iso" >/dev/null
 
