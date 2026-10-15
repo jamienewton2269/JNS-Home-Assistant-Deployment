@@ -1,0 +1,50 @@
+name: ScamShield Windows validation
+on:
+  push:
+    paths:
+      - 'scamshield/**'
+      - '.github/workflows/scamshield-windows-validation.yml'
+  pull_request:
+    paths:
+      - 'scamshield/**'
+      - '.github/workflows/scamshield-windows-validation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse PowerShell source and audit safety boundaries
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $path = 'scamshield/src/ScamShield.ps1'
+          if (-not (Test-Path $path)) { throw "Missing $path" }
+          $tokens = $null; $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count) { throw ($errors | Out-String) }
+          $content = Get-Content $path -Raw
+          if ($content -match '(?i)\bSet-MpPreference\s+-(DisableRealtimeMonitoring|DisableBehaviorMonitoring)\b') { throw 'Disabling Defender is prohibited' }
+          if ($content -match '(?i)\b(Set-ExecutionPolicy|Add-MpPreference\s+-ExclusionPath)\b') { throw 'Prohibited global exclusion / execution policy change' }
+          Write-Host 'PowerShell parser and basic security checks passed'
+      - name: Run non-mutating audit and inspect output
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $report = Join-Path $env:RUNNER_TEMP 'scamshield-audit.json'
+          & pwsh -NoProfile -File scamshield/src/ScamShield.ps1 -Audit -ReportPath $report
+          if ($LASTEXITCODE -ne 0) { throw "Audit exited $LASTEXITCODE" }
+          if (-not (Test-Path $report)) { throw 'Audit report missing' }
+          $data = Get-Content $report -Raw | ConvertFrom-Json
+          if (-not $data.Timestamp -or -not $data.Defender) { throw 'Invalid audit report' }
+          Write-Host 'Audit output schema validated; this does not constitute enforcement validation'
+      - name: Upload diagnostic audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scamshield-windows-audit
+          path: ${{ runner.temp }}/scamshield-audit.json
+          if-no-files-found: ignore
