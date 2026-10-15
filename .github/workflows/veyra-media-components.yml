@@ -1,0 +1,29 @@
+name: Inspect Veyra Network Installer Components
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/veyra-media-components.yml']
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - name: Inspect matching installer packages and disk source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          R=/srv/veyra-pxe/http/veyra/v0.9.2
+          ISO="$R/Veyra-AutoInstall-v0.9.2.iso"
+          echo '=== ISO MATCHING NETWORK PACKAGES ==='
+          for dir in /pool/main/n/netcfg /pool/main/c/choose-mirror /pool/main/n/net-retriever /pool/main/i/iso-scan /pool/main/l/linux-signed-amd64 /pool/main/a/anna; do
+            echo "DIRECTORY $dir"
+            xorriso -indev "$ISO" -ls "$dir" 2>&1 | grep -E '^\x27|FAILURE' | head -35 || true
+          done
+          echo '=== MOUNT SOURCE HELPERS IN INITRD ==='
+          W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
+          (cd "$W"; gzip -dc "$R/initrd.gz" | cpio -idmu --quiet --no-preserve-owner -f dev/console dev/null)
+          for c in wget udhcpc netcfg modprobe losetup mount iso-scan udpkg anna; do find "$W/usr" "$W/bin" "$W/sbin" -name "$c" -print 2>/dev/null | head -4; done
+          echo '=== PHYSICAL MEDIA STATE ==='
+          du -h "$ISO"
+          echo VEYRA_MEDIA_COMPONENTS_INSPECTED
