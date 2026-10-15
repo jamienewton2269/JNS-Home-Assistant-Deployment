@@ -10,6 +10,9 @@ REL=$HTTP/veyra/v0.9.2
 PORT=8098
 VEYRA_MAC=54:e1:ad:69:d1:8e
 SOURCE_PAYLOAD=/root/veyra-v0.9/source071/veyra
+DEBIAN_NETBOOT_BASE=https://deb.debian.org/debian/dists/trixie/main/installer-amd64/current/images/netboot/debian-installer/amd64
+DEBIAN_FW_INDEX=https://deb.debian.org/debian/dists/trixie/non-free-firmware/binary-amd64/Packages.xz
+DEBIAN_MIRROR=https://deb.debian.org/debian
 
 echo "=== VEYRA PXE v0.9.2 PREPARE ==="
 date -Is
@@ -49,6 +52,14 @@ test -f /usr/lib/ipxe/snponly.efi
 test -f /usr/lib/ipxe/undionly.kpxe
 command -v xorriso >/dev/null
 command -v python3 >/dev/null
+for cmd in wget cpio gzip xz dpkg-deb; do
+  command -v "$cmd" >/dev/null 2>&1 || {
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y --no-install-recommends wget cpio gzip xz-utils dpkg
+    break
+  }
+done
 
 install -d -o root -g root -m 0755 "$TFTP" "$REL"
 install -o root -g root -m 0644 /usr/lib/ipxe/snponly.efi "$TFTP/snponly.efi"
@@ -76,6 +87,60 @@ extract_one "$REL/vmlinuz" /install.amd/vmlinuz /install/vmlinuz && kernel_ok=tr
 extract_one "$REL/initrd.gz" /install.amd/initrd.gz /install/initrd.gz && initrd_ok=true || true
 extract_one "$REL/preseed.cfg" /preseed.cfg /veyra/preseed.cfg /config/preseed.cfg && preseed_ok=true || true
 
+if [[ "$kernel_ok" == true && "$initrd_ok" == true ]]; then
+  cp -f "$REL/vmlinuz" "$REL/vmlinuz-cd"
+  cp -f "$REL/initrd.gz" "$REL/initrd-cd.gz"
+
+  work="$(mktemp -d)"
+  trap 'rm -rf "$work"' EXIT
+
+  wget -q -O "$work/vmlinuz" "$DEBIAN_NETBOOT_BASE/linux"
+  wget -q -O "$work/initrd-generic.gz" "$DEBIAN_NETBOOT_BASE/initrd.gz"
+  wget -q -O "$work/Packages.xz" "$DEBIAN_FW_INDEX"
+
+  read -r fw_path fw_sha < <(
+    python3 - "$work/Packages.xz" <<'PY'
+import lzma, sys
+text=lzma.open(sys.argv[1], 'rt', encoding='utf-8', errors='replace').read()
+for block in text.split('\n\n'):
+    fields={}
+    for line in block.splitlines():
+        if ': ' in line:
+            k,v=line.split(': ',1)
+            fields[k]=v
+    if fields.get('Package') == 'firmware-realtek':
+        print(fields['Filename'], fields['SHA256'])
+        break
+else:
+    raise SystemExit('firmware-realtek not found in Debian index')
+PY
+  )
+
+  wget -q -O "$work/firmware-realtek.deb" "$DEBIAN_MIRROR/$fw_path"
+  echo "$fw_sha  $work/firmware-realtek.deb" | sha256sum -c -
+
+  mkdir -p "$work/fw" "$work/initrd"
+  dpkg-deb -x "$work/firmware-realtek.deb" "$work/fw"
+
+  (
+    cd "$work/initrd"
+    gzip -dc "$work/initrd-generic.gz" | cpio -idmu --quiet
+    mkdir -p usr/lib/firmware
+    cp -a "$work/fw/usr/lib/firmware/." usr/lib/firmware/
+    find . -print0 | cpio --null -o --format=newc 2>/dev/null | gzip -9 > "$work/initrd-realtek.gz"
+  )
+
+  gzip -dc "$work/initrd-realtek.gz" | cpio -it 2>/dev/null | grep -Fq 'drivers/net/ethernet/realtek/r8169.ko'
+  gzip -dc "$work/initrd-realtek.gz" | cpio -it 2>/dev/null | grep -Fq 'usr/lib/firmware/rtl_nic/'
+
+  install -o root -g root -m 0644 "$work/vmlinuz" "$REL/vmlinuz"
+  install -o root -g root -m 0644 "$work/initrd-realtek.gz" "$REL/initrd.gz"
+
+  echo "REALTEK_NETBOOT_KERNEL_SHA256=$(sha256sum "$REL/vmlinuz" | awk '{print $1}')"
+  echo "REALTEK_NETBOOT_INITRD_SHA256=$(sha256sum "$REL/initrd.gz" | awk '{print $1}')"
+  echo "VEYRA_REALTEK_NETBOOT_READY"
+fi
+
 if [[ "$preseed_ok" == true ]]; then
   cp "$REL/preseed.cfg" "$REL/preseed-iso.cfg"
   tar -C "$(dirname "$SOURCE_PAYLOAD")" -czf "$REL/veyra-payload.tar.gz" "$(basename "$SOURCE_PAYLOAD")"
@@ -96,11 +161,26 @@ late=(
     "in-target update-grub; "
     "in-target rm -rf /root/veyra /root/veyra-payload.tar.gz"
 )
+have_fw_pkg=False
+have_fw_enable=False
 for line in lines:
     if line.startswith("d-i preseed/late_command string "):
         out.append(late)
+    elif line.startswith("d-i pkgsel/include string"):
+        if "firmware-realtek" not in line.split():
+            line += " firmware-realtek"
+        have_fw_pkg=True
+        out.append(line.replace("10.10.10.236", host))
+    elif line.startswith("d-i apt-setup/non-free-firmware boolean"):
+        out.append("d-i apt-setup/non-free-firmware boolean true")
+        have_fw_enable=True
     else:
         out.append(line.replace("10.10.10.236", host))
+if not have_fw_enable:
+    out.append("d-i apt-setup/non-free-firmware boolean true")
+if not have_fw_pkg:
+    out.append("d-i pkgsel/include string firmware-realtek")
+out.append("d-i hw-detect/load_firmware boolean true")
 p.write_text("\n".join(out)+"\n", encoding="utf-8")
 PY
   grep -Fq "http://$NODE_IP:$PORT/veyra/v0.9.2/veyra-payload.tar.gz" "$REL/preseed.cfg"
