@@ -25,5 +25,5 @@ jobs:
           dpkg-deb -x "$W/nic.udeb" "$W/nic"
           echo '=== EXACT NIC MODULE ==='
           find "$W/nic" -type f -name 'r8169.ko*' -print
-          test -f "$W/nic/usr/lib/modules/6.12.107+deb13-amd64/kernel/drivers/net/ethernet/realtek/r8169.ko.xz"
+          test -f "$W/nic/lib/modules/6.12.107+deb13-amd64/kernel/drivers/net/ethernet/realtek/r8169.ko.xz"
           echo 'VEYRA_ISO_MATCHED_NIC_VERIFIED'
