@@ -168,10 +168,17 @@ fi
   echo 'choose --default shell --timeout 10000 target && goto ${target}'
   echo ':veyra092'
   echo 'echo Booting signed Veyra v0.9.2 from Node C...'
-  echo 'echo Starting original Veyra v0.9.2 ISO installer through iPXE SAN boot'
-  echo 'sanboot --no-describe ${base}/Veyra-AutoInstall-v0.9.2.iso || goto bootfail'
+  echo 'echo Starting original Veyra v0.9.2 Debian installer directly'
+  echo 'ifstat'
+  echo 'route'
+  echo 'dhcp || goto netfail'
+  echo 'route'
+  echo 'imgfree autoexec.ipxe ||'
+  echo 'kernel ${base}/vmlinuz initrd=initrd.magic auto=true priority=critical netcfg/choose_interface=auto url=${base}/preseed.cfg --- || goto bootfail'
+  echo 'initrd --name initrd.gz ${base}/initrd.gz || goto bootfail'
+  echo 'imgstat'
+  echo 'boot || goto bootfail'
   echo ':installer'
-  echo 'echo Original ISO SAN boot did not complete; retaining diagnostic shell.'
   echo 'goto bootfail'
   echo ':netfail'
   echo 'echo Veyra network refresh FAILED - remaining in iPXE for diagnostics.'
@@ -295,7 +302,9 @@ if command -v tftp >/dev/null 2>&1; then
   rm -rf "$tmp"
 fi
 
-grep -Fq 'sanboot --no-describe ${base}/Veyra-AutoInstall-v0.9.2.iso' "$HTTP/autoexec.ipxe"
+grep -Fq 'kernel ${base}/vmlinuz initrd=initrd.magic' "$HTTP/autoexec.ipxe"
+grep -Fq 'initrd --name initrd.gz ${base}/initrd.gz' "$HTTP/autoexec.ipxe"
+! grep -Fq 'sanboot ' "$HTTP/autoexec.ipxe"
 ! grep -Eq 'debian-installer/amd64|initrd-generic.gz' "$HTTP/autoexec.ipxe"
 cmp -s "$REL/vmlinuz" "$REL/vmlinuz-cd"
 cmp -s "$REL/initrd.gz" "$REL/initrd-cd.gz"
@@ -308,4 +317,4 @@ echo "ISO: http://$NODE_IP:$PORT/veyra/v0.9.2/Veyra-AutoInstall-v0.9.2.iso"
 echo "sha256=$EXPECTED"
 echo "kernel_fallback=$kernel_ok initrd_fallback=$initrd_ok preseed=$preseed_ok"
 echo "ProxyDHCP target MAC: $VEYRA_MAC"
-echo "VEYRA_ISO_SANBOOT_PUBLISHED_FOR_HARDWARE_TEST"
+echo "VEYRA_DIRECT_ISO_KERNEL_PUBLISHED_FOR_HARDWARE_TEST"
