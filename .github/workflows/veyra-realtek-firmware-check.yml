@@ -1,0 +1,27 @@
+name: Check Lenovo Realtek Firmware Source
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/trusted/veyra-netboot-realtek-firmware-v092.sh'
+      - '.github/workflows/veyra-realtek-firmware-check.yml'
+permissions: {contents: read}
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          S=gateway/trusted/veyra-netboot-realtek-firmware-v092.sh
+          bash -n "$S"
+          F=$(mktemp); trap 'rm -f "$F"' EXIT
+          curl -fsSL --retry 1 --max-time 45 https://sources.debian.org/data/main/f/firmware-nonfree/20250410-2/rtl_nic/rtl8106e-1.fw -o "$F"
+          test "$(wc -c < "$F")" -eq 1856
+          echo '=== FIRMWARE VERIFIED ==='
+          sha256sum "$F"
+          echo '=== PROTECTED LIVE BOOT BASELINE ==='
+          sha256sum /srv/veyra-pxe/http/autoexec.ipxe /srv/veyra-pxe/http/veyra/v0.9.2/{vmlinuz,initrd.gz}
+          echo VEYRA_RTL8106E_FIRMWARE_SOURCE_PASS
