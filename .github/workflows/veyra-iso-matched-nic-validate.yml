@@ -1,0 +1,29 @@
+name: Validate ISO-Matched Veyra NIC Driver
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/veyra-iso-matched-nic-validate.yml']
+permissions: {contents: read}
+jobs:
+  validate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - name: Verify exact Debian installer NIC udeb and r8169 module
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          W=$(mktemp -d)
+          trap 'rm -rf "$W"' EXIT
+          echo '=== VERIFY ORIGINAL CD INITRD ABI ==='
+          gzip -dc /srv/veyra-pxe/http/veyra/v0.9.2/initrd-cd.gz | cpio -it 2>/dev/null > "$W/base-list"
+          grep -Fq 'usr/lib/modules/6.12.107+deb13-amd64/' "$W/base-list"
+          echo '=== DOWNLOAD ABI-MATCHED UDEB ==='
+          URL='https://security.debian.org/debian-security/pool/updates/main/l/linux-signed-amd64/nic-modules-6.12.107%2Bdeb13-amd64-di_6.12.107-1_amd64.udeb'
+          curl --fail --location --retry 2 --connect-timeout 12 --max-time 100 "$URL" -o "$W/nic.udeb"
+          printf '%s  %s\n' 195b7eabe935648a0fa858caea2d6d59c51e0fbda99837e5020c6186c9dbca51 "$W/nic.udeb" | sha256sum -c -
+          dpkg-deb -x "$W/nic.udeb" "$W/nic"
+          echo '=== EXACT NIC MODULE ==='
+          find "$W/nic" -type f -name 'r8169.ko*' -print
+          test -f "$W/nic/usr/lib/modules/6.12.107+deb13-amd64/kernel/drivers/net/ethernet/realtek/r8169.ko.xz"
+          echo 'VEYRA_ISO_MATCHED_NIC_VERIFIED'
