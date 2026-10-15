@@ -120,11 +120,13 @@ fi
   echo ':installer'
   if [[ "$kernel_ok" == true && "$initrd_ok" == true ]]; then
     if [[ "$preseed_ok" == true ]]; then
-      echo 'kernel ${base}/vmlinuz auto=true priority=critical netcfg/choose_interface=auto url=${base}/preseed.cfg --- || goto bootfail'
+      echo 'imgfree autoexec.ipxe ||'
+      echo 'kernel ${base}/vmlinuz initrd=initrd.magic auto=true priority=critical netcfg/choose_interface=auto url=${base}/preseed.cfg --- || goto bootfail'
     else
-      echo 'kernel ${base}/vmlinuz auto=true priority=critical netcfg/choose_interface=auto --- || goto bootfail'
+      echo 'imgfree autoexec.ipxe ||'
+      echo 'kernel ${base}/vmlinuz initrd=initrd.magic auto=true priority=critical netcfg/choose_interface=auto --- || goto bootfail'
     fi
-    echo 'initrd ${base}/initrd.gz || goto bootfail'
+    echo 'initrd --name initrd.gz ${base}/initrd.gz || goto bootfail'
     echo 'imgstat'
     echo 'boot || goto bootfail'
   else
