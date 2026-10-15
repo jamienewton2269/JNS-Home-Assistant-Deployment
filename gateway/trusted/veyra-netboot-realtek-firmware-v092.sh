@@ -9,7 +9,7 @@ M=/srv/veyra-pxe/http/autoexec.ipxe
 T=/srv/veyra-pxe/tftp/autoexec.ipxe
 test -s "$D/initrd.gz" && test -s "$D/vmlinuz" && test -s "$M"
 test "$(sha256sum "$V/vmlinuz" | cut -d' ' -f1)" = 2b2358b37674d2505350528875bb17afae2a36522a9e8a9417eaca65a7da0e08
-test "$(sha256sum "$V/initrd.gz" | cut -d' ' -f1)" = 8de544ab627ab794504c5308c82de621814386b5b67a492f1e3133390c47ea933
+test "$(sha256sum "$V/initrd.gz" | cut -d' ' -f1)" = 8de544ab627ab794504c530c82de621814386b5b67a492f1e3133390c47ea933
 BEFORE=$(sha256sum "$M" "$T" "$V/vmlinuz" "$V/initrd.gz" "$D/vmlinuz")
 W=$(mktemp -d /tmp/veyra-realtek-XXXXXXXX)
 trap 'rm -rf "$W"' EXIT
