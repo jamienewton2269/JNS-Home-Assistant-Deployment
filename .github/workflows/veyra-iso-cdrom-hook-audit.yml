@@ -15,7 +15,7 @@ jobs:
           set -Eeuo pipefail
           D=/srv/veyra-pxe/http/veyra/v0.9.2
           W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
-          ( cd "$W"; gzip -dc "$D/initrd-cd.gz" | cpio -idmu --quiet )
+          ( cd "$W"; gzip -dc "$D/initrd-cd.gz" | cpio -idmu --quiet --no-preserve-owner -f 'dev/console' 'dev/null' )
           echo '=== CD DETECTION PACKAGE ==='
           sed -n '1,200p' "$W/var/lib/dpkg/info/cdrom-detect.postinst"
           echo '=== AVAILABLE NETWORK UTILITIES ==='
