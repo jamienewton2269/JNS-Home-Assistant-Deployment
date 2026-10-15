@@ -130,8 +130,9 @@ PY
     find . -print0 | cpio --null -o --format=newc 2>/dev/null | gzip -9 > "$work/initrd-realtek.gz"
   )
 
-  gzip -dc "$work/initrd-realtek.gz" | cpio -it 2>/dev/null | grep -Fq 'drivers/net/ethernet/realtek/r8169.ko'
-  gzip -dc "$work/initrd-realtek.gz" | cpio -it 2>/dev/null | grep -Fq 'usr/lib/firmware/rtl_nic/'
+  gzip -dc "$work/initrd-realtek.gz" | cpio -it 2>/dev/null > "$work/initrd.list"
+  grep -Fq 'drivers/net/ethernet/realtek/r8169.ko' "$work/initrd.list"
+  grep -Fq 'usr/lib/firmware/rtl_nic/' "$work/initrd.list"
 
   install -o root -g root -m 0644 "$work/vmlinuz" "$REL/vmlinuz"
   install -o root -g root -m 0644 "$work/initrd-realtek.gz" "$REL/initrd.gz"
