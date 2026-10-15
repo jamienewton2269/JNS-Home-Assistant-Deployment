@@ -1,0 +1,30 @@
+name: Verify Veyra Proven Installer Hash
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-proven-installer-hash.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Verify live boot pair against proven installer
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          REL=/srv/veyra-pxe/http/veyra/v0.9.2
+          echo "=== LIVE BOOT PAIR ==="
+          sha256sum "$REL/vmlinuz" "$REL/initrd.gz"
+          ls -lh "$REL/vmlinuz" "$REL/initrd.gz"
+          echo "=== PROVEN INITRD ==="
+          echo "a6741b912bc55cbd6f627d66e4717592ffae5b8001a3f54f9c99b236b783034d"
+          if echo "a6741b912bc55cbd6f627d66e4717592ffae5b8001a3f54f9c99b236b783034d  $REL/initrd.gz" | sha256sum -c -; then
+            echo VEYRA_PROVEN_INITRD_MATCH
+          else
+            echo VEYRA_PROVEN_INITRD_MISMATCH
+          fi
+          echo "=== PRESERVED FILES ==="
+          sha256sum "$REL"/initrd-cd.gz "$REL"/vmlinuz-cd 2>/dev/null || true
