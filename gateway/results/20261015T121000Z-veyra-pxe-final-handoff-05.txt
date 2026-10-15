@@ -1,0 +1,11 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261015T121000Z-veyra-pxe-final-handoff-05
+started=2026-10-15T12:10:52+01:00
+runner=nodec
+
+=== VEYRA PXE v0.9.2 PREPARE ===
+2026-10-15T12:10:52+01:00
+ISO SHA mismatch: 53e31c84dc0613773e1224215e03004423d3daaaf5ff6cbd518dd1f17f15e246
+
+finished=2026-10-15T12:10:55+01:00
+exit_code=65
