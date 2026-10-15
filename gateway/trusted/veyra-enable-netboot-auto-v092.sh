@@ -21,7 +21,8 @@ curl -fsS -o /dev/null "http://127.0.0.1:8098/veyra/v0.9.2/veyra-payload.tar.gz"
 KERNEL_BEFORE="$(sha256sum "$D/vmlinuz" "$D/initrd.gz" "$ORIG/vmlinuz" "$ORIG/initrd.gz")"
 BACK=/srv/veyra-pxe/backups/veyra-netboot-auto-$(date -u +%Y%m%dT%H%M%SZ)
 mkdir -p "$BACK"
-cp -a "$MENU" "$TFTP" "$BACK/"
+cp -a "$MENU" "$BACK/autoexec.ipxe"
+cp -a "$TFTP" "$BACK/autoexec-tftp.ipxe"
 [[ -e "$D/preseed-auto.cfg" ]] && cp -a "$D/preseed-auto.cfg" "$BACK/preseed-auto.cfg" || true
 python3 - "$ORIG/preseed.cfg" "$MENU" "$BACK/preseed-auto.cfg" "$BACK/autoexec.new" <<'PY'
 from pathlib import Path
@@ -90,7 +91,7 @@ cp -a "$MENU" "$TFTP"
 cmp "$MENU" "$TFTP"
 if [[ "$KERNEL_BEFORE" != "$(sha256sum "$D/vmlinuz" "$D/initrd.gz" "$ORIG/vmlinuz" "$ORIG/initrd.gz")" ]]; then
   cp -a "$BACK/autoexec.ipxe" "$MENU"
-  cp -a "$BACK/autoexec.ipxe" "$TFTP"
+  cp -a "$BACK/autoexec-tftp.ipxe" "$TFTP"
   echo 'STOP: protected installer images changed; menu rolled back' >&2
   exit 1
 fi
