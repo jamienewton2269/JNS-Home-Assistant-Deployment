@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-SSH=(ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes -o HostName=10.10.10.235 nodeb)
+SSH=(ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes -o HostName=10.10.110.12 nodeb)
 
 echo "=== WESTMINSTER FILE LOCATIONS ==="
 "${SSH[@]}" "qm guest exec 905 -- /bin/sh -c 'grep -RliE \"jns_westminster|westminster_chimes_half_and_hour\" /mnt/data/supervisor/homeassistant 2>/dev/null | head -40'"
