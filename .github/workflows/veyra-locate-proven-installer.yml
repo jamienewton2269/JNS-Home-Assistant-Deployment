@@ -1,0 +1,30 @@
+name: Locate Proven Veyra Installer
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-locate-proven-installer.yml'
+permissions:
+  contents: read
+jobs:
+  locate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - name: Locate known-good initrd by hash
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          target='a6741b912bc55cbd6f627d66e4717592ffae5b8001a3f54f9c99b236b783034d'
+          echo "=== CANDIDATES ==="
+          find /root/veyra-v0.9 /srv /var/lib/tftpboot /opt -type f \( -name 'initrd.gz' -o -name 'initrd' -o -name '*.initrd' \) 2>/dev/null > /tmp/veyra-initrd-candidates
+          while IFS= read -r f; do
+            h="$(sha256sum "$f" | awk '{print $1}')"
+            if [ "$h" = "$target" ]; then
+              echo "MATCH $f"
+              ls -lh "$f"
+            fi
+          done < /tmp/veyra-initrd-candidates
+          echo "=== OLD VEYRA TREES ==="
+          find /root /srv -maxdepth 4 -type d 2>/dev/null | grep -Ei 'veyra|aquarius' | head -300 || true
+          echo VEYRA_PROVEN_INSTALLER_SEARCH_COMPLETE
