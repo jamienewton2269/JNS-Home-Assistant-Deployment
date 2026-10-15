@@ -24,4 +24,8 @@ jobs:
           grep -Fq 'initrd --name initrd.gz' /tmp/veyra-live.ipxe
           grep -Fq 'goto bootfail' /tmp/veyra-live.ipxe
           grep -Fq 'Veyra installer handoff FAILED' /tmp/veyra-live.ipxe
+          grep -Fq 'dhcp || goto netfail' /tmp/veyra-live.ipxe
+          grep -Fq 'Veyra network refresh FAILED' /tmp/veyra-live.ipxe
+          grep -Fq 'ifstat' /tmp/veyra-live.ipxe
+          grep -Fq 'route' /tmp/veyra-live.ipxe
           echo VEYRA_UEFI_LIVE_HANDOFF_VALID
