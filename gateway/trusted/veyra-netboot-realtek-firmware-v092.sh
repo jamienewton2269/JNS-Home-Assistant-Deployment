@@ -16,7 +16,7 @@ trap 'rm -rf "$W"' EXIT
 mkdir "$W/root"
 # The Ubuntu/Linux firmware name is supplied by the official Debian Trixie
 # firmware-nonfree source; download only the exact 1856-byte blob.
-URL=https://sources.debian.org/data/main/f/firmware-nonfree/20250410-2/rtl_nic/rtl8106e-1.fw
+URL=https://sources.debian.org/data/non-free-firmware/f/firmware-nonfree/20250410-2/rtl_nic/rtl8106e-1.fw
 curl -fsSL --retry 2 --connect-timeout 10 --max-time 60 "$URL" -o "$W/rtl8106e-1.fw"
 test "$(wc -c < "$W/rtl8106e-1.fw")" -eq 1856 || { echo 'STOP: unexpected firmware size'; exit 65; }
 # Rebuild one standard initramfs, retaining ownership, symlinks and special device nodes.
