@@ -1,0 +1,59 @@
+name: Verify Live Veyra PXE Final
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-pxe-final-live-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Verify live Veyra PXE
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo "=== LISTENERS ==="
+          ss -lunp | grep -E ':(67|69|4011)[[:space:]]'
+          ss -lntp | grep -E ':8098[[:space:]]'
+
+          echo "=== SERVICES ==="
+          systemctl is-active tftpd-hpa.service
+          systemctl is-active veyra-pxe-http.service
+          systemctl is-active veyra-pxe-proxydhcp.service
+
+          echo "=== MENU ==="
+          curl -fsS http://127.0.0.1:8098/autoexec.ipxe | tee /tmp/autoexec.ipxe
+          grep -Fq 'choose --default shell --timeout 10000' /tmp/autoexec.ipxe
+          grep -Fq 'Veyra v0.9.2 Auto Install (DESTRUCTIVE)' /tmp/autoexec.ipxe
+          ! grep -Fq 'sanboot --no-describe' /tmp/autoexec.ipxe
+          grep -Fq 'kernel ${base}/vmlinuz auto=true priority=critical netcfg/choose_interface=auto url=${base}/preseed.cfg ---' /tmp/autoexec.ipxe
+
+          echo "=== CHECKSUM ==="
+          curl -fsS http://127.0.0.1:8098/veyra/v0.9.2/Veyra-AutoInstall-v0.9.2.sha256
+          curl -fsS http://127.0.0.1:8098/veyra/v0.9.2/Veyra-AutoInstall-v0.9.2.sha256 | grep -Fq '53e31c84dc0613773e1224215e03004423d3daaaf5ff6cbd518dd1f17f15e246'
+
+          echo "=== TFTP ==="
+          tmp="$(mktemp -d)"
+          if command -v tftp >/dev/null 2>&1; then
+            (cd "$tmp" && timeout 8 tftp 127.0.0.1 -m binary -c get snponly.efi)
+            cmp -s "$tmp/snponly.efi" /srv/veyra-pxe/tftp/snponly.efi
+            echo TFTP_GET_OK
+          else
+            echo TFTP_CLIENT_NOT_INSTALLED
+            test -s /srv/veyra-pxe/tftp/snponly.efi
+          fi
+          rm -rf "$tmp"
+
+          echo "=== DNSMASQ CONFIG ==="
+          cat /etc/veyra-pxe/dnsmasq.conf
+          grep -Fq 'pxe-service=tag:veyra' /etc/veyra-pxe/dnsmasq.conf
+          grep -Fq 'dhcp-range=10.10.0.0,proxy,255.255.0.0' /etc/veyra-pxe/dnsmasq.conf
+          grep -Fq 'dhcp-mac=set:veyra,54:e1:ad:69:d1:8e' /etc/veyra-pxe/dnsmasq.conf
+
+          echo "VEYRA_PXE_FINAL_LIVE_VALID"
