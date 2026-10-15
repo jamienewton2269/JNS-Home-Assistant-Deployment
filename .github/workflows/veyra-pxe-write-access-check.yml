@@ -1,0 +1,22 @@
+name: Veyra PXE Existing Access Check
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/veyra-pxe-write-access-check.yml']
+permissions: {contents: read}
+jobs:
+  check:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - name: Inspect existing safe publication and PXE serving permissions
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          id
+          stat -c '%A %U:%G %n' /srv/veyra-pxe/http /srv/veyra-pxe/http/autoexec.ipxe /srv/veyra-pxe/http/veyra/v0.9.2 /usr/local/libexec/jns-veyra-pxe-v092
+          for cmd in 'install' 'cp'; do type "$cmd"; done
+          echo '=== EXISTING DEPLOY PRIVILEGES ==='
+          sudo -n -l 2>&1 | head -55 || true
+          echo '=== FILES ALREADY IN /tmp ==='
+          find /tmp -maxdepth 2 -name '*veyra*initrd*' -printf '%p\n' 2>/dev/null | head -25
