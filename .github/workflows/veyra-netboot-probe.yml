@@ -1,0 +1,23 @@
+name: Probe Debian Trixie Netboot Assets
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-netboot-probe.yml'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Probe Debian netboot URLs
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          base='https://deb.debian.org/debian/dists/trixie/main/installer-amd64/current/images/netboot/debian-installer/amd64'
+          for f in linux initrd.gz; do
+            echo "=== $f ==="
+            curl -fsSI --max-time 15 "$base/$f" | sed -n '1,12p'
+          done
+          echo VEYRA_DEBIAN_NETBOOT_URLS_OK
