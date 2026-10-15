@@ -1,0 +1,29 @@
+name: Audit Veyra ISO CD-ROM Hook
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/veyra-iso-cdrom-hook-audit.yml']
+permissions: {contents: read}
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - name: Examine ISO installer media and network hook only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          D=/srv/veyra-pxe/http/veyra/v0.9.2
+          W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
+          ( cd "$W"; gzip -dc "$D/initrd-cd.gz" | cpio -idmu --quiet )
+          echo '=== CD DETECTION PACKAGE ==='
+          sed -n '1,200p' "$W/var/lib/dpkg/info/cdrom-detect.postinst"
+          echo '=== AVAILABLE NETWORK UTILITIES ==='
+          for x in busybox ip udhcpc wget curl anna-install netcfg mount iso-scan; do
+            find "$W/bin" "$W/sbin" "$W/usr/bin" "$W/usr/sbin" -maxdepth 1 -name "$x" -print 2>/dev/null || true
+          done
+          echo '=== DI PACKAGE STATUS ==='
+          grep -A8 '^Package: \(cdrom-detect\|netcfg\|net-retriever\|choose-mirror\|iso-scan\)$' "$W/var/lib/dpkg/status" || true
+          echo '=== MAIN MENU ORDER ==='
+          find "$W/usr/lib" -type f \( -name '*cdrom*' -o -name '*netcfg*' -o -name '*mirror*' -o -name '*retriever*' \) | head -75
+          echo VEYRA_CDROM_HOOK_AUDIT_COMPLETE
