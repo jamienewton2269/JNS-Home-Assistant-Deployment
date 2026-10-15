@@ -23,7 +23,7 @@ jobs:
           wget -q -O "$W/linux" "$BASE/linux"
           wget -q -O "$W/initrd.gz" "$BASE/initrd.gz"
           wget -q -O "$W/Packages.xz" 'https://deb.debian.org/debian/dists/trixie/non-free-firmware/binary-amd64/Packages.xz'
-          xzcat "$W/Packages.xz" | awk 'BEGIN{RS="";ORS="\n\n"} /^Package: firmware-realtek$/ {print; exit}' > "$W/fw.block"
+          xzcat "$W/Packages.xz" | awk 'BEGIN{RS="";ORS="\n\n"} $1=="Package:" && $2=="firmware-realtek" {print; exit}' > "$W/fw.block"
           FW_PATH="$(sed -n 's/^Filename: //p' "$W/fw.block")"
           FW_SHA="$(sed -n 's/^SHA256: //p' "$W/fw.block")"
           test -n "$FW_PATH"
