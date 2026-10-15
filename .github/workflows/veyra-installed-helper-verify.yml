@@ -1,0 +1,29 @@
+name: Veyra Installed Helper Verify
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-installed-helper-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Verify installed helper contents
+        shell: bash
+        run: |
+          set -u
+          echo "=== BUILD HELPER SHA ==="
+          sha256sum /usr/local/libexec/jns-veyra-build-v092 || true
+          echo "=== BUILD HELPER KEY LINES ==="
+          grep -nE 'SOURCE_ROOT|PAYLOAD=|update_r|ISO_PAYLOAD_VALIDATION_OK|YOUR PROGRAMMES|My Programmes|Services' /usr/local/libexec/jns-veyra-build-v092 || true
+          echo "=== PXE HELPER SHA ==="
+          sha256sum /usr/local/libexec/jns-veyra-pxe-v092 || true
+          echo "=== PXE HELPER KEY LINES ==="
+          grep -nE 'EXPECTED=|SUM=|sanboot|kernel .*vmlinuz|preseed.cfg' /usr/local/libexec/jns-veyra-pxe-v092 || true
+          echo "VEYRA_INSTALLED_HELPER_VERIFY_COMPLETE"
