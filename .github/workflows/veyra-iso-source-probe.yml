@@ -1,0 +1,26 @@
+name: Veyra ISO Package Source Probe
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/veyra-iso-source-probe.yml']
+permissions: {contents: read}
+jobs:
+  probe:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - name: Inspect offline installer components and ISO serving
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          D=/srv/veyra-pxe/http/veyra/v0.9.2
+          ISO="$D/Veyra-AutoInstall-v0.9.2.iso"
+          echo '=== ISO PACKAGES AND RETRIEVER COMPONENTS ==='
+          xorriso -indev "$ISO" -ls /pool/main/l 2>&1 | tail -45 || true
+          xorriso -indev "$ISO" -ls /install.amd 2>&1 | tail -35 || true
+          echo '=== ISO UDEBS ==='
+          xorriso -indev "$ISO" -find /pool -name '*netcfg*' -print 2>&1 | tail -25 || true
+          xorriso -indev "$ISO" -find /pool -name '*nic-modules*' -print 2>&1 | tail -25 || true
+          echo '=== HTTP FILE SERVING ==='
+          curl -fsSI http://127.0.0.1:8098/veyra/v0.9.2/Veyra-AutoInstall-v0.9.2.iso | head -8
+          echo VEYRA_SOURCE_PROBE_COMPLETE
