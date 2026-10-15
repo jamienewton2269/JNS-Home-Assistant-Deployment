@@ -65,7 +65,7 @@ def stage(path,data):
     guest(": > "+shlex.quote(staged))
     for i in range(0,len(data),1800):
         b64=base64.b64encode(data[i:i+1800]).decode()
-        guest("printf '%s' %s | base64 -d >> %s"%(shlex.quote(b64),shlex.quote(staged)))
+        guest("printf '%s' " + shlex.quote(b64) + " | base64 -d >> " + shlex.quote(staged))
     expected=hashlib.sha256(data).hexdigest()
     actual=guest("sha256sum %s | cut -d ' ' -f1"%shlex.quote(staged)).strip()
     if actual!=expected:
