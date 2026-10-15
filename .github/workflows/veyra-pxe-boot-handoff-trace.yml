@@ -1,0 +1,39 @@
+name: Veyra PXE Boot Handoff Trace
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-pxe-boot-handoff-trace.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Trace Veyra PXE boot handoff
+        shell: bash
+        run: |
+          set -u
+          echo "=== TIME ==="
+          date -Is
+          echo "=== PROXYDHCP STATUS ==="
+          systemctl status --no-pager -l veyra-pxe-proxydhcp.service 2>/dev/null | sed -n '1,80p' || true
+          echo "=== PROXYDHCP LOG ==="
+          journalctl -u veyra-pxe-proxydhcp.service --since '-15 min' --no-pager 2>/dev/null || true
+          echo "=== TFTP LOG ==="
+          journalctl -u tftpd-hpa.service --since '-15 min' --no-pager 2>/dev/null || true
+          echo "=== HTTP LOG ==="
+          journalctl -u veyra-pxe-http.service --since '-15 min' --no-pager 2>/dev/null || true
+          echo "=== LISTENERS ==="
+          ss -lunp 2>/dev/null | grep -E ':(67|69|4011)[[:space:]]' || true
+          ss -lntp 2>/dev/null | grep -E ':8098[[:space:]]' || true
+          echo "=== DNSMASQ CONFIG ==="
+          cat /etc/veyra-pxe/dnsmasq.conf 2>/dev/null || true
+          echo "=== VM BRIDGE ==="
+          ip -br addr show vmbr0 2>/dev/null || true
+          ip route show 2>/dev/null | head -80 || true
+          echo "VEYRA_PXE_HANDOFF_TRACE_COMPLETE"
