@@ -1,0 +1,25 @@
+name: Veyra Restore Preflight
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/veyra-restore-preflight.yml']
+permissions: {contents: read}
+jobs:
+  check:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - name: Verify existing ISO boot and installer package prerequisites
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          D=/srv/veyra-pxe/http/veyra/v0.9.2
+          echo '=== EXISTING INSTALLER TREE ==='
+          stat -c '%n %s bytes' "$D"/{vmlinuz-cd,initrd-cd.gz,preseed.cfg,veyra-payload.tar.gz,Veyra-AutoInstall-v0.9.2.iso}
+          echo '=== CHECK ISO CONTENT ==='
+          xorriso -indev "$D/Veyra-AutoInstall-v0.9.2.iso" -ls / 2>&1 | tail -35
+          echo '=== INSTALLED CHECK TOOLS ==='
+          for c in xorriso depmod cpio gzip dpkg-deb curl mount; do command -v "$c" || test -x "/usr/sbin/$c"; done
+          echo '=== CURRENT BOOT SERVICES ==='
+          for s in tftpd-hpa veyra-pxe-http veyra-pxe-proxydhcp; do systemctl is-active "$s"; done
+          echo VEYRA_RESTORE_PREFLIGHT_PASS
