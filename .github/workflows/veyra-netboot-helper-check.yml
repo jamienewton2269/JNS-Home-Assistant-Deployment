@@ -1,0 +1,30 @@
+name: Validate Veyra Netboot Helper
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-netboot-helper-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate helper syntax and required netboot logic
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-pxe-v092.sh
+          grep -Fq 'SOURCE_PAYLOAD=/root/veyra-v0.9/source071/veyra' gateway/trusted/veyra-pxe-v092.sh
+          grep -Fq 'veyra-payload.tar.gz' gateway/trusted/veyra-pxe-v092.sh
+          grep -Fq 'preseed-iso.cfg' gateway/trusted/veyra-pxe-v092.sh
+          grep -Fq 'line.replace("10.10.10.236", host)' gateway/trusted/veyra-pxe-v092.sh
+          grep -Fq 'goto bootfail' gateway/trusted/veyra-pxe-v092.sh
+          grep -Fq 'Veyra installer handoff FAILED' gateway/trusted/veyra-pxe-v092.sh
+          grep -Fq 'in-target /usr/bin/curl -fsSL http://' gateway/trusted/veyra-pxe-v092.sh
+          echo VEYRA_NETBOOT_HELPER_VALID
