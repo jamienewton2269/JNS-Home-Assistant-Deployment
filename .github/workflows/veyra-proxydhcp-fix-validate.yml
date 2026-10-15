@@ -1,0 +1,44 @@
+name: Validate Veyra ProxyDHCP Fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-proxydhcp-fix-validate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PXE helper and dnsmasq config
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-pxe-v092.sh
+          NODE_IP="$(ip -4 -o addr show dev vmbr0 scope global | awk '{split($4,a,"/"); print a[1]; exit}')"
+          cat > /tmp/veyra-dnsmasq-test.conf <<EOF
+          port=0
+          interface=vmbr0
+          bind-dynamic
+          log-dhcp
+          dhcp-range=10.10.0.0,proxy,255.255.0.0
+          dhcp-mac=set:veyra,54:e1:ad:69:d1:8e
+          dhcp-ignore=tag:!veyra
+          dhcp-userclass=set:ipxe,iPXE
+          dhcp-match=set:efi64,option:client-arch,7
+          dhcp-match=set:efi64,option:client-arch,9
+          pxe-service=tag:veyra,tag:efi64,x86-64_EFI,"Veyra UEFI Network Install",snponly.efi,$NODE_IP
+          pxe-service=tag:veyra,tag:!efi64,x86PC,"Veyra BIOS Network Install",undionly.kpxe,$NODE_IP
+          dhcp-boot=tag:veyra,tag:ipxe,http://$NODE_IP:8098/autoexec.ipxe
+          dhcp-boot=tag:veyra,tag:!ipxe,tag:efi64,snponly.efi,,$NODE_IP
+          dhcp-boot=tag:veyra,tag:!ipxe,tag:!efi64,undionly.kpxe,,$NODE_IP
+          EOF
+          /usr/sbin/dnsmasq --test --conf-file=/tmp/veyra-dnsmasq-test.conf
+          grep -q "choose --default shell --timeout 10000" gateway/trusted/veyra-pxe-v092.sh
+          grep -q "':4011 '" gateway/trusted/veyra-pxe-v092.sh
+          echo "VEYRA_PROXYDHCP_FIX_VALID"
