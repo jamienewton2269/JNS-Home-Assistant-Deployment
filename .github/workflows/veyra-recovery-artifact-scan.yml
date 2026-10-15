@@ -1,0 +1,24 @@
+name: Veyra Recovery Artifact Scan
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/veyra-recovery-artifact-scan.yml']
+permissions: {contents: read}
+jobs:
+  scan:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Locate historic Veyra install artifacts without changing anything
+        shell: bash
+        run: |
+          set -u
+          echo '=== PREVIOUS INSTALLER ARTIFACTS ==='
+          find /srv /opt /var/backups /home/github-runner /tmp -type f \( -iname '*initrd*' -o -iname '*veyra*iso' -o -iname '*veyra*ipxe' -o -iname '*preseed*' \) -printf '%TY-%Tm-%Td %TH:%TM %s %p\n' 2>/dev/null | head -100
+          echo '=== BOOT ARTIFACT SHA ==='
+          for f in /srv/veyra-pxe/http/veyra/v0.9.2/{vmlinuz,initrd.gz,vmlinuz-cd,initrd-cd.gz,preseed.cfg,preseed-iso.cfg}; do if [ -f "$f" ]; then sha256sum "$f"; fi; done
+          echo '=== PXE MENU ==='
+          sed -n '1,90p' /srv/veyra-pxe/http/autoexec.ipxe
+          echo '=== LIST ISO-BASED INSTALLER BOOT ENTRIES ==='
+          grep -RniE 'initrd.magic|sanboot|cdrom-detect|veyra.*pxe' /home/github-runner/actions-runner/_work/JNS-Home-Assistant-Deployment/JNS-Home-Assistant-Deployment/gateway/queue 2>/dev/null | head -45 || true
+          echo VEYRA_RECOVERY_SCAN_COMPLETE
