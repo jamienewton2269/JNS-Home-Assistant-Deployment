@@ -1,0 +1,30 @@
+name: Verify Veyra Media-Only Publisher
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/trusted/veyra-media-initrd-publish-v092.sh'
+      - '.github/workflows/veyra-media-publisher-verify.yml'
+permissions: {contents: read}
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm media-only publication safeguards
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          P=gateway/trusted/veyra-media-initrd-publish-v092.sh
+          B=gateway/trusted/veyra-media-initrd-stage-v092.sh
+          bash -n "$P"
+          bash -n "$B"
+          grep -Fq 'VEYRA_MEDIA_ONLY_INITRD_PUBLISHED' "$P"
+          grep -Fq 'VEYRA_PXE_BOOT_CHAIN_UNCHANGED' "$P"
+          grep -Fq 'mv -f "$D/initrd.gz.veyra-next" "$D/initrd.gz"' "$P"
+          ! grep -Eq 'systemctl (restart|stop)|tftpd-hpa|dnsmasq' "$P"
+          grep -Fq 'cp -a "$BCK/initrd.gz" "$D/initrd.gz"' "$P"
+          echo '=== VERIFIED LIVE PXE BASELINE ==='
+          sha256sum /srv/veyra-pxe/http/autoexec.ipxe /srv/veyra-pxe/http/veyra/v0.9.2/{vmlinuz,initrd.gz}
+          echo VEYRA_MEDIA_ONLY_PUBLISHER_GUARD_PASS
