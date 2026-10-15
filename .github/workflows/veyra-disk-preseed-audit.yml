@@ -1,0 +1,21 @@
+name: Audit Live Veyra Disk Preseed
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/veyra-disk-preseed-audit.yml']
+permissions: {contents: read}
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          F=/srv/veyra-pxe/http/veyra/v0.9.2-netboot/preseed-auto.cfg
+          echo '=== DISK-RELATED PRESEED ==='
+          grep -n -A 5 -B 3 -E 'partman-auto/disk|partman/early_command|partman/confirm' "$F" | head -110
+          echo '=== EXISTING LOGGING RECEIVER ==='
+          ss -lunp | grep ':5514' || true
+          echo '=== AVAILABLE LOG LOCATIONS ==='
+          ls -ld /var/log/veyra-installer* /srv/veyra-pxe/http/veyra/install-logs 2>&1 || true
