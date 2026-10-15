@@ -18,7 +18,7 @@ jobs:
           S=gateway/trusted/veyra-netboot-realtek-firmware-v092.sh
           bash -n "$S"
           F=$(mktemp); trap 'rm -f "$F"' EXIT
-          curl -fsSL --retry 1 --max-time 45 https://sources.debian.org/data/main/f/firmware-nonfree/20250410-2/rtl_nic/rtl8106e-1.fw -o "$F"
+          curl -fsSL --retry 1 --max-time 45 https://sources.debian.org/data/non-free-firmware/f/firmware-nonfree/20250410-2/rtl_nic/rtl8106e-1.fw -o "$F"
           test "$(wc -c < "$F")" -eq 1856
           echo '=== FIRMWARE VERIFIED ==='
           sha256sum "$F"
