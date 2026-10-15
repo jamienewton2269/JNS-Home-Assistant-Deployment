@@ -1,0 +1,48 @@
+name: PJ2101A DHCP discovery (read-only)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pj2101a-dhcp-discovery.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - name: Read DNS and DHCP data without altering configuration
+        shell: bash
+        run: |
+          set +e
+          echo "=== PJ2101A DHCP LEASE SCAN ==="
+          echo "Previous address 10.10.10.177, device identifier bf1cc24fb65e2edbc3h6ys"
+          hostname
+          for host in nodec nodea nodeb; do
+            echo "=== HOST: $host ==="
+            if [ "$host" = nodec ]; then
+              command_prefix=""
+            else
+              command_prefix="ssh -o BatchMode=yes -o ConnectTimeout=6 -o StrictHostKeyChecking=accept-new $host"
+            fi
+            $command_prefix sh -s <<'REMOTE'
+          hostname
+          for ct in 247 248; do
+            if command -v pct >/dev/null 2>&1; then
+              echo "CT$ct status:"
+              pct status "$ct" 2>&1
+              sudo -n pct exec "$ct" -- sh -c '
+                echo "--- leases ---"
+                find /var/lib /run -type f -name "*lease*" 2>/dev/null | while read f; do
+                  echo "$f"
+                  grep -Ei "pj2101|tuya|smart|meter|10\.10\.10\.177" "$f" 2>/dev/null | head -30
+                done
+                echo "--- reservation matches ---"
+                grep -RihE "pj2101|tuya|smart.?meter|10\.10\.10\.177" /etc/dnsmasq.conf /etc/dnsmasq.d /etc/hosts 2>/dev/null | head -35
+              ' 2>&1
+            fi
+          done
+          REMOTE
+          done
+          echo "=== END READ ONLY SCAN ==="
