@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 ISO=/root/veyra-v0.9/Veyra-AutoInstall-v0.9.2.iso
-EXPECTED=ee79d44d65cbad52bbf1c2c2a438cfdd99fc488234f54c24a0c80db6bfef0490
+EXPECTED=53e31c84dc0613773e1224215e03004423d3daaaf5ff6cbd518dd1f17f15e246
 ROOT=/srv/veyra-pxe
 TFTP=$ROOT/tftp
 HTTP=$ROOT/http
@@ -84,7 +84,6 @@ extract_one "$REL/preseed.cfg" /preseed.cfg /veyra/preseed.cfg /config/preseed.c
   echo 'choose --default shell --timeout 10000 target && goto ${target}'
   echo ':veyra092'
   echo 'echo Booting signed Veyra v0.9.2 from Node C...'
-  echo 'sanboot --no-describe ${base}/Veyra-AutoInstall-v0.9.2.iso || goto installer'
   echo ':installer'
   if [[ "$kernel_ok" == true && "$initrd_ok" == true ]]; then
     if [[ "$preseed_ok" == true ]]; then
