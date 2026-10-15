@@ -45,7 +45,7 @@ if($Mode -eq 'Enforce'){
   New-ItemProperty -Path $key -Name $p.Name -Value $p.Value -PropertyType DWord -Force | Out-Null
  }
  # Secure state for subsequent safe restore; do not overwrite original baseline.
- $owned | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $state -Encoding UTF8
+ ConvertTo-Json -InputObject @($owned) -Depth 5 | Set-Content -LiteralPath $state -Encoding UTF8
  Log 'Applied browser policies; existing conflicting managed settings were preserved.'
 }
 if($Mode -eq 'Restore'){
