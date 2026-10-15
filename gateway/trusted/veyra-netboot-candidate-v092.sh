@@ -41,6 +41,7 @@ if [[ -e "$FINAL" ]]; then
  echo "Refusing to overwrite existing candidate $FINAL" >&2; exit 75
 fi
 chmod 0644 "$TMP"/*
+chmod 0755 "$TMP"
 mv "$TMP" "$FINAL"
 trap - EXIT
 for part in vmlinuz initrd.gz preseed.cfg boot.ipxe; do
