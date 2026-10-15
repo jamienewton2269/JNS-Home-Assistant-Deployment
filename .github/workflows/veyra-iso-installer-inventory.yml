@@ -1,0 +1,27 @@
+name: Veyra ISO Installer Inventory
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/veyra-iso-installer-inventory.yml']
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - name: Inspect preserved ISO installer modules and available packages
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          D=/srv/veyra-pxe/http/veyra/v0.9.2
+          W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
+          echo '=== ISO BOOT AND PACKAGE LIST ==='
+          xorriso -indev "$D/Veyra-AutoInstall-v0.9.2.iso" -find / -type f -print 2>/dev/null | head -100 || true
+          echo '=== DEBIAN INSTALLER MODULES ==='
+          gzip -dc "$D/initrd.gz" | cpio -it 2>/dev/null > "$W/list"
+          grep -E 'usr/lib/modules/|var/lib/dpkg/info/(netcfg|cdrom|anna|net-retriever)' "$W/list" | head -160 || true
+          echo '=== MODULES AND NIC UDEB CACHE ==='
+          find /var/cache/apt/archives /srv/veyra-pxe /opt -maxdepth 5 -type f \( -iname '*nic-modules*.udeb' -o -iname '*realtek*.deb' \) -print 2>/dev/null | head -80 || true
+          echo '=== LIVE EFI AND PRESEED CHECK ==='
+          grep -E '^(d-i (partman|grub|pkgsel|apt|preseed|netcfg)|#)' "$D/preseed.cfg" | head -65 || true
+          echo 'VEYRA_ISO_INVENTORY_COMPLETE'
