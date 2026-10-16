@@ -1,0 +1,8 @@
+{
+  "id": "maintenance",
+  "version": 1,
+  "status": "implemented",
+  "description": "Core-only maintenance mode; no protocol module owns a radio.",
+  "modules": [],
+  "hardware": {"ownership": "none"}
+}

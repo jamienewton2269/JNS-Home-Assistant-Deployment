@@ -1,0 +1,9 @@
+{
+  "id": "matter_thread_edge",
+  "version": 1,
+  "status": "planned",
+  "description": "Future Matter/Thread edge integration helpers. Matter remains an IP application layer, not a radio owner.",
+  "modules": ["thread_otbr", "matter_edge"],
+  "hardware": {"requires": ["ieee802154_thread_radio"], "ownership": "thread_module"},
+  "integration": {"home_assistant": "matter_over_thread"}
+}

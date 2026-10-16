@@ -1,0 +1,10 @@
+{
+  "id": "zigbee2mqtt",
+  "version": 1,
+  "status": "planned",
+  "description": "Future dedicated Zigbee2MQTT gateway using direct local serial access.",
+  "modules": ["zigbee2mqtt"],
+  "hardware": {"requires": ["ieee802154_radio"], "ownership": "exclusive"},
+  "conflicts": ["zigbee_serial", "thread_otbr"],
+  "integration": {"home_assistant": "mqtt"}
+}

@@ -1,0 +1,8 @@
+{
+  "id": "disabled",
+  "version": 1,
+  "status": "implemented",
+  "description": "Safe fenced state; no protocol modules are active.",
+  "modules": [],
+  "hardware": {"ownership": "none"}
+}

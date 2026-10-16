@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "node": {
+    "id": "jns-iot-gw-01",
+    "role": "iot_gateway"
+  },
+  "profile": {
+    "active": "zigbee_serial"
+  },
+  "hardware": {
+    "radio_1": {
+      "device": "/dev/serial/by-id/REPLACE_WITH_COORDINATOR",
+      "class": "ieee802154",
+      "exclusive": true
+    }
+  },
+  "zigbee_serial": {
+    "baudrate": 115200,
+    "listen_port": 20108,
+    "bind": "0.0.0.0",
+    "max_connections": 1
+  },
+  "logging": {
+    "syslog": {
+      "enabled": false,
+      "server": "syslog.jns.lan",
+      "port": 514,
+      "transport": "udp",
+      "facility": "local5",
+      "app_name": "jns-iot-gateway",
+      "timeout_seconds": 2.0,
+      "spool_max_events": 256,
+      "verify_certificate": true
+    }
+  }
+}
