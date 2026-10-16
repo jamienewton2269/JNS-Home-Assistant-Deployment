@@ -1,0 +1,22 @@
+name: Verify Veyra GRUB-only Candidate
+on:
+  push:
+    paths:
+      - gateway/trusted/veyra-publish-grub-only-v093-test.sh
+      - .github/workflows/veyra-grub-only-verify.yml
+permissions: {contents: read}
+jobs:
+  validate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          p=gateway/trusted/veyra-publish-grub-only-v093-test.sh
+          bash -n "$p"
+          grep -Fq 'grub2/update_nvram boolean false' "$p"
+          grep -Fq 'grub2/force_efi_extra_removable boolean true' "$p"
+          grep -Fq 'scripts/install-debian.sh' "$p"
+          echo 'VEYRA_GRUB_ONLY_STATIC_VALIDATED'
