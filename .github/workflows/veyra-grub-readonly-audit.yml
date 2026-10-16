@@ -1,0 +1,17 @@
+name: Read Veyra GRUB Preseed
+on:
+  push:
+    paths: ['.github/workflows/veyra-grub-readonly-audit.yml']
+permissions: {contents: read}
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - shell: bash
+        run: |
+          set -e
+          echo '=== GRUB AND LATE COMMAND PRESEED ==='
+          sed -n '18,65p' /srv/veyra-pxe/http/veyra/v0.9.2-netboot/preseed-auto.cfg | sed -E 's/(password \\$6\\$)[^ ]+/\\1[REDACTED]/g'
+          echo '=== MENU ==='
+          sed -n '1,27p' /srv/veyra-pxe/http/autoexec.ipxe
