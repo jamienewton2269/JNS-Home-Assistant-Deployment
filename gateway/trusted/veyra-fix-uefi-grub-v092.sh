@@ -25,7 +25,8 @@ stage 'BEGIN bootloader fallback repair'
 test -d /sys/firmware/efi || { stage 'FATAL: installer not UEFI booted'; exit 21; }
 test -d /target/usr || { stage 'FATAL: target root unavailable'; exit 22; }
 # Firmware cannot read EFI Boot* NVRAM. No call may write EFI NVRAM.
-test -d /target/boot/efi/EFI || { stage 'FATAL: no mounted EFI System Partition'; exit 23; }
+mount | grep -q ' on /target/boot/efi ' || { stage 'FATAL: EFI System Partition is not mounted'; exit 23; }
+mkdir -p /target/boot/efi/EFI
 printf 'grub-efi-amd64 grub2/update_nvram boolean false\ngrub-efi-amd64 grub2/force_efi_extra_removable boolean true\n' | in-target debconf-set-selections
 stage 'Installing GRUB EFI binaries'
 in-target apt-get -y install grub-efi-amd64
