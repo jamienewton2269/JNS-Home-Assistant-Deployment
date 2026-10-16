@@ -1,0 +1,29 @@
+name: Verify Veyra UEFI Fallback Repair
+on:
+  push:
+    branches: [main]
+    paths:
+      - gateway/trusted/veyra-fix-uefi-grub-v092.sh
+      - .github/workflows/veyra-uefi-fallback-verify.yml
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          F=gateway/trusted/veyra-fix-uefi-grub-v092.sh
+          bash -n "$F"
+          grep -Fq 'grub-installer/skip boolean true' "$F"
+          grep -Fq -- '--no-nvram' "$F"
+          grep -Fq 'BOOTX64.EFI' "$F"
+          grep -Fq 'veyra-payload.tar.gz' "$F"
+          grep -Fq 'scripts/install-debian.sh' "$F"
+          echo '=== LIVE PXE BOOT CHECKSUMS ==='
+          sha256sum /srv/veyra-pxe/http/veyra/v0.9.2-netboot/{vmlinuz,initrd.gz}
+          echo '=== N CONSOLE ARGUMENTS ==='
+          grep 'kernel .*preseed-auto.cfg' /srv/veyra-pxe/http/autoexec.ipxe
+          echo VEYRA_UEFI_FALLBACK_SCRIPT_STATIC_PASS
