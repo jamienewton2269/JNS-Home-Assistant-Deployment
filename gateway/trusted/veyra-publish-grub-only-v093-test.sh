@@ -25,11 +25,15 @@ lines=s.splitlines()
 def count(fragment): return sum(fragment in x for x in lines)
 assert count('d-i grub-installer/skip boolean true')==1, 'Not the expected previous skip configuration'
 assert count('d-i grub-installer/only_debian boolean true')==1
+assert count('d-i grub-installer/update_nvram boolean false')==1
 assert count('d-i preseed/late_command string')==1
 assert count('veyra-finalize.sh')==1
 assert count('partman/early_command')==1 and 'veyra-disk-probe.sh' in s
 assert count('preseed/early_command')==1
-lines=[x for x in lines if x.strip()!='d-i grub-installer/skip boolean true']
+lines=[x for x in lines if x.strip() not in ('d-i grub-installer/skip boolean true','d-i grub-installer/update_nvram boolean false')]
+# Debian grub-installer 1.212 reads update-nvram (hyphen), not update_nvram (underscore).
+assert not any(x.startswith('d-i grub-installer/update-nvram') for x in lines)
+lines.append('d-i grub-installer/update-nvram boolean false')
 ix=next(i for i,x in enumerate(lines) if x.startswith('d-i grub-installer/only_debian'))
 # Debian GRUB postinst looks for grub2/update_nvram (not grub-installer/update_nvram).
 # Extra-removable installs EFI/BOOT/BOOTX64.EFI, allowing boot without Boot#### variables.
@@ -44,6 +48,8 @@ i=next(i for i,x in enumerate(lines) if x.startswith('d-i preseed/late_command s
 lines[i]='d-i preseed/late_command string in-target /usr/bin/curl -fsSL http://10.10.110.13:8098/veyra/v0.9.2/veyra-payload.tar.gz -o /root/veyra-payload.tar.gz && in-target /bin/tar -xzf /root/veyra-payload.tar.gz -C /root && in-target /bin/bash -c "cd /root/veyra && chmod +x scripts/*.sh && ./scripts/install-debian.sh" && in-target update-grub && in-target /bin/rm -rf /root/veyra /root/veyra-payload.tar.gz'
 out='\n'.join(lines)+'\n'
 assert 'grub-installer/skip boolean true' not in out
+assert 'd-i grub-installer/update-nvram boolean false' in out
+assert 'd-i grub-installer/update_nvram' not in out
 assert out.count('grub2/update_nvram boolean false')==1
 assert out.count('grub2/force_efi_extra_removable boolean true')==1
 assert 'systemd-boot-installer' not in out
