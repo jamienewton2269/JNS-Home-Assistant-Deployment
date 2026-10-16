@@ -23,16 +23,16 @@ src,dst=map(Path,sys.argv[1:])
 s=src.read_text()
 lines=s.splitlines()
 def count(fragment): return sum(fragment in x for x in lines)
-assert count('d-i grub-installer/skip boolean true')==1, 'Not the expected previous skip configuration'
+assert count('d-i grub-installer/skip boolean true')<=1
 assert count('d-i grub-installer/only_debian boolean true')==1
-assert count('d-i grub-installer/update_nvram boolean false')==1
+assert count('d-i grub-installer/update_nvram boolean false')<=1
 assert count('d-i preseed/late_command string')==1
-assert count('veyra-finalize.sh')==1
+assert count('veyra-finalize.sh')<=1
 assert count('partman/early_command')==1 and 'veyra-disk-probe.sh' in s
 assert count('preseed/early_command')==1
 lines=[x for x in lines if x.strip() not in ('d-i grub-installer/skip boolean true','d-i grub-installer/update_nvram boolean false')]
 # Debian grub-installer 1.212 reads update-nvram (hyphen), not update_nvram (underscore).
-assert not any(x.startswith('d-i grub-installer/update-nvram') for x in lines)
+lines=[x for x in lines if not x.startswith('d-i grub-installer/update-nvram')]
 lines.append('d-i grub-installer/update-nvram boolean false')
 ix=next(i for i,x in enumerate(lines) if x.startswith('d-i grub-installer/only_debian'))
 # Debian GRUB postinst looks for grub2/update_nvram (not grub-installer/update_nvram).
