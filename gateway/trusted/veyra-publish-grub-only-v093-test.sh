@@ -32,7 +32,7 @@ assert count('partman/early_command')==1 and 'veyra-disk-probe.sh' in s
 assert count('preseed/early_command')==1
 lines=[x for x in lines if x.strip() not in ('d-i grub-installer/skip boolean true','d-i grub-installer/update_nvram boolean false')]
 # Debian grub-installer 1.212 reads update-nvram (hyphen), not update_nvram (underscore).
-lines=[x for x in lines if not x.startswith('d-i grub-installer/update-nvram')]
+lines=[x for x in lines if not x.startswith(('d-i grub-installer/update-nvram', 'grub-efi-amd64 grub2/update_nvram', 'grub-efi-amd64 grub2/force_efi_extra_removable'))]
 lines.append('d-i grub-installer/update-nvram boolean false')
 ix=next(i for i,x in enumerate(lines) if x.startswith('d-i grub-installer/only_debian'))
 # Debian GRUB postinst looks for grub2/update_nvram (not grub-installer/update_nvram).
@@ -47,6 +47,10 @@ lines[ix:ix]=[
 # prompt for firmware variables. Keep Veyra payload action; GRUB stage now owns EFI.
 i=next(i for i,x in enumerate(lines) if x.startswith('d-i preseed/late_command string'))
 lines[i]='d-i preseed/late_command string in-target /usr/sbin/grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Veyra --removable --no-nvram --recheck && in-target /usr/sbin/update-grub && in-target /usr/bin/curl -fsSL http://10.10.110.13:8098/veyra/v0.9.2/veyra-payload.tar.gz -o /root/veyra-payload.tar.gz && in-target /bin/tar -xzf /root/veyra-payload.tar.gz -C /root && in-target /bin/bash -c "cd /root/veyra && chmod +x scripts/*.sh && ./scripts/install-debian.sh" && in-target update-grub && in-target /bin/rm -rf /root/veyra /root/veyra-payload.tar.gz'
+# Install the Debian Chrome shared libraries before invoking the original Veyra engine.
+needle='&& in-target /usr/bin/curl -fsSL'
+assert lines[i].count(needle)==1
+lines[i]=lines[i].replace(needle,'&& in-target /usr/bin/apt-get update && in-target /usr/bin/apt-get install -y libnspr4 libnss3 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libxcomposite1 libxdamage1 libatspi2.0-0t64 libxtst6 '+needle)
 out='\n'.join(lines)+'\n'
 assert 'grub-installer/skip boolean true' not in out
 assert 'd-i grub-installer/update-nvram boolean false' in out
@@ -56,6 +60,7 @@ assert out.count('grub2/force_efi_extra_removable boolean true')==1
 assert 'systemd-boot-installer' not in out
 assert out.count('in-target /usr/sbin/grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Veyra --removable --no-nvram --recheck')==1
 assert out.index('in-target /usr/sbin/grub-install') < out.index('in-target /usr/bin/curl')
+assert out.index('apt-get install') < out.index('install-debian.sh')
 dst.write_text(out)
 PY
 # Publish atomically; other paths and the working menu remain untouched.
