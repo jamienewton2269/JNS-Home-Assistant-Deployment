@@ -55,6 +55,9 @@ set -euo pipefail
 exec /usr/bin/dbus-run-session -- /usr/bin/sway --config /etc/veyra/sway.conf
 SESSION
 chmod 755 /opt/veyra/scripts/veyra-sway-session.sh
+curl -fLsS --max-time 20 https://raw.githubusercontent.com/jamienewton2269/JNS-Home-Assistant-Deployment/main/gateway/trusted/veyra-sway-switch-v1.sh -o /opt/veyra/scripts/veyra-sway-switch.sh
+chmod 755 /opt/veyra/scripts/veyra-sway-switch.sh
+bash -n /opt/veyra/scripts/veyra-sway-switch.sh
 python3 -m json.tool /etc/veyra/waybar.json >/dev/null
 echo 'VEYRA_COMPOSITOR_STAGED_PASS'
 echo 'Existing Cage service not changed or restarted.'
