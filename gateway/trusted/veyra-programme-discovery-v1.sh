@@ -2,9 +2,25 @@
 # Veyra programme discovery UI v0.9.2-next — preserves kiosk graphics.
 set -Eeuo pipefail
 test "$(id -u)" = 0 || { echo "Use sudo"; exit 2; }
+# End successful updates by asking Veyra's supervisor to replace the current
+# provider Chrome session with the local Home dashboard. Preserve Cage and logins.
+return_veyra_home() {
+  echo "=== Returning Veyra to Home (Chrome provider session switches) ==="
+  local code
+  code="$(curl -sS --max-time 8 -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8767/home)" || {
+    echo "ERROR: Veyra Home controller unavailable; do not restart Cage." >&2
+    return 1
+  }
+  if [ "$code" != 204 ]; then
+    echo "ERROR: Home controller returned HTTP $code" >&2
+    return 1
+  fi
+  sleep 4
+  echo "Veyra Home requested; verify dashboard is visible on laptop."
+}
 VIEW=/opt/veyra/veyra/view.py
 test -s "$VIEW" || { echo "Missing $VIEW"; exit 3; }
-if grep -q 'veyra-programme-discovery-v1' "$VIEW"; then echo "Already installed"; exit 0; fi
+if grep -q 'veyra-programme-discovery-v1' "$VIEW"; then echo "Already installed"; return_veyra_home; exit 0; fi
 B=/var/backups/veyra-programme-discovery/$(date +%Y%m%d-%H%M%S)
 mkdir -p "$B"
 cp -a "$VIEW" "$B/view.py"
@@ -105,4 +121,5 @@ PY
 /opt/veyra/.venv/bin/python -m py_compile "$VIEW"
 echo "Backup: $B"
 echo "The Python UI source was updated. No Cage/seatd/systemd change."
-echo "Reload Veyra Home in Chrome to activate updated page; no kiosk restart needed."
+return_veyra_home
+echo "The browser has been asked to reopen Veyra Home with the updated interface."
