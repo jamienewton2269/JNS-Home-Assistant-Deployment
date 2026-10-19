@@ -45,13 +45,15 @@ PY
    echo 'Bridge already active';exit 0
   fi
   rm -f "$SOCK"
-  DISPLAY=:92 x11vnc -display :92 -unixsockonly "$SOCK" -noxdamage -shared -forever -nopw -quiet -o /home/jnsadmin/veyra-obs-test/bridge.log &
+  DISPLAY=:92 x11vnc -display :92 -unixsock "$SOCK" -rfbport 0 -noxdamage -shared -forever -nopw -quiet -o /home/jnsadmin/veyra-obs-test/bridge.log &
   pid=$!
   echo "$pid" >"$BASE/server.pid"
   sleep 2
   if ! kill -0 "$pid" 2>/dev/null || [ ! -S "$SOCK" ]; then echo 'Bridge failed'; tail -n 25 /home/jnsadmin/veyra-obs-test/bridge.log;exit 4; fi
   chgrp video "$SOCK"
   chmod 660 "$SOCK"
+  echo 'TCP listener check:'
+  ss -H -ltnp | grep -F "pid=$pid," && { echo 'Unexpected TCP listener; stopping bridge'; kill -TERM "$pid"; exit 7; } || :
   echo 'BRIDGE_READY (Unix socket only, no TCP).'
  ;;
  preview)
