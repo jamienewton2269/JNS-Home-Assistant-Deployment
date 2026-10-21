@@ -1,0 +1,45 @@
+name: JNS Network Monitor CT130 v0.3.28
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/netmon/deploy-request-v0.3.28.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jns-netmon-ct130-v0.3.28
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate pinned release and request
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          expected=867419b4043127068c9f926d3176ab23172c2357358aa0e08678b9f972a0ebb8
+          test "$(sha256sum gateway/payloads/jns-netmon-web-repair-v0.3.28.sh | cut -d ' ' -f1)" = "$expected"
+          test "$(sha256sum /usr/local/sbin/jns-netmon-deploy | cut -d ' ' -f1)" = "$(sha256sum gateway/trusted/jns-netmon-deploy-v0.3.28.sh | cut -d ' ' -f1)"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('gateway/netmon/deploy-request-v0.3.28.json')
+          d=json.loads(p.read_text())
+          assert d == {
+              'job_id':'jns-netmon-ct130-v0.3.28-20261021',
+              'job_type':'jns_netmon_deploy',
+              'target':'CT130',
+              'version':'0.3.28',
+              'sha256':'867419b4043127068c9f926d3176ab23172c2357358aa0e08678b9f972a0ebb8'
+          }, 'deployment request does not exactly match the pinned CT130 release'
+          print('Request and pinned payload validated for CT130 only.')
+          PY
+      - name: Deploy through the approved root wrapper
+        shell: bash
+        run: sudo -n /usr/local/sbin/jns-netmon-deploy
