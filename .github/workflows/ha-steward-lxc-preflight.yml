@@ -1,0 +1,62 @@
+name: HA Steward LXC Preflight
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ha-steward-lxc-preflight.yml'
+      - 'natural_automation_steward/lxc/PREFLIGHT'
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inspect CT221 and Proxmox API contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          target=""
+          for candidate in nodeb.home.arpa node-b.home.arpa 10.10.110.12 nodeb; do
+            if ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new "root@$candidate" 'true' 2>/dev/null; then
+              target="$candidate"; break
+            fi
+          done
+          test -n "$target" || { echo "Node B unavailable"; exit 69; }
+          echo "nodeb_target=$target"
+
+          ssh "root@$target" 'bash -s' <<'NODEB'
+          set -Eeuo pipefail
+          echo "=== CT221 ==="
+          pvesh get /cluster/resources --type vm --output-format json |
+            python3 -c 'import json,sys; r=json.load(sys.stdin); h=[x for x in r if int(x.get("vmid",-1))==221]; print(json.dumps(h,indent=2)); raise SystemExit(1 if h else 0)'
+          test ! -e /etc/pve/lxc/221.conf
+          test ! -e /etc/pve/qemu-server/221.conf
+          echo "CT221_FREE=YES"
+
+          echo "=== HA GENERAL CLUSTER RESOURCE ==="
+          pvesh get /cluster/resources --type vm --output-format json |
+            python3 -c 'import json,sys; r=json.load(sys.stdin); print(json.dumps([x for x in r if x.get("name") in ("ha-s2-general","ha-general")],indent=2))'
+
+          echo "=== AGENT EXEC USAGE ==="
+          pvesh usage "/nodes/$(hostname)/qemu/905/agent/exec" -v || true
+          echo "=== AGENT EXEC STATUS USAGE ==="
+          pvesh usage "/nodes/$(hostname)/qemu/905/agent/exec-status" -v || true
+
+          echo "=== CT220 NETWORK REFERENCE ==="
+          pct config 220 || true
+
+          echo "=== DNS ==="
+          for n in nodea.home.arpa nodeb.home.arpa nodec.home.arpa ha-general.home.arpa; do
+            echo "-- $n"
+            getent ahosts "$n" || true
+          done
+
+          echo "=== API PORTS ==="
+          ss -lntp | grep ':8006 ' || true
+          NODEB
