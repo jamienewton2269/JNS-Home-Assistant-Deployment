@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, asdict
 import re
 import time
+import threading
 import uuid
 from typing import Any
 
@@ -25,24 +26,32 @@ class ProposalStore:
     def __init__(self, ttl_seconds: float = 900.0):
         self.ttl_seconds = ttl_seconds
         self._items: dict[str, AutomationProposal] = {}
+        self._lock = threading.RLock()
 
     def put(self, proposal: AutomationProposal) -> AutomationProposal:
-        self.prune()
-        self._items[proposal.proposal_id] = proposal
-        return proposal
+        with self._lock:
+            self._prune_locked()
+            self._items[proposal.proposal_id] = proposal
+            return proposal
 
     def get(self, proposal_id: str) -> AutomationProposal | None:
-        self.prune()
-        return self._items.get(proposal_id)
+        with self._lock:
+            self._prune_locked()
+            return self._items.get(proposal_id)
 
     def remove(self, proposal_id: str) -> None:
-        self._items.pop(proposal_id, None)
+        with self._lock:
+            self._items.pop(proposal_id, None)
 
-    def prune(self) -> None:
+    def _prune_locked(self) -> None:
         cutoff = time.time() - self.ttl_seconds
         for key, value in list(self._items.items()):
             if value.created_at < cutoff:
                 self._items.pop(key, None)
+
+    def prune(self) -> None:
+        with self._lock:
+            self._prune_locked()
 
 
 def _time_24h(text: str) -> tuple[int, int] | None:
