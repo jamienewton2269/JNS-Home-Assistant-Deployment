@@ -32,28 +32,38 @@ jobs:
           rm -rf "$root"
           mkdir -p "$root/steward" "$root/real_progress" "$root/systemd"
 
-          ssh -o BatchMode=yes -o ConnectTimeout=10 nodeb 'test -f /opt/natural-automation/natural_automation.py'
-          scp -q nodeb:/opt/natural-automation/natural_automation.py "$root/natural_automation.py"
+          nodeb_target=""
+          for candidate in nodeb.home.arpa node-b.home.arpa nodeb 10.10.110.12 10.10.10.235; do
+            if ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new "root@$candidate" 'test -f /opt/natural-automation/natural_automation.py' 2>/dev/null; then
+              nodeb_target="$candidate"
+              break
+            fi
+          done
+          test -n "$nodeb_target" || { echo "Unable to locate current Node B"; exit 69; }
+          echo "nodeb_target=$nodeb_target"
+
+          scp -q "root@$nodeb_target:/opt/natural-automation/natural_automation.py" "$root/natural_automation.py"
 
           mapfile -t steward_files < <(
-            ssh nodeb 'find /opt/natural-automation/steward -maxdepth 1 -type f -name "*.py" -printf "%f\n" | sort'
+            ssh "root@$nodeb_target" 'find /opt/natural-automation/steward -maxdepth 1 -type f -name "*.py" -printf "%f\n" | sort'
           )
           for f in "${steward_files[@]}"; do
-            scp -q "nodeb:/opt/natural-automation/steward/$f" "$root/steward/$f"
+            scp -q "root@$nodeb_target:/opt/natural-automation/steward/$f" "$root/steward/$f"
           done
 
-          if ssh nodeb 'test -f /opt/real-progress/real_progress.py'; then
-            scp -q nodeb:/opt/real-progress/real_progress.py "$root/real_progress/real_progress.py"
+          if ssh "root@$nodeb_target" 'test -f /opt/real-progress/real_progress.py'; then
+            scp -q "root@$nodeb_target:/opt/real-progress/real_progress.py" "$root/real_progress/real_progress.py"
           fi
 
-          ssh nodeb 'systemctl cat natural-automation.service' > "$root/systemd/natural-automation.service"
+          ssh "root@$nodeb_target" 'systemctl cat natural-automation.service' > "$root/systemd/natural-automation.service"
 
           {
             echo "recovered_at=$(date -Is)"
-            echo "source_host=$(ssh nodeb hostname)"
-            echo "service_status=$(ssh nodeb 'systemctl is-active natural-automation.service || true')"
-            echo "service_enabled=$(ssh nodeb 'systemctl is-enabled natural-automation.service || true')"
-            echo "live_status=$(ssh nodeb 'curl -fsS --max-time 15 http://127.0.0.1:8099/api/status || true')"
+            echo "source_target=$nodeb_target"
+            echo "source_host=$(ssh "root@$nodeb_target" hostname)"
+            echo "service_status=$(ssh "root@$nodeb_target" 'systemctl is-active natural-automation.service || true')"
+            echo "service_enabled=$(ssh "root@$nodeb_target" 'systemctl is-enabled natural-automation.service || true')"
+            echo "live_status=$(ssh "root@$nodeb_target" 'curl -fsS --max-time 15 http://127.0.0.1:8099/api/status || true')"
             echo
             echo "SHA256"
             find "$root" -type f ! -name MANIFEST.txt -print0 | sort -z | xargs -0 sha256sum
