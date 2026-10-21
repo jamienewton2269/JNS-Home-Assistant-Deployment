@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+# Stage attempt marker: 2
 
 SRC_ROOT="${1:?path to natural_automation_steward source required}"
 CTID=221
