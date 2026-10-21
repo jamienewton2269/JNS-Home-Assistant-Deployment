@@ -10,16 +10,16 @@ die() {
 
 resolve_target() {
   pvesh get /cluster/resources --type vm --output-format json |
-    python3 - <<'PY'
+    python3 -c '
 import json,sys
 names={"ha-s2-general","ha-general"}
 rows=json.load(sys.stdin)
 matches=[x for x in rows if x.get("name") in names and x.get("type")=="qemu"]
 if len(matches)!=1:
-    raise SystemExit(f"expected exactly one HA-General VM, found {len(matches)}")
+    raise SystemExit("expected exactly one HA-General VM, found {}".format(len(matches)))
 x=matches[0]
-print(f'{x["node"]}\t{int(x["vmid"])}\t{x["name"]}')
-PY
+print("{}\t{}\t{}".format(x["node"],int(x["vmid"]),x["name"]))
+'
 }
 
 target_json() {
