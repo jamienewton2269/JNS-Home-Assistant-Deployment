@@ -103,6 +103,11 @@ def controller_role(cfg):
     if off and not on: return 'off'
     return 'mixed'
 
+def natural_automation_managed(cfg):
+    if not isinstance(cfg,dict): return False
+    if str(cfg.get("id","")).startswith("natural_"): return True
+    return str(cfg.get("description","")).startswith("Created by Natural Automation")
+
 def friendly(entity):
     return (entity.get("name") or entity.get("original_name") or entity.get("entity_id") or "")
 
@@ -256,7 +261,7 @@ def analyse(text, progress=None):
                           "source":a.get("_source","unknown"),"role":controller_role(a),"config":a})
     if progress: progress("Evaluating conflicts and coverage")
     roles=[c["role"] for c in ctrls]
-    managed=any(c["source"]=="natural_automation.yaml" for c in ctrls)
+    managed=any(natural_automation_managed(c["config"]) for c in ctrls)
     if managed and "on" in roles and "off" in roles:
         action="covered_with_legacy_fallback"
     else:
