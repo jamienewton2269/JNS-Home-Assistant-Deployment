@@ -22,13 +22,14 @@ done
 SRC="$ROOT_DIR/src"
 SERVICE="$ROOT_DIR/systemd/natural-automation.service"
 TOOLS="$ROOT_DIR/tools"
+VERSION_FILE="$ROOT_DIR/VERSION"
 LIVE=/opt/natural-automation
 REAL=/opt/real-progress
 RELEASES=/opt/.natural-automation-releases
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP="$RELEASES/v1-pre-$STAMP"
 
-for required in   "$SRC/natural_automation.py"   "$SRC/steward/store.py"   "$SRC/steward/writer.py"   "$SRC/steward/target.py"   "$SRC/steward/proposals.py"   "$SERVICE"   "$TOOLS/seed_repairs.py"
+for required in   "$SRC/natural_automation.py"   "$SRC/steward/store.py"   "$SRC/steward/writer.py"   "$SRC/steward/target.py"   "$SRC/steward/proposals.py"   "$SERVICE"   "$TOOLS/seed_repairs.py"   "$VERSION_FILE"
 do
   [[ -f "$required" ]] || { echo "Missing release file: $required" >&2; exit 66; }
 done
@@ -49,12 +50,71 @@ fi
 if [[ -f "$LIVE/data/steward.db" ]]; then
   cp -a "$LIVE/data/steward.db" "$BACKUP/steward.db"
 fi
+if [[ -f "$LIVE/VERSION" ]]; then
+  cp -a "$LIVE/VERSION" "$BACKUP/VERSION"
+fi
+
+# If a previous v1 attempt copied canonical source but failed before completion,
+# retain the oldest pre-v1 snapshot as the rollback baseline.
+ROLLBACK_SOURCE="$BACKUP"
+if [[ -f "$LIVE/natural_automation.py" ]] &&    grep -q 'TARGET_RESOLVER=TargetResolver()' "$LIVE/natural_automation.py"; then
+  candidate="$(
+    find "$RELEASES" -mindepth 1 -maxdepth 1 -type d -name 'v1-pre-*' -print |
+      LC_ALL=C sort | head -1
+  )"
+  if [[ -n "$candidate" && "$candidate" != "$BACKUP" && -f "$candidate/natural_automation.py" ]]; then
+    ROLLBACK_SOURCE="$candidate"
+  fi
+fi
+
+cat > "$BACKUP/rollback.sh" <<EOF
+#!/usr/bin/env bash
+set -Eeuo pipefail
+SOURCE="$ROLLBACK_SOURCE"
+LIVE="$LIVE"
+REAL="$REAL"
+systemctl stop natural-automation.service || true
+if [[ -f "\$SOURCE/natural_automation.py" ]]; then
+  cp -a "\$SOURCE/natural_automation.py" "\$LIVE/natural_automation.py"
+fi
+if [[ -d "\$SOURCE/steward" ]]; then
+  rm -rf "\$LIVE/steward"
+  cp -a "\$SOURCE/steward" "\$LIVE/steward"
+fi
+if [[ -d "\$SOURCE/real-progress" ]]; then
+  rm -rf "\$REAL"
+  cp -a "\$SOURCE/real-progress" "\$REAL"
+fi
+if [[ -f "\$SOURCE/natural-automation.service" ]]; then
+  cp -a "\$SOURCE/natural-automation.service" /etc/systemd/system/natural-automation.service
+fi
+if [[ -f "\$SOURCE/steward.db" ]]; then
+  cp -a "\$SOURCE/steward.db" "\$LIVE/data/steward.db"
+fi
+if [[ -f "\$SOURCE/VERSION" ]]; then
+  cp -a "\$SOURCE/VERSION" "\$LIVE/VERSION"
+else
+  rm -f "\$LIVE/VERSION"
+fi
+systemctl daemon-reload
+systemctl restart natural-automation.service
+EOF
+chmod 0750 "$BACKUP/rollback.sh"
+
+rollback_on_error() {
+  rc=$?
+  echo "INSTALL_FAILED rc=$rc; restoring $ROLLBACK_SOURCE" >&2
+  bash "$BACKUP/rollback.sh" || true
+  exit "$rc"
+}
+trap rollback_on_error ERR
 
 mkdir -p "$LIVE/steward" "$LIVE/tools" "$REAL"
 install -m 0755 "$SRC/natural_automation.py" "$LIVE/natural_automation.py"
 find "$LIVE/steward" -maxdepth 1 -type f -name '*.py' -delete
 install -m 0644 "$SRC"/steward/*.py "$LIVE/steward/"
 install -m 0755 "$TOOLS/seed_repairs.py" "$LIVE/tools/seed_repairs.py"
+install -m 0644 "$VERSION_FILE" "$LIVE/VERSION"
 
 find "$REAL" -maxdepth 1 -type f -name '*.py' -delete
 install -m 0644 "$SRC"/real_progress/*.py "$REAL/"
@@ -68,37 +128,14 @@ if [[ -n "$SEED_JSON" ]]; then
   python3 "$LIVE/tools/seed_repairs.py"     --db "$LIVE/data/steward.db"     --import-json "$SEED_JSON"
 fi
 
-cat > "$BACKUP/rollback.sh" <<EOF
-#!/usr/bin/env bash
-set -Eeuo pipefail
-systemctl stop natural-automation.service || true
-if [[ -f "$BACKUP/natural_automation.py" ]]; then
-  cp -a "$BACKUP/natural_automation.py" "$LIVE/natural_automation.py"
-fi
-if [[ -d "$BACKUP/steward" ]]; then
-  rm -rf "$LIVE/steward"
-  cp -a "$BACKUP/steward" "$LIVE/steward"
-fi
-if [[ -d "$BACKUP/real-progress" ]]; then
-  rm -rf "$REAL"
-  cp -a "$BACKUP/real-progress" "$REAL"
-fi
-if [[ -f "$BACKUP/natural-automation.service" ]]; then
-  cp -a "$BACKUP/natural-automation.service" /etc/systemd/system/natural-automation.service
-fi
-if [[ -f "$BACKUP/steward.db" ]]; then
-  cp -a "$BACKUP/steward.db" "$LIVE/data/steward.db"
-fi
-systemctl daemon-reload
-systemctl restart natural-automation.service
-EOF
-chmod 0750 "$BACKUP/rollback.sh"
-
 systemctl daemon-reload
 systemctl restart natural-automation.service
 sleep 2
 systemctl is-active --quiet natural-automation.service
 
+trap - ERR
 echo "INSTALL_OK"
+echo "version=$(tr -d '\r\n' < "$LIVE/VERSION")"
 echo "backup=$BACKUP"
+echo "rollback_source=$ROLLBACK_SOURCE"
 echo "rollback=$BACKUP/rollback.sh"
