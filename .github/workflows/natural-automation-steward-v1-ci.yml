@@ -81,5 +81,4 @@ jobs:
           grep -q 'Apply automation' natural_automation_steward/src/natural_automation.py
           grep -q '/config/automations.yaml' natural_automation_steward/src/steward/writer.py
           bash -n natural_automation_steward/lxc/ha-steward-pve-wrapper
-          bash -n natural_automation_steward/lxc/ha-steward-ssh-entry
           bash -n natural_automation_steward/lxc/install-in-lxc.sh
