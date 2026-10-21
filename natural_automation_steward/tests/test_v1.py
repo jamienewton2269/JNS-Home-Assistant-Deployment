@@ -93,6 +93,49 @@ class StoreTests(unittest.TestCase):
             hits = store.search_repairs("coordinator")
             self.assertEqual(len(hits), 1)
 
+    def test_seed_script_runs_from_installed_layout(self):
+        import shutil
+        import subprocess
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            installed = td / "natural-automation"
+            (installed / "tools").mkdir(parents=True)
+            shutil.copy2(ROOT / "tools" / "seed_repairs.py", installed / "tools" / "seed_repairs.py")
+            shutil.copytree(SRC / "steward", installed / "steward")
+
+            seed = td / "seed.json"
+            seed.write_text(json.dumps({
+                "schema": "steward-repair-seed-v1",
+                "records": [{
+                    "id": "seed-one",
+                    "title": "Installed layout test",
+                    "subsystem": "home_assistant",
+                    "problem": "test",
+                    "diagnosis": "",
+                    "repair_steps": [],
+                    "verification_steps": [],
+                    "rollback_steps": [],
+                    "confidence": 0.5,
+                    "portable": False,
+                    "safety_class": "manual_review",
+                    "source_path": "test/example.sh",
+                    "source_sha256": "abc",
+                }]
+            }))
+            db = td / "steward.db"
+            p = subprocess.run(
+                [
+                    sys.executable,
+                    str(installed / "tools" / "seed_repairs.py"),
+                    "--db", str(db),
+                    "--import-json", str(seed),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(p.returncode, 0, p.stderr)
+            store = StewardStore(db)
+            self.assertEqual(store.status()["repairs"], 1)
     def test_historical_seed_is_manual_review(self):
         with tempfile.TemporaryDirectory() as td:
             repo = Path(td) / "repo"
