@@ -1,0 +1,7 @@
+{
+  "job_id": "jns-netmon-ct130-v0.3.28-20261021",
+  "job_type": "jns_netmon_deploy",
+  "target": "CT130",
+  "version": "0.3.28",
+  "sha256": "867419b4043127068c9f926d3176ab23172c2357358aa0e08678b9f972a0ebb8"
+}
