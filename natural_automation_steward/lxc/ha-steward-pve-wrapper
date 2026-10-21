@@ -49,7 +49,8 @@ allowed = argv in (["ha","core","check"],["ha","core","info"],["ha","core","rest
 allowed = allowed or (len(argv)==6 and argv[:5]==["docker","exec","homeassistant","python3","-c"])
 if not allowed:
     raise SystemExit("command not allow-listed")
-print(json.dumps(argv,separators=(",",":")))
+for arg in argv:
+    print(base64.b64encode(arg.encode()).decode())
 PY
 }
 
@@ -59,9 +60,26 @@ case "$ORIGINAL" in
     ;;
   guest-exec\ *)
     payload="${ORIGINAL#guest-exec }"
-    argv_json="$(decode_and_validate_argv "$payload")"
+    mapfile -t encoded_args < <(decode_and_validate_argv "$payload")
+    [[ ${#encoded_args[@]} -gt 0 ]] || die "empty command"
+    IFS=
+  guest-exec-status\ *)
+    pid="${ORIGINAL#guest-exec-status }"
+    [[ "$pid" =~ ^[0-9]+$ ]] || die "invalid pid"
     IFS=$'\t' read -r node vmid name < <(resolve_target)
-    pvesh create "/nodes/$node/qemu/$vmid/agent/exec" --command "$argv_json" --output-format json
+    pvesh get "/nodes/$node/qemu/$vmid/agent/exec-status" --pid "$pid" --output-format json
+    ;;
+  *)
+    die "operation not allow-listed"
+    ;;
+esac
+\t' read -r node vmid name < <(resolve_target)
+    pve_cmd=(pvesh create "/nodes/$node/qemu/$vmid/agent/exec" --output-format json)
+    for encoded in "${encoded_args[@]}"; do
+      arg="$(printf '%s' "$encoded" | base64 -d)"
+      pve_cmd+=(--command "$arg")
+    done
+    "${pve_cmd[@]}"
     ;;
   guest-exec-status\ *)
     pid="${ORIGINAL#guest-exec-status }"
