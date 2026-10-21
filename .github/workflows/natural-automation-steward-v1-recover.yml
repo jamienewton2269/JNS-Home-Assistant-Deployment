@@ -1,0 +1,74 @@
+name: Natural Automation Steward v1 Recover
+
+on:
+  push:
+    branches: [natural-automation-steward-v1]
+    paths:
+      - '.github/workflows/natural-automation-steward-v1-recover.yml'
+      - 'natural_automation_steward/.recover'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: natural-automation-steward-v1-recover
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: natural-automation-steward-v1
+          fetch-depth: 0
+
+      - name: Recover live Node B source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          root="natural_automation_steward/live_recovered"
+          rm -rf "$root"
+          mkdir -p "$root/steward" "$root/real_progress" "$root/systemd"
+
+          ssh -o BatchMode=yes -o ConnectTimeout=10 nodeb 'test -f /opt/natural-automation/natural_automation.py'
+          scp -q nodeb:/opt/natural-automation/natural_automation.py "$root/natural_automation.py"
+
+          mapfile -t steward_files < <(
+            ssh nodeb 'find /opt/natural-automation/steward -maxdepth 1 -type f -name "*.py" -printf "%f\n" | sort'
+          )
+          for f in "${steward_files[@]}"; do
+            scp -q "nodeb:/opt/natural-automation/steward/$f" "$root/steward/$f"
+          done
+
+          if ssh nodeb 'test -f /opt/real-progress/real_progress.py'; then
+            scp -q nodeb:/opt/real-progress/real_progress.py "$root/real_progress/real_progress.py"
+          fi
+
+          ssh nodeb 'systemctl cat natural-automation.service' > "$root/systemd/natural-automation.service"
+
+          {
+            echo "recovered_at=$(date -Is)"
+            echo "source_host=$(ssh nodeb hostname)"
+            echo "service_status=$(ssh nodeb 'systemctl is-active natural-automation.service || true')"
+            echo "service_enabled=$(ssh nodeb 'systemctl is-enabled natural-automation.service || true')"
+            echo "live_status=$(ssh nodeb 'curl -fsS --max-time 15 http://127.0.0.1:8099/api/status || true')"
+            echo
+            echo "SHA256"
+            find "$root" -type f ! -name MANIFEST.txt -print0 | sort -z | xargs -0 sha256sum
+          } > "$root/MANIFEST.txt"
+
+      - name: Commit recovered baseline
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name "jns-v1-consolidation"
+          git config user.email "jns-v1-consolidation@users.noreply.github.com"
+          git add natural_automation_steward/live_recovered
+          if git diff --cached --quiet; then
+            echo "Recovered live source matches branch snapshot."
+            exit 0
+          fi
+          git commit -m "natural automation: recover live Node B baseline"
+          git push origin HEAD:natural-automation-steward-v1
