@@ -1,6 +1,8 @@
 name: HA Steward LXC Stage
 
 on:
+  schedule:
+    - cron: '*/5 * * * *'
   push:
     branches: [main]
     paths:
@@ -42,6 +44,20 @@ jobs:
           done
           test -n "$target" || { echo 'Node B unavailable'; exit 69; }
           echo "nodeb_target=$target"
+
+          if ssh "root@$target" 'pct status 221 >/dev/null 2>&1 && pct exec 221 -- curl -fsS --max-time 5 http://127.0.0.1:8099/api/status 2>/dev/null' > /tmp/ha-steward-existing.json 2>/dev/null; then
+            python3 - <<'PY'
+import json
+d=json.load(open('/tmp/ha-steward-existing.json'))
+if d.get('ok') is True and d.get('apply_enabled') is False and (d.get('target') or {}).get('role') == 'ha-general':
+    print('CT221_ALREADY_STAGED_OK', d)
+    raise SystemExit(0)
+raise SystemExit(1)
+PY
+            if [[ $? -eq 0 ]]; then
+              exit 0
+            fi
+          fi
 
           archive="/tmp/ha-steward-lxc-${GITHUB_SHA}.tgz"
           tar -czf "$archive" natural_automation_steward
