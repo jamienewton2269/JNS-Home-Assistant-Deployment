@@ -1,0 +1,13 @@
+[Unit]
+Description=JNS Steward Remove Reviewed GitHub Diagnostics
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/etc/jns-steward/github-diagnostics.token
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/libexec/jns-steward/steward_diagnostics_cleanup.py --min-age-hours 48
+User=root
+UMask=0077
+NoNewPrivileges=true
+TimeoutStartSec=180
