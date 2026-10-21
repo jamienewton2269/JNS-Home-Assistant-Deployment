@@ -1,4 +1,5 @@
 name: HA Steward LXC Stage
+# CT221 staging retry after Proxmox authorized_keys metadata fix
 
 on:
   schedule:
