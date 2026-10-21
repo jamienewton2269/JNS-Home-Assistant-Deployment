@@ -60,7 +60,7 @@ jobs:
           '
 
           rollback="$(
-            ssh "root@$nodeb_target" "awk -F= '/^rollback=/{print \\$2}' /tmp/natural-automation-v1-install.out | tail -1"
+            ssh "root@$nodeb_target" "sed -n 's/^rollback=//p' /tmp/natural-automation-v1-install.out | tail -1"
           )"
           test -n "$rollback" || { echo "Installer did not report rollback path"; exit 70; }
           echo "rollback=$rollback"
