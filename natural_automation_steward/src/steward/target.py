@@ -75,6 +75,10 @@ class TargetResolver:
         self.bridge_key = os.environ.get(
             "NA_PVE_BRIDGE_KEY", "/etc/natural-automation/pve-bridge.key"
         ).strip()
+        self.bridge_known_hosts = os.environ.get(
+            "NA_PVE_BRIDGE_KNOWN_HOSTS",
+            "/etc/natural-automation/known_hosts",
+        ).strip()
 
         self.cache_seconds = cache_seconds
         self._cached: HATarget | None = None
@@ -132,7 +136,8 @@ class TargetResolver:
             "ssh",
             "-o", "BatchMode=yes",
             "-o", "ConnectTimeout=5",
-            "-o", "StrictHostKeyChecking=accept-new",
+            "-o", "StrictHostKeyChecking=yes",
+            "-o", f"UserKnownHostsFile={self.bridge_known_hosts}",
             "-o", "IdentitiesOnly=yes",
             "-i", self.bridge_key,
             f"{self.bridge_user}@{self.bridge_host}",
