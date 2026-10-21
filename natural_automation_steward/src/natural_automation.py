@@ -9,8 +9,11 @@ sys.path.insert(0,"/opt/real-progress")
 from real_progress import ProgressModel, JobTracker
 from steward.store import StewardStore
 from steward.writer import apply_automation, ApplyError
+from steward.target import TargetResolver, TargetResolutionError
+from steward.proposals import ProposalStore, build_automation_proposal
 
-VMID=int(os.environ.get('NA_VMID','905'))
+TARGET_RESOLVER=TargetResolver()
+PROPOSALS=ProposalStore()
 ROOT=Path("/opt/natural-automation")
 DATA=ROOT/"data"; DATA.mkdir(parents=True,exist_ok=True)
 AUDIT=DATA/"changes.jsonl"
@@ -34,11 +37,11 @@ PROGRESS_MODEL=ProgressModel(PROGRESS_STATS,defaults={
 JOB_TRACKER=JobTracker(PROGRESS_MODEL)
 
 def qga_python(code, timeout=40):
-    p=subprocess.run(["qm","guest","exec",str(VMID),"--","docker","exec","homeassistant",
-        "python3","-c",code],capture_output=True,text=True,timeout=timeout,check=True)
-    r=json.loads(p.stdout)
-    if r.get("exitcode")!=0: raise RuntimeError(r.get("err-data") or "guest command failed")
-    return r.get("out-data","")
+    r=TARGET_RESOLVER.guest_exec(
+        ["docker","exec","homeassistant","python3","-c",code],
+        timeout=timeout,
+    )
+    return r.get("out-data","") or ""
 
 def audit(event, **extra):
     with AUDIT_LOCK:
@@ -276,10 +279,19 @@ def analyse(text, progress=None):
     else:
         logic.append('No existing controller was found; a new standard Home Assistant automation could be proposed.')
     logic.append('Home Assistant write gate is disabled.' if not ENABLE_APPLY else 'Controlled apply gate is enabled.')
+    proposal=None
+    if action=="create" and ENABLE_APPLY:
+        built=build_automation_proposal(text,chosen["entity_id"],chosen.get("name"))
+        if built:
+            proposal=PROPOSALS.put(built).to_dict()
+            logic.append('A complete native Home Assistant automation proposal is ready for confirmation.')
+        else:
+            logic.append('Apply is withheld because this schedule cannot yet be translated without assumptions.')
     result={"action":action,"request":text,"target_phrase":target,"target":chosen,
-            "controllers":ctrls,"apply_enabled":ENABLE_APPLY,"logic":logic}
+            "controllers":ctrls,"apply_enabled":ENABLE_APPLY,"logic":logic,"proposal":proposal}
     if progress: progress("Writing audit record")
     audit("analyse",request=text,target=chosen,action=action,logic=logic,
+          proposal_id=(proposal or {}).get("proposal_id"),
           controllers=[{"id":c["id"],"alias":c["alias"],"source":c["source"],"role":c["role"]} for c in ctrls])
     return result
 
@@ -697,6 +709,7 @@ async function refreshInlineAdmin(){
 }
 let activeRequest='';
 let multiState=null;
+let currentProposal=null;
 function setCurrentRequest(text){
   activeRequest=text;
   document.getElementById('reqtext').textContent=text||'(blank request)';
@@ -789,8 +802,27 @@ function showMulti(d){
     '<div id="multilist"></div><div class="multi-actions"><span id="multicount">0 selected</span><br><button class="primary" onclick="confirmMulti()">Use selected devices</button></div>';
   renderMultiCandidates(d.candidates)
 }
+async function applyCurrentProposal(){
+  if(!currentProposal||!currentProposal.proposal_id)return;
+  if(!window.confirm('Apply this automation to HA-General?\n\n'+currentProposal.summary))return;
+  let o=document.getElementById('o');
+  o.className='card progress';
+  o.innerHTML='<h3>Applying automation…</h3><p class="muted">Re-checking target and conflicts, writing transactionally, validating Home Assistant and preserving rollback.</p>';
+  let d=await post('/api/apply-automation',{proposal_id:currentProposal.proposal_id});
+  if(!d._http_ok){
+    show({action:'error',error:d.error||'Automation apply failed.',suggestion:'No unvalidated automation has been left applied.'});
+    return
+  }
+  o.className='card';
+  o.innerHTML='<h3>APPLIED</h3><p><b>'+esc(currentProposal.summary)+'</b></p>'+
+    '<p>Automation ID: <code>'+esc(d.automation_id||'created')+'</code></p>'+
+    '<p class="muted">Home Assistant configuration validation and read-back verification passed.</p>';
+  currentProposal=null;
+  await refreshInlineAdmin()
+}
 function show(d){
   let o=document.getElementById('o');o.className='card';
+  currentProposal=null;
   if((d._http_ok===false)||d.error||d.action==='error'){o.className='card error';o.innerHTML='<h3>ERROR - request not understood</h3><p><b>'+(d.error||'Unknown error')+'</b></p>'+(d.suggestion?'<p>'+d.suggestion+'</p>':'')+'<p class="muted">Nothing has been changed in Home Assistant.</p>';return}
   if(d.action==='select_devices'){showMulti(d);return}
   if(d.action==='multi_selection_confirmed'){let h='<h3>MULTIPLE DEVICES CONFIRMED</h3><p>'+d.selected.length+' device(s) selected:</p><ul>'+d.selected.map(x=>'<li><b>'+x.name+'</b> · '+x.entity_id+(x.area?' · '+x.area:'')+'</li>').join('')+'</ul>';if(d.intent){h+='<h4>Structured intent</h4><ul>'+(d.intent.operation?'<li><b>Operation:</b> '+d.intent.operation.replaceAll('_',' ')+'</li>':'')+(d.intent.metric?'<li><b>Metric:</b> '+d.intent.metric+'</li>':'')+(d.intent.source_reference?'<li><b>Source reference:</b> '+d.intent.source_reference+'</li>':'')+(d.intent.trigger_relationship?'<li><b>Trigger relationship:</b> '+d.intent.trigger_relationship+'</li>':'')+(d.intent.requested_direction?'<li><b>Requested direction:</b> '+d.intent.requested_direction+'</li>':'')+(d.intent.threshold_effect?'<li><b>Threshold interpretation:</b> '+d.intent.threshold_effect+'</li>':'')+(d.intent.condition_context?'<li><b>Condition:</b> '+d.intent.condition_context+'</li>':'')+(d.intent.magnitude?'<li><b>Magnitude:</b> '+d.intent.magnitude+'</li>':'')+'</ul>';if(d.intent.unresolved&&d.intent.unresolved.length)h+='<h4>Needs confirmation</h4><ul>'+d.intent.unresolved.map(x=>'<li>'+x+'</li>').join('')+'</ul>';if(d.intent.assumptions&&d.intent.assumptions.length)h+='<h4>Assumptions</h4><ul>'+d.intent.assumptions.map(x=>'<li>'+x+'</li>').join('')+'</ul>'}if(d.logic)h+='<h4>What I understood</h4><ol>'+d.logic.map(x=>'<li>'+x+'</li>').join('')+'</ol>';o.innerHTML=h;return}
@@ -799,6 +831,15 @@ function show(d){
   if(d.controllers.length){h+='<p>Existing controllers found:</p><div id="controllers"></div>'}
   if(d.action==='conflict')h+='<p><b>No new automation will be created until this conflict is resolved.</b></p><p class="muted">If one of these automations is obsolete, propose its removal for admin review.</p>';
   if(d.logic){h+='<h4>What I understood</h4><ol>'+d.logic.map(x=>'<li>'+x+'</li>').join('')+'</ol>'}
+  if(d.action==='create'&&d.proposal&&d.apply_enabled){
+    currentProposal=d.proposal;
+    h+='<div class="admincard"><h4>Proposed automation</h4><p><b>'+esc(d.proposal.summary)+'</b></p>'+
+       '<details><summary>Show native Home Assistant automation</summary><pre>'+esc(JSON.stringify(d.proposal.automation,null,2))+'</pre></details>'+
+       '<button class="primary" onclick="applyCurrentProposal()">Apply automation</button>'+
+       '<p class="muted">Nothing is written until you press Apply automation and confirm.</p></div>'
+  }else if(d.action==='create'&&!d.proposal){
+    h+='<p class="muted">Apply is unavailable until the schedule can be translated without assumptions.</p>'
+  }
   o.innerHTML=h;
   let box=document.getElementById('controllers');
   if(box){d.controllers.forEach(c=>{let row=document.createElement('div');row.className='stage';row.textContent=c.alias+' · '+c.role.toUpperCase()+' · '+c.source;if(d.controllers.length>1){let b=document.createElement('button');b.className='remove';b.textContent='Propose removal';b.onclick=()=>proposeRemoval(c,b);row.appendChild(b)}box.appendChild(row)})}
@@ -880,7 +921,9 @@ class H(BaseHTTPRequestHandler):
             except KeyError: return self.sendj({"error":"Analysis job not found."},404)
         if path=="/api/status":
             try:
-                inv=inventory(); self.sendj({"ok":True,"vmid":VMID,"entities":len(inv["entities"]),"apply_enabled":ENABLE_APPLY})
+                target=TARGET_RESOLVER.status()
+                inv=inventory()
+                self.sendj({"ok":True,"target":target,"vmid":target["vmid"],"entities":len(inv["entities"]),"apply_enabled":ENABLE_APPLY})
             except Exception as e:self.sendj({"ok":False,"error":str(e)},503)
             return
         self.send_error(404)
@@ -921,16 +964,34 @@ class H(BaseHTTPRequestHandler):
                 return self.sendj(review_removal(str(p.get("proposal_id","")),str(p.get("decision",""))))
             if path=="/api/steward/status":
                 if not admin_allowed(self): return self.sendj({"error":"Steward status is available only from the local management LAN."},403)
-                st=STEWARD.status(); st.update({"ok":True,"vmid":VMID,"apply_enabled":ENABLE_APPLY})
+                target=TARGET_RESOLVER.status()
+                st=STEWARD.status(); st.update({"ok":True,"target":target,"vmid":target["vmid"],"apply_enabled":ENABLE_APPLY})
                 return self.sendj(st)
             if path=="/api/apply-automation":
                 if not admin_allowed(self): return self.sendj({"error":"Automation apply is available only from the local management LAN."},403)
                 if not ENABLE_APPLY: return self.sendj({"error":"Controlled automation write gate is closed."},403)
-                unresolved=p.get("unresolved") or []
-                if unresolved: return self.sendj({"error":"Unresolved targets remain; refusing to apply.","unresolved":unresolved},409)
-                result=apply_automation(VMID,p.get("automation"))
-                audit("automation_applied",vmid=VMID,automation_id=result.get("automation_id"),backup=result.get("backup"),logic=["Targets resolved.","Configuration written transactionally.","Home Assistant configuration check passed.","HA-General restarted after validation."])
-                STEWARD.observe("automation_applied","natural_automation",{"vmid":VMID,"automation_id":result.get("automation_id")})
+                proposal_id=str(p.get("proposal_id","")).strip()
+                proposal=PROPOSALS.get(proposal_id)
+                if proposal is None:
+                    return self.sendj({"error":"Automation proposal is missing or expired. Analyse the request again."},404)
+                if proposal.unresolved:
+                    return self.sendj({"error":"Unresolved targets remain; refusing to apply.","unresolved":proposal.unresolved},409)
+                snap=ha_snapshot()
+                inv={"entities":snap["entities"],"devices":snap["devices"],"areas":snap["areas"]}
+                valid={e.get("entity_id") for e in inv["entities"]}
+                if proposal.target_entity_id not in valid:
+                    return self.sendj({"error":"The proposed target is no longer present in the current HA-General inventory."},409)
+                new_ctrls=[
+                    a for a in snap["automations"]
+                    if config_mentions_target(a,proposal.target_entity_id,inv)
+                ]
+                if new_ctrls:
+                    return self.sendj({"error":"A controller now exists for this target. Analyse again before applying."},409)
+                result=apply_automation(TARGET_RESOLVER,proposal.automation)
+                PROPOSALS.remove(proposal_id)
+                target=result.get("target") or TARGET_RESOLVER.status()
+                audit("automation_applied",target=target,automation_id=result.get("automation_id"),backup=result.get("backup"),proposal_id=proposal_id,logic=["Target and conflicts re-checked.","Configuration written transactionally.","Home Assistant configuration check passed.","HA-General restarted and automation read-back verified."])
+                STEWARD.observe("automation_applied","natural_automation",{"target":target,"automation_id":result.get("automation_id"),"proposal_id":proposal_id})
                 return self.sendj(result)
             self.send_error(404)
         except Exception as e:
@@ -944,6 +1005,10 @@ class H(BaseHTTPRequestHandler):
 
 if __name__=="__main__":
     host=os.environ.get("NA_BIND","0.0.0.0"); port=int(os.environ.get("NA_PORT","8099"))
-    audit("service_start",vmid=VMID,apply_enabled=ENABLE_APPLY)
-    print(f"Natural Automation listening on {host}:{port}, apply={ENABLE_APPLY}",flush=True)
+    try:
+        target=TARGET_RESOLVER.status()
+    except Exception as exc:
+        target={"role":TARGET_RESOLVER.role,"error":str(exc)}
+    audit("service_start",target=target,apply_enabled=ENABLE_APPLY)
+    print(f"Natural Automation listening on {host}:{port}, target={target}, apply={ENABLE_APPLY}",flush=True)
     ThreadingHTTPServer((host,port),H).serve_forever()
