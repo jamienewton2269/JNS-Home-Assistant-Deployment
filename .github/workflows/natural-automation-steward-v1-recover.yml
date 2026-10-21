@@ -51,9 +51,12 @@ jobs:
             scp -q "root@$nodeb_target:/opt/natural-automation/steward/$f" "$root/steward/$f"
           done
 
-          if ssh "root@$nodeb_target" 'test -f /opt/real-progress/real_progress.py'; then
-            scp -q "root@$nodeb_target:/opt/real-progress/real_progress.py" "$root/real_progress/real_progress.py"
-          fi
+          mapfile -t progress_files < <(
+            ssh "root@$nodeb_target" 'find /opt/real-progress -maxdepth 1 -type f -name "*.py" -printf "%f\n" | sort' 2>/dev/null || true
+          )
+          for f in "${progress_files[@]}"; do
+            scp -q "root@$nodeb_target:/opt/real-progress/$f" "$root/real_progress/$f"
+          done
 
           ssh "root@$nodeb_target" 'systemctl cat natural-automation.service' > "$root/systemd/natural-automation.service"
 
