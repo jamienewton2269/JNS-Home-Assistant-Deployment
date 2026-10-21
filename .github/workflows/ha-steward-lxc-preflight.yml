@@ -57,6 +57,12 @@ jobs:
             getent ahosts "$n" || true
           done
 
+          echo "=== PROXMOX API CERTIFICATE / FQDN ==="
+          hostname -f
+          getent ahosts "$(hostname -f)" || true
+          openssl x509 -in /etc/pve/local/pve-ssl.pem -noout -subject -issuer -ext subjectAltName 2>/dev/null || true
+          sha256sum /etc/pve/pve-root-ca.pem 2>/dev/null || true
+
           echo "=== API PORTS ==="
           ss -lntp | grep ':8006 ' || true
           NODEB
