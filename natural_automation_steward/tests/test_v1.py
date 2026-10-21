@@ -209,7 +209,7 @@ class SourceContractTests(unittest.TestCase):
         service = (ROOT / "lxc" / "natural-automation-lxc.service").read_text()
         wrapper = (ROOT / "lxc" / "ha-steward-pve-wrapper").read_text()
         self.assertIn("User=natural-automation", service)
-        self.assertIn("NA_PVE_BRIDGE_USER=ha-steward-mgr", service)
+        self.assertIn("NA_PVE_BRIDGE_USER=root", service)
         self.assertIn("command not allow-listed", wrapper)
         self.assertNotIn("eval ", wrapper)
 
