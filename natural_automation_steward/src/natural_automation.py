@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import json, hashlib, os, subprocess, time, threading, uuid
+import json, hashlib, ipaddress, os, subprocess, time, threading, uuid
 from difflib import SequenceMatcher
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -660,7 +660,7 @@ button{padding:10px 14px;border-radius:9px;border:0;margin:8px 8px 0 0}.muted{co
 .error{border:2px solid #d84b4b;background:#2a1111;color:#ffdede}.error h3{margin-top:0;color:#ff8f8f}
 .progress{border:1px solid var(--vy-line);background:var(--vy-panel)}.progress h3{margin:0 0 8px}.stage{padding:5px 0}.done{color:var(--vy-green)}.active{color:var(--vy-blue);font-weight:700}.stage-time{color:var(--vy-muted);margin-left:8px}.remove{background:#4b2626;color:#ffdede;border:1px solid #7b3b3b;font-size:.9rem;padding:6px 9px;margin-left:8px}.progressbar{height:18px;background:var(--vy-bg);border:1px solid var(--vy-line);border-radius:999px;overflow:hidden;margin:12px 0 8px}.progressfill{height:100%;width:0%;background:linear-gradient(90deg,var(--vy-blue),var(--vy-green));transition:width .18s linear}.progressmeta{display:flex;justify-content:space-between;gap:10px;font-size:.9rem;color:var(--vy-muted);flex-wrap:wrap}.progresspct{font-weight:700;color:var(--vy-text)}.progressstate{font-size:.78rem;letter-spacing:.08em;color:var(--vy-blue)}.state-stalled{border-color:var(--vy-amber)}.state-stalled .progressfill{background:var(--vy-amber)}.state-stalled .progressstate{color:var(--vy-amber)}.state-error{border-color:var(--vy-red)}.state-error .progressfill{background:var(--vy-red)}.state-error .progressstate{color:var(--vy-red)}.state-done .progressstate{color:var(--vy-green)}.stallnote{margin-top:10px;padding:10px 12px;border:1px solid var(--vy-amber);border-radius:9px;color:#ffe8a6;background:#211a08}
 .hidden{display:none}.request-title{border-left:4px solid #6da8df}.request-title .label{font-size:.82rem;text-transform:uppercase;letter-spacing:.08em;color:#8fa8bd}.request-title h2{margin:.35rem 0 0;font-size:1.15rem;line-height:1.45}.multi-row{display:flex;align-items:flex-start;gap:10px;padding:9px;border:1px solid #383838;border-radius:9px;margin:7px 0;background:#222}.multi-row input{margin-top:4px}.multi-meta{color:#aaa;font-size:.88rem}.primary{background:#eee;color:#111}.multi-actions{margin-top:14px}
-</style></head><body><div class=w><h1>Natural Automation</h1><p class=muted>Node B · HA-General VM905 · Natural Automation + Steward</p>
+</style></head><body><div class=w><h1>Natural Automation</h1><p class=muted>HA-General · Natural Automation + Steward v1</p>
 <div class=layout>
 <div class=maincol>
 <div class=card><textarea id=q placeholder="Type the next Home Assistant request..."></textarea><br><button onclick=go()>Analyse</button></div>
@@ -891,7 +891,11 @@ load()
 
 def admin_allowed(handler):
     ip=handler.client_address[0]
-    return ip=="127.0.0.1" or ip=="::1" or ip.startswith("10.10.10.")
+    try:
+        addr=ipaddress.ip_address(ip)
+        return addr.is_loopback or addr.is_private
+    except ValueError:
+        return False
 
 def recent_audit(limit=100):
     if not AUDIT.exists(): return []
