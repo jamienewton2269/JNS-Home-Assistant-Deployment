@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-ORIGINAL="${1:-}"
+ORIGINAL="${1:-${SSH_ORIGINAL_COMMAND:-}}"
 
 die() {
   echo "ha-steward-pve-wrapper: $*" >&2
