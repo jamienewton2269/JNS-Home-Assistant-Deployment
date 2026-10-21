@@ -1,0 +1,13 @@
+[Unit]
+Description=JNS Steward Inventory and Private GitHub Diagnostics Handoff
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/etc/jns-steward/github-diagnostics.token
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/jns-steward/run-inventory-upload.sh
+User=root
+UMask=0077
+NoNewPrivileges=true
+TimeoutStartSec=180
