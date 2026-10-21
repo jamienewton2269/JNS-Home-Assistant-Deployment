@@ -5,9 +5,10 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/ha-steward-lxc-stage.yml'
+      - 'natural_automation_steward/lxc/STAGE'
   pull_request:
     paths:
-      - 'natural_automation_steward/lxc/STAGE'
+      - 'natural_automation_steward/lxc/**'
 
 permissions:
   contents: read
