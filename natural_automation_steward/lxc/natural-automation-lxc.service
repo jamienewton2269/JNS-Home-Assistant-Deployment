@@ -14,7 +14,7 @@ Environment=NA_BIND=0.0.0.0
 Environment=NA_PORT=8099
 Environment=NA_TARGET_ROLE=ha-general
 Environment=NA_TARGET_NAMES=ha-s2-general,ha-general
-Environment=NA_PVE_BRIDGE_USER=ha-steward-mgr
+Environment=NA_PVE_BRIDGE_USER=root
 Environment=NA_PVE_BRIDGE_KEY=/etc/natural-automation/pve-bridge.key
 Restart=on-failure
 RestartSec=3
