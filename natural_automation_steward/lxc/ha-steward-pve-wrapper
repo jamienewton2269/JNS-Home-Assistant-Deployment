@@ -58,22 +58,12 @@ case "$ORIGINAL" in
   status)
     target_json
     ;;
+
   guest-exec\ *)
     payload="${ORIGINAL#guest-exec }"
     mapfile -t encoded_args < <(decode_and_validate_argv "$payload")
     [[ ${#encoded_args[@]} -gt 0 ]] || die "empty command"
-    IFS=
-  guest-exec-status\ *)
-    pid="${ORIGINAL#guest-exec-status }"
-    [[ "$pid" =~ ^[0-9]+$ ]] || die "invalid pid"
     IFS=$'\t' read -r node vmid name < <(resolve_target)
-    pvesh get "/nodes/$node/qemu/$vmid/agent/exec-status" --pid "$pid" --output-format json
-    ;;
-  *)
-    die "operation not allow-listed"
-    ;;
-esac
-\t' read -r node vmid name < <(resolve_target)
     pve_cmd=(pvesh create "/nodes/$node/qemu/$vmid/agent/exec" --output-format json)
     for encoded in "${encoded_args[@]}"; do
       arg="$(printf '%s' "$encoded" | base64 -d)"
@@ -81,12 +71,14 @@ esac
     done
     "${pve_cmd[@]}"
     ;;
+
   guest-exec-status\ *)
     pid="${ORIGINAL#guest-exec-status }"
     [[ "$pid" =~ ^[0-9]+$ ]] || die "invalid pid"
     IFS=$'\t' read -r node vmid name < <(resolve_target)
     pvesh get "/nodes/$node/qemu/$vmid/agent/exec-status" --pid "$pid" --output-format json
     ;;
+
   *)
     die "operation not allow-listed"
     ;;
