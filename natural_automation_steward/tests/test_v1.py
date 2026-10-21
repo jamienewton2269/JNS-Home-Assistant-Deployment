@@ -13,7 +13,7 @@ sys.path.insert(0, str(SRC))
 sys.path.insert(0, str(TOOLS))
 
 from steward.proposals import build_automation_proposal, ProposalStore
-from steward.target import parse_qm_list
+from steward.target import parse_qm_list, TargetResolver
 from steward.store import StewardStore
 from steward.repair_capture import capture
 import seed_repairs
@@ -62,6 +62,44 @@ class ProposalTests(unittest.TestCase):
 
 
 class TargetTests(unittest.TestCase):
+    def test_bridge_status_uses_restricted_identity_and_pinned_host_key(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        env = {
+            "NA_PVE_BRIDGE_HOST": "nodeb.example.test",
+            "NA_PVE_BRIDGE_USER": "ha-steward-mgr",
+            "NA_PVE_BRIDGE_KEY": "/etc/natural-automation/pve-bridge.key",
+            "NA_PVE_BRIDGE_KNOWN_HOSTS": "/etc/natural-automation/known_hosts",
+        }
+        reply = json.dumps({
+            "role": "ha-general",
+            "host": "nodeb",
+            "vmid": 905,
+            "name": "ha-s2-general",
+            "local": False,
+        })
+        with patch.dict(os.environ, env, clear=False):
+            with patch(
+                "steward.target.subprocess.run",
+                return_value=SimpleNamespace(
+                    returncode=0, stdout=reply, stderr=""
+                ),
+            ) as run:
+                status = TargetResolver(cache_seconds=0).status()
+
+        cmd = run.call_args.args[0]
+        joined = " ".join(cmd)
+        self.assertIn("ha-steward-mgr@nodeb.example.test", joined)
+        self.assertIn("StrictHostKeyChecking=yes", joined)
+        self.assertIn(
+            "UserKnownHostsFile=/etc/natural-automation/known_hosts",
+            joined,
+        )
+        self.assertNotIn("root@nodeb.example.test", joined)
+        self.assertEqual(status["transport"], "restricted_ssh_bridge")
+        self.assertEqual(status["vmid"], 905)
+
     def test_parse_qm_list(self):
         rows = parse_qm_list(
             " VMID NAME STATUS MEM(MB) BOOTDISK(GB) PID\n"
@@ -166,6 +204,14 @@ class SourceContractTests(unittest.TestCase):
         writer = (SRC / "steward" / "writer.py").read_text()
         self.assertIn("/config/automations.yaml", writer)
         self.assertNotIn("/config/natural_automation.yaml", writer)
+
+    def test_lxc_service_runs_non_root_and_bridge_is_allowlisted(self):
+        service = (ROOT / "lxc" / "natural-automation-lxc.service").read_text()
+        wrapper = (ROOT / "lxc" / "ha-steward-pve-wrapper").read_text()
+        self.assertIn("User=natural-automation", service)
+        self.assertIn("NA_PVE_BRIDGE_USER=ha-steward-mgr", service)
+        self.assertIn("command not allow-listed", wrapper)
+        self.assertNotIn("eval ", wrapper)
 
     def test_apply_ui_and_proposal_id_contract_present(self):
         app = (SRC / "natural_automation.py").read_text()
