@@ -123,7 +123,10 @@ jobs:
           echo "=== invalid/expired proposal must fail closed ==="
           code="$(
             ssh "root@$nodeb_target" '
-              curl -sS -o /tmp/natural-automation-invalid-apply.json -w "%{http_code}"                 -X POST -H "Content-Type: application/json"                 -d "{"proposal_id":"not-a-real-proposal"}"                 http://127.0.0.1:8099/api/apply-automation
+              printf %s eyJwcm9wb3NhbF9pZCI6Im5vdC1hLXJlYWwtcHJvcG9zYWwifQ== | base64 -d | \
+                curl -sS -o /tmp/natural-automation-invalid-apply.json -w "%{http_code}" \
+                  -X POST -H "Content-Type: application/json" --data-binary @- \
+                  http://127.0.0.1:8099/api/apply-automation
             '
           )"
           test "$code" = "404"
