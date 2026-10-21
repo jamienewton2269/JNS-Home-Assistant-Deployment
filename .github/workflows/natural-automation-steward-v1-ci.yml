@@ -1,0 +1,82 @@
+name: Natural Automation Steward v1 CI
+
+on:
+  push:
+    branches: [natural-automation-steward-v1]
+    paths:
+      - 'natural_automation_steward/**'
+      - '.github/workflows/natural-automation-steward-v1-ci.yml'
+  pull_request:
+    paths:
+      - 'natural_automation_steward/**'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile canonical Python source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m compileall -q natural_automation_steward/src natural_automation_steward/tools
+
+      - name: Run v1 unit tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m unittest discover -s natural_automation_steward/tests -p 'test_*.py' -v
+
+      - name: Validate rendered Natural Automation JavaScript
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+          p=Path("natural_automation_steward/src/natural_automation.py")
+          tree=ast.parse(p.read_text())
+          html=None
+          for node in tree.body:
+              if isinstance(node,ast.Assign):
+                  if any(isinstance(t,ast.Name) and t.id=="HTML" for t in node.targets):
+                      html=ast.literal_eval(node.value)
+                      break
+          if not isinstance(html,str):
+              raise SystemExit("HTML constant not found")
+          if "<script>" not in html or "</script>" not in html:
+              raise SystemExit("HTML script block not found")
+          js=html.split("<script>",1)[1].rsplit("</script>",1)[0]
+          Path("/tmp/natural-automation-v1.js").write_text(js)
+          print(f"rendered_js_bytes={len(js.encode())}")
+          PY
+          node --check /tmp/natural-automation-v1.js
+
+      - name: Build historical offline repair seed
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 natural_automation_steward/tools/seed_repairs.py             --repo-root .             --export-json /tmp/natural-automation-repair-seed.json
+          python3 - <<'PY'
+          import json
+          p="/tmp/natural-automation-repair-seed.json"
+          d=json.load(open(p))
+          count=len(d.get("records",[]))
+          print(f"repair_seed_records={count}")
+          if count < 5:
+              raise SystemExit("Repair seed unexpectedly small")
+          PY
+
+      - name: Enforce v1 source-of-truth contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ! grep -R --line-number 'NA_VMID=' natural_automation_steward/src natural_automation_steward/systemd
+          ! grep -R --line-number '10\.10\.10\.' natural_automation_steward/src natural_automation_steward/systemd
+          grep -q 'Apply automation' natural_automation_steward/src/natural_automation.py
+          grep -q '/config/automations.yaml' natural_automation_steward/src/steward/writer.py

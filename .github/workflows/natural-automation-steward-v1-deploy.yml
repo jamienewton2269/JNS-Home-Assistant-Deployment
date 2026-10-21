@@ -1,0 +1,149 @@
+name: Natural Automation Steward v1 Deploy
+
+on:
+  push:
+    branches: [natural-automation-steward-v1]
+    paths:
+      - 'natural_automation_steward/.deploy-v1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: natural-automation-steward-v1-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: natural-automation-steward-v1
+          fetch-depth: 0
+
+      - name: Pre-deploy release gate
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m compileall -q natural_automation_steward/src natural_automation_steward/tools
+          python3 -m unittest discover -s natural_automation_steward/tests -p 'test_*.py' -v
+          python3 natural_automation_steward/tools/seed_repairs.py             --repo-root .             --export-json /tmp/natural-automation-repair-seed.json
+
+      - name: Deploy transactionally to Node B
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          nodeb_target=""
+          for candidate in nodeb.home.arpa node-b.home.arpa nodeb 10.10.110.12; do
+            if ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new "root@$candidate" 'true' 2>/dev/null; then
+              nodeb_target="$candidate"
+              break
+            fi
+          done
+          test -n "$nodeb_target" || { echo "Unable to locate Node B"; exit 69; }
+          echo "nodeb_target=$nodeb_target"
+
+          tar --exclude='natural_automation_steward/live_recovered'               -czf /tmp/natural-automation-steward-v1.tgz natural_automation_steward
+          scp -q /tmp/natural-automation-steward-v1.tgz             "root@$nodeb_target:/tmp/natural-automation-steward-v1.tgz"
+          scp -q /tmp/natural-automation-repair-seed.json             "root@$nodeb_target:/tmp/natural-automation-repair-seed.json"
+
+          ssh "root@$nodeb_target" '
+            set -Eeuo pipefail
+            rm -rf /tmp/natural-automation-steward-v1
+            mkdir -p /tmp/natural-automation-steward-v1
+            tar -xzf /tmp/natural-automation-steward-v1.tgz -C /tmp/natural-automation-steward-v1
+            bash /tmp/natural-automation-steward-v1/natural_automation_steward/install_v1.sh               --seed /tmp/natural-automation-repair-seed.json |
+              tee /tmp/natural-automation-v1-install.out
+          '
+
+          rollback="$(
+            ssh "root@$nodeb_target" "sed -n 's/^rollback=//p' /tmp/natural-automation-v1-install.out | tail -1"
+          )"
+          test -n "$rollback" || { echo "Installer did not report rollback path"; exit 70; }
+          echo "rollback=$rollback"
+
+          rollback_on_error() {
+            rc=$?
+            echo "Acceptance failed (rc=$rc); rolling back via $rollback" >&2
+            ssh "root@$nodeb_target" "bash '$rollback'" || true
+            exit "$rc"
+          }
+          trap rollback_on_error ERR
+
+          echo "=== wait for service ==="
+          for _ in $(seq 1 30); do
+            if ssh "root@$nodeb_target" 'curl -fsS --max-time 5 http://127.0.0.1:8099/api/status'               >/tmp/natural-automation-live-status.json 2>/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          cat /tmp/natural-automation-live-status.json
+
+          python3 - <<'PY'
+          import json
+          d=json.load(open("/tmp/natural-automation-live-status.json"))
+          assert d["ok"] is True
+          assert d["apply_enabled"] is True
+          assert d["target"]["role"] == "ha-general"
+          assert d["target"]["name"] in {"ha-s2-general","ha-general"}
+          assert isinstance(d["target"]["vmid"], int)
+          print("target_contract_ok", d["target"])
+          PY
+
+          echo "=== steward seed status ==="
+          ssh "root@$nodeb_target" '
+            curl -fsS -X POST -H "Content-Type: application/json" -d "{}"               http://127.0.0.1:8099/api/steward/status
+          ' > /tmp/natural-automation-steward-status.json
+          cat /tmp/natural-automation-steward-status.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open("/tmp/natural-automation-steward-status.json"))
+          assert d["repairs"] >= 17, d
+          assert d["target"]["role"] == "ha-general"
+          print("repair_seed_ok", d["repairs"])
+          PY
+
+          echo "=== rendered browser JS ==="
+          ssh "root@$nodeb_target" '
+            curl -fsS http://127.0.0.1:8099/ >/tmp/natural-automation-v1.html
+            python3 - <<"PY"
+          from pathlib import Path
+          h=Path("/tmp/natural-automation-v1.html").read_text()
+          assert "Apply automation" in h
+          js=h.split("<script>",1)[1].rsplit("</script>",1)[0]
+          Path("/tmp/natural-automation-v1.js").write_text(js)
+          print("served_js_bytes",len(js.encode()))
+          PY
+            node --check /tmp/natural-automation-v1.js
+          '
+
+          echo "=== invalid/expired proposal must fail closed ==="
+          code="$(
+            ssh "root@$nodeb_target" '
+              printf %s eyJwcm9wb3NhbF9pZCI6Im5vdC1hLXJlYWwtcHJvcG9zYWwifQ== | base64 -d | \
+                curl -sS -o /tmp/natural-automation-invalid-apply.json -w "%{http_code}" \
+                  -X POST -H "Content-Type: application/json" --data-binary @- \
+                  http://127.0.0.1:8099/api/apply-automation
+            '
+          )"
+          test "$code" = "404"
+          ssh "root@$nodeb_target" 'cat /tmp/natural-automation-invalid-apply.json'
+
+          echo "=== live HA-General config check via role resolver ==="
+          ssh "root@$nodeb_target" '
+            cd /opt/natural-automation
+            PYTHONPATH=/opt/natural-automation python3 - <<"PY"
+          from steward.target import TargetResolver
+          r=TargetResolver()
+          print("resolved",r.status())
+          result=r.guest_exec(["ha","core","check"],timeout=300)
+          print(result)
+          assert result.get("exitcode",0) == 0
+          PY
+          '
+
+          trap - ERR
+          echo "NATURAL_AUTOMATION_STEWARD_V1_DEPLOY_OK"

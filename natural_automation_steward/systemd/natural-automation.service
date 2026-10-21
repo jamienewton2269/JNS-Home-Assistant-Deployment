@@ -1,0 +1,22 @@
+[Unit]
+Description=Natural Automation + HA Steward v1
+After=network-online.target pvedaemon.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/natural-automation/natural_automation.py
+WorkingDirectory=/opt/natural-automation
+Environment=NA_BIND=0.0.0.0
+Environment=NA_PORT=8099
+Environment=NA_TARGET_ROLE=ha-general
+Environment=NA_TARGET_NAMES=ha-s2-general,ha-general
+Environment=NA_PROXMOX_HOSTS=nodea.home.arpa,nodeb.home.arpa,nodec.home.arpa,node-a.home.arpa,node-b.home.arpa,node-c.home.arpa
+Environment=NA_ENABLE_APPLY=1
+Restart=on-failure
+RestartSec=3
+User=root
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

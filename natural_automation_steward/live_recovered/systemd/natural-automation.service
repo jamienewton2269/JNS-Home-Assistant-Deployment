@@ -1,0 +1,21 @@
+# /etc/systemd/system/natural-automation.service
+[Unit]
+Description=Natural Automation language test dashboard
+After=network-online.target pvedaemon.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/natural-automation/natural_automation.py
+WorkingDirectory=/opt/natural-automation
+Environment=NA_BIND=0.0.0.0
+Environment=NA_PORT=8099
+Environment=NA_VMID=905
+Environment=NA_ENABLE_APPLY=1
+Restart=on-failure
+RestartSec=3
+User=root
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
