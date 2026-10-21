@@ -49,14 +49,15 @@ MANIFEST
 
   cat > "$EXT/worker.js" <<'WORKER'
 "use strict";
-chrome.runtime.onMessage.addListener((msg, sender) => {
-  if (!msg || msg.kind !== "veyra-frame-stats") return;
-  if (!sender || !/^https:\/\/([a-z0-9-]+\.)*itv\.com\//i.test(sender.url || "")) return;
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (!msg || msg.kind !== "veyra-frame-stats") return false;
+  if (!sender || !/^https:\/\/([a-z0-9-]+\.)*itv\.com\//i.test(sender.url || "")) return false;
   fetch("http://127.0.0.1:8877/metrics", {
     method: "POST",
     headers: {"Content-Type": "application/json", "X-Veyra-Frameprobe": "v0.1"},
     body: JSON.stringify(msg.stats)
-  }).catch(() => {});
+  }).then(() => sendResponse({ok:true})).catch(() => sendResponse({ok:false}));
+  return true;
 });
 WORKER
 
@@ -81,8 +82,9 @@ WORKER
     prevMedia = null;
     count = 0;
     intervals = [];
-    firstQuality = qget(video);
+    firstQuality = video ? qget(video) : null;
     startPresented = 0;
+    if (!video) return;
     if (typeof video.requestVideoFrameCallback !== "function") {
       deliver({state: "callback-unavailable", width:video.videoWidth, height:video.videoHeight});
       return;
