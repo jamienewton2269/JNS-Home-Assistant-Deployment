@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-set -Eeuo pipefail
-ORIGINAL="${SSH_ORIGINAL_COMMAND:-}"
-[[ -n "$ORIGINAL" ]] || { echo "command required" >&2; exit 64; }
-exec /usr/bin/sudo -n /usr/local/sbin/ha-steward-pve-wrapper "$ORIGINAL"
