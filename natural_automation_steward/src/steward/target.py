@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 import os
-import shlex
 import socket
 import subprocess
 import time
@@ -92,7 +91,6 @@ class TargetResolver:
             "-o", "ConnectTimeout=5",
             "-o", "StrictHostKeyChecking=accept-new",
             f"root@{host}",
-            "--",
             *args,
         ]
         p = subprocess.run(
