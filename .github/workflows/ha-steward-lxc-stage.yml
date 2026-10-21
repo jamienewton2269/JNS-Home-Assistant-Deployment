@@ -1,0 +1,53 @@
+name: HA Steward LXC Stage
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ha-steward-lxc-stage.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  stage:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate canonical source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m compileall -q natural_automation_steward/src natural_automation_steward/tools
+          python3 -m unittest discover -s natural_automation_steward/tests -p 'test_*.py' -v
+          bash -n natural_automation_steward/lxc/ha-steward-pve-wrapper
+          bash -n natural_automation_steward/lxc/install-in-lxc.sh
+          bash -n natural_automation_steward/lxc/stage-on-nodeb.sh
+
+      - name: Stage CT221 on Node B
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          target=''
+          for candidate in nodeb.home.arpa node-b.home.arpa 10.10.110.12 nodeb; do
+            if ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new "root@$candidate" 'true' 2>/dev/null; then
+              target="$candidate"; break
+            fi
+          done
+          test -n "$target" || { echo 'Node B unavailable'; exit 69; }
+          echo "nodeb_target=$target"
+
+          archive="/tmp/ha-steward-lxc-${GITHUB_SHA}.tgz"
+          tar -czf "$archive" natural_automation_steward
+          scp -q "$archive" "root@$target:/tmp/ha-steward-lxc-source.tgz"
+
+          ssh "root@$target" '
+            set -Eeuo pipefail
+            rm -rf /tmp/ha-steward-lxc-release
+            mkdir -p /tmp/ha-steward-lxc-release
+            tar -xzf /tmp/ha-steward-lxc-source.tgz -C /tmp/ha-steward-lxc-release
+            bash /tmp/ha-steward-lxc-release/natural_automation_steward/lxc/stage-on-nodeb.sh \
+              /tmp/ha-steward-lxc-release/natural_automation_steward
+          '
