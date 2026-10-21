@@ -1,0 +1,59 @@
+name: HA Steward LXC Inventory
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'natural_automation_steward/.lxc-inventory'
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inventory Node B for HA Steward LXC
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          target=""
+          for candidate in nodeb.home.arpa node-b.home.arpa nodeb 10.10.110.12; do
+            if ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new "root@$candidate" true 2>/dev/null; then
+              target="$candidate"; break
+            fi
+          done
+          test -n "$target" || { echo "Node B unreachable"; exit 69; }
+          echo "NODEB_TARGET=$target"
+          ssh "root@$target" '
+            set -Eeuo pipefail
+            echo "=== HOST ==="
+            hostname
+            pveversion | head -1
+            echo "=== PCT LIST ==="
+            pct list
+            echo "=== QM LIST ==="
+            qm list
+            echo "=== STORAGE ==="
+            pvesm status
+            echo "=== BRIDGES ==="
+            ip -brief link show type bridge || true
+            echo "=== NETWORK CONFIG ==="
+            grep -nE "^(auto|iface|bridge-|address|gateway)" /etc/network/interfaces || true
+            echo "=== NEXTID ==="
+            pvesh get /cluster/nextid || true
+            echo "=== TEMPLATES ==="
+            pveam list local 2>/dev/null || true
+            echo "=== STEWARD DATA ==="
+            du -sh /opt/natural-automation /opt/natural-automation/data /opt/real-progress 2>/dev/null || true
+            find /opt/natural-automation/data -maxdepth 1 -type f -printf "%f %s bytes\n" | sort || true
+            echo "=== CURRENT SERVICE ==="
+            systemctl is-active natural-automation.service || true
+            systemctl is-enabled natural-automation.service || true
+            echo "=== DNS PROBES ==="
+            getent ahostsv4 ha-steward.home.arpa || true
+            getent ahostsv4 ha-general.home.arpa || true
+            getent ahostsv4 ha-s2-general.home.arpa || true
+          '
