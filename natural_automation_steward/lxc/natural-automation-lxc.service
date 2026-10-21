@@ -1,0 +1,28 @@
+[Unit]
+Description=Natural Automation + HA Steward v1 (LXC)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=natural-automation
+Group=natural-automation
+ExecStart=/usr/bin/python3 /opt/natural-automation/natural_automation.py
+WorkingDirectory=/opt/natural-automation
+EnvironmentFile=/etc/natural-automation/environment
+Environment=NA_BIND=0.0.0.0
+Environment=NA_PORT=8099
+Environment=NA_TARGET_ROLE=ha-general
+Environment=NA_TARGET_NAMES=ha-s2-general,ha-general
+Environment=NA_PVE_BRIDGE_USER=ha-steward-mgr
+Environment=NA_PVE_BRIDGE_KEY=/etc/natural-automation/pve-bridge.key
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/natural-automation/data
+
+[Install]
+WantedBy=multi-user.target
