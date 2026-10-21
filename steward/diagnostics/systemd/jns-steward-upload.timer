@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily JNS Steward Private Diagnostics Inventory
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=30m
+Persistent=true
+Unit=jns-steward-upload.service
+
+[Install]
+WantedBy=timers.target
