@@ -1,0 +1,92 @@
+name: HA Steward LXC Inventory
+
+on:
+  push:
+    branches: [ha-steward-lxc-migration]
+    paths:
+      - '.github/workflows/ha-steward-lxc-inventory.yml'
+      - 'natural_automation_steward/.lxc-inventory'
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ha-steward-lxc-migration
+
+      - name: Inventory Node B for HA Steward LXC
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          target=""
+          for candidate in nodeb.home.arpa node-b.home.arpa 10.10.110.12 nodeb; do
+            if ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new "root@$candidate" 'true' 2>/dev/null; then
+              target="$candidate"
+              break
+            fi
+          done
+          test -n "$target" || { echo "Node B unavailable"; exit 69; }
+          echo "NODEB_TARGET=$target"
+
+          ssh "root@$target" 'bash -s' <<'NODEB'
+          set -Eeuo pipefail
+          echo "=== HOST ==="
+          hostname -f || hostname
+          pveversion | head -1
+          ip -br addr
+          ip route
+
+          echo "=== NEXT CLUSTER ID ==="
+          pvesh get /cluster/nextid 2>/dev/null || true
+
+          echo "=== LXC ==="
+          pct list || true
+
+          echo "=== VMS ==="
+          qm list || true
+
+          echo "=== STORAGE ==="
+          pvesm status || true
+
+          echo "=== BRIDGES ==="
+          ip -br link show type bridge || true
+          grep -nE '^(auto|iface|bridge-|address|gateway)' /etc/network/interfaces 2>/dev/null || true
+
+          echo "=== LOCAL CT TEMPLATES ==="
+          find /var/lib/vz/template/cache -maxdepth 1 -type f -printf '%f\n' 2>/dev/null | sort || true
+
+          echo "=== DOWNLOADABLE DEBIAN TEMPLATES ==="
+          pveam available --section system 2>/dev/null | grep -i debian | tail -20 || true
+
+          echo "=== EXISTING STEWARD ==="
+          systemctl is-active natural-automation.service || true
+          systemctl cat natural-automation.service || true
+          test -f /opt/natural-automation/VERSION && cat /opt/natural-automation/VERSION || true
+          curl -fsS --max-time 10 http://127.0.0.1:8099/api/status || true
+          echo
+
+          echo "=== MANAGEMENT / RESTRICTED EXECUTION ASSETS ==="
+          find /usr/local/sbin /opt /etc/systemd/system -maxdepth 3 -type f \
+            \( -iname '*management*bridge*' -o -iname '*gateway*exec*' -o -iname '*steward*' -o -iname '*proxmox*wrapper*' \) \
+            -printf '%p\n' 2>/dev/null | sort | head -100
+          for f in /usr/local/sbin/jns-gateway-exec /usr/local/sbin/jns-management-bridge*; do
+            if [ -f "$f" ]; then
+              echo "--- $f ---"
+              sed -n '1,240p' "$f"
+            fi
+          done
+
+          echo "=== EXISTING NON-ROOT SERVICE USERS ==="
+          getent passwd | awk -F: '$3>=100 && $3<1000 {print $1 ":" $3 ":" $6 ":" $7}' | sort
+
+          echo "=== RESOURCE HEADROOM ==="
+          free -h
+          df -hT / /var/lib/vz 2>/dev/null || true
+          pvesh get /nodes/$(hostname)/status --output-format json 2>/dev/null || true
+          NODEB
