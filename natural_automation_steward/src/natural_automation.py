@@ -804,7 +804,7 @@ function showMulti(d){
 }
 async function applyCurrentProposal(){
   if(!currentProposal||!currentProposal.proposal_id)return;
-  if(!window.confirm('Apply this automation to HA-General?\n\n'+currentProposal.summary))return;
+  if(!window.confirm('Apply this automation to HA-General?\\n\\n'+currentProposal.summary))return;
   let o=document.getElementById('o');
   o.className='card progress';
   o.innerHTML='<h3>Applying automation…</h3><p class="muted">Re-checking target and conflicts, writing transactionally, validating Home Assistant and preserving rollback.</p>';
