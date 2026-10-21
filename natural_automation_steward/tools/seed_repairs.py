@@ -8,9 +8,12 @@ import sys
 import uuid
 
 HERE = Path(__file__).resolve()
-SRC = HERE.parents[1] / "src"
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
+PROJECT_ROOT = HERE.parents[1]
+IMPORT_ROOTS = [PROJECT_ROOT / "src", PROJECT_ROOT]
+for candidate in IMPORT_ROOTS:
+    if (candidate / "steward").is_dir() and str(candidate) not in sys.path:
+        sys.path.insert(0, str(candidate))
+        break
 
 from steward.repair_capture import fingerprint
 from steward.store import StewardStore
