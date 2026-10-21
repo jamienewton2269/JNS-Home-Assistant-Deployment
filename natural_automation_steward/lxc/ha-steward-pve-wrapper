@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+ORIGINAL="${1:-}"
+
+die() {
+  echo "ha-steward-pve-wrapper: $*" >&2
+  exit 64
+}
+
+resolve_target() {
+  pvesh get /cluster/resources --type vm --output-format json |
+    python3 - <<'PY'
+import json,sys
+names={"ha-s2-general","ha-general"}
+rows=json.load(sys.stdin)
+matches=[x for x in rows if x.get("name") in names and x.get("type")=="qemu"]
+if len(matches)!=1:
+    raise SystemExit(f"expected exactly one HA-General VM, found {len(matches)}")
+x=matches[0]
+print(f'{x["node"]}\t{int(x["vmid"])}\t{x["name"]}')
+PY
+}
+
+target_json() {
+  local node vmid name
+  IFS=$'\t' read -r node vmid name < <(resolve_target)
+  python3 - "$node" "$vmid" "$name" <<'PY'
+import json,sys
+node,vmid,name=sys.argv[1:]
+print(json.dumps({"role":"ha-general","host":node,"vmid":int(vmid),"name":name,"local":False}))
+PY
+}
+
+decode_and_validate_argv() {
+  local payload="$1"
+  python3 - "$payload" <<'PY'
+import base64,json,re,sys
+payload=sys.argv[1]
+if not re.fullmatch(r"[A-Za-z0-9_-]{1,65536}", payload):
+    raise SystemExit("invalid command payload")
+payload += "=" * ((4-len(payload)%4)%4)
+argv=json.loads(base64.urlsafe_b64decode(payload.encode()))
+if not isinstance(argv,list) or not argv or len(argv)>8:
+    raise SystemExit("invalid argv")
+if not all(isinstance(x,str) and 0 < len(x) <= 131072 for x in argv):
+    raise SystemExit("invalid argv element")
+allowed = argv in (["ha","core","check"],["ha","core","info"],["ha","core","restart"])
+allowed = allowed or (len(argv)==6 and argv[:5]==["docker","exec","homeassistant","python3","-c"])
+if not allowed:
+    raise SystemExit("command not allow-listed")
+print(json.dumps(argv,separators=(",",":")))
+PY
+}
+
+case "$ORIGINAL" in
+  status)
+    target_json
+    ;;
+  guest-exec\ *)
+    payload="${ORIGINAL#guest-exec }"
+    argv_json="$(decode_and_validate_argv "$payload")"
+    IFS=$'\t' read -r node vmid name < <(resolve_target)
+    pvesh create "/nodes/$node/qemu/$vmid/agent/exec" --command "$argv_json" --output-format json
+    ;;
+  guest-exec-status\ *)
+    pid="${ORIGINAL#guest-exec-status }"
+    [[ "$pid" =~ ^[0-9]+$ ]] || die "invalid pid"
+    IFS=$'\t' read -r node vmid name < <(resolve_target)
+    pvesh get "/nodes/$node/qemu/$vmid/agent/exec-status" --pid "$pid" --output-format json
+    ;;
+  *)
+    die "operation not allow-listed"
+    ;;
+esac
