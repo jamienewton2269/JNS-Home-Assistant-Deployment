@@ -4,10 +4,10 @@
 set -euo pipefail
 usage(){ echo "Usage: $0 nodea|nodeb"; exit 2; }
 [[ $# == 1 ]] || usage
-case "$1" in nodea) peer=nodeb;; nodeb) peer=nodea;; *) usage;; esac
+case "$1" in nodea) peer=nodeb.home.arpa;; nodeb) peer=nodea.home.arpa;; *) usage;; esac
 printf 'LOCAL=%s PEER=%s\n' "$(hostname -s)" "$peer"
 if [[ "$(hostname -s)" != "$1" ]]; then echo "Wrong local host; refusing"; exit 2; fi
-if ! getent ahosts "$peer" >/dev/null; then
+if ! getent ahostsv4 "$peer" >/dev/null; then
  echo "BLOCKED: peer $peer unresolved. Correct DNS first; do not hardcode IP addresses."
  exit 3
 fi
