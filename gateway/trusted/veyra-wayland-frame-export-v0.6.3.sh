@@ -251,7 +251,7 @@ echo '=== Wayland frame export (3 in-memory screenshots) ==='
 if runuser -u veyra -- env -u DISPLAY \
   XDG_RUNTIME_DIR="$dir/runtime" WAYLAND_DISPLAY="$socket" \
   python3 - "$GRIM" <<'PY'
-import hashlib, struct, subprocess, sys, time
+import hashlib, struct, subprocess, sys, time, zlib
 tool = sys.argv[1]
 frames = []
 for sample in range(3):
@@ -272,9 +272,28 @@ for sample in range(3):
     if width<32 or height<32:
         print('FAIL: frame dimensions are implausible')
         sys.exit(4)
-    digest=hashlib.sha256(raw).hexdigest()
+    # Compare decoded PNG pixels, not potentially varying file metadata.
+    offset=8
+    idat=[]
+    while offset+12<=len(raw):
+        n=struct.unpack('>I',raw[offset:offset+4])[0]
+        typ=raw[offset+4:offset+8]
+        start=offset+8
+        end=start+n
+        if end+4>len(raw):
+            print('FAIL: truncated PNG image')
+            sys.exit(4)
+        if typ==b'IDAT':
+            idat.append(raw[start:end])
+        offset=end+4
+        if typ==b'IEND':
+            break
+    if not idat:
+        print('FAIL: PNG missing image pixels')
+        sys.exit(4)
+    digest=hashlib.sha256(zlib.decompress(b''.join(idat))).hexdigest()
     frames.append(digest)
-    print(f'Captured frame {sample+1}: {width}x{height}, {len(raw)} compressed bytes, SHA256={digest[:14]}')
+    print(f'Captured frame {sample+1}: {width}x{height}, {len(raw)} compressed bytes, pixel SHA256={digest[:14]}')
     time.sleep(.64)
 if len(set(frames))>=2:
     print('PASS: real rendered frames exported from isolated Wayland display.')
@@ -285,7 +304,7 @@ else:
     sys.exit(5)
 PY
 then
-  echo 'PASS: Wayland capture proof succeeded. No frames written to disk.'
+  echo 'PASS: Wayland capture proof succeeded. No captured image data written to disk.'
 else
   echo 'FAIL: isolated Wayland screencopy. Chrome/Wayland startup is still verified.'
   exit 8
