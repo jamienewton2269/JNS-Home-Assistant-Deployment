@@ -1,0 +1,5 @@
+# JNS Proxmox host DNS registrations
+# Enter into the AUTHORITATIVE JNS DNS release input, then publish to both CT247 and CT248.
+# This is source data, not an instruction for Steward to control DNS.
+10.10.110.11 nodea.home.arpa nodea
+10.10.110.12 nodeb.home.arpa nodeb
