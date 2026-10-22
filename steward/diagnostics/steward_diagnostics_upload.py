@@ -5,7 +5,7 @@ REPO="jamienewton2269/JNS-Steward-Diagnostics"
 API="https://api.github.com"
 TOKEN_FILE="/etc/jns-steward/github-diagnostics.token"
 MAX_BYTES=400_000
-SAFE_CHECKS={"cluster","vms","containers","storage","replication","filesystems","thin_pools","links","services_enabled","services_running","timers"}
+SAFE_CHECKS={"cluster","vms","containers","storage","replication","filesystems","thin_pools","links","services_enabled","services_running","timers","guest_purpose"}
 SECRET=re.compile(r"(token|password|passwd|secret|private.key|authorization|api[_-]?key|credential|bearer|BEGIN .{0,30}PRIVATE KEY)",re.I)
 def api(path,method="GET",data=None,token=None):
  req=urllib.request.Request(API+path,data=json.dumps(data).encode() if data is not None else None,method=method,
@@ -30,7 +30,7 @@ def clean(infile):
    lines=[(s.split() or [""])[0] for s in data.get("lines",[]) if isinstance(s,str)]
   else:
    lines=data.get("lines",[])
-  lines=[s[:220] for s in lines[:300] if isinstance(s,str) and not SECRET.search(s)]
+  lines=[s[:600 if name=="guest_purpose" else 220] for s in lines[:300] if isinstance(s,str) and not SECRET.search(s)]
   checks[name]={"status":data.get("status"),"exit_code":data.get("exit_code"),"lines":lines}
  host=re.sub(r"[^a-zA-Z0-9-]","",str(raw.get("host","unknown")))[:48]
  if not host:raise RuntimeError("Invalid hostname")
