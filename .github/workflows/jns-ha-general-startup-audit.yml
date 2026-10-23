@@ -1,0 +1,16 @@
+name: JNS HA-General Post Restart Network Diagnosis
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/garden_features/startup.request'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read only Core socket and redacted error counters
+        run: python3 gateway/garden_features/startup_audit.py
