@@ -8,7 +8,7 @@ from readiness_probe import ssh_host
 PATCH=pathlib.Path('gateway/wc-lighting/patch_core.py').read_bytes()
 SOURCE=base64.b64encode(PATCH).decode()
 def vm905(args, timeout=210):
-    request=['qm','guest','exec','905','--timeout','12','--',*args]
+    request=['qm','guest','exec','905','--',*args]
     response=json.loads(ssh_host('nodeb',request))
     until=time.monotonic()+timeout
     # QEMU exec-status returns exited/exitcode but does NOT repeat the initial PID.
