@@ -54,11 +54,12 @@ cleanup() {
       wait "$id" 2>/dev/null || true
     fi
   done
-  if [[ "$ffpid" =~ ^[0-9]+$ ]]; then
-    kill -CONT "$ffpid" 2>/dev/null || true
+  if [[ "$ffpid" =~ ^[0-9]+$ ]] && kill -CONT "$ffpid" 2>/dev/null; then
+    rm -f -- "$REC_MARKER"
     if (( paused )); then echo "RESTORED: original recording process resumed"; fi
+  elif (( paused )); then
+    echo "WARNING: direct resume was not confirmed; ownership marker retained for unit recovery." >&2
   fi
-  rm -f -- "$REC_MARKER"
   if [[ -n "$failsafe" ]]; then systemctl stop "$failsafe.timer" 2>/dev/null || true; fi
   if [[ -n "$ihd_tmp" && -d "$ihd_tmp" ]]; then rm -rf -- "$ihd_tmp"; fi
   # Only remove segments in this isolated temporary trial folder.
