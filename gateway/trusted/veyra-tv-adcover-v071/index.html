@@ -1,0 +1,16 @@
+<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>VEYRA · Visual advert cover</title><link rel="stylesheet" href="/styles.css"><script src="/app.js" defer></script></head>
+<body><header><b>V<span>EYRA</span></b><small>VISUAL ADVERT COVER · v0.7.1</small></header><main>
+<span class="eyebrow">LIVE TV CONTROL</span><h1>Cover what Veyra recognises.</h1>
+<p>The cover is triggered by the learned provider graphic, not by a guessed advert length. It stays visible until the recogniser sees a validated return graphic or you press End Cover.</p>
+<section class="panel"><div class="top"><div><span>TV PLAYER</span><h2 id="player">Checking…</h2></div><b id="status">COVER OFF</b></div>
+<div class="bar"><div id="moving"></div></div>
+<p id="state">Waiting for the trained visual recogniser</p><p id="audio">Audio status: checking</p>
+<button id="end" class="primary">■ End cover immediately — return to programme</button></section>
+<section class="panel"><h2>Check display and train recognition</h2>
+<p>Preview displays the Veyra cover for eight seconds only, to check the TV output. It is not a predicted advert length and it doesn't arm automatic detection.</p>
+<button id="preview">Preview eight seconds</button>
+<a class="secondary" href="http://127.0.0.1:8774/">Open transition image trainer ↗</a>
+<p id="notice" role="status"></p>
+</section>
+<p class="small">No time-based advert start/stop rules. The ongoing stream is not paused, seeked or altered. Automatic recognition must be trained on real provider images first.</p>
+</main></body></html>
