@@ -34,7 +34,7 @@ jobs:
             if timeout -k 2s 16s ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes \
               -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$work/known_hosts" \
               -o ConnectTimeout=6 -o ConnectionAttempts=1 \
-              "jnsadmin@$TARGET" 'echo V079_OBSERVATION; hostname; date; for name in veyra-kiosk.service veyra-virtual-loopback-v01.service veyra-tv-v079.service; do systemctl is-active "$name"; done; echo ENCODER; tr "\r" "\n" < /opt/veyra/virtual-loopback-v01/shared-test-v079/encoder.log | tail -35; echo PLAYER; tail -45 /opt/veyra/virtual-loopback-v01/shared-test-v079/player.log; echo SESSION; tail -15 /opt/veyra/virtual-loopback-v01/shared-test-v079/session.log; echo FFMPEG_RECORDER; ps -C ffmpeg -o pid,stat,pcpu,args | head -5; echo COMPLETE' ; then
+              "jnsadmin@$TARGET" 'echo VEYRA_DECODER_READ_ONLY_AUDIT; hostname; date; echo AVAILABLE_PLAYERS; for x in mpv ffplay vainfo gst-launch-1.0; do command -v "$x" || true; done; echo MPV_DEBIAN_PKG; apt-cache policy mpv | head -12; echo FFMPEG_HWACCELS; ffmpeg -hide_banner -hwaccels 2>/dev/null | head -16; echo FFPLAY_HELP; ffplay -hide_banner -h 2>&1 | grep -A1 -E "^-hwaccel|^-framedrop|^-sync " | head -16; echo LIBVA_DRIVERS; find /usr/lib/x86_64-linux-gnu/dri /usr/lib/dri -maxdepth 1 -name "*_drv_video.so" 2>/dev/null | head -15; echo GPU_DEVICE; ls -l /dev/dri 2>/dev/null; echo PHYSICAL_OUTPUT; cat /sys/class/drm/card0-eDP-1/modes 2>/dev/null | head -5; echo SYSTEM; uptime; free -h | head -3; echo COMPLETE' ; then
               echo "VEYRA_REMOTE_ACCESS_PASS: $(basename "$key")"
               exit 0
             else
