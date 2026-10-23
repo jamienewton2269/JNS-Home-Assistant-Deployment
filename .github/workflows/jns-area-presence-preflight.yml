@@ -1,0 +1,14 @@
+name: JNS MQTT Areas and Welcome Home Live Preflight
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/area_presence/preflight.request']
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/area_presence/preflight.py
