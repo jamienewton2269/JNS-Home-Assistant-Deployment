@@ -123,7 +123,6 @@ TimeoutStopSec=5
 NoNewPrivileges=yes
 PrivateTmp=yes
 UMask=0077
-CapabilityBoundingSet=
 ProtectSystem=strict
 ReadWritePaths=/run /tmp
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
@@ -171,7 +170,7 @@ start() {
   echo 'The old recorder resumes automatically when TV session ends.'
   echo 'Use sudo bash ~/veyra-tv-night-v0.7.0.sh status for results.'
 }
-post(path, data) {
+post() {
   local url="$1" payload="$2"
   curl -fsS --max-time 4 -H 'X-Veyra-Control: ad-cover-v070' -H 'Content-Type: application/json' \
      --data "$payload" "$UI$url"
