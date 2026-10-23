@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'gateway/trusted/veyra-tv-player-v0.7.2.sh'
+      - 'gateway/trusted/veyra-display-smoke-v0.7.3.sh'
       - '.github/workflows/veyra-v072-quality-ci.yml'
   workflow_dispatch:
 
@@ -23,6 +24,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           bash -n gateway/trusted/veyra-tv-player-v0.7.2.sh
+          bash -n gateway/trusted/veyra-display-smoke-v0.7.3.sh
           bash -n gateway/trusted/veyra-quality-evidence-v0.7.2.sh
           python3 - <<'PY'
           from pathlib import Path
@@ -54,6 +56,13 @@ jobs:
           assert "-framerate 25" not in s
           assert "/opt/veyra/virtual-loopback-v01/profile" not in s
           print("PASS: preserve live browser, kiosk, audio session and baseline")
+          smoke=Path("gateway/trusted/veyra-display-smoke-v0.7.3.sh").read_text()
+          for needle in ("-f mpegts pipe:1", "-f mpegts -i pipe:0", "RuntimeMaxSec=20s", "WAYLAND_DISPLAY="):
+            assert needle in smoke, f"Smoke missing: {needle}"
+          assert "kill -STOP" not in smoke
+          assert "systemctl restart" not in smoke
+          assert "systemctl stop veyra-virtual-loopback" not in smoke
+          print("PASS: bounded 12s display-only test retains proven local pipe architecture")
           evidence=Path("gateway/trusted/veyra-quality-evidence-v0.7.2.sh").read_text()
           assert "EXPECTED_SEGMENTS=450" in evidence
           assert "veyra-tv-v072.service" in evidence
