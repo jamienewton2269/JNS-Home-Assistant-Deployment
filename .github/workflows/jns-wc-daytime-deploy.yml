@@ -1,0 +1,19 @@
+name: JNS WC Earlier Daytime Light Deploy
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/wc-lighting/apply.request'
+permissions:
+  contents: read
+concurrency:
+  group: jns-wc-daytime-patch
+  cancel-in-progress: false
+jobs:
+  apply:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate backup patch check and activate WC motion template
+        run: python3 gateway/wc-lighting/deploy.py
