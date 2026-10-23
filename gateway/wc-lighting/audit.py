@@ -33,6 +33,18 @@ for p in [root/'automations.yaml', *(root/'packages').glob('*.yaml')]:
                             'id':a.get('id'),'yaml':text[:19000]})
 print('=== WC AUTOMATIONS ===')
 print(json.dumps(matches,indent=2,ensure_ascii=False))
+print('=== LUX CONTROLLER CURRENT ===')
+a=yaml.safe_load((root/'automations.yaml').read_text()) or []
+for item in a:
+    if 'Shared Lux Progressive' in str(item.get('alias','')):
+        print(yaml.safe_dump(item,sort_keys=False,allow_unicode=True)[:26000])
+print('=== SENSOR / TEMPLATE LUX PACKAGE SOURCES ===')
+for pp in [root/'packages/jns_synthetic_lux_calibration.yaml',
+           root/'packages/jns_synthetic_lux.yaml',
+           root/'packages/jns_lux.yaml']:
+    if pp.exists():
+        print('FILE',pp.name)
+        print(pp.read_text()[:14000])
 print('=== WC HELPER DEFINITIONS ===')
 for p in [root/'configuration.yaml',*(root/'packages').glob('*.yaml')]:
     content=p.read_text()
@@ -52,4 +64,4 @@ for i in range(50):
     resp=json.loads(ssh_host('nodeb',['qm','guest','exec-status','905',str(resp['pid'])]))
 if not resp.get('exited') or resp.get('exitcode')!=0:
     print('WC_AUDIT_BLOCKED',resp.get('err-data','')[:1000]);raise SystemExit(1)
-print(resp.get('out-data','')[:40000])
+print(resp.get('out-data','')[:68000])
