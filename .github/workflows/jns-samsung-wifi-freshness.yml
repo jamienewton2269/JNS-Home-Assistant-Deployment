@@ -1,0 +1,15 @@
+name: JNS Samsung WiFi State Freshness
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/arrival_lighting/freshness.request'
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/arrival_lighting/state_freshness_audit.py
