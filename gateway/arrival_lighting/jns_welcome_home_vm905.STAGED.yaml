@@ -179,6 +179,8 @@ automation:
           - condition: state
             entity_id: timer.jns_doorbell_security_lighting
             state: idle
+          - condition: template
+            value_template: "{{ not is_state('timer.jns_backdoor_dogs_run', 'active') }}"
           - condition: state
             entity_id: binary_sensor.0xa4c138b3446c34e1_occupancy
             state: "off"
