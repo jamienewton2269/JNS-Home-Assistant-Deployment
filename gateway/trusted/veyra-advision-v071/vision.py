@@ -163,7 +163,7 @@ def observe(f):
     return sc_in,sc_out,role
 
 def capture():
-    global INDEX,LASTFRAME,CAPTURE_STATUS
+    global INDEX,LASTFRAME,CAPTURE_STATUS,PHASE
     uid=str(os.getuid())
     # Service runs as veyra, same account used for Xvfb and the existing browser.
     cmd=["/usr/bin/ffmpeg","-hide_banner","-nostdin","-loglevel","error",
