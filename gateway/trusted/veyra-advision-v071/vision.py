@@ -149,13 +149,14 @@ def observe(f):
             COUNTERS[role]=0
             if role=="in":
                 PHASE="ad-break"
-                event("ITVX "+role+" bumper identified ("+str(round(val,3))+"); ad break observed.")
+                event(PROVIDER+" "+role+" bumper identified ("+str(round(val,3))+"); ad break observed.")
                 if MODE=="armed" and not cover_signal("start"):
-                    # Cannot claim successful coverage without controller.
-                    event("Visual detector remains observing; cover start was not acknowledged.")
+                    # Fail open when the display controller declines the trigger.
+                    PHASE="programme"
+                    event("Cover start was not acknowledged; rearming the programme observer.")
             else:
                 PHASE="programme"
-                event("ITVX "+role+" bumper identified ("+str(round(val,3))+"); programme return observed.")
+                event(PROVIDER+" "+role+" bumper identified ("+str(round(val,3))+"); programme return observed.")
                 if MODE=="armed":cover_signal("end")
     else:
         COUNTERS[role]=0
@@ -185,6 +186,11 @@ def capture():
                     scores=observe(f)
                     RING.append({"id":INDEX,"time":stamp(),"raw":raw,"feat":f,"scores":scores})
             CAPTURE_STATUS="capture exited; retrying"
+            with LOCK:
+                if MODE=="armed" and PHASE=="ad-break":
+                    event("Display sampling lost; fail open instead of covering indefinitely.")
+                    cover_signal("end")
+                    PHASE="programme"
             proc.terminate()
             try:proc.wait(timeout=2)
             except subprocess.TimeoutExpired:proc.kill()
