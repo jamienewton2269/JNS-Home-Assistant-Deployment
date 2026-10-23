@@ -1,0 +1,20 @@
+<!doctype html><html lang="en-GB"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="color-scheme" content="dark"/>
+<title>VEYRA · Learn advert transitions</title>
+<link rel="stylesheet" href="/style.css"/><script src="/app.js" defer></script></head>
+<body><header><b class="logo">V<span>EYRA</span></b><span class="edition">PROVIDER VISION · v0.7.1</span><a href="http://127.0.0.1:8772/">Watchlist ↗</a></header>
+<main><div class="intro"><span class="eyebrow">ACTUAL IMAGES · NOT GUESSED ADVERT TIMES</span>
+<h1>Teach Veyra the advert transitions.</h1><p>While ITVX plays in the existing VNC browser, Veyra quietly observes the virtual screen. When you see the provider's visual advert introduction or exit graphics, select the matching recent thumbnail and label it. No programme footage is saved; only low-resolution numeric visual fingerprints are retained.</p></div>
+<div class="dashboard">
+<div class="panel"><div class="kicker">LIVE OBSERVER</div><div id="capture" class="headval">Connecting</div><p id="activity">Waiting for virtual display</p><div class="row"><span>Provider</span>
+<select id="provider"><option value="itvx">ITVX</option><option value="iplayer">BBC iPlayer</option><option value="channel4">Channel 4</option><option value="netflix">Netflix</option><option value="primevideo">Prime Video</option><option value="disney">Disney+</option></select></div>
+<div class="row"><span>Current phase</span><b id="phase">PROGRAMME</b></div><div class="row"><span>Detector</span><b id="mode">OBSERVE ONLY</b></div>
+<div class="row"><span>Entry examples</span><b id="inCount">0</b></div><div class="row"><span>Exit examples</span><b id="outCount">0</b></div>
+<div class="row"><span>Entrance match</span><b id="enterScore">0%</b></div><div class="row"><span>Exit match</span><b id="exitScore">0%</b></div></div>
+<div class="panel"><div class="kicker">LABEL ACTUAL BREAK GRAPHICS</div><h2>Recent frames</h2><p>The gallery covers the latest ~16 seconds. Tap Refresh as a break starts or ends, then select the actual logo/bumper frame (not a random advert or programme picture).</p>
+<button id="refresh" class="primary">↻ Refresh frame gallery</button><p class="hint">For ITVX, train both the **ad break starts** image and the **programme returns** image. The two must be visually distinguishable.</p>
+<div id="frames" class="frames"></div></div></div>
+<div class="panel"><h2>Detected transitions</h2><p id="notice" role="status">Observer starts unarmed. Visual matches will be logged before any automatic cover is enabled.</p>
+<div class="actions"><button id="observe" class="primary">Observation only</button><button id="arm" disabled>Arm automatic cover (validation required)</button><button id="reset">Reset phase to Programme</button></div>
+<div id="events" class="events"></div></div>
+</main><footer><span>VEYRA · BETTER BY DESIGN</span><span>Training uses only operator-labelled visual fingerprints · ITVX player unchanged</span></footer></body></html>
