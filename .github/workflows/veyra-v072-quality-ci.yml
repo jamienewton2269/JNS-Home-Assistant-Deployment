@@ -1,0 +1,85 @@
+name: VEYRA v0.7.2 playback candidate validation
+on:
+  push:
+    branches:
+      - veyra/quality-evidence-20261023
+      - main
+    paths:
+      - 'gateway/trusted/veyra-tv-player-v0.7.2.sh'
+      - '.github/workflows/veyra-v072-quality-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-and-ring:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell syntax and core invariants
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-tv-player-v0.7.2.sh
+          bash -n gateway/trusted/veyra-quality-evidence-v0.7.2.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("gateway/trusted/veyra-tv-player-v0.7.2.sh")
+          s=p.read_text()
+          checks={
+            "high-fps requested": 'FPS=50',
+            "30-minute segments": 'SEGMENT_TIME=4\nSEGMENT_COUNT=450',
+            "unique isolated UDP port": 'PORT=23572',
+            "separate v072 service": 'TV=veyra-tv-v072.service',
+            "reject v070 concurrency": 'systemctl is-active --quiet "$OLDER"',
+            "four hour timeout": "DURATION=14400",
+            "segment modulo wrap": 'segment_wrap=$SEGMENT_COUNT',
+            "separate ring files": 'segment%03d.ts',
+            "stop if disk low": 'STOP_FREE_KB=1048576',
+            "restore original recorder": 'kill -CONT "$ffpid"',
+            "rollback after crash": 'ExecStopPost=-/bin/bash /opt/veyra/tv-night-v072/current/player.sh recover',
+            "independent watchdog": 'systemd-run --quiet --collect',
+            "no unattended start": 'Restart=no',
+            "not auto-enabled": 'systemctl daemon-reload',
+          }
+          for label,needle in checks.items():
+            assert needle in s, f"FAIL {label}"
+            print(f"PASS: {label}")
+          assert "systemctl enable" not in s
+          assert "systemctl restart" not in s
+          assert "killall" not in s
+          assert "pkill" not in s
+          assert "-framerate 25" not in s
+          assert "/opt/veyra/virtual-loopback-v01/profile" not in s
+          print("PASS: preserve live browser, kiosk, audio session and baseline")
+          evidence=Path("gateway/trusted/veyra-quality-evidence-v0.7.2.sh").read_text()
+          assert "EXPECTED_SEGMENTS=450" in evidence
+          assert "veyra-tv-v072.service" in evidence
+          print("PASS: evidence collector covers the v0.7.2 live pilot")
+          PY
+      - name: Install FFmpeg for synthetic CI test
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg
+      - name: Demonstrate wrapped segments using synthetic low-res video
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ffmpeg -version | head -n 1
+          temp="$(mktemp -d)"
+          trap 'rm -rf "$temp"' EXIT
+          # Advance a synthetic 1 fps timeline for 1812 s without real-time waiting.
+          timeout -k 5s 100s ffmpeg -nostdin -hide_banner -loglevel error \
+            -f lavfi -i 'testsrc2=size=64x64:rate=1' \
+            -frames:v 1812 -c:v mpeg2video -g 4 -bf 0 \
+            -map 0:v:0 -f tee \
+            "[f=mpegts:onfail=abort]udp://127.0.0.1:23572?pkt_size=1316|[f=segment:onfail=abort:segment_time=4:segment_wrap=450:segment_format=mpegts:reset_timestamps=1]$temp/segment%03d.ts"
+          count=$(find "$temp" -maxdepth 1 -name 'segment???.ts' | wc -l)
+          test "$count" -eq 450
+          test -s "$temp/segment000.ts"
+          test -s "$temp/segment449.ts"
+          echo "PASS: 450 wrapped segments for a 30-minute rolling synthetic timeline"
+          echo "NOTE: encoder performance, real ITVX frame cadence and Lenovo A/V require live testing."
