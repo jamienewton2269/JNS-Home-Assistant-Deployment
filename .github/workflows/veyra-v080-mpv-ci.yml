@@ -1,0 +1,46 @@
+name: VEYRA v0.8.0 hardware mpv playback safety
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/trusted/veyra-tv-player-v0.8.0.sh'
+      - '.github/workflows/veyra-v080-mpv-ci.yml'
+permissions: {contents: read}
+jobs:
+  static-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify script and noninvasive hardware decode pilot guards
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-tv-player-v0.8.0.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('gateway/trusted/veyra-tv-player-v0.8.0.sh').read_text()
+          for key in (
+            'DURATION=40','PORT=23580','FPS=50','SEGMENT_COUNT=450',
+            'runuser -u veyra -- env LIBVA_DRIVER_NAME=i965 vainfo --display drm --device /dev/dri/renderD128',
+            'VAProfileH264High.*VAEntrypointVLD',
+            '--vo=gpu --gpu-context=wayland --hwdec=vaapi',
+            '--fullscreen --no-border --ao=pulse --audio-buffer=0.2',
+            '--demuxer-lavf-format=mpegts',
+            'LIBVA_DRIVER_NAME=iHD LIBVA_DRIVERS_PATH=',
+            'export LIBVA_DRIVER_NAME=i965',
+            'udp://127.0.0.1:$PORT?fifo_size=50000&overrun_nonfatal=1',
+            'segment_wrap=$SEGMENT_COUNT',
+            'kill -STOP "$ffpid"','kill -CONT "$ffpid"',
+            'ExecStopPost=-/bin/bash','--on-active=95s','RuntimeMaxSec=85',
+            'Restart=no','veyra-tv-v079.service',
+            'runuser -u veyra -- test -r "$INSTALL_ROOT/current/player.sh"',
+            'v0.8.0 40s MPV',
+          ): assert key in s, 'MISSING: '+key
+          for bad in ('systemctl enable','systemctl restart','killall ','pkill ','apt-get install','dpkg -i'):
+            assert bad not in s, 'Unsafe or unexpected install: '+bad
+          assert s.index('playerpid=$!') < s.index('encpid=$!')
+          assert s.index('trap cleanup EXIT') < s.index('kill -STOP "$ffpid"')
+          assert s.index('stage_ihd\n') < s.index('kill -STOP "$ffpid"')
+          print('PASS: v080 VAAPI decoder hardware pilot, original recorder protected, no package auto-install')
+          PY
