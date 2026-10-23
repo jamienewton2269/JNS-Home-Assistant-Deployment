@@ -1,0 +1,42 @@
+name: VEYRA v0.7.7 isolated hardware encode ceiling safety
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/trusted/veyra-encode-ceiling-v0.7.7.sh'
+      - '.github/workflows/veyra-v077-encode-ci.yml'
+permissions: {contents: read}
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify syntax, encoder isolation, recorder recovery and privilege boundaries
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-encode-ceiling-v0.7.7.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path("gateway/trusted/veyra-encode-ceiling-v0.7.7.sh").read_text()
+          r=s.split("pipe_render() {",1)[1].split("\nemergency_resume() {",1)[0]
+          for needle in (
+            "DURATION=20","FPS=50","stage_ihd","-framerate 50",
+            "-video_size 1366x768","h264_vaapi","-low_power 1",
+            "-fps_mode:v passthrough","-f null -",
+            "-f pulse","$SINK.monitor","-map 0:v:0 -map 1:a:0",
+            "kill -STOP \"$ffpid\"","kill -CONT \"$ffpid\"",
+            'runuser -u veyra -- test -r "$INSTALL_ROOT/current/player.sh"',
+            "RuntimeMaxSec=60","Restart=no","--on-active=65s",
+            "veyra-tv-v076.service"
+          ):
+            assert needle in s, f"Missing expected safeguard: {needle}"
+          for forbidden in ("ffplay", "-f tee", "-f segment", "udp://", "pipe:1", "-f mpegts", "http:"):
+            assert forbidden not in r, f"Encode-only probe must not invoke media delivery: {forbidden}"
+          for forbidden in ("systemctl enable", "systemctl restart", "killall ", "pkill "):
+            assert forbidden not in s, f"Unsafe runtime pattern: {forbidden}"
+          assert s.index('stage_ihd\n') < s.index('kill -STOP "$ffpid"')
+          assert s.index("trap cleanup EXIT") < s.index('kill -STOP "$ffpid"')
+          print("PASS: 20s 50fps VAAPI and Pulse encode-to-null test, no player or media files")
+          PY
