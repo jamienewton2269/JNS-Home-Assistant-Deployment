@@ -1,0 +1,117 @@
+# JNS HA-General garden ornament and back-door security light controls.
+# JNS Garden Features v1 - separate water ornament from lighting.
+# Home Assistant automation execution exclusively on VM905.
+input_boolean:
+  jns_water_feature_maintenance:
+    name: Garden Water Feature - Maintenance Lockout
+    icon: mdi:lock
+  jns_backdoor_dogs_preexisting:
+    name: Back-door Dogs Run was already on
+    icon: mdi:lightbulb-check
+
+input_number:
+  jns_backdoor_dogs_run_minutes:
+    name: Back Door - Dogs Run security light duration
+    icon: mdi:timer-outline
+    min: 1
+    max: 30
+    step: 1
+    mode: slider
+    initial: 10
+
+timer:
+  jns_backdoor_dogs_run:
+    name: Back Door - Dogs Run security lighting
+    duration: "00:10:00"
+    restore: true
+
+automation:
+  - id: jns_garden_water_feature_maintenance_off_v1
+    alias: JNS Garden - Enforce Water Feature Maintenance Lockout
+    description: >-
+      When maintenance lockout is enabled, switch the water feature off and
+      immediately reverse any new software ON request. Physical isolation is
+      still required for maintenance.
+    triggers:
+      - trigger: state
+        entity_id: input_boolean.jns_water_feature_maintenance
+        to: "on"
+      - trigger: state
+        entity_id: switch.0x84fd27fffe5fa5bd
+        to: "on"
+      - trigger: homeassistant
+        event: start
+    conditions:
+      - condition: state
+        entity_id: input_boolean.jns_water_feature_maintenance
+        state: "on"
+    actions:
+      - action: switch.turn_off
+        target:
+          entity_id: switch.0x84fd27fffe5fa5bd
+    mode: restart
+
+  - id: jns_backdoor_dogs_run_trigger_v1
+    alias: JNS Back Door - Dogs Run Security Light
+    description: >-
+      Switch Dogs Run security light on for adjustable duration on a valid Tuya
+      back door closed-to-open transition. Additional openings reset the timer.
+      Continues to function when Tuya is eventually changed to local control.
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.backdoor_contact_sensor_door
+        from: "off"
+        to: "on"
+    actions:
+      - if:
+          - condition: template
+            value_template: >-
+              {{ not is_state('timer.jns_backdoor_dogs_run', 'active') }}
+        then:
+          - if:
+              - condition: state
+                entity_id: switch.0x84fd27fffe9ce438
+                state: "on"
+            then:
+              - action: input_boolean.turn_on
+                target:
+                  entity_id: input_boolean.jns_backdoor_dogs_preexisting
+            else:
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.jns_backdoor_dogs_preexisting
+      - action: switch.turn_on
+        target:
+          entity_id: switch.0x84fd27fffe9ce438
+      - action: timer.start
+        target:
+          entity_id: timer.jns_backdoor_dogs_run
+        data:
+          duration: >-
+            {{ states('input_number.jns_backdoor_dogs_run_minutes') | int(10) * 60 }}
+    mode: restart
+
+  - id: jns_backdoor_dogs_run_release_v1
+    alias: JNS Back Door - Release Dogs Run Security Light
+    description: >-
+      Release only the light this door activation took ownership of. Preserve
+      existing, PIR, doorbell, and future welcome-home lighting demands.
+    triggers:
+      - trigger: event
+        event_type: timer.finished
+        event_data:
+          entity_id: timer.jns_backdoor_dogs_run
+    conditions:
+      - condition: state
+        entity_id: input_boolean.jns_backdoor_dogs_preexisting
+        state: "off"
+      - condition: template
+        value_template: >-
+          {{ not is_state('timer.jns_doorbell_security_lighting', 'active')
+             and not is_state('timer.jns_welcome_home', 'active')
+             and not is_state('binary_sensor.0xa4c138b3446c34e1_occupancy', 'on') }}
+    actions:
+      - action: switch.turn_off
+        target:
+          entity_id: switch.0x84fd27fffe9ce438
+    mode: single
