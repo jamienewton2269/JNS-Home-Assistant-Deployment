@@ -1,0 +1,38 @@
+name: VEYRA v0.7.9 decoupled loopback player safety CI
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/trusted/veyra-tv-player-v0.7.9.sh'
+      - '.github/workflows/veyra-v079-loopback-ci.yml'
+permissions: {contents: read}
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect bounded session, receiver-first order and rollback
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-tv-player-v0.7.9.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('gateway/trusted/veyra-tv-player-v0.7.9.sh').read_text()
+          for val in ('DURATION=40','FPS=50','PORT=23579','SEGMENT_COUNT=450','SEGMENT_TIME=4',
+              'udp://127.0.0.1:$PORT?pkt_size=1316','-f tee "$destinations"',
+              'segment_wrap=$SEGMENT_COUNT','wayland','SDL_VIDEODRIVER=wayland',
+              'fifo_size=50000&overrun_nonfatal=1','_player) player_render ;;',
+              '_encode) encode_render ;;','kill -STOP "$ffpid"','kill -CONT "$ffpid"',
+              'RuntimeMaxSec=85','--on-active=95s','Restart=no',
+              'runuser -u veyra -- test -r "$INSTALL_ROOT/current/player.sh"',
+              'veyra-tv-v078.service'):
+              assert val in s, f'missing isolation or safety property: {val}'
+          assert s.index('playerpid=$!') < s.index('encpid=$!'), 'receiver must start before encoder'
+          assert s.index('trap cleanup EXIT') < s.index('kill -STOP "$ffpid"')
+          assert s.index('stage_ihd\n') < s.index('kill -STOP "$ffpid"')
+          for bad in ('systemctl restart','systemctl enable','killall ','pkill ','-f mpegts pipe:0'):
+              assert bad not in s, f'unexpected high-impact operation {bad}'
+          print('PASS: bounded decoder-decoupled 40s pilot, receiver first and recorder rollback')
+          PY
