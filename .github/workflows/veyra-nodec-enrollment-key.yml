@@ -1,0 +1,44 @@
+name: VEYRA dedicated Node C SSH enrollment key
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-nodec-enrollment-key.yml'
+permissions: {contents: read}
+jobs:
+  generate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - name: Generate or reuse persistent restricted-use SSH identity on Node C
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          KEY="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          install -d -m 700 "$HOME/.ssh"
+          if [[ -e "$KEY" && ! -f "$KEY.pub" ]]; then
+            echo "SAFETY STOP: unexpected private key without matching public key"; exit 2
+          fi
+          if [[ ! -e "$KEY" ]]; then
+            if [[ -e "$KEY.pub" ]]; then
+              echo "SAFETY STOP: public key already exists, private key missing"; exit 3
+            fi
+            umask 077
+            ssh-keygen -q -t ed25519 -N '' -C 'jns-veyra-nodec' -f "$KEY"
+            echo "CREATED_VEYRA_NODEC_KEY"
+          else
+            echo "REUSED_VEYRA_NODEC_KEY"
+          fi
+          chmod 600 "$KEY"
+          chmod 644 "$KEY.pub"
+          ssh-keygen -y -f "$KEY" > "$KEY.check.pub"
+          if ! cmp -s <(awk '{print $1,$2}' "$KEY.check.pub") <(awk '{print $1,$2}' "$KEY.pub"); then
+            rm -f "$KEY.check.pub"
+            echo "SAFETY STOP: public/private key mismatch"; exit 4
+          fi
+          rm -f "$KEY.check.pub"
+          echo "=== VERIFIED PUBLIC DEPLOYMENT KEY (authorise only for jnsadmin on Lenovo) ==="
+          cat "$KEY.pub"
+          echo "=== PUBLIC KEY FINGERPRINT ==="
+          ssh-keygen -lf "$KEY.pub" -E sha256
+          echo "PRIVATE_KEY_NOT_EXPORTED"
