@@ -197,6 +197,12 @@ stage_ihd() {
 
 run() {
   preflight
+  # Fail BEFORE pausing the original recorder if a root-only staging directory
+  # prevents the restricted veyra user from reading the child pipeline script.
+  if ! runuser -u veyra -- test -r "$INSTALL_ROOT/current/player.sh"; then
+    echo "SAFETY STOP: installed player is not readable by veyra; reinstall corrected release." >&2
+    return 2
+  fi
   trap cleanup EXIT
   trap 'exit 130' INT
   # systemctl stop sends TERM: cleanup restores the original recorder.
@@ -320,7 +326,18 @@ install_candidate() {
   release="$INSTALL_ROOT/v075-$stamp-${BASHPID}"
   install -m 755 "$0" "$stage/player.sh"
   bash -n "$stage/player.sh"
+  # mktemp -d defaults to 0700. A root-only release directory breaks _pipe:
+  # bash executes it as the intentionally unprivileged 'veyra' user.
+  chmod 755 "$stage"
+  if ! runuser -u veyra -- test -r "$stage/player.sh"; then
+    echo "SAFETY STOP: staged script inaccessible to veyra; current release unchanged." >&2
+    return 2
+  fi
   mv "$stage" "$release"
+  if ! runuser -u veyra -- test -r "$release/player.sh"; then
+    echo "SAFETY STOP: release inaccessible to veyra; current symlink unchanged." >&2
+    return 2
+  fi
   ln -s "$release" "$INSTALL_ROOT/.next.${BASHPID}"
   mv -Tf "$INSTALL_ROOT/.next.${BASHPID}" "$INSTALL_ROOT/current"
   cat > "$UNITFILE" <<'UNIT'
@@ -357,6 +374,10 @@ case "${1:-}" in
   start)
     [[ -f "$UNITFILE" ]] || { echo "Install staged unit first"; exit 2; }
     preflight
+    if ! runuser -u veyra -- test -r "$INSTALL_ROOT/current/player.sh"; then
+      echo "SAFETY STOP: staged player unreadable by veyra; reinstall the corrected candidate." >&2
+      exit 2
+    fi
     systemctl start --no-block "$TV"
     echo "v0.7.5 70s TEST requested; confirm ITVX picture actually visible.";;
   stop) systemctl stop "$TV" ;;
