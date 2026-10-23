@@ -19,6 +19,13 @@
 - Therefore requested **raw capture throughput is achievable without downstream encoder/audio/buffer/player pressure**, although 1000 captures do not establish 1000 distinct motion frames from the ITVX source.
 - The next isolated test v0.7.7 is staged in GitHub and safety-CI passed. It runs 20 seconds of VAAPI H264 video plus Pulse audio to FFmpeg null muxer, with no physical playback, tee or segment media retention. This distinguishes encoding/audio overhead from playback and ring overhead. No Lenovo v0.7.7 deployment or run has occurred.
 
+## 2026-10-23 v0.7.7 Lenovo test and next isolation
+- Node C read-only verified v0.7.7 **1000 H264 VAAPI encoded frames** and Pulse/MP2 audio over 19.99 seconds at reported `speed=0.995x`. This test deliberately used `-fps_mode:v passthrough` and a null muxer, with no FFplay or ring.
+- v0.7.7 null muxer repeatedly logged `Application provided invalid, non monotonically increasing dts to muxer in stream 0`: timestamps require analysis; not a clean A/V timestamp acceptance. Neither raw frame count nor encoder frame count proves every ITVX scene frame differs.
+- At end `veyra-tv-v077.service=inactive`, no recorder marker, and original recorder PID 626060 was running, along with active kiosk, virtual capture and VNC.
+- FFmpeg documentation confirms `-fps_mode passthrough` passes each decoded frame's timestamp, `cfr` can duplicate/drop frames, and `auto` defaults to muxer-dependent behaviour. Do not silently use pass-through as a claimed frame-quality fix without validating timestamp monotonicity and A/V playback.
+- v0.7.8 staged in GitHub (CI passed, **not yet installed or run on Lenovo**). Test: bounded 20s VAAPI+Pulse encoder with the **same default output sync and tee/segment ring** as jerky v0.7.5, replacing only physical FFplay pipe with MPEG-TS output to `/dev/null`. Logs compare duplicate count versus v0.7.5 and v0.7.7; the isolated segment files are deleted during cleanup, original recorder restored. This determines whether tee/segment muxing alone is implicated before touching the real player.
+
 ## Acceptance gates before long-running release
 1. Physical laptop visibly plays the **actual ITVX programme** in v0.7.4 or another equivalent accepted real video test.
 2. v0.7.5 visible picture with decoded H264, audio synchronised, no black screen, and complete controlled stop/resume. Check session, encoder and player logs.
