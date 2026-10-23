@@ -1,0 +1,17 @@
+# JNS Welcome Home -- HA-Primary (VM902) state forwarding only.
+# STAGED ONLY: Requires MQTT integration configured in HA-Primary UI first.
+# This is NOT an automation. All arrival/darkness/timer/light logic belongs to VM905.
+# Apply this block once to /config/configuration.yaml on VM902 via JNS
+# guarded deployment after confirming no existing mqtt_statestream block.
+# The broker hostname is mqtt-infra-a.home.arpa, port 1883, configured in HA UI.
+# Restrict to these four signals; do not publish other entities/attributes.
+mqtt_statestream:
+  base_topic: jns/ha-primary
+  publish_attributes: false
+  publish_timestamps: true
+  include:
+    entities:
+      - device_tracker.sm_s721b
+      - sensor.sm_s721b_wi_fi_connection
+      - sensor.sm_s721b_bluetooth_connection
+      - binary_sensor.sm_s721b_bluetooth_state
