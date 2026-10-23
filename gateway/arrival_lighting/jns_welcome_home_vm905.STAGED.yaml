@@ -8,8 +8,10 @@ input_boolean:
     initial: false
   jns_welcome_a_away:
     name: Welcome Home phone A away
+    initial: false
   jns_welcome_b_away:
     name: Welcome Home phone B away
+    initial: false
   jns_welcome_porch_preexisting:
     name: Welcome Home porch was already on
   jns_welcome_dogs_preexisting:
