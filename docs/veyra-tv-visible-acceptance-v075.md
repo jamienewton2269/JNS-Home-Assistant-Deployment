@@ -13,6 +13,12 @@
 - Do not assert the video source itself is 28fps; input unique moving picture cadence was NOT directly measured. Duplication counts distinguish FFmpeg output-generated duplicates from requested capture cadence, not true content uniqueness.
 - v0.7.6, CI-validated but **not yet run on Lenovo**, is a bounded 20-second Xvfb raw x11grab at 1366x768 / 50fps to FFmpeg null muxer with -fps_mode passthrough. No physical playback or media file retention. It pauses only the original recorder for the test and automatically resumes via cleanup plus independent timer. If this probe delivers near 1000 frames in 20s, the added encode/decode/buffer work is the bottleneck; if substantially lower, capture/Xvfb itself is limiting throughput. Either way, retain genuine 50fps target rather than silently lowering the output goal or hiding duplication with -vsync passthrough in the final player.
 
+## 2026-10-23 v0.7.6 benchmark verified through Node C
+- The bounded raw X11-grab test completed at 1366x768 and requested 50fps: FFmpeg logged **1000 frames in 20.00 seconds, speed 1.00x** with `-fps_mode passthrough` to null muxer (no programme media retained).
+- After the test Node C confirmed `veyra-tv-v076.service=inactive`; original FFmpeg recorder PID 626060 was running, together with active VEYRA kiosk, virtual loopback and VNC services.
+- Therefore requested **raw capture throughput is achievable without downstream encoder/audio/buffer/player pressure**, although 1000 captures do not establish 1000 distinct motion frames from the ITVX source.
+- The next isolated test v0.7.7 is staged in GitHub and safety-CI passed. It runs 20 seconds of VAAPI H264 video plus Pulse audio to FFmpeg null muxer, with no physical playback, tee or segment media retention. This distinguishes encoding/audio overhead from playback and ring overhead. No Lenovo v0.7.7 deployment or run has occurred.
+
 ## Acceptance gates before long-running release
 1. Physical laptop visibly plays the **actual ITVX programme** in v0.7.4 or another equivalent accepted real video test.
 2. v0.7.5 visible picture with decoded H264, audio synchronised, no black screen, and complete controlled stop/resume. Check session, encoder and player logs.
