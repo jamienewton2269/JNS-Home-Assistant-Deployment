@@ -69,9 +69,14 @@ jobs:
                   detail="private_repo_auth_or_refresh_failed"
                   if [[ "$rc" -eq 78 ]]; then
                     detail="awaiting_readonly_deploy_key"
-                    ssh "root@$target" 'cat /var/lib/jns-steward-knowledge/credentials/diagnostics_readonly.pub' \
-                      >/tmp/jns-steward-deploy-key.pub 2>/dev/null || true
-                    if ! grep -Eq '^ssh-ed25519 [A-Za-z0-9+/=]+ jns-steward-diagnostics-readonly
+                    ssh "root@$target" "cat /var/lib/jns-steward-knowledge/credentials/diagnostics_readonly.pub" \
+                      > /tmp/jns-steward-deploy-key.pub 2>/dev/null || true
+                    if ! grep -q "^ssh-ed25519 " /tmp/jns-steward-deploy-key.pub 2>/dev/null; then
+                      rm -f /tmp/jns-steward-deploy-key.pub
+                    fi
+                  fi
+                  echo "Onsite refresh not completed; retained any existing knowledge."
+                  grep -E "^(BLOCKED|JNS_STEWARD)" /tmp/jns-steward-knowledge-apply.log || true
                 else
                   echo "Knowledge seed copied to Node B and Steward SQLite facts updated."
                   # Only establish a periodic timer after the first verified success.
