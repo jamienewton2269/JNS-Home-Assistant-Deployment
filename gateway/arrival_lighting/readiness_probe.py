@@ -52,7 +52,18 @@ def ssh_host(node, command):
             return run(base+[shlex.join(command)],60)
         except (RuntimeError,subprocess.TimeoutExpired):
             continue
-    raise RuntimeError("trusted SSH not available for "+node)
+    # Try Node B as an existing trusted management hop for Node A.
+    if node=='nodea':
+        for hostname in ('nodea.home.arpa','nodea'):
+            inner=['ssh','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=5','root@'+hostname]
+            outer=['ssh','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=5','root@nodeb.home.arpa']
+            try:
+                identity=run(outer+[shlex.join(inner+['hostname -s'])],20).strip()
+                if identity!=node: raise RuntimeError('wrong remote node')
+                return run(outer+[shlex.join(inner+[shlex.join(command)])],65)
+            except (RuntimeError,subprocess.TimeoutExpired):
+                pass
+    raise RuntimeError("trusted SSH not available for "+node+" (including Node B hop)")
 def probe(vm,node):
     try:
         status=ssh_host(node,['qm','status',str(vm)]).strip()
