@@ -3,7 +3,7 @@
 ## Evidence and status
 - v0.7.2: **capture only confirmed**, ~23 minutes reported at 50fps; physical picture **absent**. 450x4-second ring not filled before stop. FFplay UDP consumer logged repeated H.264 PPS and slice-header errors. The original capture service resumed after stopping v0.7.2.
 - v0.7.3: **physical video visible**. User confirmed moving local synthetic pattern on laptop; twice completed successfully, 12 seconds each, using Cage/Wayland and FFmpeg MPEG-TS **local pipe** to FFplay.
-- v0.7.4: 18-second real ITVX video-only direct-pipe candidate exists. User wrote **YES on laptop screen**, but attached journal output covered only v0.7.3, not v0.7.4. Do not infer the live ITVX picture was technically verified by that log alone; the explicit user report should be clarified during visual acceptance.
+- v0.7.4: **physical real ITVX picture confirmed by user** on 2026-10-23 after clarifying that earlier v0.7.3 output was only the coloured test pattern. The visual confirmation was direct user observation; the pasted journal output was for v0.7.3 and is not a v0.7.4 log.
 - v0.7.5: **staged only** 70-second proof of 50fps H.264 hardware-encoded FFmpeg tee **local pipe** to FFplay plus simultaneous 450x4-second rolling segment configuration. This is a bounded integrated visibility test, not a completed 30-minute timeshift. Prior original recorder FFmpeg is temporarily paused (not killed); independent resume timer and cleanup in place. It is not auto-enabled.
 
 ## Acceptance gates before long-running release
@@ -14,7 +14,7 @@
 5. A buffer is **not a functional timeshift** until pause, seek/rewind and seekable manifest/indexing controls are implemented and tested. Do not conflate ring retention with user-controlled playback.
 6. Preserve installed Debian dual boot, Chrome ITVX profile, Cage kiosk, original recorder, VNC and audio services. No unattended start, no PXE changes.
 
-## On-Lenovo commands for v0.7.5 (only after explicit v0.7.4 video acceptance)
+## On-Lenovo commands for bounded v0.7.5 (v0.7.4 picture visually accepted)
 ```bash
 curl -fL https://raw.githubusercontent.com/jamienewton2269/JNS-Home-Assistant-Deployment/main/gateway/trusted/veyra-tv-player-v0.7.5.sh -o ~/veyra-tv-player-v0.7.5.sh
 bash -n ~/veyra-tv-player-v0.7.5.sh
