@@ -46,6 +46,13 @@ for p in [root/'dashboards/testing.yaml',*sorted((root/'dashboards').glob('*.yam
     indices=[i for i,x in enumerate(lines) if re.search(r'(water.feature|fountain|lighting.settings|maintenance|dog.?run|back.?door|garden|features|general.controls)',x,re.I)]
     for i in sorted(set(j for k in indices[:70] for j in range(max(0,k-2),min(len(lines),k+4)))):
         print(f'{i+1}: {lines[i][:240]}')
+print('=== DASHBOARD VIEW DETAILS ===')
+p=root/'dashboards/testing.yaml'
+lines=p.read_text().splitlines()
+for start,end in [(1,45),(270,296),(730,795),(1140,1182)]:
+  print('region',start,end)
+  for j in range(start-1,min(end,len(lines))):
+    print(str(j+1)+': '+lines[j][:230])
 print('=== EXISTING HELPER NAMES ===')
 for p in sorted((root/'packages').glob('*.yaml')):
    try: d=yaml.safe_load(p.read_text())
