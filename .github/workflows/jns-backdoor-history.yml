@@ -1,0 +1,14 @@
+name: JNS Back Door Sensor Recorded History
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/garden_features/door-history.request']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/garden_features/door_history.py
