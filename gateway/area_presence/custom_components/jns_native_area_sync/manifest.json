@@ -1,0 +1,11 @@
+{
+  "domain": "jns_native_area_sync",
+  "name": "JNS Native Area Synchroniser",
+  "version": "0.1.0",
+  "documentation": "https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment",
+  "dependencies": [
+    "mqtt"
+  ],
+  "codeowners": [],
+  "iot_class": "local_push"
+}
