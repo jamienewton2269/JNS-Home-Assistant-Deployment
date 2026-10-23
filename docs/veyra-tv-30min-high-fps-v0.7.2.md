@@ -1,6 +1,6 @@
 # VEYRA v0.7.2 — restore high-frame-rate trial and 30-minute ring
 
-**State:** candidate code staged on branch `veyra/quality-evidence-20261023`; **not installed or tested on the Lenovo**. Earlier v0.7.0 services/files remain unchanged.
+**State:** GitHub synthetic wrapping and FFmpeg tee tests passed; live Lenovo installation and source-frame acceptance remain pending. Candidate code staged on branch `veyra/quality-evidence-20261023`; **not installed or tested on the Lenovo**. Earlier v0.7.0 services/files remain unchanged.
 
 ## Reason for revision
 
@@ -15,7 +15,7 @@ v0.7.0 hardcodes 25 fps and ten four-second wrapped MPEG-TS segments (roughly 40
 - Frame capture target: **50 fps** at 1366×768 via the existing `:92` X11 display. This is deliberately above 25 fps but **not** a proof of 50 distinct source frames.
 - Scoped Intel iHD driver staging plus a synthetic **50 fps** low-power H.264 preflight before the existing recorder is paused.
 - One encoder feeds live UDP and the rolling files; full 4-hour bounded session remains.
-- Disk: requires 8 GiB initially free and stops the candidate encoder if free space falls below 2 GiB; unit and external watchdog restore the original recorder.
+- Disk: requires 4 GiB initially free and stops the candidate encoder if free space falls below 1 GiB; unit and external watchdog restore the original recorder.
 - Recorder ownership marker is version-specific. v0.7.0 playback must be inactive before running this candidate.
 - Does not replace the kiosk, Chrome authentication, VNC, v0.7.0 player unit, or advert/visual-controller units.
 
