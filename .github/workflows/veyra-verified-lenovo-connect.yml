@@ -34,7 +34,7 @@ jobs:
             if timeout -k 2s 16s ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes \
               -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$work/known_hosts" \
               -o ConnectTimeout=6 -o ConnectionAttempts=1 \
-              "jnsadmin@$TARGET" 'printf "VEYRA_REMOTE_AUTHENTICATED\n"; hostname; printf "SUDO_NONINTERACTIVE="; if sudo -n true 2>/dev/null; then echo yes; else echo no; fi; for s in veyra-kiosk.service veyra-virtual-loopback-v01.service veyra-itvx-vnc-v01.service veyra-tv-v070.service veyra-tv-v072.service; do printf "%s=" "$s"; systemctl is-active "$s" 2>/dev/null || :; done; df -Pk /opt/veyra/virtual-loopback-v01 | awk "NR==2{print \"FREE_KIB=\"\$4}"' ; then
+              "jnsadmin@$TARGET" 'printf "VEYRA_REMOTE_AUTHENTICATED\n"; hostname; printf "SUDO_NONINTERACTIVE="; if sudo -n true 2>/dev/null; then echo yes; else echo no; fi; for s in veyra-kiosk.service veyra-virtual-loopback-v01.service veyra-itvx-vnc-v01.service veyra-tv-v070.service veyra-tv-v072.service; do printf "%s=" "$s"; systemctl is-active "$s" 2>/dev/null || :; done; df -Pk /opt/veyra/virtual-loopback-v01 | awk "NR==2{print \"FREE_KIB=\"\$4}"; echo DIAG_RECOVERY_STATE; uptime; free -m; systemctl is-active ssh.service || true; ps -C ffmpeg,ffplay -o pid,user,pcpu,pmem,stat,etime --sort=-pcpu | head -12; echo SUDO_RULES_START; sudo -n -l 2>&1 | head -12; echo SUDO_RULES_END' ; then
               echo "VEYRA_REMOTE_ACCESS_PASS: $(basename "$key")"
               exit 0
             else
