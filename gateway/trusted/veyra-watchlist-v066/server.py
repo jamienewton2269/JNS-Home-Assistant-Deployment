@@ -124,7 +124,7 @@ class API(BaseHTTPRequestHandler):
             return False
         return True
 
-    def headers(self, code, media="application/json; charset=utf-8"):
+    def send_headers(self, code, media="application/json; charset=utf-8"):
         self.send_response(code)
         self.send_header("Content-Type", media)
         self.send_header("Cache-Control", "no-store")
@@ -138,7 +138,7 @@ class API(BaseHTTPRequestHandler):
 
     def send(self, code, obj):
         blob = json.dumps(obj, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-        self.headers(code)
+        self.send_headers(code)
         self.wfile.write(blob)
 
     def error(self, status, message):
@@ -157,7 +157,7 @@ class API(BaseHTTPRequestHandler):
                 b = (HERE/name).read_bytes()
             except OSError:
                 return self.error(500, "UI asset missing")
-            self.headers(200, typ)
+            self.send_headers(200, typ)
             self.wfile.write(b)
             return
         if u.path == "/api/health":
