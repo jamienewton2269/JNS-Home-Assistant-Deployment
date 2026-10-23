@@ -25,6 +25,8 @@ def patch():
     result=qga(['docker','exec','homeassistant','python3','-c',source,MODE])
     out=result.get('out-data','')
     print(out[:9000],flush=True)
+    if result.get('exitcode')!=0:
+        print('JNS_GARDEN_GUEST_STDERR '+(result.get('err-data') or '')[-2000:],flush=True)
     if result.get('exitcode')!=0 or 'JNS_GARDEN_BLOCKED' in out:raise RuntimeError('guest patcher blocked')
     expected=('JNS_GARDEN_APPLIED' if MODE=='--apply' else 'JNS_GARDEN_PLAN')
     if expected not in out:raise RuntimeError('missing '+expected)
