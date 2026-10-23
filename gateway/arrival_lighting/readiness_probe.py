@@ -23,6 +23,7 @@ wifi=[x for x in mobile if any(z in ' '.join([x.get('entity_id',''),str(x.get('o
 bt=[x for x in mobile if 'bluetooth' in ' '.join([x.get('entity_id',''),str(x.get('original_name') or '')]).lower()]
 cfg=(b/'configuration.yaml').read_text()
 out={
+ 'integration_domains':sorted(set(x.get('domain','') for x in cs)),
  'mobile_app_count':len(apps),
  'mobile_tracker_count':len([x for x in track if x.get('platform')=='mobile_app']),
  'all_tracker_count':len(track),
@@ -33,6 +34,7 @@ out={
  'mqtt_config_entries':len(mq),
  'mqtt_statestream_in_root_config':any(x.strip().startswith('mqtt_statestream:') for x in cfg.splitlines()),
  'config_package_include':('packages' in cfg),
+ 'remote_ha_reference_in_config':('remote_homeassistant' in cfg or 'remote_home_assistant' in cfg),
  'doorbell_package_exists':(b/'packages/jns_doorbell_security_lighting.yaml').exists(),
 }
 print(json.dumps(out))
