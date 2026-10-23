@@ -34,6 +34,10 @@ jobs:
             "RuntimeMaxSec=100",
             "Restart=no",
             "TV=veyra-tv-v075.service",
+            'chmod 755 "$stage"',
+            'runuser -u veyra -- test -r "$stage/player.sh"',
+            'runuser -u veyra -- test -r "$release/player.sh"',
+            'runuser -u veyra -- test -r "$INSTALL_ROOT/current/player.sh"',
             "RECENT=veyra-tv-v072.service",
             "trap 'exit 0' TERM",
           ]
@@ -43,6 +47,9 @@ jobs:
             assert forbidden not in s, f"forbidden unsafe pattern: {forbidden}"
           assert 'if [[ "${1:-}" == _pipe ]]' in s
           assert 'if systemctl is-active --quiet "$overlapping"' in s
+          assert s.index('chmod 755 "$stage"') < s.index('mv "$stage" "$release"')
+          assert s.index('runuser -u veyra -- test -r "$release/player.sh"') < s.index('mv -Tf "$INSTALL_ROOT/.next.${BASHPID}" "$INSTALL_ROOT/current"')
+          print("PASS: root-owned release must be accessible to veyra BEFORE current symlink changes")
           print("PASS: 70-second trial, Wayland direct pipe, ring, recorder recovery and safety guards")
           PY
       - name: Install FFmpeg for isolated synthetic muxer test
