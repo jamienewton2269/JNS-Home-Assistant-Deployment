@@ -12,7 +12,7 @@ NEW_SENSOR='sensor.jns_lighting_effective_lux'
 NEW_TEMPLATE="""{% set lux = states('sensor.jns_lighting_effective_lux') %}
 {% set threshold = states('input_number.general_outdoor_lighting_on_lux') | float(2500) * 1.5 %}
 {{ is_number(lux) and lux | float(99999) < threshold }}"""
-NEW_LINES=("            value_template: >-\n"+
+NEW_LINES=("            value_template: |-\n"+
            "".join("              "+line+"\n" for line in NEW_TEMPLATE.splitlines()))
 
 def checksum(data):return hashlib.sha256(data).hexdigest()
