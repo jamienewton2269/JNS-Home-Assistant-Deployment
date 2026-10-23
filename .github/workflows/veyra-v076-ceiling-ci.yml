@@ -1,0 +1,45 @@
+name: VEYRA v0.7.6 raw capture ceiling safety checks
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/trusted/veyra-capture-ceiling-v0.7.6.sh'
+      - '.github/workflows/veyra-v076-ceiling-ci.yml'
+permissions: {contents: read}
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check syntax and read-only capture invariants
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-capture-ceiling-v0.7.6.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('gateway/trusted/veyra-capture-ceiling-v0.7.6.sh').read_text()
+          for needle in (
+            'DURATION=20',
+            '-framerate 50',
+            '-video_size 1366x768',
+            '-fps_mode passthrough',
+            '-f null -',
+            'kill -STOP "$ffpid"',
+            'kill -CONT "$ffpid"',
+            'ExecStopPost=-/bin/bash',
+            '--on-active=65s',
+            'RuntimeMaxSec=60',
+            'Restart=no',
+            'runuser -u veyra -- test -r',
+            'veyra-tv-v075.service',
+          ):
+            assert needle in s, f'Missing safety condition: {needle}'
+          for forbidden in ('systemctl enable', 'systemctl restart', 'pkill ', 'killall ', 'tee "$output"', 'udp://127.0.0.1'):
+            assert forbidden not in s, f'Unexpected high-impact command: {forbidden}'
+          assert 'stage_ihd\n  route' not in s
+          assert s.index('systemd-run --quiet') < s.index('kill -STOP "$ffpid"')
+          assert s.index('trap cleanup EXIT') < s.index('kill -STOP "$ffpid"')
+          print('PASS: capture-only 20s 50fps passthrough, bounded and rollback protected')
+          PY
