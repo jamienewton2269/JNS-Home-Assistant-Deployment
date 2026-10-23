@@ -28,7 +28,7 @@ jobs:
           test "$actual" = "$EXPECT" || { echo "ABORT: host fingerprint differs from locally verified Lenovo key"; exit 3; }
           echo "PASS: verified Lenovo host key before SSH"
           chmod 600 "$work/known_hosts"
-          for key in "$HOME/.ssh/jns-nodec-github-gateway" "$HOME/.ssh/jns-nodec-gateway"; do
+          for key in "$HOME/.ssh/jns-veyra-nodec-ed25519"; do
             if [[ ! -f "$key" ]]; then echo "IDENTITY_MISSING: $(basename "$key")"; continue; fi
             echo "TEST_IDENTITY: $(basename "$key")"
             if timeout -k 2s 16s ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes \
