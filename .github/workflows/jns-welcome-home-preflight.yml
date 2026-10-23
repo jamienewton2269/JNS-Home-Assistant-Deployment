@@ -1,0 +1,19 @@
+name: JNS Welcome Home Read-only Preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/arrival_lighting/preflight.request'
+permissions:
+  contents: read
+concurrency:
+  group: jns-welcome-home-preflight
+  cancel-in-progress: false
+jobs:
+  preflight:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect VM902 mobile sensors and VM905 MQTT availability
+        run: python3 gateway/arrival_lighting/readiness_probe.py
