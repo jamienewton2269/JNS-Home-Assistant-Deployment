@@ -1,0 +1,6 @@
+# STAGED - HA-Primary VM902. Install only after native MQTT integration.
+# First use apply: false for preview, inspect jns/site/areas/sync/ha-primary.
+# Then change to true following conflict-free preview and HA configuration check.
+jns_native_area_sync:
+  node: ha-primary
+  apply: false
