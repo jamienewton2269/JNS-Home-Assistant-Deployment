@@ -1,0 +1,15 @@
+name: JNS Welcome Home Trusted Remote Transport Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/arrival_lighting/transport.request'
+permissions:
+  contents: read
+jobs:
+  transport:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/arrival_lighting/transport_audit.py
