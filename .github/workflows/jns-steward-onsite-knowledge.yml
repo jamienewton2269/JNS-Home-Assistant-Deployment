@@ -1,0 +1,155 @@
+name: JNS Steward Onsite Knowledge Sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "steward_knowledge/refresh_onsite.sh"
+      - ".github/workflows/jns-steward-onsite-knowledge.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: jns-steward-onsite-knowledge
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install confined knowledge refresh on current Steward host
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n steward_knowledge/refresh_onsite.sh
+          outcome="blocked"
+          detail="unknown"
+          rc=1
+          target=""
+          for candidate in nodeb.home.arpa node-b.home.arpa nodeb; do
+            if ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=yes \
+              "root@$candidate" 'test "$(hostname -s)" = nodeb' 2>/dev/null; then
+              target="$candidate"
+              break
+            fi
+          done
+          if [[ -z "$target" ]]; then
+            detail="nodeb_unreachable_or_untrusted_ssh"
+          else
+            echo "Verified Node B SSH target: $target"
+            set +e
+            scp -q -o BatchMode=yes -o StrictHostKeyChecking=yes \
+              steward_knowledge/refresh_onsite.sh \
+              "root@$target:/tmp/jns-steward-knowledge-refresh.sh"
+            transfer_rc=$?
+            set -e
+            if [[ "$transfer_rc" -ne 0 ]]; then
+              detail="transfer_failed"
+            else
+              remote_sha="$(ssh "root@$target" 'sha256sum /tmp/jns-steward-knowledge-refresh.sh | cut -d " " -f1')"
+              local_sha="$(sha256sum steward_knowledge/refresh_onsite.sh | cut -d ' ' -f1)"
+              if [[ "$remote_sha" != "$local_sha" ]]; then
+                detail="hash_mismatch"
+              else
+                ssh "root@$target" 'install -o root -g root -m 0700 \
+                  /tmp/jns-steward-knowledge-refresh.sh \
+                  /usr/local/sbin/jns-steward-knowledge-refresh'
+                set +e
+                ssh "root@$target" 'timeout 240 /usr/local/sbin/jns-steward-knowledge-refresh' \
+                  >/tmp/jns-steward-knowledge-apply.log 2>&1
+                rc=$?
+                set -e
+                if [[ "$rc" -ne 0 ]]; then
+                  detail="private_repo_auth_or_refresh_failed"
+                  echo "Onsite refresh not completed; retained any existing knowledge."
+                  grep -E '^(BLOCKED|JNS_STEWARD)' /tmp/jns-steward-knowledge-apply.log || true
+                else
+                  echo "Knowledge seed copied to Node B and Steward SQLite facts updated."
+                  # Only establish a periodic timer after the first verified success.
+                  ssh "root@$target" 'set -Eeuo pipefail
+                    cat > /etc/systemd/system/jns-steward-knowledge-refresh.service <<EOF
+          [Unit]
+          Description=JNS Steward offline-capable private knowledge refresh
+          After=network-online.target
+          Wants=network-online.target
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/bin/flock -n /run/lock/jns-steward-knowledge.lock /usr/local/sbin/jns-steward-knowledge-refresh
+          TimeoutStartSec=300
+          EOF
+                    cat > /etc/systemd/system/jns-steward-knowledge-refresh.timer <<EOF
+          [Unit]
+          Description=Refresh JNS Steward knowledge every six hours
+
+          [Timer]
+          OnBootSec=10min
+          OnUnitActiveSec=6h
+          Persistent=true
+          Unit=jns-steward-knowledge-refresh.service
+
+          [Install]
+          WantedBy=timers.target
+          EOF
+                    systemctl daemon-reload
+                    systemctl enable --now jns-steward-knowledge-refresh.timer
+                    systemctl is-enabled --quiet jns-steward-knowledge-refresh.timer
+                    test -s /opt/natural-automation/data/knowledge/current_chat_seed.md
+                    test -s /opt/natural-automation/data/knowledge/site_state.json
+                  '
+                  outcome="installed"
+                  detail="seed_files_sqlite_facts_and_six_hour_timer"
+                fi
+              fi
+            fi
+          fi
+
+          mkdir -p steward_knowledge
+          export JNS_OUTCOME="$outcome" JNS_DETAIL="$detail" JNS_RC="$rc"
+          python3 - <<'PY'
+          import json,os
+          from datetime import datetime,timezone
+          p="steward_knowledge/last_sync_status.json"
+          d={
+            "updated_utc":datetime.now(timezone.utc).isoformat(),
+            "status":os.environ["JNS_OUTCOME"],
+            "detail":os.environ["JNS_DETAIL"],
+            "remote_exit_code":int(os.environ["JNS_RC"]),
+            "workflow_run_id":os.environ.get("GITHUB_RUN_ID"),
+          }
+          open(p,"w").write(json.dumps(d,indent=2,sort_keys=True)+"\n")
+          print("JNS_STEWARD_KNOWLEDGE_STATUS",d)
+          PY
+
+          cp steward_knowledge/last_sync_status.json /tmp/jns-steward-status-to-publish.json
+          git config user.name "jns-steward-onsite-sync"
+          git config user.email "jns-steward-onsite-sync@users.noreply.github.com"
+          published=0
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+            cp /tmp/jns-steward-status-to-publish.json steward_knowledge/last_sync_status.json
+            git add steward_knowledge/last_sync_status.json
+            if git diff --cached --quiet; then
+              published=1
+              break
+            fi
+            git commit -m "steward: report onsite knowledge sync state"
+            if git push origin HEAD:main; then
+              published=1
+              break
+            fi
+            sleep 2
+          done
+          test "$published" -eq 1
+          if [[ "$outcome" != installed ]]; then
+            echo "Onsite sync blocked: $detail" >&2
+            exit 78
+          fi
+          echo JNS_STEWARD_KNOWLEDGE_ONSITE_INSTALLED_OK
