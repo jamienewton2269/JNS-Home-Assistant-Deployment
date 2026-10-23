@@ -1,0 +1,26 @@
+name: JNS HA-General Garden Startup Health
+on:
+  push:
+    branches: [main]
+    paths:
+      - "gateway/garden_features/livehealth.request"
+permissions:
+  contents: read
+jobs:
+  health:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Check dashboard, guest restart, and redacted Core errors
+        shell: bash
+        run: |
+          set -u
+          SSH=(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 root@nodeb.home.arpa)
+          echo '=== HTTP STATUS ==='
+          curl -fsS -o /dev/null --connect-timeout 4 --max-time 10 -w 'ha_general_http=%{http_code}\n' http://ha-general.home.arpa:8123/ || true
+          echo '=== RESTART COMMAND STATUS ==='
+          "${SSH[@]}" 'qm guest exec-status 905 779840' || true
+          echo '=== CORE CONTAINER UPTIME ==='
+          "${SSH[@]}" 'qm guest exec 905 -- docker ps --filter name=homeassistant --format "{{.Names}} {{.Status}}"' || true
+          echo '=== CORE LOCAL PORT AND ERROR SUMMARY ==='
+          "${SSH[@]}" "qm guest exec 905 -- docker exec homeassistant python3 -c 'import collections,json,pathlib,re,socket; s=socket.socket(); s.settimeout(3); rc=s.connect_ex(("127.0.0.1",8123)); s.close(); p=pathlib.Path("/config/home-assistant.log"); arr=p.read_text(errors="replace").splitlines()[-1000:] if p.exists() else []; sources=collections.Counter(re.findall(r"\\[([^]]+)\\]",line)[-1] if re.findall(r"\\[([^]]+)\\]",line) else "unknown" for line in arr if " ERROR " in line or " CRITICAL " in line); print(json.dumps({"local_port_result":rc,"last1000_loglines_errors_by_component":sources.most_common(8)}))'" || true
