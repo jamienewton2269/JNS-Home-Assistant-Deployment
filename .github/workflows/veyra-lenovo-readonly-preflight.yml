@@ -1,0 +1,65 @@
+name: VEYRA Lenovo read-only preflight via Node C
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-lenovo-readonly-preflight.yml'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Check read-only DNS and existing trusted SSH access
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo "VEYRA_NODEC_READONLY_AUDIT_START"
+          echo "No sudo, SSH trust changes, package installs, service changes or deployments."
+          command -v ssh >/dev/null
+          target=''
+          for host in veyra.home.arpa veyra; do
+            if getent ahosts "$host" >/dev/null 2>&1; then
+              echo "DNS_PRESENT: $host"
+              if timeout -k 2s 15s ssh \
+                  -o BatchMode=yes -o StrictHostKeyChecking=yes \
+                  -o ConnectTimeout=6 -o ConnectionAttempts=1 \
+                  -o ServerAliveInterval=5 -o ServerAliveCountMax=1 \
+                  "jnsadmin@$host" 'printf "VEYRA_SSH_IDENTITY_OK\n"; hostname; uname -s' 2>&1; then
+                target="$host"
+                break
+              fi
+              echo "Trusted key or public-key login not yet available for $host"
+            fi
+          done
+          if [[ -z "$target" ]]; then
+            echo "VEYRA_NODEC_SSH_UNAVAILABLE: no changes made to Lenovo."
+            exit 0
+          fi
+          timeout -k 2s 30s ssh \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=6 \
+            "jnsadmin@$target" 'bash -s' <<'REMOTE'
+          set -u
+          echo '=== READ-ONLY SERVICE SNAPSHOT ==='
+          for unit in veyra-kiosk.service veyra-virtual-loopback-v01.service \
+               veyra-itvx-vnc-v01.service veyra-tv-v070.service \
+               veyra-tv-v072.service veyra-advision-v071.service; do
+            printf '%s: ' "$unit"
+            systemctl is-active "$unit" 2>/dev/null || true
+          done
+          echo '=== DISPLAY / RENDER DEVICES ==='
+          test -S /tmp/.X11-unix/X92 && echo "Virtual display: present" || echo "Virtual display: absent"
+          test -c /dev/dri/renderD128 && echo "Intel render device: present" || echo "Intel render device: absent"
+          echo '=== INSTALLED COMMANDS ==='
+          for c in ffmpeg ffplay vainfo systemd-run curl; do
+            command -v "$c" >/dev/null && echo "$c: yes" || echo "$c: no"
+          done
+          echo '=== DISK BUDGET (KiB, no filesystem paths displayed) ==='
+          df -Pk /opt/veyra/virtual-loopback-v01 2>/dev/null | awk 'NR==2 {print "free_kib="$4,"total_kib="$2}'
+          echo '=== EXISTING TV PILOT OBSERVATION ==='
+          test -e /opt/veyra/tv-night/current/player.sh && echo "v070 player: installed" || echo "v070 player: not installed"
+          test -e /opt/veyra/tv-night-v072/current/player.sh && echo "v072 player: installed" || echo "v072 player: not installed"
+          echo "VEYRA_REMOTE_READONLY_COMPLETE"
+          REMOTE
+          echo "VEYRA_NODEC_READONLY_AUDIT_COMPLETE"
