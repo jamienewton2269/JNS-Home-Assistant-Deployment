@@ -1,7 +1,9 @@
 # JNS Welcome Home lighting (HA-General VM905 only)
 # STAGED, NOT LIVE. One confirmed presence source can operate independently.
-# Slots 2-4 remain unconfigured until additional clients or verified BMW
-# home/away sources become available. All execution remains on VM905.
+# Slot 1 is the current phone tracker. Slot 2 reserves its Wi-Fi SSID backup
+# (home_value remains blank until the actual SSID has been confirmed).
+# Slots 3-4 remain available for another mobile device or a validated BMW
+# home/away source. All automation execution remains on VM905.
 input_boolean:
   jns_welcome_home_enabled:
     name: Welcome Home lighting enabled
@@ -28,12 +30,15 @@ input_text:
   jns_welcome_device_1_entity:
     name: Welcome Home source 1 entity
     max: 150
+    initial: device_tracker.sm_s721b
   jns_welcome_device_1_home_value:
     name: Welcome Home source 1 home value
     max: 128
+    initial: home
   jns_welcome_device_2_entity:
     name: Welcome Home source 2 entity
     max: 150
+    initial: sensor.sm_s721b_wi_fi_connection
   jns_welcome_device_2_home_value:
     name: Welcome Home source 2 home value
     max: 128
@@ -104,7 +109,7 @@ automation:
     actions:
       - variables:
           remote_entity: "{{ trigger.topic.split('/')[-3] ~ '.' ~ trigger.topic.split('/')[-2] }}"
-          incoming: "{{ trigger.payload | trim }}"
+          incoming: "{{ trigger.payload | from_json(trigger.payload) | string | trim }}"
           slot: >-
             {% set ns = namespace(found='') %}
             {% for n in range(1, 5) %}
