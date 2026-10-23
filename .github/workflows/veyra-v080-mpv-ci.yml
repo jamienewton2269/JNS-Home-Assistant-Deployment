@@ -35,7 +35,7 @@ jobs:
             'ExecStopPost=-/bin/bash','--on-active=95s','RuntimeMaxSec=85',
             'Restart=no','veyra-tv-v079.service',
             'runuser -u veyra -- test -r "$INSTALL_ROOT/current/player.sh"',
-            'v0.8.0 40s MPV',
+            'v0.8.0 40s mpv',
           ): assert key in s, 'MISSING: '+key
           for bad in ('systemctl enable','systemctl restart','killall ','pkill ','apt-get install','dpkg -i'):
             assert bad not in s, 'Unsafe or unexpected install: '+bad
