@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark"><title>Veyra · Watchlist</title>
+<link rel="stylesheet" href="/app.css" />
+<script src="/app.js" defer></script>
+</head>
+<body>
+<header class="top"><div class="logo"><span class="mark">V</span><div><strong>VEYRA</strong><small>WATCHLIST // LOCAL BETA 0.6.6</small></div></div>
+<div class="header-right"><span class="online">ON DEVICE</span><a href="http://127.0.0.1:8766/" class="nav">⌂ Veyra Home</a></div></header>
+<main>
+<div class="intro"><div><span class="eyebrow">YOUR NEXT WATCH</span><h1>Pick up where you left off.</h1>
+<p>Build your own programme library across providers. Your list and viewing notes are stored locally on Veyra.</p></div>
+<button id="newBtn" class="primary">＋ Add programme</button></div>
+<div class="stats"><div><span id="total" class="big">0</span><small>In watchlist</small></div><div><span id="active" class="big">0</span><small>In progress</small></div><div><span id="complete" class="big">0</span><small>Watched</small></div></div>
+<div class="toolbar"><div class="tabs" role="group" aria-label="Filter watchlist">
+<button type="button" data-filter="all" class="selected">All</button><button type="button" data-filter="planned">Up next</button><button type="button" data-filter="watching">In progress</button><button type="button" data-filter="watched">Watched</button></div>
+<label class="search-label"><span>⌕</span><input id="filterText" type="search" placeholder="Search your watchlist" aria-label="Search saved programmes"></label></div>
+<div id="notice" role="status" aria-live="polite"></div>
+<section id="cards" class="cards" aria-label="Watchlist items"></section>
+</main>
+<dialog id="editor"><form id="form">
+<div class="modal-head"><div><span class="eyebrow">YOUR LIBRARY</span><h2 id="editorTitle">Add programme</h2></div><button id="close" type="button" class="iconbutton" aria-label="Close">✕</button></div>
+<label>Programme / film title <strong>*</strong><input id="title" name="title" type="text" minlength="1" maxlength="180" autocomplete="off" required placeholder="Start typing to search TVmaze..."></label>
+<div id="suggest" class="suggest" role="listbox" aria-label="Programme suggestions"></div>
+<div class="formrow"><label>Kind<select id="media_type" name="media_type"><option value="series">Series / episode</option><option value="film">Film</option></select></label>
+<label>Service<select id="provider" name="provider"><option value="itvx">ITVX</option><option value="iplayer">BBC iPlayer</option><option value="channel4">Channel 4</option><option value="netflix">Netflix</option><option value="primevideo">Prime Video</option><option value="disney">Disney+</option><option value="other">Other / unknown</option></select></label></div>
+<div class="formrow triple"><label>Year (optional)<input id="release_year" type="number" min="0" max="2200" placeholder="2026"></label><label>Season<input id="season" type="number" min="0" max="200" placeholder="1"></label><label>Episode<input id="episode" type="number" min="0" max="1000" placeholder="1"></label></div>
+<label>Direct programme URL (optional)<input id="provider_url" type="url" maxlength="1200" placeholder="https://..."></label>
+<p class="hint">Use a genuine provider programme link where available. A title match does not prove that a provider carries the programme. Veyra will copy the URL to use in the virtual Chrome player; the physical kiosk will not play it.</p>
+<label>Viewing progress <strong id="progressLabel">0%</strong><input id="progress" type="range" min="0" max="99" step="1" value="0"></label>
+<label>Personal notes<textarea id="note" rows="3" maxlength="800" placeholder="What you're watching, where you stopped, etc."></textarea></label>
+<input type="hidden" id="catalogue_id">
+<div class="formactions"><button type="button" id="cancel">Cancel</button><button type="submit" class="primary" id="saveBtn">Save to watchlist</button></div>
+</form></dialog>
+<footer><span>VEYRA // BETTER BY DESIGN</span><span>Programme discovery: TVmaze title metadata only · Availability not verified · Watched status is manual</span></footer>
+</body></html>
