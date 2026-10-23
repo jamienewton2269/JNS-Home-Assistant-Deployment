@@ -1,0 +1,45 @@
+name: VEYRA verified Lenovo SSH and privilege check
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-verified-lenovo-connect.yml'
+permissions: {contents: read}
+jobs:
+  trust-and-read:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - name: Verify known fingerprint before any SSH login
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          TARGET=veyra.home.arpa
+          EXPECT='SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          work=$(mktemp -d)
+          chmod 700 "$work"
+          trap 'rm -rf "$work"' EXIT
+          timeout -k 2s 15s ssh-keyscan -T 5 -t ed25519 "$TARGET" 2>/dev/null > "$work/known_hosts"
+          test -s "$work/known_hosts"
+          count=$(awk '$2=="ssh-ed25519" {n++} END {print n+0}' "$work/known_hosts")
+          test "$count" -eq 1 || { echo "ABORT: ambiguous ED25519 host key"; exit 2; }
+          actual=$(ssh-keygen -lf "$work/known_hosts" -E sha256 | awk '$2 ~ /^SHA256:/ {print $2;exit}')
+          echo "Presented host fingerprint: $actual"
+          test "$actual" = "$EXPECT" || { echo "ABORT: host fingerprint differs from locally verified Lenovo key"; exit 3; }
+          echo "PASS: verified Lenovo host key before SSH"
+          chmod 600 "$work/known_hosts"
+          for key in "$HOME/.ssh/jns-nodec-github-gateway" "$HOME/.ssh/jns-nodec-gateway"; do
+            if [[ ! -f "$key" ]]; then echo "IDENTITY_MISSING: $(basename "$key")"; continue; fi
+            echo "TEST_IDENTITY: $(basename "$key")"
+            if timeout -k 2s 16s ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes \
+              -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$work/known_hosts" \
+              -o ConnectTimeout=6 -o ConnectionAttempts=1 \
+              "jnsadmin@$TARGET" 'printf "VEYRA_REMOTE_AUTHENTICATED\n"; hostname; printf "SUDO_NONINTERACTIVE="; if sudo -n true 2>/dev/null; then echo yes; else echo no; fi; for s in veyra-kiosk.service veyra-virtual-loopback-v01.service veyra-itvx-vnc-v01.service veyra-tv-v070.service veyra-tv-v072.service; do printf "%s=" "$s"; systemctl is-active "$s" 2>/dev/null || :; done; df -Pk /opt/veyra/virtual-loopback-v01 | awk "NR==2{print \"FREE_KIB=\"\$4}"' ; then
+              echo "VEYRA_REMOTE_ACCESS_PASS: $(basename "$key")"
+              exit 0
+            else
+              echo "AUTH_NOT_AVAILABLE: $(basename "$key")"
+            fi
+          done
+          echo "VEYRA_REMOTE_ACCESS_NEEDS_AUTHORISED_KEY"
+          exit 0
