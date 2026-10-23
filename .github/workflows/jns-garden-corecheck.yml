@@ -1,0 +1,20 @@
+name: JNS Garden HA-Core Baseline Check
+on:
+  push:
+    branches: [main]
+    paths:
+      - "gateway/garden_features/corecheck.request"
+permissions:
+  contents: read
+jobs:
+  baseline:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate existing HA-General configuration before applying garden changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 root@nodeb.home.arpa \
+            'test "$(hostname -s)" = nodeb && timeout 240 qm guest exec 905 -- ha core check'
