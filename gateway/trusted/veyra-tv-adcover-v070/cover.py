@@ -15,7 +15,11 @@ HOST, PORT = "127.0.0.1", 8773
 STATE = Path("/run/veyra-adcover-v070")
 MUTE_FILE = STATE / "prior-mutes.json"
 PLAYER_PORT = "23570"
-HTML = Path(__file__).with_name("index.html")
+ASSETS = {
+    "/": ("index.html", "text/html; charset=utf-8"),
+    "/app.js": ("app.js", "application/javascript; charset=utf-8"),
+    "/styles.css": ("styles.css", "text/css; charset=utf-8")
+}
 APP_LOCK = threading.RLock()
 COVER = None
 ENDS = 0.0
@@ -206,9 +210,14 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(blob)
     def do_GET(self):
         if not self.guard():return
-        if self.path=="/":
-            self.head(200,"text/html; charset=utf-8")
-            self.wfile.write(HTML.read_bytes())
+        if self.path in ASSETS:
+            name, mime = ASSETS[self.path]
+            try:
+                blob=Path(__file__).with_name(name).read_bytes()
+            except OSError:
+                return self.reply(500,{"error":"Missing controller asset"})
+            self.head(200,mime)
+            self.wfile.write(blob)
         elif self.path=="/api/status":
             self.reply(200,state())
         else:self.reply(404,{"error":"Not found"})
