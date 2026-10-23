@@ -1,0 +1,16 @@
+name: JNS Welcome Home YAML Validation
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/arrival_lighting/validate.request'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate package structure using live HA-General YAML parser without installing
+        run: python3 gateway/arrival_lighting/validate_package.py
