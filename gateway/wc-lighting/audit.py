@@ -45,6 +45,15 @@ for pp in [root/'packages/jns_synthetic_lux_calibration.yaml',
     if pp.exists():
         print('FILE',pp.name)
         print(pp.read_text()[:14000])
+print('=== RAW WC CONFIG BLOCK ===')
+lines=(root/'automations.yaml').read_text().splitlines()
+for i,line in enumerate(lines):
+    if 'General - WC Motion Light and Extractor' in line:
+        lo=max(i-3,0)
+        hi=min(i+70,len(lines))
+        for n in range(lo,hi):
+            print(str(n+1)+': '+lines[n])
+        break
 print('=== WC HELPER DEFINITIONS ===')
 for p in [root/'configuration.yaml',*(root/'packages').glob('*.yaml')]:
     content=p.read_text()
