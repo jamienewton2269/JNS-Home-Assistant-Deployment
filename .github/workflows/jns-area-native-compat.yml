@@ -1,0 +1,18 @@
+name: JNS MQTT Area Native Integration Compatibility
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/area_presence/compat.request']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Statically check staged receiver and HA-General native APIs
+        run: |
+          python3 -m py_compile gateway/area_presence/custom_components/jns_native_area_sync/__init__.py
+          python3 -m json.tool gateway/area_presence/custom_components/jns_native_area_sync/manifest.json >/dev/null
+          python3 gateway/area_presence/compat.py
