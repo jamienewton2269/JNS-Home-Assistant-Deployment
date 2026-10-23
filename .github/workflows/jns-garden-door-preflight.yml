@@ -1,0 +1,17 @@
+name: JNS Garden and Back Door Patch Preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/garden_features/preflight.request'
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          python3 -m py_compile gateway/garden_features/patch_vm905.py gateway/garden_features/runner.py
+          python3 gateway/garden_features/runner.py --dry-run
