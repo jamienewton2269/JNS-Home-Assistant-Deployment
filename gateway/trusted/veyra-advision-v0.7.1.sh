@@ -21,7 +21,7 @@ preflight(){
  if [[ -f "$VISION_UNIT" ]] && ! grep -Fq "/opt/veyra/advision-v071/current/vision.py" "$VISION_UNIT";then
    echo "SAFETY STOP: $VISION_UNIT belongs to an unknown application";return 2
  fi
- if [[ -f "$COVER_UNIT" ]] && ! grep -Eq '/opt/veyra/(tv-night/current/cover.py|advision-v071/current/cover.py)' "$COVER_UNIT";then
+ if [[ -f "$COVER_UNIT" ]] && ! grep -Eq '/opt/veyra/(tv-night/current/cover.py|advision-v071/current/controller/cover.py)' "$COVER_UNIT";then
    echo "SAFETY STOP: unknown advert-cover service";return 2
  fi
  if ! [[ -f "$VISION_UNIT" ]] && ss -ltnH '( sport = :8774 )' | grep -q .;then
