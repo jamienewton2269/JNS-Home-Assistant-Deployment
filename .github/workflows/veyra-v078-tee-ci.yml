@@ -1,0 +1,43 @@
+name: VEYRA v0.7.8 tee ring without decoder validation
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/trusted/veyra-tee-ceiling-v0.7.8.sh'
+      - '.github/workflows/veyra-v078-tee-ci.yml'
+permissions: {contents: read}
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate bounded ring benchmark invariants
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-tee-ceiling-v0.7.8.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path("gateway/trusted/veyra-tee-ceiling-v0.7.8.sh").read_text()
+          body=s.split("pipe_render() {",1)[1].split("\nemergency_resume() {",1)[0]
+          for value in (
+            "DURATION=20","FPS=50","SEGMENT_COUNT=450","SEGMENT_TIME=4",
+            "h264_vaapi","-low_power 1","-framerate \"$FPS\"",
+            "-f tee \"$branches\"","segment_wrap=$SEGMENT_COUNT",
+            "segment%03d.ts", "[f=mpegts:onfail=abort]/dev/null",
+            "kill -STOP \"$ffpid\"","kill -CONT \"$ffpid\"",
+            'runuser -u veyra -- test -r "$INSTALL_ROOT/current/player.sh"',
+            'find "$BASE/segments" -maxdepth 1 -type f -name \'segment???.ts\' -delete',
+            "RuntimeMaxSec=60","Restart=no","--on-active=65s",
+            "veyra-tv-v077.service"
+          ):
+            assert value in s, f"Missing safety/muxing condition: {value}"
+          for bad in ("ffplay","udp://","pipe:1","-fps_mode","-f null"):
+            assert bad not in body, f"Not isolated: {bad}"
+          for bad in ("systemctl enable","systemctl restart","killall ","pkill "):
+            assert bad not in s, f"Unsafe command: {bad}"
+          assert s.index("trap cleanup EXIT") < s.index('kill -STOP "$ffpid"')
+          assert s.index("stage_ihd\n") < s.index('kill -STOP "$ffpid"')
+          print("PASS: 20s test uses actual v075 tee/ring sync with decoder removed; recorder rollback retained")
+          PY
