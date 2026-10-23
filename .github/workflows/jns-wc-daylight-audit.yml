@@ -1,0 +1,15 @@
+name: JNS WC Daylight Threshold Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/wc-lighting/audit.request'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/wc-lighting/audit.py
