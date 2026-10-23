@@ -1,0 +1,26 @@
+name: JNS Garden Features External UI Verify
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/garden_features/ui-verify.request']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - name: Verify HA-General native HTTP port and dashboard routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          getent hosts ha-general.home.arpa
+          for path in / /testing-dashboard/garden-features /testing-dashboard/lighting-settings; do
+            code=$(curl -sS --connect-timeout 5 --max-time 18 -o /dev/null -w '%{http_code}' "http://ha-general.home.arpa${path}")
+            echo "JNS_UI_CHECK ${path} status=${code}"
+            case "$code" in
+              200|301|302|303|307|308|401) ;;
+              *) echo "JNS_UI_FAILED ${path}"; exit 1 ;;
+            esac
+          done
+          echo JNS_GARDEN_UI_HTTP_OK
