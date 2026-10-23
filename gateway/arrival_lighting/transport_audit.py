@@ -12,6 +12,7 @@ data=yaml.load('remote_homeassistant:\n'+m.group(1),Loader=yaml.BaseLoader)
 root=data.get('remote_homeassistant')
 arr=root.get('instances',[]) if isinstance(root,dict) else []
 res=[]
+shape={'root_type':type(root).__name__,'root_keys':list(root) if isinstance(root,dict) else [],'instances_type':type(arr).__name__,'instances_count':len(arr) if hasattr(arr,'__len__') else 0,'instances_dictionary_keys':list(arr) if isinstance(arr,dict) else []}
 for i in arr:
  if not isinstance(i,dict):continue
  safe={}
@@ -22,7 +23,7 @@ for i in arr:
   if k in ('include','exclude') and isinstance(v,dict):
    safe[k]['nested_keys']=list(v)
  res.append(safe)
-print(json.dumps({'status':'ok','instances':res}))
+print(json.dumps({'status':'ok','shape':shape,'instances':res}))
 """
 p="exec(__import__('base64').b64decode("+repr(base64.b64encode(CORE.encode()).decode())+"))"
 cmd=['qm','guest','exec','905','--','docker','exec','homeassistant','python3','-c',p]
