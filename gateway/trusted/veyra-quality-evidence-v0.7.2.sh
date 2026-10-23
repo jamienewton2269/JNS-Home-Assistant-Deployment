@@ -6,14 +6,23 @@ MODE="$1"
 case "$MODE" in status|sample) ;; *) echo "Usage: sudo bash $0 {status|sample}" >&2; exit 2 ;; esac
 (( EUID == 0 )) || { echo "Run with sudo for read-only process inspection" >&2; exit 2; }
 CAP=veyra-virtual-loopback-v01.service
-TV=veyra-tv-v070.service
-BASE=/opt/veyra/virtual-loopback-v01/shared-test-v070
+TV=veyra-tv-v072.service
+OLD_TV=veyra-tv-v070.service
+BASE=/opt/veyra/virtual-loopback-v01/shared-test-v072
+EXPECTED_SEGMENTS=450
+if [[ "$(systemctl is-active veyra-tv-v072.service 2>/dev/null || true)" != active ]]; then
+  if [[ "$(systemctl is-active veyra-tv-v070.service 2>/dev/null || true)" == active ]]; then
+    TV="$OLD_TV"
+    BASE=/opt/veyra/virtual-loopback-v01/shared-test-v070
+    EXPECTED_SEGMENTS=10
+  fi
+fi
 LOG="$BASE/encoder.log"
 state() { systemctl is-active "$1" 2>/dev/null || true; }
 echo "=== VEYRA playback quality evidence v0.7.2 (read-only) ==="
 date -Is
 echo "=== Service state ==="
-for unit in veyra-kiosk.service "$CAP" veyra-itvx-vnc-v01.service "$TV" veyra-tv-adcover-v070.service veyra-advision-v071.service; do
+for unit in veyra-kiosk.service "$CAP" veyra-itvx-vnc-v01.service "$OLD_TV" veyra-tv-v072.service veyra-tv-adcover-v070.service veyra-advision-v071.service; do
   printf '%-43s %s\n' "$unit" "$(state "$unit")"
 done
 echo "Virtual display :92: $([[ -S /tmp/.X11-unix/X92 ]] && echo present || echo missing)"
@@ -59,17 +68,18 @@ else
   echo "No v0.7.0 encoder log found."
 fi
 echo "=== Ring segment metadata ONLY; no video read ==="
-python3 - "$BASE/segments" <<'PY'
+python3 - "$BASE/segments" "$EXPECTED_SEGMENTS" <<'PY'
 import glob,os,sys,time
-files=glob.glob(os.path.join(sys.argv[1],"segment[0-9][0-9].ts"))
+files=glob.glob(os.path.join(sys.argv[1],"segment[0-9]*.ts"))
 stats=[]
 for f in files:
     try: stats.append(os.stat(f))
     except OSError: pass
 age=(f"{time.time()-max(s.st_mtime for s in stats):.1f}s" if stats else "n/a")
-print(f"segment files={len(stats)}/10; total size={sum(s.st_size for s in stats)} bytes; newest age={age}")
-print("Current pilot ring: 10 x 4-second wrapped segments, approximately 40 seconds.")
-print("It is not yet the required 1-2 hour seekable timeshift.")
+expect=int(sys.argv[2])
+print(f"segment files={len(stats)}/{expect}; total size={sum(s.st_size for s in stats)} bytes; newest age={age}")
+print(f"Pilot ring target: {expect} x 4-second segments, approximately {expect*4/60:.2f} minutes.")
+print("Ring retention does not yet imply pause/rewind/seek controls.")
 PY
 if [[ "$MODE" == sample ]]; then
   echo "=== Eight-second passive process CPU observation ==="
