@@ -1,0 +1,18 @@
+name: JNS WC Earlier Light Preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/wc-lighting/preflight.request'
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and audit expected WC-only patch
+        run: |
+          python3 -m py_compile gateway/wc-lighting/patch_core.py gateway/wc-lighting/deploy.py gateway/wc-lighting/preflight.py
+          python3 gateway/wc-lighting/preflight.py
