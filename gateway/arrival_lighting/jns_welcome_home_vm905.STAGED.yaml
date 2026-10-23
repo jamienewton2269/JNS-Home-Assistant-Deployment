@@ -1,16 +1,23 @@
 # JNS Welcome Home lighting (HA-General VM905 only)
-# STAGED / NOT DEPLOYED. Requires verified HA-Primary MQTT Statestream,
-# Wi-Fi entity mappings and demand arbitration patches before enabling.
+# STAGED, NOT LIVE. One confirmed presence source can operate independently.
+# Slots 2-4 remain unconfigured until additional clients or verified BMW
+# home/away sources become available. All execution remains on VM905.
 input_boolean:
   jns_welcome_home_enabled:
     name: Welcome Home lighting enabled
     icon: mdi:home-lightbulb
     initial: false
-  jns_welcome_a_away:
-    name: Welcome Home phone A away
+  jns_welcome_device_1_away:
+    name: Welcome Home source 1 confirmed away
     initial: false
-  jns_welcome_b_away:
-    name: Welcome Home phone B away
+  jns_welcome_device_2_away:
+    name: Welcome Home source 2 confirmed away
+    initial: false
+  jns_welcome_device_3_away:
+    name: Welcome Home source 3 confirmed away
+    initial: false
+  jns_welcome_device_4_away:
+    name: Welcome Home source 4 confirmed away
     initial: false
   jns_welcome_porch_preexisting:
     name: Welcome Home porch was already on
@@ -18,26 +25,48 @@ input_boolean:
     name: Welcome Home Dogs Run was already on
 
 input_text:
-  jns_welcome_wifi_a_entity:
-    name: Welcome Home phone A Wi-Fi entity
+  jns_welcome_device_1_entity:
+    name: Welcome Home source 1 entity
     max: 150
-  jns_welcome_wifi_b_entity:
-    name: Welcome Home phone B Wi-Fi entity
+  jns_welcome_device_1_home_value:
+    name: Welcome Home source 1 home value
+    max: 128
+  jns_welcome_device_2_entity:
+    name: Welcome Home source 2 entity
     max: 150
-  jns_welcome_home_ssid:
-    name: Welcome Home trusted home Wi-Fi SSID
+  jns_welcome_device_2_home_value:
+    name: Welcome Home source 2 home value
+    max: 128
+  jns_welcome_device_3_entity:
+    name: Welcome Home source 3 entity
+    max: 150
+  jns_welcome_device_3_home_value:
+    name: Welcome Home source 3 home value
+    max: 128
+  jns_welcome_device_4_entity:
+    name: Welcome Home source 4 entity
+    max: 150
+  jns_welcome_device_4_home_value:
+    name: Welcome Home source 4 home value
     max: 128
 
 input_datetime:
-  jns_welcome_a_away_since:
-    name: Welcome Home phone A away since
+  jns_welcome_device_1_away_since:
+    name: Welcome Home source 1 away since
     has_date: true
     has_time: true
-  jns_welcome_b_away_since:
-    name: Welcome Home phone B away since
+  jns_welcome_device_2_away_since:
+    name: Welcome Home source 2 away since
     has_date: true
     has_time: true
-
+  jns_welcome_device_3_away_since:
+    name: Welcome Home source 3 away since
+    has_date: true
+    has_time: true
+  jns_welcome_device_4_away_since:
+    name: Welcome Home source 4 away since
+    has_date: true
+    has_time: true
 input_number:
   jns_welcome_duration_minutes:
     name: Welcome Home lighting minutes
@@ -61,69 +90,52 @@ timer:
     restore: true
 
 automation:
-  - id: jns_welcome_home_wifi_state_vm905_v1
-    alias: JNS Welcome Home - Process remote Wi-Fi state
+  - id: jns_welcome_home_remote_presence_vm905_v2
+    alias: JNS Welcome Home - Process remote presence
     mode: queued
     max: 20
     triggers:
       - trigger: mqtt
-        topic: "jns/ha-primary/sensor/+/state"
+        topic: "jns/ha-primary/+/+/state"
     conditions:
       - condition: state
         entity_id: input_boolean.jns_welcome_home_enabled
         state: "on"
     actions:
       - variables:
-          remote_entity: "{{ 'sensor.' ~ trigger.topic.split('/')[-2] }}"
-          incoming: "{{ trigger.payload | from_json('') }}"
+          remote_entity: "{{ trigger.topic.split('/')[-3] ~ '.' ~ trigger.topic.split('/')[-2] }}"
+          incoming: "{{ trigger.payload | trim }}"
           slot: >-
-            {% if remote_entity == states('input_text.jns_welcome_wifi_a_entity') %}a
-            {% elif remote_entity == states('input_text.jns_welcome_wifi_b_entity') %}b
-            {% else %}none{% endif %}
-          home_ssid: "{{ states('input_text.jns_welcome_home_ssid') }}"
+            {% set ns = namespace(found='') %}
+            {% for n in range(1, 5) %}
+              {% if remote_entity == states('input_text.jns_welcome_device_' ~ n ~ '_entity')
+                    and remote_entity not in ['', 'unknown', 'unavailable'] %}
+                {% set ns.found = n | string %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.found }}
       - condition: template
-        value_template: >-
-          {{ slot | trim in ['a','b'] and home_ssid not in
-             ['', 'unknown','unavailable'] and incoming not in
-             ['unknown', 'unavailable', ''] }}
+        value_template: "{{ slot | int(0) in [1,2,3,4] and incoming not in ['', 'unknown', 'unavailable'] }}"
+      - variables:
+          away_entity: "{{ 'input_boolean.jns_welcome_device_' ~ (slot | trim) ~ '_away' }}"
+          since_entity: "{{ 'input_datetime.jns_welcome_device_' ~ (slot | trim) ~ '_away_since' }}"
+          home_value: "{{ states('input_text.jns_welcome_device_' ~ (slot | trim) ~ '_home_value') }}"
+      - condition: template
+        value_template: "{{ home_value not in ['', 'unknown', 'unavailable'] }}"
       - choose:
           - conditions:
               - condition: template
-                value_template: "{{ incoming != home_ssid and slot | trim == 'a' }}"
-            sequence:
-              - action: input_datetime.set_datetime
-                target:
-                  entity_id: input_datetime.jns_welcome_a_away_since
-                data:
-                  timestamp: "{{ as_timestamp(now()) }}"
-              - action: input_boolean.turn_on
-                target:
-                  entity_id: input_boolean.jns_welcome_a_away
-          - conditions:
-              - condition: template
-                value_template: "{{ incoming != home_ssid and slot | trim == 'b' }}"
-            sequence:
-              - action: input_datetime.set_datetime
-                target:
-                  entity_id: input_datetime.jns_welcome_b_away_since
-                data:
-                  timestamp: "{{ as_timestamp(now()) }}"
-              - action: input_boolean.turn_on
-                target:
-                  entity_id: input_boolean.jns_welcome_b_away
-          - conditions:
-              - condition: template
-                value_template: "{{ incoming == home_ssid and slot | trim == 'a' }}"
+                value_template: "{{ incoming == home_value }}"
             sequence:
               - variables:
                   eligible: >-
-                    {{ is_state('input_boolean.jns_welcome_a_away','on')
-                       and as_timestamp(now()) -
-                          as_timestamp(states('input_datetime.jns_welcome_a_away_since'),as_timestamp(now()))
-                         >= states('input_number.jns_welcome_minimum_away_seconds') | int(180) }}
+                    {{ is_state(away_entity, 'on') and
+                       as_timestamp(now()) -
+                       as_timestamp(states(since_entity), as_timestamp(now()))
+                       >= states('input_number.jns_welcome_minimum_away_seconds') | int(180) }}
               - action: input_boolean.turn_off
                 target:
-                  entity_id: input_boolean.jns_welcome_a_away
+                  entity_id: "{{ away_entity }}"
               - if:
                   - condition: template
                     value_template: "{{ eligible }}"
@@ -132,27 +144,19 @@ automation:
                     state: below_horizon
                 then:
                   - action: script.jns_welcome_home_activate
-          - conditions:
+        default:
+          - if:
               - condition: template
-                value_template: "{{ incoming == home_ssid and slot | trim == 'b' }}"
-            sequence:
-              - variables:
-                  eligible: >-
-                    {{ is_state('input_boolean.jns_welcome_b_away','on')
-                       and as_timestamp(now()) -
-                          as_timestamp(states('input_datetime.jns_welcome_b_away_since'),as_timestamp(now()))
-                         >= states('input_number.jns_welcome_minimum_away_seconds') | int(180) }}
-              - action: input_boolean.turn_off
+                value_template: "{{ is_state(away_entity, 'off') }}"
+            then:
+              - action: input_datetime.set_datetime
                 target:
-                  entity_id: input_boolean.jns_welcome_b_away
-              - if:
-                  - condition: template
-                    value_template: "{{ eligible }}"
-                  - condition: state
-                    entity_id: sun.sun
-                    state: below_horizon
-                then:
-                  - action: script.jns_welcome_home_activate
+                  entity_id: "{{ since_entity }}"
+                data:
+                  timestamp: "{{ as_timestamp(now()) }}"
+              - action: input_boolean.turn_on
+                target:
+                  entity_id: "{{ away_entity }}"
 
   - id: jns_welcome_home_release_vm905_v1
     alias: JNS Welcome Home - Release exterior lighting
