@@ -1,0 +1,23 @@
+name: JNS Garden Features and Back Door Deploy
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/garden_features/deploy.request'
+permissions:
+  contents: read
+concurrency:
+  group: jns-garden-backdoor-deploy
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply guarded live package, validate Home Assistant Core, restart and verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/garden_features/patch_vm905.py gateway/garden_features/runner.py gateway/garden_features/rollback_vm905.py gateway/garden_features/deploy.py
+          python3 gateway/garden_features/deploy.py
