@@ -218,13 +218,29 @@ run() {
   echo "Programme video and audio shared one capture stream; short ring segments were generated."
   echo "Temporary media will be deleted and the original recorder resumed by cleanup."
 }
+emergency_resume() {
+  local cg2 pid2 cmd2
+  cg2=$(systemctl show -p ControlGroup --value "$CAP" 2>/dev/null || true)
+  [[ -n "$cg2" && -d "/sys/fs/cgroup$cg2" ]] || { echo "Recorder service cgroup unavailable"; return 1; }
+  while read -r pid2; do
+    [[ "$pid2" =~ ^[0-9]+$ && -r "/proc/$pid2/cmdline" ]] || continue
+    [[ "$(cat "/proc/$pid2/comm" 2>/dev/null)" == ffmpeg ]] || continue
+    cmd2=$(tr '\0' ' ' < "/proc/$pid2/cmdline")
+    if [[ "$cmd2" == *x11grab* && "$cmd2" == *:92* ]]; then
+      kill -CONT "$pid2" && echo "PASS: original capture FFmpeg resumed ($pid2)" && return 0
+    fi
+  done < <(find "/sys/fs/cgroup$cg2" -name cgroup.procs -exec cat {} + | sort -un)
+  echo "No original recorder PID found to resume"
+  return 2
+}
 case "${1:-}" in
   preflight) preflight ;;
   start) run ;;
+  recover) emergency_resume ;;
   status)
     for u in "$CAP" "$VNC" veyra-kiosk.service veyra-tv-v070.service; do echo "$u: $(systemctl is-active "$u" 2>/dev/null || true)"; done
     echo "HDMI: $(cat /sys/class/drm/card0-HDMI-A-1/status 2>/dev/null || echo not-found)"
     [[ -f "$BASE/encoder.log" ]] && tail -3 "$BASE/encoder.log" || true
     ;;
-  *) echo "Usage: sudo bash $0 {preflight|start|status}"; exit 2 ;;
+  *) echo "Usage: sudo bash $0 {preflight|start|status|recover}"; exit 2 ;;
 esac
