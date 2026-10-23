@@ -1,0 +1,14 @@
+name: JNS MQTT Primary Native API Discovery
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/area_presence/native.request']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/area_presence/native_probe.py
