@@ -1,0 +1,72 @@
+name: VEYRA v0.7.5 direct-pipe H264 playback trial CI
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/trusted/veyra-tv-player-v0.7.5.sh'
+      - '.github/workflows/veyra-v075-direct-pipe-ci.yml'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate VEYRA v075 runtime and ownership rules
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-tv-player-v0.7.5.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path("gateway/trusted/veyra-tv-player-v0.7.5.sh").read_text()
+          checks=[
+            "DURATION=70",
+            "FPS=50",
+            "SEGMENT_COUNT=450",
+            "SEGMENT_TIME=4",
+            "pipe:1|[f=segment",
+            "-f mpegts -i pipe:0",
+            "WAYLAND_DISPLAY=\"$sock\"",
+            "SDL_VIDEODRIVER=wayland",
+            "kill -CONT \"$ffpid\"",
+            "RuntimeMaxSec=100",
+            "Restart=no",
+            "TV=veyra-tv-v075.service",
+            "RECENT=veyra-tv-v072.service",
+            "trap 'exit 0' TERM",
+          ]
+          for item in checks:
+            assert item in s, f"missing critical safety invariant: {item}"
+          for forbidden in ["killall ", "pkill ", "systemctl restart", "systemctl enable", "udp://127.0.0.1", "rm -rf \"$BASE", "-framerate 25"]:
+            assert forbidden not in s, f"forbidden unsafe pattern: {forbidden}"
+          assert 'if [[ "${1:-}" == _pipe ]]' in s
+          assert 'if systemctl is-active --quiet "$overlapping"' in s
+          print("PASS: 70-second trial, Wayland direct pipe, ring, recorder recovery and safety guards")
+          PY
+      - name: Install FFmpeg for isolated synthetic muxer test
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg
+      - name: End-to-end local tee pipe and 4-second segment playback
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          d="$(mktemp -d)"
+          trap 'rm -rf "$d"' EXIT
+          timeout -k 5s 60s bash -c '
+            set -Eeuo pipefail
+            ffmpeg -nostdin -hide_banner -loglevel error \
+              -f lavfi -i testsrc2=size=96x64:rate=15 \
+              -frames:v 180 -map 0:v:0 -an -c:v mpeg2video -g 15 -bf 0 \
+              -f tee "[f=mpegts:onfail=abort]pipe:1|[f=segment:onfail=abort:segment_time=4:segment_wrap=450:segment_format=mpegts:reset_timestamps=1]$1/segment%03d.ts" | \
+            ffmpeg -nostdin -hide_banner -loglevel info -f mpegts -i pipe:0 \
+              -map 0:v:0 -an -f null - 2>"$1/decoder.log"
+          ' _ "$d"
+          test -s "$d/decoder.log"
+          grep -E 'frame=[[:space:]]*180\b' "$d/decoder.log"
+          count="$(find "$d" -name 'segment???.ts' | wc -l)"
+          test "$count" -ge 3
+          echo "PASS: local pipe delivered all 180 video frames; tee recorded $count independent ring segments"
