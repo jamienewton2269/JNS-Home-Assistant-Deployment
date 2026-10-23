@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - veyra/quality-evidence-20261023
+      - main
     paths:
       - 'gateway/trusted/veyra-tv-player-v0.7.2.sh'
       - '.github/workflows/veyra-v072-quality-ci.yml'
@@ -70,9 +71,8 @@ jobs:
           timeout -k 5s 100s ffmpeg -nostdin -hide_banner -loglevel error \
             -f lavfi -i 'testsrc2=size=64x64:rate=1' \
             -frames:v 1812 -c:v mpeg2video -g 4 -bf 0 \
-            -f segment -segment_time 4 -segment_wrap 450 \
-            -segment_format mpegts -reset_timestamps 1 \
-            "$temp/segment%03d.ts"
+            -map 0:v:0 -f tee \
+            "[f=mpegts:onfail=abort]udp://127.0.0.1:23572?pkt_size=1316|[f=segment:onfail=abort:segment_time=4:segment_wrap=450:segment_format=mpegts:reset_timestamps=1]$temp/segment%03d.ts"
           count=$(find "$temp" -maxdepth 1 -name 'segment???.ts' | wc -l)
           test "$count" -eq 450
           test -s "$temp/segment000.ts"
