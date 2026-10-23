@@ -19,8 +19,8 @@ DOOR_TIMER='timer.jns_backdoor_dogs_run'
 GARDEN_ID='1791834164199'
 PIR_ID='1792086505206'
 DOORBELL_ID='jns_doorbell_security_release_20261020'
-PACKAGE=yaml.safe_load(base64.b64decode('PACKAGE_B64').decode())
-PACKAGE_TEXT=base64.b64decode('PACKAGE_B64')
+PACKAGE=yaml.safe_load(base64.b64decode(PACKAGE_B64).decode())
+PACKAGE_TEXT=base64.b64decode(PACKAGE_B64)
 assert isinstance(PACKAGE,dict)
 assert PACKAGE['timer'].get('jns_backdoor_dogs_run')
 assert PACKAGE['input_boolean'].get('jns_water_feature_maintenance')
