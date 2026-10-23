@@ -11,10 +11,12 @@ def vm905(args, timeout=210):
     request=['qm','guest','exec','905','--timeout','12','--',*args]
     response=json.loads(ssh_host('nodeb',request))
     until=time.monotonic()+timeout
+    # QEMU exec-status returns exited/exitcode but does NOT repeat the initial PID.
+    # Keep the PID from the original guest exec response for all polls.
+    pid=response.get('pid')
     while not response.get('exited'):
-        pid=response.get('pid')
         if not isinstance(pid,int) or time.monotonic()>until:
-            raise RuntimeError('guest command still in progress / missing pid; stop for manual review')
+            raise RuntimeError('guest command still in progress / initial PID missing; stop for manual review')
         time.sleep(2)
         response=json.loads(ssh_host('nodeb',['qm','guest','exec-status','905',str(pid)]))
     return response
