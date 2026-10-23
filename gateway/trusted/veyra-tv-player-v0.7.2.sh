@@ -15,8 +15,8 @@ BASE="$ROOT/shared-test-v072"
 FPS=50
 SEGMENT_TIME=4
 SEGMENT_COUNT=450
-START_FREE_KB=8388608
-STOP_FREE_KB=2097152
+START_FREE_KB=4194304    # Minimum 4GiB initially free; runtime guard preserves at least 1GiB
+STOP_FREE_KB=1048576
 TV=veyra-tv-v072.service
 OLDER=veyra-tv-v070.service
 INSTALL_ROOT=/opt/veyra/tv-night-v072
@@ -77,6 +77,9 @@ preflight() {
   if systemctl is-active --quiet "$OLDER"; then
     echo "SAFETY STOP: v0.7.0 pilot is active."; return 2
   fi
+  if [[ -s "$REC_MARKER" ]]; then
+    echo "SAFETY STOP: previous v0.7.2 recorder marker still present; inspect service and recover before another start."; return 2
+  fi
   if [[ -z "${INVOCATION_ID:-}" ]] && systemctl is-active --quiet "$TV"; then
     echo "SAFETY STOP: v0.7.2 pilot is already active."; return 2
   fi
@@ -117,7 +120,7 @@ preflight() {
   local free_kb
   free_kb=$(df -Pk "$ROOT" | awk 'NR==2{print $4}')
   if [[ ! "$free_kb" =~ ^[0-9]+$ ]] || (( free_kb < START_FREE_KB )); then
-    echo "SAFETY STOP: need at least 8GiB free before 30-minute ring test; available ${free_kb:-unknown} KiB."
+    echo "SAFETY STOP: need at least 4GiB free before 30-minute ring test; available ${free_kb:-unknown} KiB."
     return 2
   fi
   echo "PASS: recorder PID $ffpid; proposed FPS $FPS; ring ${SEGMENT_COUNT}x${SEGMENT_TIME}s=1800s; disk ${free_kb}KiB free."
@@ -305,7 +308,8 @@ WorkingDirectory=/opt/veyra/tv-night-v072/current
 RuntimeDirectory=veyra-tv-v072
 RuntimeDirectoryMode=0700
 KillMode=mixed
-TimeoutStopSec=20
+TimeoutStartSec=180
+TimeoutStopSec=30
 RuntimeMaxSec=14500
 Restart=no
 NoNewPrivileges=yes
