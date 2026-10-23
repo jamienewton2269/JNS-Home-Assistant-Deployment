@@ -38,7 +38,7 @@ install_app() {
   stage=$(mktemp -d "$ROOT/.staging.XXXXXXXX")
   trap 'rm -rf -- "$stage"' EXIT
   echo 'Fetching versioned backend and interface from JNS GitHub...'
-  for file in server.py index.html app.css app.js; do
+  for file in server.py index.html app.css app.js selftest.py; do
     curl -fLsS --retry 2 --connect-timeout 10 --max-time 30 \
       "$BASE/$file" -o "$stage/$file"
     test -s "$stage/$file"
@@ -54,12 +54,14 @@ PY
   else
     echo 'INFO: Node.js unavailable; browser JavaScript syntax check deferred.'
   fi
+  echo 'Running isolated API/database smoke tests before service activation...'
+  python3 "$stage/selftest.py" "$stage"
   grep -Fq 'VEYRA' "$stage/index.html" || { echo 'Missing watchlist UI marker';return 3; }
   grep -Fq '127.0.0.1' "$stage/server.py" || { echo 'Backend must be localhost-only';return 3; }
   stamped=$(date +%Y%m%d-%H%M%S)
   release="$ROOT/v066-$stamped-$$"
   install -d -o root -g root -m 755 "$release"
-  for file in server.py index.html app.css app.js; do
+  for file in server.py index.html app.css app.js selftest.py; do
     install -o root -g root -m 644 "$stage/$file" "$release/$file"
   done
   echo '=== New immutable source hashes ==='
