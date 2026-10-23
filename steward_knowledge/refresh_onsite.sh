@@ -18,6 +18,28 @@ command -v git >/dev/null && command -v python3 >/dev/null || {
   echo "BLOCKED: git/python3 unavailable"; exit 69;
 }
 install -d -o root -g root -m 0700 "$BASE"
+# Scoped, read-only GitHub deploy key for THIS private diagnostics repository.
+# Private material remains on Node B. The public key must be added to GitHub
+# Settings > Deploy keys with ALLOW WRITE ACCESS UNCHECKED.
+CREDS="$BASE/credentials"
+KEY="$CREDS/diagnostics_readonly"
+install -d -o root -g root -m 0700 "$CREDS"
+if [[ ! -s "$KEY" || ! -s "$KEY.pub" ]]; then
+  [[ ! -e "$KEY" && ! -e "$KEY.pub" ]] || {
+    echo "BLOCKED: partial diagnostics key files, manual review required"; exit 65;
+  }
+  ssh-keygen -q -t ed25519 -N '' -C 'jns-steward-diagnostics-readonly' -f "$KEY"
+fi
+chmod 0600 "$KEY"
+chmod 0644 "$KEY.pub"
+# GitHub's published Ed25519 host key (fingerprint verified against GitHub Docs).
+printf '%s\n' 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' > "$CREDS/known_hosts"
+chmod 0600 "$CREDS/known_hosts"
+fingerprint="$(ssh-keygen -lf "$CREDS/known_hosts" | awk '{print $2}')"
+[[ "$fingerprint" = 'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU' ]] || {
+  echo "BLOCKED: github.com host key fingerprint mismatch"; exit 65;
+}
+export GIT_SSH_COMMAND="ssh -i $KEY -o IdentitiesOnly=yes -o UserKnownHostsFile=$CREDS/known_hosts -o StrictHostKeyChecking=yes"
 
 if [[ ! -d "$SOURCE/.git" ]]; then
   if [[ -e "$SOURCE" ]]; then
