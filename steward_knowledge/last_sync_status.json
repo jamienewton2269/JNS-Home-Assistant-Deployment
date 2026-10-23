@@ -1,0 +1,7 @@
+{
+  "detail": "nodeb_unreachable_or_untrusted_ssh",
+  "remote_exit_code": 1,
+  "status": "blocked",
+  "updated_utc": "2026-10-23T12:04:12.616319+00:00",
+  "workflow_run_id": "39950559958"
+}
