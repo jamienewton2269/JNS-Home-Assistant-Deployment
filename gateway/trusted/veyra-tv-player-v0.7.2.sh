@@ -246,7 +246,7 @@ run() {
     >"$BASE/player.log" 2>&1 &
   playerpid=$!
   echo "TV session live; up to 4 hours, with fail-safe recorder restoration."
-  echo "Use 'sudo systemctl stop veyra-tv-v070.service' to stop the trial safely."
+  echo "Use 'sudo systemctl stop veyra-tv-v072.service' to stop the trial safely."
   set +e
   wait "$encpid"
   local code=$?
@@ -285,12 +285,12 @@ install_candidate() {
   local stage stamp release
   stage=$(mktemp -d "$INSTALL_ROOT/.stage.XXXXXXXX")
   stamp=$(date +%Y%m%d-%H%M%S)
-  release="$INSTALL_ROOT/v072-$stamp-$"
+  release="$INSTALL_ROOT/v072-$stamp-${BASHPID}"
   install -m 755 "$0" "$stage/player.sh"
   bash -n "$stage/player.sh"
   mv "$stage" "$release"
-  ln -s "$release" "$INSTALL_ROOT/.next.$"
-  mv -Tf "$INSTALL_ROOT/.next.$" "$INSTALL_ROOT/current"
+  ln -s "$release" "$INSTALL_ROOT/.next.${BASHPID}"
+  mv -Tf "$INSTALL_ROOT/.next.${BASHPID}" "$INSTALL_ROOT/current"
   cat > "$UNITFILE" <<'UNIT'
 [Unit]
 Description=VEYRA v0.7.2 isolated 50fps / 30-minute buffer quality trial
