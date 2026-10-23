@@ -191,10 +191,12 @@ run() {
   preflight
   trap cleanup EXIT
   trap 'exit 130' INT
-  trap 'exit 143' TERM
+  # systemctl stop sends TERM: cleanup restores the original recorder.
+  # Treat an intentional stop as successful rather than a unit failure.
+  trap 'exit 0' TERM
   mkdir -p "$BASE/segments"
   chown veyra:veyra "$BASE" "$BASE/segments"
-  find "$BASE/segments" -maxdepth 1 -type f -name 'segment??.ts' -delete
+  find "$BASE/segments" -maxdepth 1 -type f -name 'segment???.ts' -delete
   : >"$BASE/encoder.log"; : >"$BASE/player.log"
   chown veyra:veyra "$BASE/encoder.log" "$BASE/player.log"
   stage_ihd
