@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""JNS Welcome Home read-only inventory. Run as root on Node B.
+"""JNS Welcome Home read-only inventory. Run as root on Node B or Node A.
 
 Uses existing Proxmox guest agents. No files, services or entities are modified.
 Print output locally; do not upload private phone details to public CI logs.
@@ -92,24 +92,25 @@ def guest(node,vm,args):
     return result.get('out-data','')
 
 def main():
-    cluster=json.loads(local_command(
-        ['pvesh','get','/cluster/resources','--type','vm','--output-format','json']))
-    known={r.get('vmid'):r for r in cluster if r.get('vmid') in (902,905)}
-    print('=== JNS WELCOME HOME READ-ONLY AUDIT ===',flush=True)
-    for vm,source in [(902,PRIMARY),(905,GENERAL)]:
-        rec=known.get(vm)
-        if not rec or rec.get('status')!='running':
-            print('VM',vm,'BLOCKED: not currently running in cluster',flush=True)
-            continue
-        node=rec.get('node')
-        print('VM',vm,'placement',node,flush=True)
-        enc=base64.b64encode(source.encode()).decode()
-        pycmd="exec(__import__('base64').b64decode('"+enc+"'))"
+    # Node A and Node B can have independent cluster views.
+    # Use known verified VM placement instead of cross-node pvesh enumeration.
+    print('=== JNS WELCOME HOME READ-ONLY AUDIT V2 ===',flush=True)
+    for vm,node,source in [(902,'nodea',PRIMARY),(905,'nodeb',GENERAL)]:
+        print('VM',vm,'known host',node,flush=True)
         try:
+            status=on_node(node,['qm','status',str(vm)]).strip()
+            print('VM',vm,'local Proxmox status:',status,flush=True)
+            if 'status: running' not in status.lower():
+                print('VM',vm,'BLOCKED: host reports VM not running; no changes made',flush=True)
+                continue
+            enc=base64.b64encode(source.encode()).decode()
+            pycmd="exec(__import__('base64').b64decode('"+enc+"'))"
             report=json.loads(guest(node,vm,['docker','exec','homeassistant','python3','-c',pycmd]))
             print(json.dumps(report,indent=2,ensure_ascii=False),flush=True)
         except Exception as e:
             print('VM',vm,'BLOCKED:',str(e),flush=True)
+            if vm==902:
+                print('If SSH from Node B is not trusted, run this audit on Node A directly.',flush=True)
     print('=== AUDIT FINISHED; NO CHANGES MADE ===',flush=True)
 
 if __name__ == '__main__':
