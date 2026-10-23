@@ -54,6 +54,10 @@ jobs:
           assert "-framerate 25" not in s
           assert "/opt/veyra/virtual-loopback-v01/profile" not in s
           print("PASS: preserve live browser, kiosk, audio session and baseline")
+          evidence=Path("gateway/trusted/veyra-quality-evidence-v0.7.2.sh").read_text()
+          assert "EXPECTED_SEGMENTS=450" in evidence
+          assert "veyra-tv-v072.service" in evidence
+          print("PASS: evidence collector covers the v0.7.2 live pilot")
           PY
       - name: Install FFmpeg for synthetic CI test
         shell: bash
