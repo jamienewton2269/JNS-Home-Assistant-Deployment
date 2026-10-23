@@ -53,6 +53,17 @@ for start,end in [(1,45),(270,296),(730,795),(1140,1182)]:
   print('region',start,end)
   for j in range(start-1,min(end,len(lines))):
     print(str(j+1)+': '+lines[j][:230])
+print('=== GARDEN CONTROLS CONTEXT ===')
+p=root/'dashboards/testing.yaml';lines=p.read_text().splitlines()
+for start,end in [(175,215),(282,334),(335,365)]:
+ print('REGION',start,end)
+ for j in range(start-1,min(end,len(lines))):
+  print(str(j+1)+': '+lines[j][:190])
+print('=== DOORBELL RELEASE CONDITIONAL ===')
+p=root/'packages/jns_doorbell_security_lighting.yaml';d=yaml.safe_load(p.read_text())
+for a in d.get('automation',[]):
+ if a.get('id')=='jns_doorbell_security_release_20261020':
+  print(yaml.safe_dump(a,sort_keys=False)[:9500])
 print('=== EXISTING HELPER NAMES ===')
 for p in sorted((root/'packages').glob('*.yaml')):
    try: d=yaml.safe_load(p.read_text())
