@@ -1,0 +1,24 @@
+<!doctype html><html lang="en-GB">
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="color-scheme" content="dark"/><title>Veyra · TV controls</title>
+<link rel="stylesheet" href="/styles.css"/><script src="/app.js" defer></script></head>
+<body>
+<header><div class="brand">V<span>EYRA</span></div><div class="headright"><span class="tag">TV NIGHT 0.7.0</span><a href="http://127.0.0.1:8772/">Watchlist ↗</a></div></header>
+<main>
+<section class="intro"><p class="eyebrow">REMOTE CONTROL · LOCAL ONLY</p><h1>Programme on. Adverts covered.</h1>
+<p>This controller covers the physical display while ITVX continues playing in virtual Chrome. Advert detection is <b>manual</b> during this trial; countdown times are estimates, not provider-confirmed break lengths.</p></section>
+<section class="panel"><div class="statline"><div><span class="muted">TV player</span><p id="playerstate" class="state">Checking…</p></div><span id="statuspill" class="pill">COVER OFF</span></div>
+<div class="count"><b id="remaining">—</b><span id="countlabel">Display cover inactive</span></div>
+<div class="meter"><div id="fill"></div></div><p class="hint" id="mute">Audio status: waiting</p>
+<div class="actions">
+<button id="start30" data-seconds="30">Cover 30s</button>
+<button id="start60" data-seconds="60">Cover 60s</button>
+<button id="start90" data-seconds="90">Cover 90s</button>
+<button id="start120" data-seconds="120">Cover 2m</button>
+<button id="start180" data-seconds="180">Cover 3m</button></div>
+<button id="end" class="end">■ End Cover — return to programme</button></section>
+<section class="panel alt"><h2>Tonight's quick test</h2><p id="notice" role="status">Choose Preview first to confirm that the Veyra cover appears on the intended television.</p>
+<button id="preview" class="preview">Preview cover for 8 seconds</button>
+<p class="muted small">This beta never changes your provider stream, never advances or skips an advert, and does not automatically recognise adverts. Always end the cover manually if the programme resumes sooner.</p></section>
+</main><footer>VEYRA // BETTER BY DESIGN <span>Local remote · provider browser preserved · no programme media retained by the cover</span></footer>
+</body></html>
