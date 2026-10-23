@@ -7,6 +7,7 @@ on:
     paths:
       - 'gateway/trusted/veyra-tv-player-v0.7.2.sh'
       - 'gateway/trusted/veyra-display-smoke-v0.7.3.sh'
+      - 'gateway/trusted/veyra-itvx-display-v0.7.4.sh'
       - '.github/workflows/veyra-v072-quality-ci.yml'
   workflow_dispatch:
 
@@ -25,6 +26,7 @@ jobs:
           set -Eeuo pipefail
           bash -n gateway/trusted/veyra-tv-player-v0.7.2.sh
           bash -n gateway/trusted/veyra-display-smoke-v0.7.3.sh
+          bash -n gateway/trusted/veyra-itvx-display-v0.7.4.sh
           bash -n gateway/trusted/veyra-quality-evidence-v0.7.2.sh
           python3 - <<'PY'
           from pathlib import Path
@@ -63,6 +65,15 @@ jobs:
           assert "systemctl restart" not in smoke
           assert "systemctl stop veyra-virtual-loopback" not in smoke
           print("PASS: bounded 12s display-only test retains proven local pipe architecture")
+          live=Path("gateway/trusted/veyra-itvx-display-v0.7.4.sh").read_text()
+          for needle in ("-i :92.0", "-f mpegts pipe:1", "-f mpegts -i pipe:0", "RuntimeMaxSec=28s", "WAYLAND_DISPLAY=", "-t 18"):
+            assert needle in live, f"Live smoke missing: {needle}"
+          assert "kill -STOP" not in live
+          assert "systemctl restart" not in live
+          assert "systemctl stop veyra-virtual-loopback" not in live
+          assert "rm -rf" not in live
+          assert "http" not in live
+          print("PASS: bounded ITVX video-only local-pipe trial preserves existing recorder")
           evidence=Path("gateway/trusted/veyra-quality-evidence-v0.7.2.sh").read_text()
           assert "EXPECTED_SEGMENTS=450" in evidence
           assert "veyra-tv-v072.service" in evidence
