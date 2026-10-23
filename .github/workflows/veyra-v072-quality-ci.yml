@@ -54,6 +54,11 @@ jobs:
           assert "/opt/veyra/virtual-loopback-v01/profile" not in s
           print("PASS: preserve live browser, kiosk, audio session and baseline")
           PY
+      - name: Install FFmpeg for synthetic CI test
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg
       - name: Demonstrate wrapped segments using synthetic low-res video
         shell: bash
         run: |
