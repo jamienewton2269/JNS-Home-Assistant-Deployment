@@ -1,0 +1,20 @@
+name: JNS Enable Primary Mobile WiFi Backup
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/arrival_lighting/enable_wifi.request'
+permissions:
+  contents: read
+concurrency:
+  group: jns-enable-mobile-wifi-vm902
+  cancel-in-progress: false
+jobs:
+  enable:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable exact mobile Wi-Fi entity via supported HA WebSocket registry
+        run: |
+          python3 gateway/arrival_lighting/enable_wifi_runner.py --apply
