@@ -1,0 +1,15 @@
+name: JNS Welcome Home Presence Mapping
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/arrival_lighting/mapping.request'
+permissions:
+  contents: read
+jobs:
+  mapping:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/arrival_lighting/identity_audit.py
