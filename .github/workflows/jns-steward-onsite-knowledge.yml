@@ -67,6 +67,109 @@ jobs:
                 set -e
                 if [[ "$rc" -ne 0 ]]; then
                   detail="private_repo_auth_or_refresh_failed"
+                  if [[ "$rc" -eq 78 ]]; then
+                    detail="awaiting_readonly_deploy_key"
+                    ssh "root@$target" 'cat /var/lib/jns-steward-knowledge/credentials/diagnostics_readonly.pub' \
+                      >/tmp/jns-steward-deploy-key.pub 2>/dev/null || true
+                    if ! grep -Eq '^ssh-ed25519 [A-Za-z0-9+/=]+ jns-steward-diagnostics-readonly
+                else
+                  echo "Knowledge seed copied to Node B and Steward SQLite facts updated."
+                  # Only establish a periodic timer after the first verified success.
+                  ssh "root@$target" 'set -Eeuo pipefail
+                    cat > /etc/systemd/system/jns-steward-knowledge-refresh.service <<EOF
+          [Unit]
+          Description=JNS Steward offline-capable private knowledge refresh
+          After=network-online.target
+          Wants=network-online.target
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/bin/flock -n /run/lock/jns-steward-knowledge.lock /usr/local/sbin/jns-steward-knowledge-refresh
+          TimeoutStartSec=300
+          EOF
+                    cat > /etc/systemd/system/jns-steward-knowledge-refresh.timer <<EOF
+          [Unit]
+          Description=Refresh JNS Steward knowledge every six hours
+
+          [Timer]
+          OnBootSec=10min
+          OnUnitActiveSec=6h
+          Persistent=true
+          Unit=jns-steward-knowledge-refresh.service
+
+          [Install]
+          WantedBy=timers.target
+          EOF
+                    systemctl daemon-reload
+                    systemctl enable --now jns-steward-knowledge-refresh.timer
+                    systemctl is-enabled --quiet jns-steward-knowledge-refresh.timer
+                    test -s /opt/natural-automation/data/knowledge/current_chat_seed.md
+                    test -s /opt/natural-automation/data/knowledge/site_state.json
+                  '
+                  outcome="installed"
+                  detail="seed_files_sqlite_facts_and_six_hour_timer"
+                fi
+              fi
+            fi
+          fi
+
+          mkdir -p steward_knowledge
+          export JNS_OUTCOME="$outcome" JNS_DETAIL="$detail" JNS_RC="$rc"
+          python3 - <<'PY'
+          import json,os
+          from datetime import datetime,timezone
+          p="steward_knowledge/last_sync_status.json"
+          d={
+            "updated_utc":datetime.now(timezone.utc).isoformat(),
+            "status":os.environ["JNS_OUTCOME"],
+            "detail":os.environ["JNS_DETAIL"],
+            "remote_exit_code":int(os.environ["JNS_RC"]),
+            "workflow_run_id":os.environ.get("GITHUB_RUN_ID"),
+          }
+          open(p,"w").write(json.dumps(d,indent=2,sort_keys=True)+"\n")
+          print("JNS_STEWARD_KNOWLEDGE_STATUS",d)
+          PY
+
+          cp steward_knowledge/last_sync_status.json /tmp/jns-steward-status-to-publish.json
+          if [[ -s /tmp/jns-steward-deploy-key.pub ]]; then
+            cp /tmp/jns-steward-deploy-key.pub steward_knowledge/onsite_deploy_key.pub
+          fi
+          git config user.name "jns-steward-onsite-sync"
+          git config user.email "jns-steward-onsite-sync@users.noreply.github.com"
+          published=0
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+            cp /tmp/jns-steward-status-to-publish.json steward_knowledge/last_sync_status.json
+            if [[ -s /tmp/jns-steward-deploy-key.pub ]]; then
+              cp /tmp/jns-steward-deploy-key.pub steward_knowledge/onsite_deploy_key.pub
+            fi
+            git add steward_knowledge/last_sync_status.json
+            if [[ -f steward_knowledge/onsite_deploy_key.pub ]]; then
+              git add steward_knowledge/onsite_deploy_key.pub
+            fi
+            if git diff --cached --quiet; then
+              published=1
+              break
+            fi
+            git commit -m "steward: report onsite knowledge sync state"
+            if git push origin HEAD:main; then
+              published=1
+              break
+            fi
+            sleep 2
+          done
+          test "$published" -eq 1
+          if [[ "$outcome" != installed ]]; then
+            echo "Onsite sync blocked: $detail" >&2
+            exit 78
+          fi
+          echo JNS_STEWARD_KNOWLEDGE_ONSITE_INSTALLED_OK
+ \
+                      /tmp/jns-steward-deploy-key.pub 2>/dev/null; then
+                      rm -f /tmp/jns-steward-deploy-key.pub
+                    fi
+                  fi
                   echo "Onsite refresh not completed; retained any existing knowledge."
                   grep -E '^(BLOCKED|JNS_STEWARD)' /tmp/jns-steward-knowledge-apply.log || true
                 else
