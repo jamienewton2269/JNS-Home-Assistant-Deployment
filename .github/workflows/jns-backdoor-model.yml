@@ -1,0 +1,14 @@
+name: JNS Back Door Tuya Model and Event Counts
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/garden_features/door-model.request']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/garden_features/door_model.py
