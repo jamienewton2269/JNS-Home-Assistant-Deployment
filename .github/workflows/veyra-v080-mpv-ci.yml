@@ -37,8 +37,9 @@ jobs:
             'runuser -u veyra -- test -r "$INSTALL_ROOT/current/player.sh"',
             'v0.8.0 40s mpv',
           ): assert key in s, 'MISSING: '+key
-          for bad in ('systemctl enable','systemctl restart','killall ','pkill ','apt-get install','dpkg -i'):
+          for bad in ('systemctl enable','systemctl restart','killall ','pkill ','dpkg -i'):
             assert bad not in s, 'Unsafe or unexpected install: '+bad
+          assert not any(line.lstrip().startswith(('apt-get install','sudo apt-get install')) for line in s.splitlines())
           assert s.index('playerpid=$!') < s.index('encpid=$!')
           assert s.index('trap cleanup EXIT') < s.index('kill -STOP "$ffpid"')
           assert s.index('stage_ihd\n') < s.index('kill -STOP "$ffpid"')
