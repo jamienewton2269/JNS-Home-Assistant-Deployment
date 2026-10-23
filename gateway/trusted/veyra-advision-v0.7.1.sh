@@ -116,6 +116,7 @@ WorkingDirectory=/opt/veyra/advision-v071/current
 Environment=PYTHONDONTWRITEBYTECODE=1
 Environment=VEYRA_ADVISION_DATA=/var/lib/veyra/advision-v071
 ExecStart=/usr/bin/python3 /opt/veyra/advision-v071/current/vision.py
+ExecStopPost=-/usr/bin/curl --silent --show-error --max-time 3 -H X-Veyra-Control:ad-cover-v070 -H Content-Type:application/json -X POST --data {} http://127.0.0.1:8773/api/end
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=yes
