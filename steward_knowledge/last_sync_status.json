@@ -2,6 +2,6 @@
   "detail": "private_repo_auth_or_refresh_failed",
   "remote_exit_code": 78,
   "status": "blocked",
-  "updated_utc": "2026-10-23T12:06:06.908275+00:00",
-  "workflow_run_id": "39950796974"
+  "updated_utc": "2026-10-23T12:10:24.010579+00:00",
+  "workflow_run_id": "39951306889"
 }
