@@ -146,7 +146,7 @@ def reload_entry():
     require(result.get("require_restart") is False,
             "config entry requires restart or reload rejected")
 
-def loaded():
+def loaded(*,candidate=False):
     deadline=time.monotonic()+115
     while time.monotonic()<deadline:
         try:
@@ -154,10 +154,13 @@ def loaded():
             sensor=states["sensor.lyric_home_heating_thermal_learning"]
             require(sensor.get("state") not in ("unknown","unavailable"),
                     "thermal learner unavailable")
+            if candidate:
+                require("valid_windows" in (sensor.get("attributes") or {}),
+                        "candidate learner status has not reached live entity")
             return states
         except Blocked:
             time.sleep(5)
-    raise Blocked("HA heating entities failed to recover after reload")
+    raise Blocked("HA heating entities/expected learner did not recover")
 
 def is_candidate_live(states):
     sensor=states["sensor.lyric_home_heating_thermal_learning"]
@@ -191,7 +194,7 @@ def run():
             "transaction did not apply expected candidate")
     try:
         reload_entry()
-        after=loaded()
+        after=loaded(candidate=True)
         info=is_candidate_live(after)
         # Check file post-state after authenticated reload.
         verified=guest_txn("verify")
