@@ -78,3 +78,12 @@ elif command -v python3 >/dev/null 2>&1; then
 else echo NO_SUPPORTED_HTTP_CLIENT; fi'''
 sshshort(["qm","guest","exec","905","--","docker","exec","app_core_ssh","/bin/sh","-c",probe],22)
 print("=== CORE API READONLY CAPABILITY COMPLETE ===",flush=True)
+
+print("=== AUTHORIZED CORE RELOAD API ROUTE CHECK ===",flush=True)
+sshshort(["qm","guest","exec","905","--","ha","api","--help"],19)
+check='''echo CLI_PROXY_TOKEN_PRESENT=$([ -n "$SUPERVISOR_TOKEN" ] && echo yes || echo no)
+if command -v curl >/dev/null 2>&1; then
+ curl -sS -o /dev/null -w "CLI_CORE_API_HTTP_%{http_code}\\n" -m 8 -H "Authorization: Bearer $SUPERVISOR_TOKEN" http://supervisor/core/api/states
+else echo NO_CURL; fi'''
+sshshort(["qm","guest","exec","905","--","docker","exec","hassio_cli","/bin/sh","-c",check],22)
+print("=== RELOAD AUTH CHECK DONE ===",flush=True)
