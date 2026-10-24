@@ -3,6 +3,7 @@ import contextlib
 import importlib.util
 import io
 from pathlib import Path
+from tempfile import TemporaryDirectory
 import sys
 import unittest
 from unittest.mock import patch
@@ -20,6 +21,15 @@ def states(call="off",action="idle",diagnostic=True):
     }
 
 class ReleaseSafetyTest(unittest.TestCase):
+    def setUp(self):
+        self.temp=TemporaryDirectory(prefix="jns-heat-controller-test-")
+        self.addCleanup(self.temp.cleanup)
+        patcher=patch.object(M,"LOCK_FILE",Path(self.temp.name)/"promotion.lock")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        approval=patch.object(M,"consume_approval")
+        approval.start()
+        self.addCleanup(approval.stop)
     def test_cannot_reload_while_heating_active(self):
         with self.assertRaisesRegex(M.Blocked,"heating call active"):
             M.idle(states(call="on"))
@@ -76,13 +86,14 @@ class ReleaseSafetyTest(unittest.TestCase):
              patch.object(M,"guest_txn",side_effect=[
                {"state":"staged","backups_integrity_verified":True},
                {"state":"applied_pending_runtime_verification"},
+               {"state":"applied_pending_runtime_verification"},
                {"state":"rolled_back"}]) as txn,\
              patch.object(M,"reload_entry",side_effect=[M.Blocked("initial reload failed"),None]) as reload,\
              patch.object(M,"loaded",return_value=states()):
             with contextlib.redirect_stdout(io.StringIO()),self.assertRaisesRegex(M.Blocked,"initial reload failed"):
                 M.run()
             self.assertEqual([x.args[0] for x in txn.call_args_list],
-                             ["verify","commit","rollback"])
+                             ["verify","commit","verify","rollback"])
             self.assertEqual(reload.call_count,2)
 
 if __name__=="__main__":
