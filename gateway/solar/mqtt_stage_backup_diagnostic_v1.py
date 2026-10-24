@@ -33,6 +33,22 @@ if logs:
  # Categorise errors and a final non-sensitive token group; never print raw log.
  errorlines=[l for l in text.splitlines() if re.search(r"error|fail|abort",l,re.I)]
  out["error_line_count"]=len(errorlines)
+ out["specific_error_flags"]={
+   "tar_cannot_open_permission_denied":bool(re.search(r"tar:.*(Cannot open|Cannot stat).*Permission denied",text,re.I|re.S)),
+   "tar_file_changed":bool(re.search(r"tar:.*(file changed as we read it|file removed before we read it)",text,re.I)),
+   "tar_fatal_error":bool(re.search(r"tar:.*Error is not recoverable",text,re.I)),
+   "tar_exit_status_one":bool(re.search(r"tar.*exit code 1|tar.*exit status 1",text,re.I)),
+   "tar_exit_status_two":bool(re.search(r"tar.*exit code 2|tar.*exit status 2",text,re.I)),
+   "zfs_snapshot_permission_denied":bool(re.search(r"zfs.*snapshot.*permission denied|cannot create snapshot.*permission denied",text,re.I)),
+   "zfs_send_or_receive_error":bool(re.search(r"zfs (send|receive).*error",text,re.I)),
+   "lxc_userns_exec_error":bool(re.search(r"lxc-usernsexec.*(failed|permission denied|not permitted)",text,re.I)),
+   "rsync_error":bool(re.search(r"rsync.*(error|failed)",text,re.I)),
+   "backup_tmp_mount_error":bool(re.search(r"mount.*(permission denied|failed)",text,re.I)),
+   "zstd_error":bool(re.search(r"zstd.*(error|failed)",text,re.I)),
+   "vzdump_tmpdir_missing":bool(re.search(r"tmpdir.*(not found|missing|no such)",text,re.I)),
+   "file_access_denied":bool(re.search(r"cannot open.*permission denied|cannot stat.*permission denied",text,re.I)),
+   "snapshot_removed":bool(re.search(r"destroying snapshot|removing backup snapshot",text,re.I)),
+ }
  out["last_error_flags"]={
    "generic_command_failure":any("command" in x.lower() for x in errorlines[-5:]),
    "snapshot":any("snapshot" in x.lower() for x in errorlines[-5:]),
