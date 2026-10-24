@@ -132,6 +132,12 @@ def verify(w):
     settings = request(w, "GetInputSettings", {"inputName": SOURCE}).get("inputSettings", {})
     if settings.get("advanced") is not True or settings.get("server") != ":92" or settings.get("screen") != 0:
         raise RuntimeError(f"OBS XSHM settings do not target :92: {settings}")
+    audio = [x for x in inputs if x.get("inputName") == "ITVX monitor audio"]
+    if len(audio) != 1 or audio[0].get("inputKind") != "pulse_output_capture":
+        raise RuntimeError("OBS PulseAudio capture source missing")
+    audio_settings = request(w, "GetInputSettings", {"inputName": "ITVX monitor audio"}).get("inputSettings", {})
+    if audio_settings.get("device_id") != "veyra_virtual_capture.monitor":
+        raise RuntimeError("OBS audio input is not the existing ITVX monitor")
     current = request(w, "GetCurrentProgramScene").get("currentProgramSceneName")
     if current != SCENE:
         raise RuntimeError(f"OBS active scene mismatch: {current}")
