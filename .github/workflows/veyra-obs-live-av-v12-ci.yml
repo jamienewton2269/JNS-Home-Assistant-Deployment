@@ -26,7 +26,7 @@ jobs:
           import ast,re
           sh=Path('gateway/trusted/veyra-obs-live-av-quality-v1.2.sh').read_text()
           ws=Path('gateway/trusted/veyra-obs-ws-control-v1.2.py').read_text()
-          heredocs=re.findall(r"<<'PY'\n(.*?)\nPY",sh,re.S)
+          heredocs=re.findall(r"<<'PY'[^\n]*\n(.*?)\nPY",sh,re.S)
           assert len(heredocs)==3, f"expected 3 embedded Python blocks, got {len(heredocs)}"
           for block in heredocs: ast.parse(block)
           for word in (
@@ -36,7 +36,7 @@ jobs:
               'obs --multi','--startrecording','control verify','control stop',
               'RecFormat2=mkv','auth_required":True','mpv --no-config',
               'ffprobe','cleanup()','/tmp/.X11-unix/X92','Xvfb :93',
-              'VBitrate=6500','FPSInt=25','old recorder',
+              'VBitrate=6500','FPSInt=25','original legacy recorder',
           ):
               assert word in sh, f"missing: {word}"
           for forbidden in (
