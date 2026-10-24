@@ -1,0 +1,24 @@
+name: JNS Tuya Freedom Two-Device Port Check
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/tuya_freedom/zero_local_port_check.py'
+      - '.github/workflows/jns-tuya-two-device-port-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-tuya-two-device-port-check
+  cancel-in-progress: false
+jobs:
+  diagnose:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check fixed Tuya port only for two unavailable devices
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/tuya_freedom/zero_local_port_check.py
+          python3 gateway/tuya_freedom/zero_local_port_check.py
