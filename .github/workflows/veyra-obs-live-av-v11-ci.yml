@@ -1,0 +1,41 @@
+name: VEYRA OBS live A/V quality trial v1.1
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/trusted/veyra-obs-live-av-quality-v1.1.sh'
+      - '.github/workflows/veyra-obs-live-av-v11-ci.yml'
+permissions: {contents: read}
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate OBS capture scene, buffer, SRT and rollback
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-obs-live-av-quality-v1.1.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('gateway/trusted/veyra-obs-live-av-quality-v1.1.sh').read_text()
+          for token in (
+            'xshm_input_v2','pulse_output_capture','veyra_virtual_capture.monitor',
+            '":92"','Xvfb :93','--startrecording --startstreaming','srt://127.0.0.1:23619',
+            '--no-config --fullscreen','--hwdec=vaapi',
+            'RecFormat2=mkv','VBitrate=6500','FPSInt=25',
+            'systemd-run --quiet --collect','--on-active=95s',
+            'kill -STOP "$orig"','kill -CONT "$orig"',
+            'veyra-kiosk.service','veyra-itvx-vnc-v01.service',
+            'ffprobe','OBS capture finished','trap clean EXIT',
+          ):
+            assert token in s, f'missing: {token}'
+          for forbidden in ('apt-get install','systemctl restart ','systemctl enable ','killall ','pkill ',
+                            'Xvfb :92','/usr/bin/ffmpeg ', 'ffplay '):
+            assert forbidden not in s, f'forbidden executable pattern: {forbidden}'
+          assert s.index('systemd-run --quiet --collect') < s.index('kill -STOP "$orig"')
+          assert s.index('trap clean EXIT') < s.index('kill -STOP "$orig"')
+          print('PASS: OBS 35-second localhost preview + private buffer; original recorder guarded')
+          PY
