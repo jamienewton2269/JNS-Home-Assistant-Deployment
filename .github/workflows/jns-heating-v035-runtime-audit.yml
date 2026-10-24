@@ -1,0 +1,16 @@
+name: JNS Heating v0.3.5 Essential Runtime Read-only Audit
+on:
+  push:
+    branches: ['dev/heating-thermal-learning-v035-20261024']
+    paths:
+      - 'gateway/heating/v0.3.5/runtime-audit.request'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate active thermostat entities using private local Steward token
+        run: python3 gateway/heating/v0.3.5/live_runtime_audit.py
