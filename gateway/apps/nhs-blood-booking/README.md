@@ -1,3 +1,11 @@
+# JNS NHS blood test booking — Android-first direction (2026-10-24)
+
+**Primary client is now the [native Android mobile application](mobile-android/README.md).** It selects me/Jane/both, checks synced phone Google Calendar events, and opens the official NHS booking page. It does NOT yet automatically reserve or submit NHS appointments. An Android-only test APK workflow is staged at `.github/workflows/jns-nhs-mobile-debug.yml` and is not an approved production release.
+
+**The Python/Playwright service below is historical experimental backend code, not a deployed application.** Its Google OAuth configuration is not required for the Android phone app. It may later be commissioned via the established signed JNS gateway only after site-specific validation and explicit authorisation; do not install it on Proxmox solely for the Android prototype.
+
+---
+
 # JNS NHS Blood Test Booking — staged v0.2 (Google Calendar)
 
 A **non-submitting** browser discovery and Google-calendar-aware appointment planner for the Mersey Care Southport and Formby NHS blood test service.
