@@ -30,6 +30,7 @@ pip install -r requirements.txt
 python -m playwright install chromium
 python nhs_booking.py inspect
 PYTHONPATH=. python -m unittest discover -s tests -v
+python nhs_booking.py propose --slots /secure/nhs-observed-slots.json  # asks me/Jane/both
 python nhs_booking.py propose --who both --slots /secure/nhs-observed-slots.json --before 20 --after 20
 ```
 
