@@ -40,6 +40,29 @@
 - `transaction.py`: existing backed-up, version-pinned Core file transaction
 - `test_promotion_policy.py`: deny-by-default / permit scope and expiry tests
 
+## Authenticated heating-runtime interlock
+
+The privileged release handler now **fails closed both before and after a Core
+restart** unless it can read all four fixed essential entities from the
+existing SSH add-on's local Supervisor API proxy, using the add-on's already
+provisioned in-container credential. It performs GET requests only and emits
+no heating state, setpoints or credentials.
+
+- `climate.thermostat_thermostat`
+- `sensor.thermostat_thermostat_indoor_temperature`
+- `binary_sensor.lyric_home_heating_heating_call`
+- `sensor.lyric_home_heating_thermal_learning`
+
+The optional separate Steward token file in `/config/.jns-steward/` was not
+available on VM905, so **no new token file was created**. The SSH add-on's
+existing Supervisor token is a verified local-only alternative; however, the
+read-only four-entity check did not pass for the climate entity. The correct
+climate ID is still present in the Home Assistant entity registry, so further
+read-only troubleshooting is needed before any heating promotion.
+
+The fail-closed condition is intentional. An HTTP 200 from `/api/` alone is
+**not** an adequate heating-health check. Never bypass this interlock.
+
 ## Activation sequence — not performed
 
 The next prerequisite is a **reviewed, interactive installation on Node C** by an authorised administrator. The existing GitHub runner does not have permission to install root-owned dispatcher code, by design.
