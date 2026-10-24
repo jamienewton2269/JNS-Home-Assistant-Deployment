@@ -67,3 +67,14 @@ def sshshort(cmd,timeout=18):
 sshshort(["qm","guest","exec","905","--","docker","ps","--format","{{.Names}}"],20)
 sshshort(["qm","guest","exec","905","--","ha","core","--help"],20)
 print("=== RELOAD ACCESS PREFLIGHT COMPLETE ===",flush=True)
+
+print("=== HA-GENERAL SUPERVISOR CORE API READ-ONLY PROBE ===",flush=True)
+probe='''if [ -z "$SUPERVISOR_TOKEN" ]; then echo SUPERVISOR_TOKEN_UNAVAILABLE; exit 0; fi
+echo SUPERVISOR_TOKEN_PRESENT
+if command -v curl >/dev/null 2>&1; then
+ curl -sS -o /dev/null -w "CORE_GET_HTTP_%{http_code}\\n" -m 6 -H "Authorization: Bearer $SUPERVISOR_TOKEN" http://supervisor/core/api/states
+elif command -v python3 >/dev/null 2>&1; then
+ python3 -c 'import os,urllib.request; a=urllib.request.Request("http://supervisor/core/api/states",headers={"Authorization":"Bearer "+os.environ["SUPERVISOR_TOKEN"]}); print("CORE_GET_HTTP",urllib.request.urlopen(a,timeout=6).status)'
+else echo NO_SUPPORTED_HTTP_CLIENT; fi'''
+sshshort(["qm","guest","exec","905","--","docker","exec","app_core_ssh","/bin/sh","-c",probe],22)
+print("=== CORE API READONLY CAPABILITY COMPLETE ===",flush=True)
