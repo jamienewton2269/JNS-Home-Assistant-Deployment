@@ -85,6 +85,29 @@ result["local_component_dirs"] = {
     d: (pathlib.Path("/config/custom_components") / d).is_dir()
     for d in ("tuya_local", "localtuya")
 }
+
+# Registry-based dependency analysis. IDs stay inside the guest.
+entry_by_id = {e.get("entry_id"):e for e in entries}
+entity_by_platform = collections.defaultdict(list)
+for ent in entities:
+    entity_by_platform[ent.get("platform") or ""].append(ent)
+result["cloud_entity_domains"] = dict(collections.Counter(
+    (e.get("entity_id") or "").split(".")[0] for e in entity_by_platform["tuya"]))
+result["local_entity_domains"] = dict(collections.Counter(
+    (e.get("entity_id") or "").split(".")[0] for e in entity_by_platform["tuya_local"]))
+result["cloud_registry_health"] = {
+    "entities_with_device_link":sum(bool(e.get("device_id")) for e in entity_by_platform["tuya"]),
+    "entities_with_config_entry_link":sum(bool(e.get("config_entry_id")) for e in entity_by_platform["tuya"]),
+    "entities_with_existing_config_entry":sum(
+        e.get("config_entry_id") in entry_by_id for e in entity_by_platform["tuya"]),
+    "devices_with_primary_cloud_entry":sum(
+        by_entry.get(str(d.get("config_entry_id")),"")=="tuya" for d in devices)
+}
+result["local_registry_health"] = {
+    "entities_with_device_link":sum(bool(e.get("device_id")) for e in entity_by_platform["tuya_local"]),
+    "entities_with_config_entry_link":sum(bool(e.get("config_entry_id")) for e in entity_by_platform["tuya_local"])
+}
+
 print(json.dumps(result, sort_keys=True))
 '''
 
