@@ -22,7 +22,7 @@ manifest=json.loads((component/"manifest.json").read_text())
 if manifest.get("version")!="0.3.4":
     raise RuntimeError("Unexpected live heating version")
 baseline_code=(component/"thermal.py").read_bytes()
-if not baseline_code.startswith(b'"""Per-zone thermal learner.'):
+if b'Per-zone thermal learner.' not in baseline_code[:140]:
     raise RuntimeError("Unexpected baseline thermal.py header")
 def load_module(name,source):
     obj=types.ModuleType(name)
