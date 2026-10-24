@@ -1,0 +1,14 @@
+name: JNS Manual Off Primary UI Read Audit
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/lux_manual_override/primary-audit.request']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/lux_manual_override/primary_audit.py
