@@ -1,1 +1,1 @@
-2026-10-24T18:43+01:00 retry patch and validation with increased 240s bounded timeout; prior attempt rolled back
+2026-10-24T18:48+01:00 retry, corrected stable QGA exec pid across polling and transactional rollback
