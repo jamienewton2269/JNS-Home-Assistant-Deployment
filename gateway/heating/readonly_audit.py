@@ -205,6 +205,37 @@ try:
 except (ValueError,KeyError,OSError,IndexError,ImportError,AttributeError,TypeError) as exc:
     out["computed_learner_status_error"]=type(exc).__name__
 
+
+try:
+    from collections import Counter
+    from datetime import datetime
+    persisted=json.loads((stor/out["matching_storage_files"][0]["name"]).read_text())["data"]["samples"]
+    indoor=[float(x["indoor"]) for x in persisted]
+    outdoor=[float(x["outdoor"]) for x in persisted]
+    duty=[float(x["duty"]) for x in persisted]
+    dt=datetime.fromisoformat(persisted[-1]["at"])-datetime.fromisoformat(persisted[0]["at"])
+    aligned=[]
+    for a,b in zip(persisted,persisted[1:]):
+        hours=(datetime.fromisoformat(b["at"])-datetime.fromisoformat(a["at"])).total_seconds()/3600
+        if a.get("valid",True) and b.get("valid",True) and 5/60 <= hours <= 1 and abs(b["indoor"]-a["indoor"])<=3*hours+.3:
+            aligned.append(round(float(b["indoor"])-float(a["indoor"]),3))
+    dd=Counter(aligned)
+    out["thermal_signal_summary"]={
+       "stored_hours":round(dt.total_seconds()/3600,1),
+       "indoor_unique_values":len(set(indoor)),
+       "indoor_range_c":[min(indoor),max(indoor)],
+       "outdoor_unique_values":len(set(outdoor)),
+       "outdoor_range_c":[min(outdoor),max(outdoor)],
+       "on_sample_count":sum(x>=.8 for x in duty),
+       "off_sample_count":sum(x<=.2 for x in duty),
+       "indoor_delta_unchanged_pairs":dd[0.0],
+       "accepted_pair_count":len(aligned),
+       "indoor_nonzero_step_count":sum(abs(x)>.001 for x in aligned),
+       "most_common_indoor_steps_c":dd.most_common(7)
+    }
+except (ValueError,IndexError,OSError,KeyError,TypeError,ZeroDivisionError):
+    out["thermal_signal_summary_unavailable"]=True
+
 print(json.dumps(out,sort_keys=True))
 '''
 
