@@ -1,0 +1,25 @@
+name: JNS Tuya Freedom Two Device UDP Discovery
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/tuya_freedom/two_device_discovery.py'
+      - '.github/workflows/jns-tuya-two-device-discovery.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-tuya-two-device-discovery
+  cancel-in-progress: false
+jobs:
+  discover:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only Tuya LAN discovery for two unavailable native IDs
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/tuya_freedom/two_device_discovery.py
+          python3 gateway/tuya_freedom/two_device_discovery.py
