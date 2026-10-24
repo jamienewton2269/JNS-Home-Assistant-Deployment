@@ -152,6 +152,32 @@ ref_cloud_dev = sum(
 ) if f.is_file() else 0
 result["automation_device_id_reference_count"] = ref_cloud_dev
 
+
+# Stronger identity check: match explicit Tuya Local config-entry device_id
+# to a native Tuya device-registry identifier, not a generic manufacturer ID.
+local_explicit_ids = [
+    e.get("data",{}).get("device_id") for e in local_configs
+    if isinstance(e.get("data",{}).get("device_id"), str)
+]
+local_explicit_ids = {v.strip().lower() for v in local_explicit_ids if len(v.strip()) >= 12}
+def strict_native_ids(d):
+    out = set()
+    for item in d.get("identifiers",[]):
+        if isinstance(item,(list,tuple)) and len(item)==2 and str(item[0]).lower()=="tuya":
+            val = str(item[1]).strip().lower()
+            if len(val)>=12:
+                out.add(val)
+    return out
+strict_matches = [d for d in cloud_devices if strict_native_ids(d)&local_explicit_ids]
+result["strict_device_reconciliation"] = {
+    "local_entries_with_explicit_device_ids": sum(
+        isinstance(e.get("data",{}).get("device_id"),str)
+        for e in local_configs),
+    "unique_local_explicit_device_ids":len(local_explicit_ids),
+    "cloud_devices_strict_match":len(strict_matches),
+    "cloud_devices_without_strict_match":len(cloud_devices)-len(strict_matches)
+}
+
 print(json.dumps(result, sort_keys=True))
 '''
 
