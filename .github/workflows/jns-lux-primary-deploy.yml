@@ -1,0 +1,20 @@
+name: JNS HA-Primary Evening Lighting Panel Deploy
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/lux_manual_override/primary-deploy.request']
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha902-lux-sidebar
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/lux_manual_override/patch_vm902.py gateway/lux_manual_override/primary_runner.py gateway/lux_manual_override/rollback_vm902.py gateway/lux_manual_override/primary_deploy.py
+          python3 gateway/lux_manual_override/primary_deploy.py
