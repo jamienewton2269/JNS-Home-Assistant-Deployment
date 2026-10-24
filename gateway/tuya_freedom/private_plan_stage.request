@@ -1,2 +1,2 @@
-stage=v2
-purpose=one_to_one_candidate_validation
+stage=v3
+purpose=deduplicated_physical_tuya_device_plan
