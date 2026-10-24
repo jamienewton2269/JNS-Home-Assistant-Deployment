@@ -1,0 +1,25 @@
+name: JNS Tuya Tokenfree Observer Deployment Preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/tuya_freedom/activate_tokenfree.py'
+      - '.github/workflows/jns-tuya-observer-preflight.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-tuya-observer-deployment
+  cancel-in-progress: false
+jobs:
+  preflight:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 11
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify staged code, production backup readiness, baseline HA core check
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/tuya_freedom/activate_tokenfree.py gateway/tuya_freedom/component/__init__.py
+          python3 gateway/tuya_freedom/activate_tokenfree.py
