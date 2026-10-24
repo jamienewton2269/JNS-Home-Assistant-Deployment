@@ -54,6 +54,17 @@ for e in entries:
     refs[k]=v
   config[key+"_entity_refs"]=refs
  out["heating_config"].append(config)
+# Inspect MQTT registry configuration, options handlers and coordinator
+# source-selection semantics without exporting credentials.
+out["config_approval"]={}
+try:
+ import ast
+ code=(root/"custom_components/jns_heating_zones/config_flow.py").read_text()
+ tree=ast.parse(code)
+ out["config_approval"]["flow_handlers"]=[n.name for n in ast.walk(tree)
+    if isinstance(n,(ast.AsyncFunctionDef,ast.FunctionDef)) and
+    ("option" in n.name or "step" in n.name)]
+except Exception as err:out["config_approval"]["error"]=type(err).__name__
 comp=root/"custom_components/jns_heating_zones"
 for p in sorted(comp.glob("*.py")):
  if p.name not in ("coordinator.py","config_flow.py","const.py","__init__.py"):continue
@@ -75,11 +86,28 @@ if db.exists():
   now=datetime.datetime.now(datetime.timezone.utc).timestamp()
   for entity in sorted(ids):
    if not entity.startswith("sensor."):continue
-   rows=con.execute("SELECT state,last_updated_ts FROM states JOIN states_meta USING(metadata_id) WHERE entity_id=? ORDER BY last_updated_ts DESC LIMIT 3",(entity,)).fetchall()
+   rows=con.execute("""SELECT s.state,s.last_updated_ts FROM states s
+    JOIN states_meta m ON s.metadata_id=m.metadata_id
+    WHERE m.entity_id=? ORDER BY s.last_updated_ts DESC LIMIT 3""",(entity,)).fetchall()
    out["recorder"][entity]=[{"value":s,"age_minutes":round((now-t)/60,1)}
       for s,t in rows if t is not None]
   con.close()
  except Exception as err:out["recorder_error"]=type(err).__name__
+# Capture safe coordinator source snippets: no secrets or stored samples.
+for filename in ("coordinator.py","__init__.py","config_flow.py"):
+ p=comp/filename
+ if p.is_file():
+  lines=p.read_text().splitlines()
+  if filename=="coordinator.py":
+   selected=[f"{i+1}:{line[:160]}" for i,line in enumerate(lines[:95])
+       if not re.search(r"(?i)(token|password|secret|api_key|authorization)",line)]
+  elif filename=="__init__.py":
+   selected=[f"{i+1}:{line[:160]}" for i,line in enumerate(lines[:85])
+       if not re.search(r"(?i)(token|password|secret|api_key|authorization)",line)]
+  else:
+   selected=[f"{i+1}:{line[:160]}" for i,line in enumerate(lines[:85])
+       if not re.search(r"(?i)(token|password|secret|api_key|authorization)",line)]
+  out.setdefault("safe_implementation_excerpt",{})[filename]=selected
 print(json.dumps(out,sort_keys=True))
 '''
 expr="exec(__import__('base64').b64decode('"+base64.b64encode(GUEST.encode()).decode()+"'))"
