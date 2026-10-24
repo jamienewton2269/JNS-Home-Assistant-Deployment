@@ -19,3 +19,6 @@ jobs:
 
       - name: Inspect HA-General local doorbell automation
         run: python3 gateway/doorbell/audit_vm905_automation.py
+
+      - name: Inspect legacy doorbell GPIO logic lines
+        run: python3 gateway/doorbell/esp32-logic-grep.py
