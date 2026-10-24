@@ -21,6 +21,7 @@ jobs:
           set -Eeuo pipefail
           python3 -m py_compile gateway/heating/v0.3.5/thermal.py
           python3 -m unittest discover -v -s gateway/heating/v0.3.5 -p 'test_*.py'
+          python3 gateway/heating/v0.3.5/install_nodec_gateway.py
   shadow-backtest:
     needs: unit-tests
     runs-on: [self-hosted, linux, x64, nodec]
