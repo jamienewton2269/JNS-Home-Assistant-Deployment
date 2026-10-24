@@ -89,6 +89,48 @@ if log.exists():
     out["recent_heating_log_levels"]={
       "ERROR":sum("ERROR" in s and "jns_heating" in s.lower() for s in lines),
       "WARNING":sum("WARNING" in s and "jns_heating" in s.lower() for s in lines)}
+
+out["component_source_files"] = sorted(p.name for p in comp.iterdir() if p.suffix==".py") if comp.is_dir() else []
+details={}
+for filename in ("learner.py","thermal.py","model.py","sensor.py","__init__.py"):
+    p=comp/filename
+    if not p.is_file():
+        continue
+    source=p.read_text(errors="replace")
+    source_lines=source.splitlines()
+    try:
+        parsed=ast.parse(source)
+        details[filename]={"ast_valid":True,"classes":[x.name for x in parsed.body if isinstance(x,ast.ClassDef)],
+            "functions":[n.name for n in ast.walk(parsed) if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef))][:80]}
+    except SyntaxError:
+        details[filename]={"ast_valid":False}
+        continue
+    # Show code context for model readiness and prediction gating, not credentials or raw samples.
+    hits=[i for i,line in enumerate(source_lines) if re.search(
+        r"48\b|valid_interval|minimum|insufficient|ready|unavailable|predict|projection|project\(|\blearned\b|record\(|thermal|interval",line,re.I)]
+    chosen=set()
+    for i in hits[:35]:
+        chosen.update(range(max(0,i-4),min(len(source_lines),i+5)))
+    excerpt=[]
+    for idx in sorted(chosen)[:170]:
+        line=source_lines[idx]
+        if re.search(r"(?i)(password|api_key|secret|authorization|bearer|access_token|refresh_token|client_secret)",line):
+            line="[REDACTED]"
+        excerpt.append(f"{idx+1}: {line[:180]}")
+    details[filename]["targeted_source_excerpt"]="\n".join(excerpt)[:18000]
+out["thermal_source_detail"]=details
+for entry in out.get("matching_storage_files",[]):
+    try:
+        saved=json.loads((stor/entry["name"]).read_text())
+        data=saved.get("data",{}) if isinstance(saved,dict) else {}
+        entry["stored_top_level_keys"]=list(saved)[:30] if isinstance(saved,dict) else []
+        if isinstance(data,dict):
+            entry["data_shape"]={k:({"type":type(v).__name__,"count":len(v)} if isinstance(v,(list,dict))
+                                    else {"type":type(v).__name__})
+                                   for k,v in data.items() if not re.search("secret|token|password|key",k,re.I)}
+    except (ValueError,OSError):
+        entry["shape_unavailable"]=True
+
 print(json.dumps(out,sort_keys=True))
 '''
 
