@@ -1,0 +1,55 @@
+name: VEYRA OBS source-ID repair v1.2 CI
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/trusted/veyra-obs-live-av-quality-v1.2.sh'
+      - 'gateway/trusted/veyra-obs-ws-control-v1.2.py'
+      - '.github/workflows/veyra-obs-live-av-v12-ci.yml'
+permissions: {contents: read}
+jobs:
+  static-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify corrected source, Python and preservation gates
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          shfile=gateway/trusted/veyra-obs-live-av-quality-v1.2.sh
+          wsfile=gateway/trusted/veyra-obs-ws-control-v1.2.py
+          bash -n "$shfile"
+          python3 -m py_compile "$wsfile"
+          python3 - <<'PY'
+          from pathlib import Path
+          import ast,re
+          sh=Path('gateway/trusted/veyra-obs-live-av-quality-v1.2.sh').read_text()
+          ws=Path('gateway/trusted/veyra-obs-ws-control-v1.2.py').read_text()
+          heredocs=re.findall(r"<<'PY'\n(.*?)\nPY",sh,re.S)
+          assert len(heredocs)==3, f"expected 3 embedded Python blocks, got {len(heredocs)}"
+          for block in heredocs: ast.parse(block)
+          for word in (
+              '"id":"xshm_input"', '"versioned_id":"xshm_input"',
+              '"advanced":True,"server":":92","screen":0',
+              'pulse_output_capture','veyra_virtual_capture.monitor',
+              'obs --multi','--startrecording','control verify','control stop',
+              'RecFormat2=mkv','auth_required":True','mpv --no-config',
+              'ffprobe','cleanup()','/tmp/.X11-unix/X92','Xvfb :93',
+              'VBitrate=6500','FPSInt=25','old recorder',
+          ):
+              assert word in sh, f"missing: {word}"
+          for forbidden in (
+              'xshm_input_v2','--startstreaming','srt://',
+              'kill -STOP','kill -CONT','Xvfb :92',
+              'systemctl stop ','systemctl restart ','systemctl enable ',
+              'pkill ','killall ','apt-get','ffplay ',
+              '/usr/bin/ffmpeg ', 'rm -rf /opt/veyra',
+          ):
+              assert forbidden not in sh, f"unsafe script: {forbidden}"
+          assert 'StopRecord' in ws and 'GetRecordStatus' in ws
+          assert 'GetInputSettings' in ws and 'GetInputList' in ws
+          assert 'GetSceneItemList' in ws and 'GetCurrentProgramScene' in ws
+          assert 'auth_required' in ws and '127.0.0.1' in ws
+          print("PASS: v1.2 correct source ID, isolated MKV, authenticated stop, and safety")
+          PY
