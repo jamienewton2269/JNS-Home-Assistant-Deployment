@@ -1,0 +1,14 @@
+name: JNS Welcome Home MQTT Transport Runtime Audit
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/area_presence/runtime.request']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/area_presence/runtime_audit.py
