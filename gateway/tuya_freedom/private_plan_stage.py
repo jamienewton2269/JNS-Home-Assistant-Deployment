@@ -106,11 +106,52 @@ for d in clouds:
                    "local_key_present_in_matched_entry":any(
                        "local_key" in (entries.get(x.get("config_entry_id"),{}).get("data",{}))
                        for x in matches)})
+
+# De-duplicate native Tuya identifiers across the three cloud entries.
+# HA 2026.8+ treats each config-entry copy as a distinct device record.
+def native_tuya_ids(d):
+    return {str(v[1]).strip().lower() for v in d.get("identifiers", [])
+            if isinstance(v,(list,tuple)) and len(v)==2
+            and str(v[0]).lower()=="tuya" and len(str(v[1]).strip())>=12}
+physical_groups = collections.defaultdict(list)
+for d in clouds:
+    ids = native_tuya_ids(d)
+    if len(ids)==1:
+        physical_groups[next(iter(ids))].append(d)
+    else:
+        coverage["unsafe_native_identifier_cardinality"] += 1
+local_by_physical = collections.defaultdict(list)
+for d in locals_:
+    conf = entries.get(d.get("config_entry_id"),{}).get("data",{})
+    key = conf.get("device_id")
+    if isinstance(key,str) and len(key.strip())>=12:
+        local_by_physical[key.strip().lower()].append(d)
+physical_rows = []
+for key, group in sorted(physical_groups.items()):
+    local_candidates = local_by_physical.get(key,[])
+    active_cloud = [d for d in group if any(
+        e.get("platform")=="tuya" for e in ents_by_dev.get(d["id"], []))]
+    physical_rows.append({
+        "native_device_id":key,
+        "cloud_registrations":[sample(x) for x in group],
+        "cloud_registrations_with_entities":len(active_cloud),
+        "local_registrations":[sample(x) for x in local_candidates],
+        "ready_for_autocutover":False,
+        "needs_local_onboarding":len(local_candidates)==0,
+        "note":"Review device functions/DPs, local connection and offline proof before approval."
+    })
+coverage["distinct_physical_cloud_devices"] = len(physical_groups)
+coverage["distinct_physical_with_local_entry"] = sum(
+    bool(local_by_physical.get(key)) for key in physical_groups)
+coverage["distinct_physical_needing_local_onboarding"] = sum(
+    not local_by_physical.get(key) for key in physical_groups)
+
 report = {
     "schema":1,
     "generated_utc":datetime.datetime.now(datetime.timezone.utc).isoformat(),
     "notice":"PRIVATE FILE; names and IDs must never be committed. No pair approved.",
     "devices":source,
+    "physical_devices":physical_rows,
     "counts":dict(coverage),
 }
 dest = root / ".jns_tuya_freedom"
