@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/jns-solar-ha900-parity-preflight.yml'
+      - 'gateway/solar/ha900_parity_preflight_v1.py'
       - 'gateway/solar/parity.request'
   workflow_dispatch:
 permissions:
