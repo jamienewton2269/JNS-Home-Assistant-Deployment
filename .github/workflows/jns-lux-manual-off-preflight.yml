@@ -1,0 +1,16 @@
+name: JNS Lux Manual Off Dry-run
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/lux_manual_override/preflight.request']
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          python3 -m py_compile gateway/lux_manual_override/patch_vm905.py gateway/lux_manual_override/runner.py
+          python3 gateway/lux_manual_override/runner.py --dry-run
