@@ -76,6 +76,16 @@ if wrapper.is_file():
     print("JNS_GATEWAY_WRAPPER",json.dumps({"bytes":len(raw),"sha256":hashlib.sha256(raw.encode()).hexdigest(),
         "recognised_dispatch_tokens":found},sort_keys=True),flush=True)
 
+# Inspect only syntax-level root wrapper dispatch patterns, not any commands
+if wrapper.is_file():
+    patterns=[]
+    for line in raw.splitlines():
+        token=line.strip()
+        if token.startswith(("case ","esac","JOB_TYPE=")) or token.endswith(")") and len(token)<100:
+            if not any(s in token.lower() for s in ("password","token","secret","auth")):
+                patterns.append(token[:80])
+    print("JNS_GATEWAY_DISPATCH_GRAMMAR",json.dumps({"patterns":patterns[:30]},sort_keys=True),flush=True)
+
 vhost=ssh_host("nodeb",["qm","status","905"]).strip()
 print("JNS_VM905_HOST_STATUS",json.dumps({"running":"running" in vhost},sort_keys=True),flush=True)
 code="exec(__import__('base64').b64decode('"+base64.b64encode(INSPECT.encode()).decode()+"'))"
@@ -83,7 +93,17 @@ snapshot=json.loads(qga(["docker","exec","homeassistant","python3","-c",code]))
 print("JNS_VM905_PREPROMOTION_READONLY",json.dumps(snapshot,sort_keys=True),flush=True)
 # HA CLI info is also read-only; keep only state/version, never any public URL.
 try:
-    info=json.loads(qga(["ha","core","info"],timeout=60))
+    raw_info=qga(["ha","core","info"],timeout=60)
+    try:
+        info=json.loads(raw_info)
+    except ValueError:
+        # HA CLI can print YAML rather than JSON.
+        info={}
+        for row in raw_info.splitlines():
+            if ":" not in row: continue
+            key,value=row.split(":",1)
+            if key.strip() in ("state","version","boot","watchdog"):
+                info[key.strip()]=value.strip()
     print("JNS_VM905_CORE_HEALTH",json.dumps({"version":info.get("version"),
         "state":info.get("state"),"boot":info.get("boot"),
         "watchdog":info.get("watchdog")},sort_keys=True),flush=True)
