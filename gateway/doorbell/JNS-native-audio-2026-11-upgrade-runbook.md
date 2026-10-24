@@ -55,3 +55,28 @@ F. **External camera speaker acknowledgement:** separate short audio clip played
 - https://contributors.home-assistant.io/releases/how-it-works/
 - https://www.home-assistant.io/integrations/go2rtc/
 - https://www.home-assistant.io/integrations/web_rtc
+
+## Live preflight audit — 2026-10-25 (Node C runner)
+
+Source: `JNS Native Two-Way Audio 2026.11 Preflight` run `40144089485` and `JNS Native Intercom Backup Recovery Preflight` run `40144266820`. Both succeeded as **read-only** probes, not as upgrades or backup-restore tests.
+
+| Gate | HA-General VM905 / Node B | HA-Primary VM902 / Node A |
+|---|---|---|
+| Core / HAOS | 2026.10.1 / 18.3 | 2026.9.4 / 18.3 |
+| Supervisor | 2026.10.3 healthy and supported | 2026.10.3 healthy and supported |
+| RAM allocated | **1024 MB** with balloon floor 768 MB | 2048 MB |
+| HA data disk available | 21.3 GiB | 24.1 GiB |
+| HA backup inventory | **empty** | **empty** |
+| Proxmox snapshots | multiple; latest 2026-10-23 (before subsequent changes) | **none** |
+| Host available RAM | ~2002 MB | ~1728 MB |
+| Host swap used | 1824 MB | 4051 MB |
+| HA backup CLI | `ha backups new` available | `ha backups new` available |
+| Backup NAS | NAS active, separate WD-BACKUP target offline | NAS and WD-BACKUP targets offline |
+| Current cameras | ONVIF Tapo C210 `camera.c210_mainstream` (Kitchen Dog Camera) | generic/remote C210 camera; no identified front-door camera |
+| HA Core SSL flag | false | false |
+
+**HARD HOLD**: no upgrade until new, verified/restorable, appropriately stored backups exist (including off-VM copy), host/guest memory and swap risks have been assessed, a correct front-door camera is identified, and secure HTTPS/WebRTC/backchannel support is verified. The existing Proxmox snapshots are historical, not current recovery points. Investigate Node A pve-recovery missing-PV warning independently before selecting backup storage; do not alter disk configuration as part of camera work.
+
+`/dev/root` reporting 100% inside HAOS is the immutable OS system volume, not the Home Assistant writable data disk; data disk free space above is the relevant capacity metric.
+
+No home-assistant backup was created by these audits; no microphone, camera speaker, VM memory, SSL, Core versions, restarts or reloads were changed.
