@@ -32,3 +32,8 @@ if w.is_file() and os.access(w,os.R_OK):
     print("ALLOWLIST_STRUCTURE",i,s[:135],flush=True)
 else:print("WRAPPER_UNREADABLE",flush=True)
 print("=== JNS WRAPPER INVENTORY DONE ===",flush=True)
+
+if w.is_file() and os.access(w,os.R_OK):
+ for n,s in enumerate(w.read_text(errors="replace").splitlines(),1):
+  if n>=21 and n<=42 and not re.search(r"(?i)(token|password|secret|private|identity|credential|key)",s):
+   print("WRAPPER_JOB_MAPPING",n,s.strip()[:160],flush=True)
