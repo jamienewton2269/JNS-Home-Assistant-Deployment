@@ -29,7 +29,12 @@ class FakeHA:
 
     def call(self, method, **kw):
         assert method == "config/entity_registry/update"
-        old, new = kw["entity_id"], kw["new_entity_id"]
+        old = kw["entity_id"]
+        if "new_entity_id" not in kw:
+            self.es[old].update({k:v for k,v in kw.items() if k != "entity_id"})
+            self.calls.append((old, "metadata"))
+            return
+        new = kw["new_entity_id"]
         assert new not in self.es
         obj = self.es.pop(old)
         obj["entity_id"] = new
