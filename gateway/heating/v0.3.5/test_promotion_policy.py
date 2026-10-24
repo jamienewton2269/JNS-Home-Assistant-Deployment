@@ -76,6 +76,47 @@ class PromotionPolicyTests(unittest.TestCase):
         with self.assertRaises(PolicyDenied):
             approve(job(),altered,now=NOW)
 
+    def test_root_route_uses_existing_runner_identity_not_root_keys(self):
+        spec=importlib.util.spec_from_file_location("jns_heating_gateway_route",
+                                                  ROOT/"root_owned_promotion.py")
+        module=importlib.util.module_from_spec(spec)
+        sys.modules[spec.name]=module
+        spec.loader.exec_module(module)
+        calls=[]
+        def fake_run(argv,timeout):
+            calls.append(argv)
+            if argv[-1]=="hostname -s":
+                return "nodeb"
+            return "status: running"
+        with patch.object(module,"run",side_effect=fake_run):
+            self.assertIn("running",module.host_command(["qm","status","905"]))
+        self.assertEqual(len(calls),2)
+        self.assertEqual(calls[0][:4],
+                         ["/usr/sbin/runuser","-u","github-runner","--"])
+        self.assertIn("root@nodeb.home.arpa",calls[0])
+        self.assertEqual(calls[1][-1],"qm status 905")
+
+    def test_root_recovery_refuses_unverified_checksums(self):
+        spec=importlib.util.spec_from_file_location("jns_heating_gateway_recovery",
+                                                  ROOT/"root_owned_promotion.py")
+        module=importlib.util.module_from_spec(spec)
+        sys.modules[spec.name]=module
+        spec.loader.exec_module(module)
+        with patch.object(module,"guest") as guest:
+            with self.assertRaisesRegex(module.DeploymentBlocked,"pinned manifest digest"):
+                module.host_fallback_rollback("../not-a-hash","0"*64)
+            guest.assert_not_called()
+
+    def test_v4_dispatcher_is_exact_v3_plus_one_case(self):
+        baseline=(ROOT.parent.parent/"trusted/jns-gateway-exec-wrapper-v3.sh").read_text()
+        current=(ROOT/"jns-gateway-exec-wrapper-v4-heating.sh").read_text()
+        marker='  *)\n    exec /usr/local/sbin/jns-gateway-exec.base "$REAL"\n    ;;'
+        patch_case=('  ha_heating_v035_promote)\n'
+                    '    exec /usr/local/libexec/jns-heating-v035/root_owned_promotion.py "$REAL"\n'
+                    '    ;;\n')
+        self.assertEqual(baseline.count(marker),1)
+        self.assertEqual(current,baseline.replace(marker,patch_case+marker))
+
     def test_dormant_handler_has_no_unsafe_commit_without_permit(self):
         # Guarded handler is importable but cannot send commands absent a
         # privately minted maintenance token. Root permissions are simulated.
