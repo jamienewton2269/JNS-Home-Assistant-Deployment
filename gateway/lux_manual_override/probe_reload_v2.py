@@ -49,3 +49,14 @@ print('HAOS_CLI_CONTEXT',(r.get('out-data') or '')[-1600:],'EXIT',r.get('exitcod
 
 r=qga(['docker','ps','--format','{{.Names}}'])
 print('VM905_CONTAINER_NAMES',(r.get('out-data') or '')[:2000],'EXIT',r.get('exitcode'),flush=True)
+
+# The existing official SSH app, not Core, may be authorised for the Core API proxy.
+APP=r"""
+if test -z "$SUPERVISOR_TOKEN"; then echo 'SSH_APP_TOKEN_ABSENT';exit 3;fi
+if ! command -v curl >/dev/null 2>&1; then echo 'SSH_APP_CURL_ABSENT'; exit 3;fi
+code=$(curl -sS -o /dev/null --max-time 9 -w '%{http_code}' -H "Authorization: Bearer $SUPERVISOR_TOKEN" http://supervisor/core/api/)
+echo "SSH_APP_API_STATUS $code"
+test "$code" = "200"
+"""
+r=qga(['docker','exec','app_core_ssh','sh','-c',APP])
+print('SSH_APP_RELOAD_API_AUTH',(r.get('out-data') or '')[-800:],'EXIT',r.get('exitcode'),flush=True)
