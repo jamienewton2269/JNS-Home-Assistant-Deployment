@@ -1,0 +1,14 @@
+name: JNS MQTT Live Area and Presence Audit
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/area_presence/live.request']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/area_presence/live_audit.py
