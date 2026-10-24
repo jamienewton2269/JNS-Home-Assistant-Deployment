@@ -1,0 +1,14 @@
+name: JNS Primary Area Preview MQTT Report
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/area_presence/preview-report.request']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/area_presence/preview_report.py
