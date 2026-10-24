@@ -1,0 +1,24 @@
+name: JNS Solar HA900 Private Inventory Capture
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-ha900-private-inventory.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-solar-ha900-private-inventory
+  cancel-in-progress: false
+jobs:
+  inventory:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Capture protected local-only HA900 service manifest; never log service configuration
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha900_private_service_inventory_v1.py
+          python3 gateway/solar/ha900_private_service_inventory_v1.py
