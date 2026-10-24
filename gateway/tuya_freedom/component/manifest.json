@@ -1,0 +1,9 @@
+{
+  "domain": "jns_tuya_freedom",
+  "name": "JNS Tuya Freedom Observer",
+  "version": "0.1.0",
+  "documentation": "https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/tree/main/gateway/tuya_freedom",
+  "codeowners": [],
+  "iot_class": "local_polling",
+  "integration_type": "service"
+}
