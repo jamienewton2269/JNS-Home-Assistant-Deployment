@@ -74,6 +74,12 @@ sudo bash ~/veyra-obs-mkv-review-v1.1.sh play
 - The v1.1 script deliberately refuses to overwrite an MKV. Preserve the initial sample by moving **only the named v1.1 MKV** into a dedicated archive under the same test root before running the identical v1.1 trial again; the existing `veyra-obs-mkv-review-v1.1.sh` helper will then select the new buffer sample. No source code changes required for this retake. OBS/ffprobe metadata and audio streams alone do not establish quality; ask for actual picture and programme sound in the saved replay.
 - Initial SRT errors and reported OBS rendering lag remain for later attention *after* validating a real programme capture.
 
+## 24 October 2026, 18:21 BST — ITVX playback unavailable, OBS QA paused
+- The user archived the original 17:05:30 MKV, captured a second 18:19:16 MKV, and independently inspected it: **1364×768 H.264 25fps, AAC 48kHz stereo, 749 counted frames, same 24,317,952-byte file size and premature-end warning**. The second OBS run reported **210 rendering-stall frames (30.3%)** and recurring SRT connection rejections; the original recorder PID 626060 was restored.
+- The user confirmed **ITVX itself failed to play**, so the second recording is **not usable as a source-content quality assessment**. The MKV is a technically decodable capture container only, not demonstrated ITVX motion/audio quality. Stop further OBS capture attempts until the original ITVX programme plays successfully in Chrome through VNC.
+- A subsequent rerun failed harmlessly because the 18:19:16 MKV was already in the buffer; the older 17:05:30 sample had already been archived. Preserve both samples. Once source playback is verified, archive only the **18:19:16** MKV before running the existing trial; do not repeat an already archived path.
+- Next priority: inspect Chrome process/window state, VNC, network and actual ITVX error message. Refresh only the ITVX browser tab if needed, not the entire Chrome/VNC service; avoid deleting cookies or CDM/DRM bypass. Require observed source picture and programme audio **before** any OBS quality capture.
+
 ## Retention and next gate
 
 This run creates **one approximately 30-second audiovisual test buffer**, not 30 minutes, and is *not yet a circular buffer*. Once capture/perception are verified, switch to OBS-backed bounded segmented storage with play/pause/rewind using a separate recorder output strategy and proper disk/time limits. Prefer source frame-rate rather than repeating fixed 50 fps.
