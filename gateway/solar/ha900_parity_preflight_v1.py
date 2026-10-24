@@ -92,7 +92,7 @@ def get_guest(vm, node):
     if j.get("exitcode")!=0:
         err=(j.get("err-data") or "")[:3000]
         import re
-        classes=re.findall(r"\\b([A-Za-z_]+(?:Error|Exception))\\b",err)
+        classes=re.findall(r"\b([A-Za-z_]+(?:Error|Exception))\b",err)
         if "No such container" in err: cause="homeassistant_container_not_found"
         elif "not found" in err.lower(): cause="guest_executable_not_found"
         elif "permission denied" in err.lower():cause="guest_permission_denied"
