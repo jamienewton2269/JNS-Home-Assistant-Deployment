@@ -1,0 +1,26 @@
+name: JNS Lux Manual Off Live Health Verify
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/lux_manual_override/health.request']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - name: Verify HA-General HTTP, Node B and installed Lux manual-off controls
+        shell: bash
+        run: |
+          set -u
+          echo === NODE_B_DNS ===
+          getent hosts nodeb.home.arpa || true
+          echo === HA_GENERAL_DNS ===
+          getent hosts ha-general.home.arpa || true
+          echo === HA_GENERAL_NATIVE_HTTP ===
+          curl -sS -o /dev/null --connect-timeout 5 --max-time 12 -w 'JNS_LUX_HTTP_CODE=%{http_code}\n' http://ha-general.home.arpa/ || true
+          echo === HA_GENERAL_EVENING_VIEW ===
+          curl -sS -o /dev/null --connect-timeout 5 --max-time 12 -w 'JNS_LUX_VIEW_HTTP_CODE=%{http_code}\n' http://ha-general.home.arpa/testing-dashboard/evening-lighting || true
+          echo === NODE_B_TRUSTED_SSH ===
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=7 root@nodeb.home.arpa 'hostname -s; qm status 905; qm guest exec 905 -- docker ps --filter name=homeassistant --format "{{.Names}} {{.Status}}"' || true
