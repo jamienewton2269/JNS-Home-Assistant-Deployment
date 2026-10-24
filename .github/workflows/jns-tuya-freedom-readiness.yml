@@ -1,0 +1,26 @@
+name: JNS Tuya Freedom Local Readiness
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/tuya_freedom/readiness.request'
+      - '.github/workflows/jns-tuya-freedom-readiness.yml'
+      - 'gateway/tuya_freedom/readiness.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-tuya-freedom-readiness
+  cancel-in-progress: false
+jobs:
+  readiness:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect VM905 locally without activating devices
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/tuya_freedom/readiness.py
+          python3 gateway/tuya_freedom/readiness.py
