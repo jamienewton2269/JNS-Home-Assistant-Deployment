@@ -22,3 +22,6 @@ jobs:
 
       - name: Inspect legacy doorbell GPIO logic lines
         run: python3 gateway/doorbell/esp32-logic-grep.py
+
+      - name: Inspect HA900 historical automation mapping
+        run: python3 gateway/doorbell/legacy-automation-grep.py
