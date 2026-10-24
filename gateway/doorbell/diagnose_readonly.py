@@ -14,6 +14,27 @@ def remote(host,args):
 
 print("=== JNS FRONT DOORBELL / ESPHOME LIVE READ-ONLY DIAGNOSTIC ===", flush=True)
 print("UTC",time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime()),flush=True)
+
+print("=== TRUSTED HOST ROUTES ===",flush=True)
+for host in ("nodea","nodeb","nodea.home.arpa","nodeb.home.arpa","ha-security.home.arpa"):
+    try: print("DNS",host,sorted({i[4][0] for i in socket.getaddrinfo(host,None)})[:8],flush=True)
+    except Exception as e: print("DNS",host,type(e).__name__,flush=True)
+for host in ("10.10.110.11","10.10.110.12","10.10.110.13","10.10.10.252"):
+    try:
+        with socket.create_connection((host,22),timeout=2): print("TCP22",host,"OPEN",flush=True)
+    except Exception as e: print("TCP22",host,type(e).__name__,flush=True)
+for host in ("nodea","nodeb","nodea.home.arpa","nodeb.home.arpa","10.10.110.11","10.10.110.12"):
+    a=cmd(["ssh","-G",host],timeout=3)
+    fields=[v for v in a.get("out","").splitlines() if v.startswith(("hostname ","user ","hostkeyalias ","identityfile "))][:8]
+    print("SSH_EFFECTIVE",host,fields,flush=True)
+for host,ip in (("nodea","10.10.110.11"),("nodeb","10.10.110.12")):
+    for variant,target,options in [
+        ("dns",host+".home.arpa",[]),
+        ("forced-ip",host,["-o","HostName="+ip]),
+        ("forced-ip-alias",host,["-o","HostName="+ip,"-o","HostKeyAlias="+host+".home.arpa"]),
+        ("direct-ip",ip,[])]:
+        z=cmd(["ssh","-o","BatchMode=yes","-o","ConnectTimeout=3","-o","StrictHostKeyChecking=yes",*options,"root@"+target,"hostname -s"],timeout=6)
+        print("SSH_PROBE",host,variant,"rc",z.get("rc"),"out",z.get("out","").strip()[:50],"error",z.get("error","")[:170],flush=True)
 for label,host,vm in [("HA-LEGACY","nodea","900"),("HA-GENERAL","nodeb","905"),("HA-SECURITY","local","906")]:
     args=["qm","status",vm]
     status=cmd(args) if host=="local" else remote(host,args)
