@@ -55,3 +55,14 @@ jobs:
           path: gateway/apps/nhs-blood-booking/mobile-android/app/build/outputs/apk/debug/*.apk
           retention-days: 7
           if-no-files-found: error
+      - name: Package tracked Android source only
+        run: |
+          git -C "$GITHUB_WORKSPACE" archive --format=zip \
+            --output="$RUNNER_TEMP/jns-nhs-mobile-source.zip" \
+            HEAD:gateway/apps/nhs-blood-booking/mobile-android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jns-nhs-android-source
+          path: ${{ runner.temp }}/jns-nhs-mobile-source.zip
+          retention-days: 7
+          if-no-files-found: error
