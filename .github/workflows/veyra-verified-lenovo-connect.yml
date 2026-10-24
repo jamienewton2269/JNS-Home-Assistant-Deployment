@@ -34,7 +34,7 @@ jobs:
             if timeout -k 2s 16s ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes \
               -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$work/known_hosts" \
               -o ConnectTimeout=6 -o ConnectionAttempts=1 \
-              "jnsadmin@$TARGET" 'echo VEYRA_GPU_RENDER_PATH_AUDIT; echo DISPLAY_COMPOSITORS; ps -eo pid,user,comm,args | grep -E "[c]age|[w]eston|[s]way|[X]wayland|[X]vfb :92" | cut -c 1-190 | head -16; echo WAYLAND_SOCKETS; ls -l /run/user/999/wayland-* 2>/dev/null | head -12; echo OBS_QT_AVAILABLE; for t in eglinfo glxinfo wayland-info weston drm_info; do command -v "$t" || true; done; echo EGL_DRIVERS; ls -l /usr/lib/x86_64-linux-gnu/dri/*_dri.so 2>/dev/null | head -10; echo OBS_RUNTIME; ls -ld /run/user/999 /dev/dri/renderD128; echo END' ; then
+              "jnsadmin@$TARGET" 'echo OBS_X93_RECOVERY_VERIFICATION; date; echo X93_LOCK_AND_SOCKET; ls -l /tmp/.X93-lock /tmp/.X11-unix/X93 2>&1 || true; echo X93_PROCESSES; ps -eo pid,ppid,user,stat,etime,args | grep -E "[X]vfb :93|[X]vfb :92" | cut -c 1-220; echo GUARDED_SERVICES; for u in veyra-kiosk.service veyra-virtual-loopback-v01.service veyra-itvx-vnc-v01.service; do echo "$u=$(systemctl is-active "$u")"; done; echo RECORDER; ps -C ffmpeg -o pid,stat,pcpu,args | cut -c 1-185 | head -4; echo AUDIT_END' ; then
               echo "VEYRA_REMOTE_ACCESS_PASS: $(basename "$key")"
               exit 0
             else
