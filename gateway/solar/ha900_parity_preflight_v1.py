@@ -104,11 +104,48 @@ def get_guest(vm, node):
     try: return {"status":"ok",**json.loads(lines[-1].split("=",1)[1])}
     except ValueError:return {"status":"invalid_aggregate_payload"}
 
+
+def legacy_guest_diagnostic():
+    """No reading HA config: prove docker/python access with fixed benign markers."""
+    checks={
+      "docker_available":["sh","-c","command -v docker >/dev/null && echo JNS_DOCKER_FOUND"],
+      "homeassistant_container":["docker","exec","homeassistant","sh","-c","test -d /config && echo JNS_CONFIG_EXISTS"],
+      "python_exec":["docker","exec","homeassistant","python3","-c","print('JNS_PYTHON_OK')"],
+    }
+    result={}
+    for label,cmd in checks.items():
+        payload=ssh("nodea",["qm","guest","exec","900","--",*cmd],18)
+        if not payload["ok"]:
+            result[label]={"status":"guest_command_transport_error"}
+            continue
+        try: j=json.loads(payload["text"])
+        except ValueError:
+            result[label]={"status":"guest_response_not_json"}
+            continue
+        for _ in range(4):
+            if j.get("exited"):break
+            pid=j.get("pid")
+            if pid is None:break
+            time.sleep(1)
+            poll=ssh("nodea",["qm","guest","exec-status","900",str(pid)],8)
+            if not poll["ok"]:break
+            try:j=json.loads(poll["text"])
+            except ValueError:break
+        out=(j.get("out-data") or "")
+        err=(j.get("err-data") or "")
+        result[label]={"exited":j.get("exited",False),"exitcode":j.get("exitcode"),
+                       "marker_present":("JNS_" in out),"stdout_chars":len(out),"stderr_chars":len(err)}
+    return result
+
 def main():
     print("JNS_SOLAR_PARITY_PREFLIGHT_READ_ONLY",flush=True)
     for vm,node in VM_HOST.items():
         try: result=get_guest(vm,node)
         except (subprocess.TimeoutExpired,OSError):result={"status":"timeout_or_os_error"}
         print("VM_"+str(vm)+" "+json.dumps(result,sort_keys=True),flush=True)
+        if vm==900 and result.get("status")!="ok":
+            try: diag=legacy_guest_diagnostic()
+            except (subprocess.TimeoutExpired,OSError):diag={"status":"diagnostic_not_available"}
+            print("VM_900_GUEST_DIAGNOSTIC "+json.dumps(diag,sort_keys=True),flush=True)
     print("JNS_SOLAR_PARITY_PREFLIGHT_COMPLETE",flush=True)
 if __name__=="__main__":main()
