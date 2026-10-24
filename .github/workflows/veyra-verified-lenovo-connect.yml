@@ -34,24 +34,7 @@ jobs:
             if timeout -k 2s 16s ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes \
               -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$work/known_hosts" \
               -o ConnectTimeout=6 -o ConnectionAttempts=1 \
-              "jnsadmin@$TARGET" 'echo VEYRA_ITVX_CHROME_PLAYBACK_READONLY_AUDIT;
-date;
-echo SERVICE_STATE;
-for s in veyra-virtual-loopback-v01.service veyra-itvx-vnc-v01.service veyra-kiosk.service; do echo "$s=$(systemctl is-active "$s" 2>/dev/null)"; done;
-echo CHROME_PROCESSES;
-ps -eo pid,ppid,user,stat,pcpu,etime,args | grep -E "[g]oogle-chrome|[c]hrome --|[X]vfb :92|[x]11vnc -display" | cut -c 1-235 | head -26;
-echo CHROME_WINDOWS;
-if command -v xdotool >/dev/null; then DISPLAY=:92 xdotool search --onlyvisible --name "." getwindowname 2>&1 | head -12; else echo XDOTOOL_UNAVAILABLE; fi;
-echo DRI_STATUS;
-ls -l /dev/dri/renderD128;
-echo DNS_AND_TLS;
-getent ahostsv4 www.itv.com | head -4;
-curl -IL --max-time 12 --silent --show-error -o /dev/null -w "ITV_HOME_HTTP=%{http_code} CONNECT=%{time_connect} TLS=%{time_appconnect}\n" https://www.itv.com/ || true;
-echo CHROME_PROFILE_DIRS;
-ps -eo args | grep -E "[g]oogle-chrome.*--user-data-dir|[g]oogle-chrome.*--ozone-platform" | head -4 | cut -c 1-230;
-echo VNC_PORT;
-ss -lnt | grep -F ":5902" || true;
-echo END_AUDIT' ; then
+              "jnsadmin@$TARGET" 'echo VEYRA_ITVX_CHROME_PLAYBACK_READONLY_AUDIT; date; echo SERVICE_STATE; for s in veyra-virtual-loopback-v01.service veyra-itvx-vnc-v01.service veyra-kiosk.service; do echo "$s=$(systemctl is-active "$s" 2>/dev/null)"; done; echo CHROME_PROCESSES; ps -eo pid,ppid,user,stat,pcpu,etime,args | grep -E "[g]oogle-chrome|[c]hrome --|[X]vfb :92|[x]11vnc -display" | cut -c 1-235 | head -26; echo CHROME_WINDOWS; if command -v xdotool >/dev/null; then DISPLAY=:92 xdotool search --onlyvisible --name "." getwindowname 2>&1 | head -12; else echo XDOTOOL_UNAVAILABLE; fi; echo DRI_STATUS; ls -l /dev/dri/renderD128; echo DNS_AND_TLS; getent ahostsv4 www.itv.com | head -4; curl -IL --max-time 12 --silent --show-error -o /dev/null -w "ITV_HOME_HTTP=%{http_code} CONNECT=%{time_connect} TLS=%{time_appconnect}\n" https://www.itv.com/ || true; echo CHROME_PROFILE_DIRS; ps -eo args | grep -E "[g]oogle-chrome.*--user-data-dir|[g]oogle-chrome.*--ozone-platform" | head -4 | cut -c 1-230; echo VNC_PORT; ss -lnt | grep -F ":5902" || true; echo END_AUDIT' ; then
               echo "VEYRA_REMOTE_ACCESS_PASS: $(basename "$key")"
               exit 0
             else
