@@ -16,3 +16,5 @@ jobs:
         run: python3 gateway/doorbell/porch-security-lighting-readonly.py
       - name: Match porch sensor identity and security light labels
         run: python3 gateway/doorbell/porch-security-detail.py
+      - name: Compare porch motion state times with sunset and execution traces
+        run: python3 gateway/doorbell/porch-trace-sun-audit.py
