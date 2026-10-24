@@ -1,0 +1,19 @@
+name: JNS Presence and MQTT Areas Primary Guarded Preflight
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/area_presence/primary-preflight.request']
+permissions:
+  contents: read
+jobs:
+  dry_run:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate staged native area plugin and read-only VM902 configuration
+        run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/area_presence/patch_primary.py gateway/area_presence/primary_runner.py gateway/area_presence/custom_components/jns_native_area_sync/__init__.py
+          python3 -m json.tool gateway/area_presence/custom_components/jns_native_area_sync/manifest.json >/dev/null
+          python3 gateway/area_presence/primary_runner.py --dry-run
