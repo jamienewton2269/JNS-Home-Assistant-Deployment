@@ -1,0 +1,24 @@
+name: JNS Steward Repair Coverage Audit
+on:
+  push:
+    branches: [main]
+    paths: ['steward_knowledge/repair-catalogue-audit.request']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read only on-site Steward repair catalogue
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile natural_automation_steward/tools/coverage_audit.py
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodeb.home.arpa \
+            'test "$(hostname -s)" = nodeb && test -f /opt/natural-automation/data/steward.db'
+          scp -q -o BatchMode=yes -o StrictHostKeyChecking=yes natural_automation_steward/tools/coverage_audit.py \
+            root@nodeb.home.arpa:/tmp/jns-steward-coverage-audit.py
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodeb.home.arpa \
+            'python3 /tmp/jns-steward-coverage-audit.py'
