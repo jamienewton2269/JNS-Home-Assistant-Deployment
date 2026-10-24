@@ -1,0 +1,26 @@
+name: JNS Tuya Freedom Repair Diagnostic
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/tuya_freedom/repair_diagnostic.py'
+      - 'gateway/tuya_freedom/repair_diagnostic.request'
+      - '.github/workflows/jns-tuya-repair-diagnostic.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-tuya-repair-diagnostic
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Native observer and local key configuration diagnosis, no device changes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/tuya_freedom/repair_diagnostic.py
+          python3 gateway/tuya_freedom/repair_diagnostic.py
