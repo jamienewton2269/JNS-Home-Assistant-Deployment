@@ -1,0 +1,26 @@
+name: JNS Tuya Freedom Read-only Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/tuya_freedom/readonly_audit.py'
+      - 'gateway/tuya_freedom/audit.request'
+      - '.github/workflows/jns-tuya-freedom-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-tuya-freedom-audit
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only VM905 dependency report; no secrets or device IDs
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/tuya_freedom/readonly_audit.py
+          python3 gateway/tuya_freedom/readonly_audit.py
