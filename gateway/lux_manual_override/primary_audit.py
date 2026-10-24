@@ -8,8 +8,8 @@ from pathlib import Path
 import json,yaml,re
 root=Path('/config');st=root/'.storage'
 es=json.loads((st/'core.entity_registry').read_text())['data']['entities']
-ds={d.get('id'):d for d in json.loads((st/'core.device_registry').read_text())['data']['devices']}
-labels={l.get('label_id') or l.get('id'):l.get('name') for l in json.loads((st/'core.label_registry').read_text())['data']['labels']}
+ds={d.get('id'):d for d in json.loads((st/'core.device_registry').read_text())['data']['devices']} if (st/'core.device_registry').exists() else {}
+labels={l.get('label_id') or l.get('id'):l.get('name') for l in json.loads((st/'core.label_registry').read_text())['data']['labels']} if (st/'core.label_registry').exists() else {}
 if VM==905:
  a=yaml.safe_load((root/'automations.yaml').read_text())
  entry=[x for x in a if str(x.get('id'))=='1791918795028']
