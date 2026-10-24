@@ -91,3 +91,29 @@ which has not been installed.
 
 Zigbee2MQTT TS0201 vendor documentation warns about an OTA firmware update
 that can brick this model; do **not** initiate OTA as a troubleshooting step.
+
+
+### Follow-up reporting-path correction
+
+A second read-only Zigbee2MQTT audit filtered the **friendly name**, not just
+the IEEE address. It found MQTT publications at
+23:23:03, 23:24:33, 23:38:02 and **23:39:33 UTC** on 24 October,
+with reported linkquality **99–102**, temperature still **22.6°C**, and
+humidity **56%**. Both CT214 Zigbee2MQTT and CT212 Mosquitto services
+were active. This confirms *current MQTT publications*, so old HA Recorder
+`last_updated_ts` reflects an unchanged temperature rather than proving a
+disconnected sensor. No per-device `temperature_calibration` option was
+found in the inspected Zigbee2MQTT configuration block; this limited check
+does not establish calibration accuracy.
+
+**Activation remains blocked on measurement plausibility**: the latest
+device-reported temperature differs substantially from the independent outdoor
+reading; it may represent pre-relocation heat soak, an incorrectly placed
+sensor, or a sensor measurement fault. Confirm the TS0201's **next new
+temperature measurement** after acclimatisation outdoors before selecting it,
+and preserve the guarded source-history epoch switch/freshness fallback.
+The device's latest published reading predates the user's relocation-
+confirmation message by only a few minutes, so no proof of post-relocation
+thermal equilibration is available.
+
+Latest [link/calibration audit](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40144332976).
