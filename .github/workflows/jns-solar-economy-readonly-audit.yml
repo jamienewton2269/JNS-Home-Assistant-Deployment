@@ -1,0 +1,25 @@
+name: JNS Solar Economy Read-Only Inventory
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-economy-readonly-audit.yml'
+      - 'gateway/solar/audit.request'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-solar-readonly-audit
+  cancel-in-progress: false
+jobs:
+  inventory:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify script is syntax-safe and inspect host resources without changes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/solar/read_only_inventory_v1.sh
+          bash gateway/solar/read_only_inventory_v1.sh
