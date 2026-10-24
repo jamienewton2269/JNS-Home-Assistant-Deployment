@@ -1,0 +1,24 @@
+name: JNS Tuya Freedom Private Operator Report
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/tuya_freedom/private_operator_report.py'
+      - '.github/workflows/jns-tuya-private-operator-report.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-tuya-private-operator-report
+  cancel-in-progress: false
+jobs:
+  report:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write device-specific report privately to VM905
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/tuya_freedom/private_operator_report.py
+          python3 gateway/tuya_freedom/private_operator_report.py
