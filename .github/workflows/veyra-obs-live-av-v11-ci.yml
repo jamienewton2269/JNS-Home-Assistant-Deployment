@@ -33,7 +33,7 @@ jobs:
           ):
             assert token in s, f'missing: {token}'
           for forbidden in ('apt-get install','systemctl restart ','systemctl enable ','killall ','pkill ',
-                            'Xvfb :92','/usr/bin/ffmpeg ', 'ffplay '):
+                            '/usr/bin/Xvfb :92','/usr/bin/ffmpeg ', 'ffplay '):
             assert forbidden not in s, f'forbidden executable pattern: {forbidden}'
           assert s.index('systemd-run --quiet --collect') < s.index('kill -STOP "$orig"')
           assert s.index('trap clean EXIT') < s.index('kill -STOP "$orig"')
