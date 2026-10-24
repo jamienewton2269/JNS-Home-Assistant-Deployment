@@ -96,5 +96,27 @@ class ReleaseSafetyTest(unittest.TestCase):
             self.assertEqual(restart.call_count,2)
             rollback.assert_called_once_with()
 
+    def test_final_restart_guard_blocks_active_heat_after_config_check(self):
+        with patch.object(M,"haos_core",return_value="") as haos,\
+             patch.object(M,"live_snapshot",return_value=states(call="on")):
+            with self.assertRaisesRegex(M.Blocked,"heating call active"):
+                M.restart_core()
+            haos.assert_called_once_with("check")
+
+    def test_emergency_restart_does_not_require_unavailable_api(self):
+        with patch.object(M,"haos_core",return_value="") as haos,\
+             patch.object(M,"live_snapshot") as snapshot:
+            M.restart_core(recovery=True)
+            self.assertEqual([x.args[0] for x in haos.call_args_list],
+                             ["check","restart"])
+            snapshot.assert_not_called()
+
+    def test_emergency_host_rollback_uses_fixed_vm_only(self):
+        with patch.object(M,"qm",return_value={"exitcode":0}) as runner:
+            self.assertTrue(M.host_rollback())
+            command=runner.call_args.args[0]
+            self.assertEqual(command[:4],["guest","exec","905","--"])
+            self.assertIn("v035-20261024T162546Z-43b0f6ec",command[-1])
+
 if __name__=="__main__":
     unittest.main()
