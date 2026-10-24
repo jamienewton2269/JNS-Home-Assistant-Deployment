@@ -1,0 +1,23 @@
+name: JNS Lux V2 Steward Transactional Deploy
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/lux_manual_override/steward-v2-deploy.request'
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-lux-manual-v2
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate and deploy Lux V2 using locally authorised Steward
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/lux_manual_override/deploy_v2_steward.py gateway/lux_manual_override/patch_v2_vm905.py gateway/lux_manual_override/rollback_v2_vm905.py natural_automation_steward/ops/ha_general_reload_capability.py
+          python3 gateway/lux_manual_override/deploy_v2_steward.py
