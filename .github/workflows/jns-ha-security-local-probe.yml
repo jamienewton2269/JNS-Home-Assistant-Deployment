@@ -1,0 +1,16 @@
+name: JNS HA-Security Local VM906 Preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/doorbell/ha-security-local.request'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check permitted local access to VM906
+        run: python3 gateway/doorbell/ha-security-local-probe.py
