@@ -6,6 +6,7 @@ Only status/count/checksum are returned in public GitHub Actions logs.
 A separate guarded transfer will import into protected Node C Steward.
 """
 import base64
+import shlex
 import subprocess
 import sys
 
@@ -121,8 +122,8 @@ print("CLEARED_FOR_CLEANUP=no")
 '''
 encoded=base64.b64encode(REMOTE.encode()).decode()
 cmd=["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes",
-     "-o","ConnectTimeout=6","nodea","python3","-c",
-     "exec(__import__('base64').b64decode('"+encoded+"'))"]
+     "-o","ConnectTimeout=6","nodea",shlex.join(["python3","-c",
+     "exec(__import__('base64').b64decode('"+encoded+"'))"])]
 try:r=subprocess.run(cmd,capture_output=True,text=True,timeout=145)
 except (OSError,subprocess.TimeoutExpired):
     print("JNS_VM900_INVENTORY_BLOCKED=transport_timeout")
