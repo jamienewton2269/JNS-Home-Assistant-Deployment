@@ -80,6 +80,13 @@ sudo bash ~/veyra-obs-mkv-review-v1.1.sh play
 - A subsequent rerun failed harmlessly because the 18:19:16 MKV was already in the buffer; the older 17:05:30 sample had already been archived. Preserve both samples. Once source playback is verified, archive only the **18:19:16** MKV before running the existing trial; do not repeat an already archived path.
 - Next priority: inspect Chrome process/window state, VNC, network and actual ITVX error message. Refresh only the ITVX browser tab if needed, not the entire Chrome/VNC service; avoid deleting cookies or CDM/DRM bypass. Require observed source picture and programme audio **before** any OBS quality capture.
 
+## 24 October 2026 — third OBS test / physical display isolation
+- After archiving second buffer, user ran v1.1 again. OBS generated `2026-10-24 18-37-25.mkv` (24,911,872 bytes). Original recorder PID 626060 was restored. SRT connection rejection messages persisted; mpv log showed A/V timestamps through ~20 seconds and ~1.7–1.9 second cached buffer.
+- **User again reported nothing appearing on physical Lenovo display**, despite mpv decoding and stream timestamps. This is not proof of valid programme picture: physical presentation and captured-pixel content remain unverified.
+- Cage is a single-visible-window compositor; independent mpv windows launched into Cage may not be made visible automatically. Reference: https://github.com/cage-kiosk/cage/blob/master/cage.1.scd . Prior v0.7.9/FFplay physical success doesn't establish that mpv's Wayland window becomes foreground now.
+- Created `gateway/trusted/veyra-display-isolation-v1.2.sh`: a **12-second static four-colour test pattern** shown via mpv directly in existing Wayland session (no capture, SRT, OBS startup, recorder pause or compositor changes). Its output will determine whether a newly launched mpv Wayland client can become visible. GitHub safety validation PASS.
+- If colour bars remain invisible while mpv reports video output, fix physical kiosk window presentation before repeating OBS test. If bars are visible, inspect recorded MKV's actual programme content and OBS XSHM source geometry; focus on captured black frames or protected-player output. Preserve all three MKVs; no production cutover.
+
 ## Retention and next gate
 
 This run creates **one approximately 30-second audiovisual test buffer**, not 30 minutes, and is *not yet a circular buffer*. Once capture/perception are verified, switch to OBS-backed bounded segmented storage with play/pause/rewind using a separate recorder output strategy and proper disk/time limits. Prefer source frame-rate rather than repeating fixed 50 fps.
