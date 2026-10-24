@@ -1,0 +1,2 @@
+scope=existing_authorised_clients_only
+operation=read_only_http_status
