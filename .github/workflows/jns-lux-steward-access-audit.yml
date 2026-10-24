@@ -1,0 +1,20 @@
+name: JNS Lux Steward Access Read-only Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/lux_manual_override/steward-access.request'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only Steward/HA-General access audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n gateway/lux_manual_override/steward-access-audit.sh
+          bash gateway/lux_manual_override/steward-access-audit.sh
