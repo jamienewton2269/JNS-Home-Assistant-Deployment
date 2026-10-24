@@ -43,6 +43,17 @@ if token:
     result["entities"][entity]={"error_type":type(e).__name__}
  except Exception as e:
   result["error_type"]=type(e).__name__
+  result["http_status"]=getattr(e,"code",None)
+if token:
+ for candidate_base in ("http://supervisor/core/api","http://supervisor/core/api/",
+                         "http://127.0.0.1:8123/api","http://homeassistant:8123/api"):
+  try:
+   req=urllib.request.Request(candidate_base,headers={"Authorization":"Bearer "+token})
+   with urllib.request.urlopen(req,timeout=4) as resp:
+    result.setdefault("candidate_endpoints",[]).append({"endpoint":candidate_base,"status":resp.status})
+  except Exception as e:
+   result.setdefault("candidate_endpoints",[]).append({"endpoint":candidate_base,
+          "error":type(e).__name__,"http_status":getattr(e,"code",None)})
 root=Path("/config/custom_components/jns_heating_zones")
 try:
  import hashlib
