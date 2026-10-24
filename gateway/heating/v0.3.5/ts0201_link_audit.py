@@ -17,7 +17,7 @@ out["ct212_status"]=read("nodeb",["pct","status","212"]).strip()[:160]
 j=read("nodeb",["pct","exec","214","--","journalctl","--since","-3 hours","-n","160","--no-pager","-o","cat"])
 sel=[]
 for line in j.splitlines():
- if "a4c13880bb5cffff" in line.lower() or any(x in line.lower() for x in
+ if any(key in line.lower() for key in ("a4c13880bb5cffff","summer house sensor","summer_house_sensor")) or any(x in line.lower() for x in
      ("zigbee2mqtt started","zigbee2mqtt stopped","mqtt connected","mqtt disconnected",
       "connection refused","device interview","unavailable","failed to publish")):
   if re.search(r"(?i)(password|token|secret|authorization|permit_join|network_key)",line):continue
