@@ -1,0 +1,19 @@
+name: JNS Steward HA General Local Auth Check
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/lux_manual_override/steward-authcheck.request'
+permissions:
+  contents: read
+jobs:
+  auth:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate locally stored credential without reloading automations
+        run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/lux_manual_override/steward_authcheck.py
+          python3 gateway/lux_manual_override/steward_authcheck.py
