@@ -154,6 +154,40 @@ try:
 except (IndexError,KeyError,ValueError,OSError,TypeError):
     out["saved_sample_schema_unavailable"]=True
 
+
+try:
+    from datetime import datetime
+    from collections import Counter
+    persisted=json.loads((stor/out["matching_storage_files"][0]["name"]).read_text())
+    samples=persisted.get("data",{}).get("samples",[])
+    counts=Counter()
+    intervals=[]
+    for x,y in zip(samples,samples[1:]):
+        try:
+            dt=(datetime.fromisoformat(y["at"])-datetime.fromisoformat(x["at"])).total_seconds()/60
+            if dt <= 0: counts["non_increasing_time"]+=1
+            elif dt < 4.5: counts["short_under_4_5_min"]+=1
+            elif dt < 5: counts["short_4_5_to_5_min"]+=1
+            elif dt > 60: counts["long_over_60_min"]+=1
+            elif not (x.get("valid",True) and y.get("valid",True)): counts["invalid_marked_sample"]+=1
+            elif abs(y["indoor"]-x["indoor"]) > 3*(dt/60)+.3: counts["implausible_temp_change"]+=1
+            else:
+                counts["accepted"]+=1
+                counts["accepted_heated_80pct"]=counts["accepted_heated_80pct"] + int(y["duty"]>=.8)
+                counts["accepted_unheated_20pct"]=counts["accepted_unheated_20pct"] + int(y["duty"]<=.2)
+            intervals.append(dt)
+        except (ValueError,TypeError,KeyError,OverflowError):
+            counts["malformed"]+=1
+    valid_intervals=sorted(x for x in intervals if x>0)
+    def percentile(pct):
+        return round(valid_intervals[round((len(valid_intervals)-1)*pct)],3) if valid_intervals else None
+    out["sample_interval_audit"]={"saved_samples":len(samples),"adjacent_pairs":max(0,len(samples)-1),
+       "filter_counts":dict(counts),"interval_min_percentiles":{
+         "p05":percentile(.05),"p50":percentile(.5),"p95":percentile(.95)},
+       "accepted_if_4_5_min_threshold":sum(4.5<=x<=60 for x in intervals)}
+except (ValueError,OSError,KeyError,IndexError,TypeError):
+    out["sample_interval_audit_unavailable"]=True
+
 print(json.dumps(out,sort_keys=True))
 '''
 
