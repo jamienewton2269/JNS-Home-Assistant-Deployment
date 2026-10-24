@@ -1,0 +1,26 @@
+name: VEYRA Windows VNC tunnel PowerShell syntax
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/trusted/Connect-VEYRA-ITVX-VNC.ps1'
+      - '.github/workflows/veyra-vnc-powershell-ci.yml'
+permissions: {contents: read}
+jobs:
+  validate:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse PowerShell without opening a network connection
+        shell: pwsh
+        run: |
+          $tokens=$null
+          $errors=$null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path './gateway/trusted/Connect-VEYRA-ITVX-VNC.ps1'),[ref]$tokens,[ref]$errors)
+          if ($errors.Count -gt 0) { $errors | Format-List | Out-String | Write-Error; exit 1 }
+          $src=Get-Content './gateway/trusted/Connect-VEYRA-ITVX-VNC.ps1' -Raw
+          foreach ($s in @('veyra.home.arpa','jnsadmin','5902','15902','ExitOnForwardFailure=yes','127.0.0.1')) {
+            if (!$src.Contains($s)) { throw "Missing expected tunnel config: $s" }
+          }
+          Write-Host 'PASS: Windows PowerShell script parses; secure SSH tunnel settings retained.'
