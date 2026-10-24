@@ -6,3 +6,4 @@ pass=thermal-model-inspection
 pass=interval-filter-inspection
 pass=interval-rejection-counts
 pass=learner-fitted-parameters
+pass=thermal-signal-resolution
