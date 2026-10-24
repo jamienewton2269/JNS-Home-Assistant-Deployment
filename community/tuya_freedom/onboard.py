@@ -57,7 +57,7 @@ def run(base_url, token, config, apply):
             if not fid:
                 raise OnboardError("Integration supplied no flow identifier")
             res = submit(base_url, token, "config/config_entries/flow/" + fid,
-                         {"user_input": step})
+                         step)
             # Deliberately do not print step results which might reflect secrets.
             if res.get("errors"):
                 raise OnboardError("Device " + str(num) + " rejected a form response")
