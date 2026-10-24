@@ -54,14 +54,16 @@ no heating state, setpoints or credentials.
 - `sensor.lyric_home_heating_thermal_learning`
 
 The optional separate Steward token file in `/config/.jns-steward/` was not
-available on VM905, so **no new token file was created**. The SSH add-on's
-existing Supervisor token is a verified local-only alternative; however, the
-read-only four-entity check did not pass: the SSH add-on's Supervisor proxy
-returned **HTTP 401 Unauthorized** for the registered
-`climate.thermostat_thermostat` entity. This confirms an *API authorisation
-problem*, not a proven thermostat failure. Do not suppress the 401 or infer that
-the climate state is unavailable. A read-only check of existing authorised
-client contexts is required before any heating promotion.
+available on VM905, so **no new token file was created**. The pre-existing
+Supervisor environment credentials in **both** `app_core_ssh` and
+`hassio_cli` return **HTTP 401 Unauthorized** for the Core API base route
+and for the fixed registered `climate.thermostat_thermostat` entity.
+See [local API route evidence](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40124328331).
+
+This is an **API authorisation blocker**, not evidence of a failed thermostat.
+The release cannot be promoted until a locally authorised, properly permissioned
+read-only entity attestation path is proven and incorporated; never suppress the
+401 or relax the pre/post-restart requirement.
 
 The fail-closed condition is intentional. An HTTP 200 from `/api/` alone is
 **not** an adequate heating-health check. Never bypass this interlock.
