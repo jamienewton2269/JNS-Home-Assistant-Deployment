@@ -129,8 +129,17 @@ except (OSError,subprocess.TimeoutExpired):
     print("JNS_VM900_INVENTORY_BLOCKED=transport_timeout")
     sys.exit(2)
 if r.returncode:
-    # stderr/stdout may contain paths; print only generic failure class.
+    # Never print raw stdout/stderr; classify errors from safe known markers.
+    indicators=("wrong_host_or_not_root","vm900_not_running",
+      "guest_exec_transport","guest_exec_json","guest_exec_missing_pid",
+      "guest_exec_status","guest_exec_exit_or_timeout",
+      "unexpected_docker_list_format","unexpected_container_inventory_size",
+      "inspect_parse_error","inspect_json_error","inspect_count_mismatch",
+      "SyntaxError","PermissionError","FileNotFoundError","TypeError",
+      "NameError","ValueError","RuntimeError","ConnectionError")
+    reason=next((a for a in indicators if a in r.stderr or a in r.stdout),"unclassified")
     print("JNS_VM900_INVENTORY_BLOCKED=remote_failure_exit_"+str(r.returncode))
+    print("JNS_VM900_FAILURE_CLASS="+reason)
     sys.exit(r.returncode if r.returncode<125 else 3)
 if "JNS_VM900_PRIVATE_INVENTORY_CAPTURED" not in r.stdout:
     print("JNS_VM900_INVENTORY_BLOCKED=missing_success_marker")
