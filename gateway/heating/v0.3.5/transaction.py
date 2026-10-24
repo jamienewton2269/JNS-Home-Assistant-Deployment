@@ -336,7 +336,11 @@ def cli():
     try:
         if args.action in ("preflight","stage"):
             insist(args.candidate is not None,"candidate file required")
-            candidate=Path(args.candidate).read_bytes()
+            if args.candidate=="-":
+                candidate=globals().get("CANDIDATE_BYTES")
+                insist(isinstance(candidate,bytes),"inline candidate missing")
+            else:
+                candidate=Path(args.candidate).read_bytes()
             if args.action=="preflight":
                 info=inventory(args.root,candidate)
                 result={"state":"preflight_passed","version":OLD_VERSION,
