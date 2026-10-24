@@ -71,6 +71,11 @@ This launches OBS for 14 seconds on **independent temporary Xvfb :93 only**, usi
 - A second read-only Node C audit confirmed `cage` is currently the physical compositor and Intel Mesa DRI drivers are installed. The NEXT OBS rendering experiment should determine whether a separate GPU-backed Wayland session can run OBS while `:92` remains the screen-capture input. Do not launch OBS directly on the existing physical Cage compositor without an isolation plan—it could obscure the kiosk. If no low-resource accelerated session is possible, flag a hardware limitation rather than falling back to llvmpipe or resurrecting standalone FFmpeg.
 - OBS's Linux XSHM input implementation explicitly allows a separate `server` value when `advanced` is true, so `:92` can remain the captured server even if OBS's own rendering context changes: https://github.com/obsproject/obs-studio/blob/master/plugins/linux-capture/xshm-input.c . This is an implementation capability, **not** proof of achieved capture quality.
 
+### :93 cleanup verified via Node C
+- Follow-up read-only Node C audit at 14:36 BST on 24 October 2026 showed **no :93 process, socket or lock**. The live :92 process, VEYRA kiosk, virtual capture, VNC and original FFmpeg recorder PID 626060 were all running normally. The apparent :93 processes in the immediate shell check were still terminating after SIGTERM.
+- The v1 `recover` action now waits up to six seconds for the specifically validated Xvfb :93 process to exit before reporting success; aborts if still running; it does not interact with :92. GitHub static safety CI passed.
+- **Do not rerun the failed Xvfb llvmpipe probe**: next gate is a separate GPU-backed OBS Wayland/Intel rendering proof without disturbing the physical kiosk.
+
 ## Next gates after isolated OpenGL proof
 - Stage OBS GUI on permanent separate :93 with a restricted VNC/SSH management endpoint, import or create XSHM (:92) plus Pulse audio scene.
 - Verify native source, headless compositor/OBS render frame timings, SRT output start/stop and Intel encoding selection.
