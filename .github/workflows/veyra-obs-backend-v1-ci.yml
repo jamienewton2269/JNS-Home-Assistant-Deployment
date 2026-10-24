@@ -1,0 +1,47 @@
+name: VEYRA OBS backend migration safety
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/trusted/veyra-obs-backend-v1.sh'
+      - 'gateway/trusted/veyra-obs-virtual-display-test-v1.sh'
+      - 'docs/veyra-obs-backend-migration-v1.md'
+      - '.github/workflows/veyra-obs-backend-v1-ci.yml'
+permissions: {contents: read}
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate OBS-only staged backend and display separation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-obs-backend-v1.sh
+          bash -n gateway/trusted/veyra-obs-virtual-display-test-v1.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path("gateway/trusted/veyra-obs-backend-v1.sh").read_text()
+          old=Path("gateway/trusted/veyra-obs-virtual-display-test-v1.sh").read_text()
+          d=Path("docs/veyra-obs-backend-migration-v1.md").read_text()
+          for required in (
+              "X92", "X93", "obs --", "/usr/bin/obs",
+              "obs-config", "probe-config", "linux-capture.so", "linux-pulseaudio.so",
+              "obs-websocket.so", "veyra-kiosk.service", "veyra-virtual-loopback-v01.service",
+              "no-traffic", "XDG_CONFIG_HOME", "timeout --signal=TERM -k 3s 14s",
+              "PROBE COMPLETE"
+          ):
+              if required=="obs --":
+                  continue
+              assert required in s, "missing stage/probe invariant: "+required
+          for unsafe in ("systemctl stop ", "systemctl restart ", "systemctl enable ",
+                         "apt-get install", "apt-get update", "pkill ", "killall ",
+                         "ffmpeg -", "/usr/bin/ffmpeg", "Xvfb :92"):
+              assert unsafe not in s, "unsafe pre-cutover command in OBS stage: "+unsafe
+          assert 'CMD" == start || "$CMD" == install' in old
+          assert "SAFETY STOP: obsolete OBS experiment" in old
+          assert "separate :93" in d
+          assert "30-minute circular buffer" in d
+          print("PASS: OBS stage/probe is non-invasive, distinct X display, legacy OBS experiment disabled")
+          PY
