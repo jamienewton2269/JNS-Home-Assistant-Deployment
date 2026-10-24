@@ -52,3 +52,15 @@ if scan[0]==0 and scan[1]:
     print("NODEC_SCAN_REACHABLE",bool(scan[1]),flush=True)
 else:print("NODEC_SCAN",scan[0],scan[2],flush=True)
 print("=== TRUST ROUTE AUDIT DONE ===",flush=True)
+
+print("=== EXISTING RUNNER CAPABILITIES (READ ONLY) ===",flush=True)
+for cmd in (["hostname","-s"],["command","-v","qm"],["command","-v","pvesh"],["command","-v","pct"]):
+    z=run(cmd,7);print("RUNNER_CMD",cmd[0:3],z[0],z[1][:110],flush=True)
+for cmd in (["/bin/sh","-c","test -x /usr/local/sbin/jns-gateway-exec && echo JNS_GATEWAY_PRESENT || true"],
+            ["/bin/sh","-c","test -r /opt/jns-ha-control-plane/README.txt && echo CONTROL_PLANE_PRESENT || true"],
+            ["/bin/sh","-c","ls -ld /run/proxmox /etc/pve /etc/pve/nodes 2>/dev/null || true"]):
+    z=run(cmd,7);print("RUNNER_PATHS",z[0],z[1][:180],flush=True)
+for target in ("ha-security.home.arpa","10.10.110.13"):
+    z=run(["/bin/sh","-c","timeout 4 bash -c 'echo > /dev/tcp/"+target+"/22' 2>/dev/null"],7)
+    print("TCP_SSH",target,"available",z[0]==0,flush=True)
+print("=== CAPABILITY AUDIT COMPLETE ===",flush=True)
