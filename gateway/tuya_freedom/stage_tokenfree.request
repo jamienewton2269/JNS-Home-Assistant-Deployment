@@ -1,0 +1,3 @@
+action=stage_ha_native_observer
+scope=ha-general-vm905
+safety=private_files_only_no_restart_no_settings_changes
