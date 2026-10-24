@@ -45,7 +45,7 @@ if base.is_file() and os.access(base,os.R_OK):
  print("BASE_WRAPPER_LINES",len(lines),flush=True)
  for i,s in enumerate(lines,1):
   v=s.strip()
-  if re.search(r"^([a-z0-9_-]+)(\\|[a-z0-9_-]+)*\\)|^case \\$JOB_TYPE|^case \\"\\$JOB_TYPE",v):
+  if v.endswith(")") or v.startswith("case "):
    if len(v)<150 and not re.search(r"(?i)(token|secret|password|key)",v):
     print("BASE_JOB_TYPE",i,v,flush=True)
 else:print("BASE_UNREADABLE_OR_MISSING",flush=True)
