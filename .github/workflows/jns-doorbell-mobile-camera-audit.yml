@@ -1,0 +1,16 @@
+name: JNS Doorbell Mobile Camera Read-only Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/doorbell/doorbell-mobile-camera.request'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read HA-Primary mobile presence/MQTT and HA-General camera providers
+        run: python3 gateway/doorbell/doorbell-mobile-camera-readonly.py
