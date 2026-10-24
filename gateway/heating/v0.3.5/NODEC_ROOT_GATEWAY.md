@@ -56,9 +56,12 @@ no heating state, setpoints or credentials.
 The optional separate Steward token file in `/config/.jns-steward/` was not
 available on VM905, so **no new token file was created**. The SSH add-on's
 existing Supervisor token is a verified local-only alternative; however, the
-read-only four-entity check did not pass for the climate entity. The correct
-climate ID is still present in the Home Assistant entity registry, so further
-read-only troubleshooting is needed before any heating promotion.
+read-only four-entity check did not pass: the SSH add-on's Supervisor proxy
+returned **HTTP 401 Unauthorized** for the registered
+`climate.thermostat_thermostat` entity. This confirms an *API authorisation
+problem*, not a proven thermostat failure. Do not suppress the 401 or infer that
+the climate state is unavailable. A read-only check of existing authorised
+client contexts is required before any heating promotion.
 
 The fail-closed condition is intentional. An HTTP 200 from `/api/` alone is
 **not** an adequate heating-health check. Never bypass this interlock.
