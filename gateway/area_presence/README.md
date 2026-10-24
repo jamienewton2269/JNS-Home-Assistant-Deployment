@@ -1,52 +1,58 @@
-# JNS HA MQTT Areas + Welcome Home — coordinated deployment
+# JNS MQTT Areas + Welcome Home — live deployment state
 
-Status (2026-10-23): **STAGED, NOT ACTIVE** on HA-Primary (VM902).
+Verified 2026-10-24 via Node C GitHub runner, VM902/VM905 guest reads and MQTT retained topics.
+**Do not rerun initial installation steps** without checking the current installation first.
 
-## Already verified on live infrastructure
-- VM905 publishes retained `jns/site/areas/catalogue` on `mqtt-infra-a.home.arpa:1883`.
-- Schema `jns.area-catalogue.v1`, source `ha-general`, nine areas.
-- VM902 knows five areas and must never automatically rename/delete its existing areas.
-- VM902 Samsung `device_tracker.sm_s721b` and `sensor.sm_s721b_wi_fi_connection` are enabled.
-- VM902 connects to the existing broker TCP port, but has **zero native MQTT config entries**.
-- VM905 has native MQTT integration and owns all lighting automations.
-- VM906 area receiver is pending management access; do not pretend it is synchronised.
+## HA-Primary VM902 — installed and running
+- Native MQTT integration configured, title `mqtt-infra-a.home.arpa`.
+- `mqtt_statestream` present in `/config/configuration.yaml`, base topic `jns/ha-primary`.
+- Four allowlisted phone entities (tracker, Wi-Fi sensor and two Bluetooth entries), publish attributes disabled.
+- Native `jns_native_area_sync` installed with `node: ha-primary`, `apply: true`.
+- Core restarted **after** its configuration and component file changes on 2026-10-24.
+- Area registry now has 11 areas: nine HA-General shared areas plus local `security` and `general`.
+- Latest retained `jns/site/areas/sync/ha-primary` generated at **2026-10-24T16:00:00Z**:
+  nine already-present shared areas, zero missing, zero conflicts, zero created.
+- The receiver uses the existing MQTT integration; no second broker is installed.
 
-## Native MQTT prerequisite (VM902 UI)
-1. HA-Primary -> Settings -> Devices & services -> Add integration -> MQTT.
-2. Use existing broker `mqtt-infra-a.home.arpa`, port `1883`.
-3. Do not provision another broker; use broker credentials only if required.
-4. Confirm that MQTT shows **Configured** and connected in VM902.
+## HA-General VM905 — installed, intentionally inactive pending arrival validation
+- MQTT native integration already configured.
+- `/config/packages/jns_welcome_home.yaml` exists; Core restarted after the package was deployed.
+- Automation registry contains and enables:
+  `automation.jns_welcome_home_process_remote_presence`
+  and `automation.jns_welcome_home_release_exterior_lighting`.
+- Last restored status: `input_boolean.jns_welcome_home_enabled=off`, timer `timer.jns_welcome_home=idle`.
+- **DO NOT turn the enable helper on until the presence transport and a true away→home event are validated.**
+- Arrival is gated on away for at least 3 minutes and after sunset. Garage/Dogs Run and Front Door light outputs must honour PIR, doorbell and back-door timer interlocks.
+- Faulty Tuya back-door sensor is awaiting replacement; do not alter its separate automation.
 
-## Release phases (guarded)
-1. Audit current `configuration.yaml`, component folders and MQTT entry.
-2. Backup every original VM902 file before editing.
-3. Stage only the four phone presence entities in `mqtt_statestream`, with attributes excluded.
-4. Install `jns_native_area_sync` for the retained catalogue, initially `apply: false`.
-5. Run `ha core check`; if invalid restore backups, **do not restart**.
-6. Restart VM902 Core once; confirm publisher on `jns/ha-primary/.../state` and
-   dry-run MQTT report `jns/site/areas/sync/ha-primary`.
-7. Review missing/conflicting area IDs. If conflict-free, change `apply: true`
-   and validate/restart before adding **missing only**. Never rename or delete.
-8. On VM905, install `jns_welcome_home_vm905.STAGED.yaml` under `packages`,
-   initially leave `input_boolean.jns_welcome_home_enabled` off.
-9. Validate and restart VM905 carefully (avoid concurrent HA maintenance).
-10. Test MQTT phone away/home events and the three-minute away gate; activate
-    the enable helper only after actual end-to-end events are verified.
-11. Validate 10-minute Front Door and Dogs Run lighting, retaining PIR,
-    doorbell and back-door timer interlocks.
-12. Later extend the same area subscriber to HA-Security VM906 using its
-    existing native MQTT connection (no broker duplication).
+## Outstanding transport verification
+- MQTT broker test using `mosquitto_sub` confirmed the retained area catalogue and retained sync report.
+- Retained topics `jns/ha-primary/device_tracker/sm_s721b/state` and
+  `jns/ha-primary/sensor/sm_s721b_wi_fi_connection/state` **were not present** during
+  the 2026-10-24 live audit. This does not prove a publisher fault: MQTT Statestream
+  emits on state changes, and none may have occurred since Home Assistant restart.
+- Request a controlled Companion App sensor update (e.g. temporary Wi-Fi OFF then ON,
+  opening HA mobile app so the sensors update). Read only MQTT topic presence, never
+  publish private phone location values into GitHub logs.
+- Once the phone topic appears, confirm VM905 processed a real away→home event,
+  then enable master helper deliberately and conduct physical lighting verification.
+- If topic still absent after a known state change, diagnose `mqtt_statestream`
+  runtime, MQTT connection health and HA log before another restart.
+- VM906 HA-Security area receiver remains pending verified management access.
+  Do not claim area synchronisation to VM906.
 
-## Important constraints
-- HA-Primary VM902 remains lightweight: only mobile state publishing,
-  native MQTT receiving and area registry reconciliation. Never run
-  exterior-light automation logic or camera processing there.
-- HA-General VM905 remains sole automation/action owner and area authority.
-- `jns_native_area_sync` only accepts schema `jns.area-catalogue.v1` with
-  source `ha-general`; default is **dry-run** and conflicts are explicit.
-- All report topics are retained; no extra per-node MQTT broker.
-- Wi-Fi SSID backup source has no confirmed home SSID; never infer the value.
-- The broken Tuya back door sensor is separate and awaiting replacement;
-  preserve its installed Dogs Run automation and duration control.
-- No direct mutation of Home Assistant `.storage` and no public logs of
-  credentials or phone location/SSID states.
+## MQTT HA failover future
+- Currently clients use `mqtt-infra-a.home.arpa`. Maintain as operational.
+- Future broker HA should have a stable service name `mqtt.home.arpa` pointing at a
+  fenced active broker VIP; promote standby only after authoritative checks.
+  Coordinate retained messages, MQTT sessions, client reconnects and split-brain
+  avoidance. No DNS/VIP cutover has been performed.
+
+## Reference traces
+- JNS Primary MQTT Configured Check: GitHub Actions run **40110274300**.
+- JNS MQTT Live Area and Presence Audit: **40110398998**.
+- JNS Welcome Home MQTT Transport Runtime Audit: **40110619731**.
+- JNS MQTT Deployment Final State: **40110799719**.
+- Scripts are in `gateway/area_presence/`; workflows use Node C runner.
+- No live Home Assistant configuration files were modified by these 2026-10-24
+  audits; only read-only inspections were performed.
