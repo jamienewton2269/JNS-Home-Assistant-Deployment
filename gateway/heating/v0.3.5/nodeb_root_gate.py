@@ -28,11 +28,15 @@ EXPECTED_SOURCE_SHA="44054f9172e3c9e2e944240b5369b49d9735d8349fb7ca2dd0a2a782d7c
 def check(value, msg):
     if not value: raise RuntimeError(msg)
 
+def owned_by_root(path):
+    return path.stat().st_uid == 0
+
+
 def approval_audit():
     check(os.geteuid()==0, "root privileges required")
     check(APPROVAL.is_file() and not APPROVAL.is_symlink(), "operator approval absent")
     stat=APPROVAL.stat()
-    check(stat.st_uid==0 and stat.st_mode & 0o077==0, "approval permissions invalid")
+    check(owned_by_root(APPROVAL) and stat.st_mode & 0o077==0, "approval permissions invalid")
     content=json.loads(APPROVAL.read_text())
     check(set(content)=={"stage_id","candidate_sha256","intent","operator_window"},
           "unknown approval fields")
