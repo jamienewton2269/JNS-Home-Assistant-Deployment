@@ -32,7 +32,7 @@ SHA="43b0f6ec0229d15dc137bbf3c52cd41b4bb125072fbcc49202e744ba8a19bc6c"
 TOKEN_FILE=Path("/etc/jns/ha-general-api.token")
 APPROVAL_FILE=Path("/etc/jns/heating-v035-approval.json")
 GUEST_PROGRAM=Path("/usr/local/libexec/jns-heating/transaction.py")
-LOCK_FILE=Path("/run/lock/jns-heating-v035.lock")
+LOCK_FILE=Path("/etc/jns/heating-v035.lock")
 BASE="http://ha-general.home.arpa:80"
 REQUIRED=("climate.thermostat_thermostat",
           "binary_sensor.lyric_home_heating_heating_call",
