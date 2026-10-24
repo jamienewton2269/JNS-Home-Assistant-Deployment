@@ -1,0 +1,25 @@
+name: JNS Tuya Freedom Passive LAN Validation
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/tuya_freedom/passive_tcp_audit.py'
+      - 'gateway/tuya_freedom/passive_tcp.request'
+      - '.github/workflows/jns-tuya-passive-lan.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-tuya-passive-lan
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect existing local Tuya TCP sessions without credentials or probes
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/tuya_freedom/passive_tcp_audit.py
+          python3 gateway/tuya_freedom/passive_tcp_audit.py
