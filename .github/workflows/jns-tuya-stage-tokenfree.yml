@@ -1,0 +1,25 @@
+name: JNS Tuya Freedom Stage Tokenless Observer
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/tuya_freedom/stage_tokenfree.request'
+      - '.github/workflows/jns-tuya-stage-tokenfree.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-tuya-stage-tokenfree
+  cancel-in-progress: false
+jobs:
+  stage:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and stage native observer inside private VM905 directory
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/tuya_freedom/stage_tokenfree.py gateway/tuya_freedom/component/__init__.py
+          python3 gateway/tuya_freedom/stage_tokenfree.py
