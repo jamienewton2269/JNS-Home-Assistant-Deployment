@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/jns-solar-ha900-private-inventory.yml'
+      - 'gateway/solar/ha900_private_service_inventory_v1.py'
   workflow_dispatch:
 permissions:
   contents: read
