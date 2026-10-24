@@ -136,7 +136,7 @@ class ZoneLearner:
                 if elapsed >= target_minutes:
                     break
 
-            elapsed_minutes = total*60
+            elapsed_minutes = ((datetime.fromisoformat(self.samples[j].at)-beginning).total_seconds()/60)
             if not broken and elapsed_minutes >= target_minutes and total > 0:
                 end = self.samples[j]
                 delta = end.indoor - anchor.indoor
