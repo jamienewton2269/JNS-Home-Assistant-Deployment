@@ -16,11 +16,14 @@ def remote(argv, timeout=27):
 
 def qga(argv, timeout_seconds=180):
     d=remote(["qm","guest","exec",VMID,"--",*argv],timeout=timeout_seconds+30)
+    pid=d.get("pid")
     start=time.monotonic()
     while not d.get("exited"):
+        if pid is None:
+            raise RuntimeError("GUEST_STATUS_MISSING_PID_RESPONSE_KEYS="+",".join(sorted(d)))
         if time.monotonic()-start>timeout_seconds: raise RuntimeError("GUEST_TIMEOUT_AFTER_"+str(timeout_seconds))
         time.sleep(2)
-        d=remote(["qm","guest","exec-status",VMID,str(d["pid"])],timeout=18)
+        d=remote(["qm","guest","exec-status",VMID,str(pid)],timeout=18)
     return d.get("exitcode"),(d.get("out-data") or ""),(d.get("err-data") or "")
 
 def python_guest(code,limit=150):
