@@ -1,0 +1,33 @@
+name: VEYRA v1.2 display isolation guard
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/trusted/veyra-display-isolation-v1.2.sh'
+      - '.github/workflows/veyra-display-isolation-v12-ci.yml'
+permissions: {contents: read}
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate static pattern mpv only and no kiosk change
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-display-isolation-v1.2.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('gateway/trusted/veyra-display-isolation-v1.2.sh').read_text()
+          for required in ('pattern.ppm', 'P6\\n', '--fullscreen', '--image-display-duration=inf',
+                           '--gpu-context=wayland', 'timeout --signal=TERM -k 2s 12s',
+                           'veyra-itvx-vnc-v01.service', '/tmp/.X11-unix/X92', 'MPV_EXIT',
+                           'OBS LAST LIVE SOURCE STARTUP'):
+              assert required in s, required
+          for bad in ('systemctl restart', 'systemctl stop ', 'kill -STOP', 'kill -TERM ',
+                      'ffmpeg ', 'ffplay ', 'Xvfb :92', 'apt-get', 'rm -rf', '--startstreaming',
+                      '--startrecording'):
+              assert bad not in s, bad
+          print('PASS: bounded static mpv picture test is read-only relative to live VEYRA services')
+          PY
