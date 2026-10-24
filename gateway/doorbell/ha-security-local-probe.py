@@ -50,3 +50,8 @@ if base.is_file() and os.access(base,os.R_OK):
     print("BASE_JOB_TYPE",i,v,flush=True)
 else:print("BASE_UNREADABLE_OR_MISSING",flush=True)
 print("=== BASE CAPABILITY CHECK DONE ===",flush=True)
+
+if base.is_file() and os.access(base,os.R_OK):
+ for i,v in enumerate(base.read_text(errors="replace").splitlines(),1):
+  if 139<=i<=158 and not re.search(r"(?i)(token|secret|password|key)",v):
+   print("BASE_DISPATCHER",i,v.strip()[:155],flush=True)
