@@ -1,0 +1,19 @@
+name: JNS KC868 Doorbell Network Read-only Survey
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/doorbell/kc868-network.request'
+permissions:
+  contents: read
+concurrency:
+  group: jns-kc868-doorbell-network-survey
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only network and archived KC868 firmware inventory
+        run: python3 gateway/doorbell/kc868-network-audit.py
