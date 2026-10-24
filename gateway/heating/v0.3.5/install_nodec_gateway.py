@@ -21,7 +21,8 @@ PRIOR=Path("/usr/local/sbin/jns-gateway-exec.pre-heating-v035")
 DEST=Path("/usr/local/libexec/jns-heating-v035")
 PERMIT_DIR=Path("/etc/jns/heating-v035")
 ROOT_SHA="9d4f853b2e8264cb10a25a5ee5f23bd92c521e86f447de8c7278644d8caa7f8a"
-REQUIRED=("transaction.py","promotion_policy.py","root_owned_promotion.py","approval_once.py")
+REQUIRED=("transaction.py","promotion_policy.py","root_owned_promotion.py",
+          "approval_once.py","runtime_supervisor_check.sh")
 WRAPPER="jns-gateway-exec-wrapper-v4-heating.sh"
 OLD_WRAPPER=HERE.parent.parent/"trusted/jns-gateway-exec-wrapper-v3.sh"
 
@@ -47,7 +48,10 @@ def preflight():
         path=HERE/name
         if not path.is_file() or path.is_symlink():
             raise RuntimeError("Missing or symlinked handler dependency")
-        ast.parse(path.read_text())
+        if name.endswith(".py"):
+            ast.parse(path.read_text())
+        else:
+            subprocess.run(["sh","-n",str(path)],check=True)
     subprocess.run(["bash","-n",str(HERE/WRAPPER)],check=True)
 
 
