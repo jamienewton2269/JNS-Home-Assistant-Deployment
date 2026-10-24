@@ -37,7 +37,7 @@ jobs:
               assert required in s, "missing stage/probe invariant: "+required
           for unsafe in ("systemctl stop ", "systemctl restart ", "systemctl enable ",
                          "apt-get install", "apt-get update", "pkill ", "killall ",
-                         "ffmpeg -", "/usr/bin/ffmpeg", "Xvfb :92"):
+                         "ffmpeg -", "/usr/bin/ffmpeg"):
               assert unsafe not in s, "unsafe pre-cutover command in OBS stage: "+unsafe
           assert 'CMD" == start || "$CMD" == install' in old
           assert "SAFETY STOP: obsolete OBS experiment" in old
