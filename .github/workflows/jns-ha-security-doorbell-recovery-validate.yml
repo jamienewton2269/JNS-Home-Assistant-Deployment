@@ -1,0 +1,44 @@
+name: JNS HA-Security Doorbell Restore Package Validation
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/doorbell/ha-security-doorbell-validation.request'
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check POSIX installer syntax
+        run: sh -n gateway/doorbell/ha-security-doorbell-restore.sh
+      - name: Check package structure and safety invariants
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('gateway/doorbell/jns_ha_security_doorbell_recovery.yaml')
+          data=p.read_text()
+          assert 'automation:' in data
+          assert 'siren.alarmpanel_kc868_a16_y01' in data
+          assert 'binary_sensor.alarmpanel_kc868_a16_x15' in data
+          assert '1792316952337' in data and '1792512302559' in data
+          assert 'jns/security/doorbell/press' in data
+          assert 'switch.alarmpanel_kc868_a16_y10' not in data
+          try:
+              import yaml
+          except ImportError:
+              print('PyYAML unavailable on Node C; structural-only validation.')
+          else:
+              root=yaml.safe_load(data)
+              autos=root['automation']
+              assert len(autos)==3
+              assert len({str(x['id']) for x in autos})==3
+              assert autos[0]['triggers'][0]['entity_id']=='binary_sensor.alarmpanel_kc868_a16_x15'
+              assert autos[0]['conditions'][0]['entity_id']=='schedule.daytime'
+              assert autos[0]['actions'][0]['action']=='siren.turn_on'
+              assert autos[0]['actions'][-1]['action']=='siren.turn_off'
+              assert autos[1]['actions'][0]['action']=='mqtt.publish'
+          print('DOORBELL_RESTORE_PACKAGE_STATIC_OK')
+          PY
