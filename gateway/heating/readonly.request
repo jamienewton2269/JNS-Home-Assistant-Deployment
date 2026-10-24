@@ -5,3 +5,4 @@ run=2026-10-24T14:40:00+01:00
 pass=thermal-model-inspection
 pass=interval-filter-inspection
 pass=interval-rejection-counts
+pass=learner-fitted-parameters
