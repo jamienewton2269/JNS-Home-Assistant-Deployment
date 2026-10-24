@@ -15,6 +15,7 @@ NEVER rolled back or rewritten.
 from __future__ import annotations
 from datetime import datetime,timezone,timedelta
 import base64
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -31,6 +32,7 @@ SHA="43b0f6ec0229d15dc137bbf3c52cd41b4bb125072fbcc49202e744ba8a19bc6c"
 TOKEN_FILE=Path("/etc/jns/ha-general-api.token")
 APPROVAL_FILE=Path("/etc/jns/heating-v035-approval.json")
 GUEST_PROGRAM=Path("/usr/local/libexec/jns-heating/transaction.py")
+LOCK_FILE=Path("/run/lock/jns-heating-v035.lock")
 BASE="http://ha-general.home.arpa:80"
 REQUIRED=("climate.thermostat_thermostat",
           "binary_sensor.lyric_home_heating_heating_call",
@@ -172,7 +174,7 @@ def is_candidate_live(states):
             "ready":attrs.get("ready"),
             "state":sensor.get("state")}
 
-def run():
+def _run_body():
     require(len(sys.argv)==2 and sys.argv[1] in ("--preflight","--promote"),
             "unknown requested operation")
     require(os.geteuid()==0,"root privileges required")
@@ -187,12 +189,13 @@ def run():
             "state":"ready","guest":"905","stage":STAGE,
             "current_call":"off","runtime":"RUNNING","restart_required":False}))
         return
-    # Enforce fresh idle state at the point of file promotion.
+    # Enforce fresh idle state, then consume the root-owned approval once.
     idle(live_snapshot())
-    state=guest_txn("commit")
-    require(state.get("state")=="applied_pending_runtime_verification",
-            "transaction did not apply expected candidate")
+    consume_approval()
     try:
+        state=guest_txn("commit")
+        require(state.get("state")=="applied_pending_runtime_verification",
+                "transaction did not apply expected candidate")
         reload_entry()
         after=loaded(candidate=True)
         info=is_candidate_live(after)
@@ -205,13 +208,37 @@ def run():
              "global_core_restart":False,"store_preserved":True}))
     except BaseException:
         try:
-            guest_txn("rollback")
-            reload_entry()
-            loaded()
-            print("JNS_HEATING_ROLLBACK_CONFIRMED")
+            current=guest_txn("verify")
+            if current.get("state")=="applied_pending_runtime_verification":
+                guest_txn("rollback")
+                reload_entry()
+                loaded()
+                print("JNS_HEATING_ROLLBACK_CONFIRMED")
+            elif current.get("state")=="staged":
+                print("JNS_HEATING_NO_PRODUCTION_CHANGE")
+            else:
+                raise Blocked("unexpected release state after failed promotion")
         except BaseException:
             print("JNS_HEATING_CRITICAL_ROLLBACK_NEEDS_OPERATOR",file=sys.stderr)
         raise
+
+def consume_approval():
+    # Only a Node B root process within the release lock may consume this file.
+    # The previous approval() verified stage, digest, owner, time and intent.
+    secure_file(APPROVAL_FILE)
+    APPROVAL_FILE.unlink()
+
+
+def run():
+    require(os.geteuid()==0,"root privileges required")
+    # A second invocation must never interleave file writes and HA reloads.
+    with LOCK_FILE.open("a+") as handle:
+        try:
+            fcntl.flock(handle,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise Blocked("another JNS heating release is active") from None
+        return _run_body()
+
 
 if __name__=="__main__":
     try:run()
