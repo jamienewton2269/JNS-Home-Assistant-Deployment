@@ -1,0 +1,16 @@
+name: JNS Porch Dark-day Lux Preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/doorbell/porch-darkday-lux.request'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only porch dusk and lux helper audit
+        run: python3 gateway/doorbell/porch-darkday-lux-audit.py
