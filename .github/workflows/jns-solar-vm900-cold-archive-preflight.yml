@@ -1,0 +1,25 @@
+name: JNS Solar VM900 Cold Archive Preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-vm900-cold-archive-preflight.yml'
+      - 'gateway/solar/vm900_cold_archive_readonly_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-solar-vm900-archive-readonly
+  cancel-in-progress: false
+jobs:
+  preflight:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect archive capacity and VM900 container dependencies without changes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/vm900_cold_archive_readonly_v1.py
+          python3 gateway/solar/vm900_cold_archive_readonly_v1.py
