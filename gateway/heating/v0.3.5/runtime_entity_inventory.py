@@ -31,6 +31,7 @@ print(json.dumps({"registered_ids":selected[:35],"count":len(selected)},sort_key
 """
 core_script="exec(__import__('base64').b64decode('"+base64.b64encode(CORE.encode()).decode()+"'))"
 r1=json.loads(qga(["docker","exec","homeassistant","python3","-c",core_script]))
+print("JNS_HEATING_ENTITY_REGISTRY_IDS",json.dumps(r1,sort_keys=True),flush=True)
 SH=r"""
 test -n "$SUPERVISOR_TOKEN" || exit 2
 raw="$(curl -fsS -m 12 -H "Authorization: Bearer $SUPERVISOR_TOKEN" \
@@ -44,6 +45,9 @@ printf '%s' "$raw" | jq -c '
     "available":(.state != "unknown" and .state != "unavailable" and .state != null)}
  ] | sort_by(.entity_id) | .[:35]' 
 """
-r2=json.loads(qga(["docker","exec","app_core_ssh","sh","-c",SH]))
-print("JNS_HEATING_ENTITY_REGISTRY_IDS",json.dumps(r1,sort_keys=True),flush=True)
-print("JNS_HEATING_ACTIVE_ENTITY_IDS",json.dumps(r2,sort_keys=True),flush=True)
+try:
+    r2=json.loads(qga(["docker","exec","app_core_ssh","sh","-c",SH]))
+except Exception as exc:
+    print("JNS_HEATING_LIVE_ENTITY_LIST_BLOCKED",type(exc).__name__,flush=True)
+else:
+    print("JNS_HEATING_ACTIVE_ENTITY_IDS",json.dumps(r2,sort_keys=True),flush=True)
