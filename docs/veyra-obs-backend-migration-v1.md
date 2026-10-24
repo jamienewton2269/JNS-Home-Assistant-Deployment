@@ -63,6 +63,14 @@ This launches OBS for 14 seconds on **independent temporary Xvfb :93 only**, usi
 ### Deprecated experiment — DO NOT RUN
 `gateway/trusted/veyra-obs-virtual-display-test-v1.sh` is unsafe on today's topology: it attempts to launch a second Xvfb on the **already active :92** and creates another Chrome profile. Replaced by `veyra-obs-backend-v1.sh`.
 
+## OBS isolated GPU probe result and cleanup repair (24 October 2026)
+- User ran the v1 staged :93 test. OBS 30.2.3 started, read its modules and initialised OpenGL 4.5, but reported **Mesa llvmpipe (LLVM 19.1.7)** as its renderer: this is **CPU software rendering, not an Intel GPU-backed OBS scene**. The 14-second `timeout` correctly returned 124. This is a **hardware-rendering acceptance blocker** for the 4 GB Pentium N4200 until an Intel-backed compositor path is verified.
+- The first probe exited with `xvfb_pid: unbound variable` because an EXIT handler outlived the function-local variable. Node C subsequently verified that the throwaway `:93` Xvfb remained alive as user veyra, while the authenticated `:92` Xvfb, VEYRA kiosk, virtual capture/VNC and original recorder were unaffected.
+- Corrected `gateway/trusted/veyra-obs-backend-v1.sh`: global trap state, new `recover` action that strictly validates the :93 X lock PID, process owner and full original Xvfb command before signalling it, plus an explicit **BLOCKED** exit when OBS reports llvmpipe/software rasterisation. GitHub safety CI passed.
+- The recovery command after downloading the updated script is `sudo bash ~/veyra-obs-backend-v1.sh recover`. It does **not** affect :92. Do not rerun the isolated :93 graphics probe; it has already given its answer.
+- A second read-only Node C audit confirmed `cage` is currently the physical compositor and Intel Mesa DRI drivers are installed. The NEXT OBS rendering experiment should determine whether a separate GPU-backed Wayland session can run OBS while `:92` remains the screen-capture input. Do not launch OBS directly on the existing physical Cage compositor without an isolation plan—it could obscure the kiosk. If no low-resource accelerated session is possible, flag a hardware limitation rather than falling back to llvmpipe or resurrecting standalone FFmpeg.
+- OBS's Linux XSHM input implementation explicitly allows a separate `server` value when `advanced` is true, so `:92` can remain the captured server even if OBS's own rendering context changes: https://github.com/obsproject/obs-studio/blob/master/plugins/linux-capture/xshm-input.c . This is an implementation capability, **not** proof of achieved capture quality.
+
 ## Next gates after isolated OpenGL proof
 - Stage OBS GUI on permanent separate :93 with a restricted VNC/SSH management endpoint, import or create XSHM (:92) plus Pulse audio scene.
 - Verify native source, headless compositor/OBS render frame timings, SRT output start/stop and Intel encoding selection.
