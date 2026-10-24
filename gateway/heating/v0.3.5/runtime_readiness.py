@@ -23,7 +23,7 @@ result["supervisor_token_available"]=bool(token)
 if token:
  try:
   headers={"Authorization":"Bearer "+token,"Content-Type":"application/json"}
-  base="http://supervisor/core/api"
+  base="http://127.0.0.1:80/api"
   req=urllib.request.Request(base+"/config",headers=headers)
   with urllib.request.urlopen(req,timeout=8) as resp:
    cfg=json.load(resp)
@@ -45,7 +45,7 @@ if token:
   result["error_type"]=type(e).__name__
   result["http_status"]=getattr(e,"code",None)
 if token:
- for candidate_base in ("http://supervisor/core/api","http://supervisor/core/api/",
+ for candidate_base in ("http://127.0.0.1:80/api/","http://127.0.0.1:80/api/config",
                          "http://127.0.0.1:8123/api","http://homeassistant:8123/api"):
   try:
    req=urllib.request.Request(candidate_base,headers={"Authorization":"Bearer "+token})
