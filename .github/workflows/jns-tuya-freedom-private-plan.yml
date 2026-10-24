@@ -1,0 +1,25 @@
+name: JNS Tuya Freedom Private Plan Staging
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/tuya_freedom/private_plan_stage.request'
+      - '.github/workflows/jns-tuya-freedom-private-plan.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-tuya-private-plan
+  cancel-in-progress: false
+jobs:
+  plan:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and write private proposal (not an HA configuration change)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/tuya_freedom/private_plan_stage.py
+          python3 gateway/tuya_freedom/private_plan_stage.py
