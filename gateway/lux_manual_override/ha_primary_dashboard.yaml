@@ -1,0 +1,31 @@
+title: JNS Lighting Controls
+views:
+  - title: Evening Lighting
+    path: evening-lighting
+    icon: mdi:lightbulb-night
+    cards:
+      - type: markdown
+        content: >-
+          ## Evening Lighting
+
+          Manual switch-off takes priority over the Lux Controller until
+          the next sunrise. The controls and lighting automations run on
+          **HA-General VM905**, while this page provides access from
+          HA-Primary without duplicating any lighting entities.
+
+          Existing WC motion, doorbell and Dogs Run security automations
+          operate independently.
+      - type: button
+        name: Open Evening Lighting Controls
+        icon: mdi:lightbulb-off
+        show_name: true
+        show_icon: true
+        tap_action:
+          action: url
+          url_path: http://ha-general.home.arpa/testing-dashboard/evening-lighting
+      - type: markdown
+        content: >-
+          [Open live lighting controls on HA-General](http://ha-general.home.arpa/testing-dashboard/evening-lighting)
+
+          If you have not signed in to HA-General in this browser, Home Assistant
+          may ask you to sign in the first time.
