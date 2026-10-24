@@ -1,0 +1,25 @@
+name: JNS Solar Steward API Diagnostic
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-steward-api-diagnostic.yml'
+      - 'gateway/solar/steward_api_health_readonly_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-solar-steward-api-diagnostic
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check API HTTP status and unit health without restarts
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/steward_api_health_readonly_v1.py
+          python3 gateway/solar/steward_api_health_readonly_v1.py
