@@ -4,7 +4,7 @@
 Not a GitHub workflow and NEVER run by github-runner.
 """
 from datetime import datetime,timedelta,timezone
-import json,os
+import argparse,json,os,re
 from pathlib import Path
 import stat
 import sys
@@ -13,8 +13,14 @@ from promotion_policy import STAGE_ID,CANDIDATE_SHA,APPROVAL_OPERATION
 from root_owned_promotion import APPROVAL
 
 def main():
-    if os.geteuid()!=0 or sys.argv[1:]!=["--confirm-heating-outage"]:
-        raise SystemExit("Denied: local root and explicit --confirm-heating-outage required")
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--confirm-heating-outage",action="store_true")
+    parser.add_argument("--job-id",required=True)
+    args=parser.parse_args()
+    if not args.confirm_heating_outage or os.geteuid()!=0:
+        raise SystemExit("Denied: local root maintenance acknowledgement required")
+    if not re.fullmatch(r"[0-9]{8}T[0-9]{6}Z-heating-v035-[0-9a-f]{6}",args.job_id):
+        raise SystemExit("Denied: immutable job identifier invalid")
     if not sys.stdin.isatty():
         raise SystemExit("Denied: interactive local root approval required")
     response=input("Type APPROVE VM905 HEATING RESTART to permit one restart: ")
@@ -30,7 +36,7 @@ def main():
         raise SystemExit("Denied: existing approval must be manually reviewed")
     expires=datetime.now(timezone.utc)+timedelta(minutes=10)
     record={
-        "operation":APPROVAL_OPERATION,"stage_id":STAGE_ID,
+        "operation":APPROVAL_OPERATION,"stage_id":STAGE_ID,"job_id":args.job_id,
         "candidate_sha":CANDIDATE_SHA,
         "expires_utc":expires.isoformat(),
         "heating_outage_approved":True,
