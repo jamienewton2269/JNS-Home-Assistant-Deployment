@@ -1,0 +1,28 @@
+name: JNS Heating v0.3.5 Private Stage Only
+on:
+  push:
+    branches:
+      - 'dev/heating-thermal-learning-v035-20261024'
+    paths:
+      - 'gateway/heating/v0.3.5/stage.request'
+permissions:
+  contents: read
+concurrency:
+  group: jns-heating-v035-private-stage
+  cancel-in-progress: false
+jobs:
+  stage:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gate - test installer and thermal learner in isolation
+        run: |
+          set -Eeuo pipefail
+          python3 -m unittest discover -v -s gateway/heating/v0.3.5 -p 'test_*.py'
+      - name: Gate - read-only live historical data comparison
+        run: python3 gateway/heating/v0.3.5/live_backtest.py
+      - name: Gate - read-only current installed-source fingerprint
+        run: python3 gateway/heating/v0.3.5/live_preflight.py
+      - name: Private backup and stage - NO Home Assistant file changes
+        run: python3 gateway/heating/v0.3.5/stage_vm905.py
