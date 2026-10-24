@@ -13,7 +13,11 @@ call='binary_sensor.lyric_home_heating_heating_call'
 learner='sensor.lyric_home_heating_thermal_learning'
 check_entity() {
     ent="$1"
-    data="$(curl -fsS -m 8 -H "$AUTH" "$BASE/$ent" 2>/dev/null)" || { echo "JNS_HEATING_RUNTIME_DETAIL local_api_query_failed:$ent"; return 1; }
+    data="$(curl -fsS -m 8 -H "$AUTH" "$BASE/$ent" 2>/dev/null)" || {
+        code="$(curl -sS -m 8 -o /dev/null -w '%{http_code}' -H "$AUTH" "$BASE/$ent" 2>/dev/null)" || code=network_failure
+        echo "JNS_HEATING_RUNTIME_DETAIL local_api_http_$code:$ent"
+        return 1
+    }
     printf '%s' "$data" | jq -e --arg e "$ent" '.entity_id == $e' >/dev/null 2>&1 || { echo "JNS_HEATING_RUNTIME_DETAIL identity_mismatch:$ent"; return 1; }
     case "$ent" in
       "$climate")
