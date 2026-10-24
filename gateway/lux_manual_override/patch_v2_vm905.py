@@ -147,7 +147,8 @@ def main():
   for p in reversed(changed):
    if p.read_bytes()==new[p]:p.write_bytes(old[p])
   raise
- print('JNS_LUX_V2_APPLIED '+json.dumps({'backup':str(backup),'after_hashes':{str(p):sha(b) for p,b in new.items()}}),flush=True)
+ print('JNS_LUX_V2_APPLIED '+json.dumps({'backup':str(backup),'after_hashes':{str(p):sha(b) for p,b in new.items()},
+  'before_hashes':{str(p):sha(b) for p,b in old.items()}}),flush=True)
 try:main()
 except Exception as ex:
  print('JNS_LUX_V2_BLOCKED '+json.dumps({'error_type':type(ex).__name__,'reason':str(ex)[:500]}),flush=True)
