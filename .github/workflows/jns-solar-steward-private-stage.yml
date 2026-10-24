@@ -1,0 +1,25 @@
+name: JNS Solar Steward Private Node C Stage
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-steward-private-stage.yml'
+      - 'gateway/solar/steward_nodec_private_stage_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-solar-steward-private-stage
+  cancel-in-progress: false
+jobs:
+  stage:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stage read-only code and consistent knowledge data on Node C; do not start server
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/steward_nodec_private_stage_v1.py
+          python3 gateway/solar/steward_nodec_private_stage_v1.py
