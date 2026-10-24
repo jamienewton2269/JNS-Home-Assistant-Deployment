@@ -19,4 +19,5 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m py_compile gateway/lux_manual_override/patch_v2_vm905.py gateway/lux_manual_override/runner_v2.py
+          python3 gateway/lux_manual_override/probe_reload_v2.py
           python3 gateway/lux_manual_override/runner_v2.py --dry-run
