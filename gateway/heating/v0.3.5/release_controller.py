@@ -143,13 +143,56 @@ def guest_txn(action):
             "guest transaction blocked: "+action)
     return json.loads(output.partition(" ")[2])
 
-def reload_entry():
-    result=api("POST","/api/config/config_entries/entry/"+ENTRY+"/reload",{},timeout=55)
-    require(result.get("require_restart") is False,
-            "config entry requires restart or reload rejected")
+def haos_core(action):
+    require(action in ("check","restart","info"),"disallowed HAOS action")
+    command=["ha","core",action]
+    if action=="info":
+        command.append("--raw-json")
+    result=qm(["guest","exec",VM,"--",*command],timeout=120)
+    require(result.get("exitcode")==0,"HAOS Core "+action+" did not succeed")
+    return result.get("out-data","")
+
+
+def restart_core():
+    # Custom Python integration modules are cached in the HA process. A
+    # config-entry reload cannot be used to claim the changed module is live.
+    haos_core("check")
+    haos_core("restart")
+
+
+def host_rollback():
+    """Emergency rollback via HAOS filesystem when Core container is down.
+
+    The fixed VM905 host paths stay accessible during a failed Core startup.
+    No user-controlled paths, commands, VM IDs or stage identifiers accepted.
+    """
+    script=r"""set -eu
+h=/mnt/data/supervisor/homeassistant
+comp="$h/custom_components/jns_heating_zones"
+orig="$h/.jns_heating_backups/v035-20261024T162546Z-43b0f6ec/original"
+test -f "$comp/thermal.py"
+test -f "$comp/manifest.json"
+test -f "$orig/thermal.py"
+test -f "$orig/manifest.json"
+old=44054f9172e3c9e2e944240b5369b49d9735d8349fb7ca2dd0a2a782d7c8a4f8
+new=43b0f6ec0229d15dc137bbf3c52cd41b4bb125072fbcc49202e744ba8a19bc6c
+before=$(sha256sum "$comp/thermal.py" | cut -d ' ' -f1)
+original=$(sha256sum "$orig/thermal.py" | cut -d ' ' -f1)
+test "$original" = "$old"
+case "$before" in "$old"|"$new") ;; *) exit 70 ;; esac
+grep -Eq '"version"[[:space:]]*:[[:space:]]*"0\.3\.4"' "$orig/manifest.json"
+cp -p "$orig/thermal.py" "$comp/.jns-thermal-rollback"
+mv -f "$comp/.jns-thermal-rollback" "$comp/thermal.py"
+cp -p "$orig/manifest.json" "$comp/.jns-manifest-rollback"
+mv -f "$comp/.jns-manifest-rollback" "$comp/manifest.json"
+test "$(sha256sum "$comp/thermal.py" | cut -d ' ' -f1)" = "$old"
+"""
+    result=qm(["guest","exec",VM,"--","/bin/sh","-c",script],timeout=45)
+    require(result.get("exitcode")==0,"emergency guest-host rollback failed")
+    return True
 
 def loaded(*,candidate=False):
-    deadline=time.monotonic()+115
+    deadline=time.monotonic()+300
     while time.monotonic()<deadline:
         try:
             states=live_snapshot()
@@ -196,7 +239,7 @@ def _run_body():
         state=guest_txn("commit")
         require(state.get("state")=="applied_pending_runtime_verification",
                 "transaction did not apply expected candidate")
-        reload_entry()
+        restart_core()
         after=loaded(candidate=True)
         info=is_candidate_live(after)
         # Check file post-state after authenticated reload.
@@ -208,16 +251,12 @@ def _run_body():
              "global_core_restart":False,"store_preserved":True}))
     except BaseException:
         try:
-            current=guest_txn("verify")
-            if current.get("state")=="applied_pending_runtime_verification":
-                guest_txn("rollback")
-                reload_entry()
-                loaded()
-                print("JNS_HEATING_ROLLBACK_CONFIRMED")
-            elif current.get("state")=="staged":
-                print("JNS_HEATING_NO_PRODUCTION_CHANGE")
-            else:
-                raise Blocked("unexpected release state after failed promotion")
+            # The Core container may not exist after a failed restart. Use
+            # fixed HAOS host paths, not docker exec, for emergency recovery.
+            host_rollback()
+            restart_core()
+            loaded()
+            print("JNS_HEATING_CORE_ROLLBACK_RECOVERED")
         except BaseException:
             print("JNS_HEATING_CRITICAL_ROLLBACK_NEEDS_OPERATOR",file=sys.stderr)
         raise
