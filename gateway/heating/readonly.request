@@ -3,3 +3,4 @@ vm=905
 scope=jns_heating_zones forecast refresh and thermal learning
 run=2026-10-24T14:40:00+01:00
 pass=thermal-model-inspection
+pass=interval-filter-inspection
