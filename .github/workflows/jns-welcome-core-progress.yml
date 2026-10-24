@@ -1,0 +1,20 @@
+name: JNS Welcome Home Concurrent Core Status
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/arrival_lighting/progress.request']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - name: Read-only HA General service health during deployment
+        shell: bash
+        run: |
+          set -u
+          echo '=== HA-GENERAL HTTP ==='
+          curl -sS -o /dev/null --connect-timeout 5 --max-time 12 -w 'HTTP=%{http_code}\n' http://ha-general.home.arpa/ || true
+          echo '=== VM905 STATUS ==='
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=6 root@nodeb.home.arpa 'qm status 905; timeout 20 qm guest exec 905 -- docker ps --filter name=homeassistant --format "{{.Names}} {{.Status}}"' || true
