@@ -34,7 +34,7 @@ jobs:
             if timeout -k 2s 16s ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes \
               -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$work/known_hosts" \
               -o ConnectTimeout=6 -o ConnectionAttempts=1 \
-              "jnsadmin@$TARGET" 'echo VEYRA_OBS_AFTER_PROBE; date; echo X93_SOCKET; ls -l /tmp/.X11-unix/X93 /tmp/.X93-lock 2>&1 || true; echo X93_XVFB_PROCESSES; ps -eo pid,ppid,pgid,user,stat,etime,args | grep -E "[X]vfb :93|[o]bs --multi|[X]vfb :92" | cut -c 1-240; echo AUTHENTICATED_SERVICES; for s in veyra-kiosk.service veyra-virtual-loopback-v01.service veyra-itvx-vnc-v01.service; do printf "%s=" "$s"; systemctl is-active "$s" || true; done; echo RENDER_DEVICE; ls -l /dev/dri/renderD128 2>&1; echo LIVE_RECORDER; ps -C ffmpeg -o pid,user,stat,pcpu,args | cut -c 1-180 | head -3; echo AUDIT_DONE' ; then
+              "jnsadmin@$TARGET" 'echo VEYRA_GPU_RENDER_PATH_AUDIT; echo DISPLAY_COMPOSITORS; ps -eo pid,user,comm,args | grep -E "[c]age|[w]eston|[s]way|[X]wayland|[X]vfb :92" | cut -c 1-190 | head -16; echo WAYLAND_SOCKETS; ls -l /run/user/999/wayland-* 2>/dev/null | head -12; echo OBS_QT_AVAILABLE; for t in eglinfo glxinfo wayland-info weston drm_info; do command -v "$t" || true; done; echo EGL_DRIVERS; ls -l /usr/lib/x86_64-linux-gnu/dri/*_dri.so 2>/dev/null | head -10; echo OBS_RUNTIME; ls -ld /run/user/999 /dev/dri/renderD128; echo END' ; then
               echo "VEYRA_REMOTE_ACCESS_PASS: $(basename "$key")"
               exit 0
             else
