@@ -27,6 +27,24 @@ First successful audit run: https://github.com/jamienewton2269/JNS-Home-Assistan
 
 **RAM blocker:** Node A cannot safely run all existing HAs plus unchanged VM900 at current physical RAM. Reserve RAM for the PVE host, ZFS ARC and essential CTs. Consider retiring VM900 only after feature parity is tested, leaving it as an offline fallback, or increase Node A RAM. RAM headroom must be **measured**, not inferred from assigned vCPU count.
 
+## Live service-parity and NAS dependency audits — 2026-10-24
+
+Read-only Home Assistant parity: https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40112580253
+
+- VM902 HA-Primary: reachable Home Assistant Core; 10 enabled registered automations; MQTT and mobile_app entry present.
+- VM905 HA-General: reachable Home Assistant Core; 56 enabled registered automations, 17 package YAML files, Lyric and JNS heating integrations; local recorder database ~228 MB.
+- VM900 HA legacy: Docker accessible but Home Assistant Core container **not running**. Container inventory: 21 containers, 19 running. Known *still running* roles: audio, DNS (2), ESPHome, multicast, observer, Piper, SSH, Supervisor. Matter-labelled container stopped. Several containers not role-classified: **do not shut down VM900 or assume Core stoppage means no dependent services**. Audit actual service endpoints and migrate/replace any active dependencies first.
+- VM900 guest configuration parity cannot be measured by Docker exec until Core container is running; **do not restart VM900 Core merely to perform this audit**, because it could interfere with lean production automation and Zigbee control. Use a guarded offline snapshot or explicit non-disruptive inspection instead.
+
+Read-only NAS/DNS backend relationships: https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40112737025
+
+- DNS master/live NFS mounts are present on both Nodes A/B and resolve to the *same* backend.
+- Both DNS NFS mounts resolve to backends **different** from the configured `NAS` CIFS and `WD-BACKUP` NFS server endpoints. These results prove backend separation at audit time, not that NAS shutdown is safe for every workload.
+- `NAS` CIFS is currently **mounted on Node B** but not Node A; `WD-BACKUP` NFS is mounted on neither, despite enabled backup schedules. The two NAS storage definitions also target different backends.
+- Before any NAS sleep: prove no active CIFS file handles, recordings or dependent services; validate a successful backup/wake/reachability cycle; unmount or quiesce Node B's CIFS cleanly, and confirm OS-level NAS shutdown and the Tuya recovery safety interlock.
+
+**Decision:** Production cutover and NAS/Node B power-off remain BLOCKED pending service migration, snapshots, capacity and rollback verification.
+
 ## Stage gates
 
 1. **Independent-host / Guardian recovery topology.** Live `pvecm` checks on A/B confirmed neither is in a Proxmox Corosync cluster. Retain independent hosts (no added quorum witness). Audit Guardian/Consul, licensing/locks and split-brain behavior separately; sleeping Node B must not be treated as an unplanned outage or trigger a duplicate MQTT/Zigbee/HA leader. Explicit fencing and controlled recovery are required for B wake. Do not apply `pvecm expected` or in-cluster HA migration commands.
