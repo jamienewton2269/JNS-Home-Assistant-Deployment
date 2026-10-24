@@ -2,7 +2,7 @@
 
 A conservative, reusable **Home Assistant Tuya cloud → local** migration tool.
 Designed for standard HA Core/OS/Supervised/Container installations. Do not
-write to or patch Home Assistant \`.storage\` directly. Uses HA's supported
+write to or patch Home Assistant `.storage` directly. Uses HA's supported
 WebSocket entity-registry commands and REST config flows.
 
 ## What works today
@@ -12,7 +12,7 @@ WebSocket entity-registry commands and REST config flows.
 - Build **private**, name-based migration suggestions. Every suggestion is
   unapproved by default; a matching name alone is **not** proof of the same
   physical device or datapoint.
-- Reuse installed \`tuya_local\` rather than install competing duplicate handlers.
+- Reuse installed `tuya_local` rather than install competing duplicate handlers.
 - Drive Home Assistant's supported config flows from a private series of
   explicit form responses, when local keys / device types are known.
 - Rename approved cloud entities to an unused backup ID, then rename a
@@ -38,35 +38,35 @@ completed offline migration.
    not already installed. Where possible, use a **stable DNS name**, not a
    hardcoded DHCP address, for the device's local host.
 3. Have an HA admin long-lived token stored in an environment variable
-   (\`HA_TOKEN\`); do not commit or paste credentials into GitHub Actions.
-4. Run on a trusted computer with Python 3.10+ and \`websocket-client\`:
+   (`HA_TOKEN`); do not commit or paste credentials into GitHub Actions.
+4. Run on a trusted computer with Python 3.10+ and `websocket-client`:
 
-   \`\`\`shell
+   ```shell
    python3 -m pip install "websocket-client>=1.8,<2"
    export HA_TOKEN='...read token securely from your password manager...'
-   \`\`\`
+   ```
 
-5. Use \`--url http://your-ha-hostname:8123\` for your own installation.
+5. Use `--url http://your-ha-hostname:8123` for your own installation.
 
 ## Initial scan and proposal (no HA changes)
 
-\`\`\`shell
+```shell
 python3 tuya_freedom.py audit --url http://ha-general.home.arpa:8123
 python3 tuya_freedom.py plan  --url http://ha-general.home.arpa:8123
-\`\`\`
+```
 
-These write \`tuya-freedom-private-inventory.json\` and
-\`tuya-freedom-private-plan.json\`, both mode \`0600\`. Keep them on trusted
+These write `tuya-freedom-private-inventory.json` and
+`tuya-freedom-private-plan.json`, both mode `0600`. Keep them on trusted
 storage, outside any public repo. **Do not publish them.**
 
 Each proposed mapping has:
 
-\`\`\`json
+```json
 {"cloud": "switch.example", "local": "switch.example_local",
  "confidence": "name_hint_not_verified", "approved": false}
-\`\`\`
+```
 
-Before setting \`approved\` to \`true\`, verify the **same physical device and
+Before setting `approved` to `true`, verify the **same physical device and
 same function/datapoint** (switch-to-switch, sensor-to-sensor). Wrong matches
 can cause unintended switching.
 
@@ -78,9 +78,9 @@ cloud dependency, but credentials should not be retained in this tool.
 Keys change if devices are re-paired. See Tuya Local device instructions.
 
 For repeatable local provisioning, capture the *specific version's* config
-form responses as a local JSON file (mode \`0600\`), for example:
+form responses as a local JSON file (mode `0600`), for example:
 
-\`\`\`json
+```json
 {
   "handler": "tuya_local",
   "devices": [
@@ -92,7 +92,7 @@ form responses as a local JSON file (mode \`0600\`), for example:
     }
   ]
 }
-\`\`\`
+```
 
 That example illustrates a **possible form step, not a guaranteed complete
 Tuya Local flow**. Actual flows are multistep, may begin with account/choice
@@ -100,23 +100,23 @@ forms, and may require type/name selection. The tool **fails closed** when
 additional forms are needed; update the manifest locally to match the installed
 integration's live form fields. Never put key files in GitHub.
 
-\`\`\`shell
+```shell
 chmod 600 /trusted/private/tuya-flow-steps.json
 python3 onboard.py --url http://ha-general.home.arpa:8123 \
   --steps-file /trusted/private/tuya-flow-steps.json \
   --apply --confirm ONBOARD
-\`\`\`
+```
 
 ## Guarded entity-ID cutover
 
 After adding the local entities and checking they work, approve exact pairs
 in the private plan file and run:
 
-\`\`\`shell
+```shell
 python3 tuya_freedom.py cutover --url http://ha-general.home.arpa:8123 \
   --confirm CUTOVER
 python3 tuya_freedom.py verify --url http://ha-general.home.arpa:8123
-\`\`\`
+```
 
 Keep the private journal. Cutover **does not remove the cloud config entries**.
 The tool will refuse missing/unavailable local entities, duplicate mappings,
@@ -125,10 +125,10 @@ or switch during validation, so physical function tests are still necessary.
 
 To revert:
 
-\`\`\`shell
+```shell
 python3 tuya_freedom.py rollback --url http://ha-general.home.arpa:8123 \
   --confirm ROLLBACK
-\`\`\`
+```
 
 **Journal/rollback scope:** entity-registry ID renames only. This does not
 revert config-entry changes, device references or router/firewall changes.
@@ -168,10 +168,10 @@ The JNS production audit **does not automatically run this community cutover**.
 
 - No local keys/tokens are requested on the command line; the HA admin token
   is read from an environment variable. Treat local JSON manifests as secret.
-- Never upload \`.storage\` or raw audits to GitHub.
+- Never upload `.storage` or raw audits to GitHub.
 - A name-only mapping is always subject to an explicit operator approval.
 - HA state checks are not a substitute for actual offline network testing.
-- Run \`python3 -m unittest -v test_tuya_freedom.py\` for dry-run safety tests.
+- Run `python3 -m unittest -v test_tuya_freedom.py` for dry-run safety tests.
 
 License/reuse: code intended for a future standalone community repository
 after tests, documentation and permissions review. No upstream endorsement.
