@@ -86,7 +86,9 @@ class CatalogueTests(unittest.TestCase):
             conn.close()
             report=corpus.import_catalogue(seed,dbpath)
             self.assertEqual(report["repairs_after"],3)
+            self.assertTrue(report["unchanged"])
             self.assertTrue(Path(report["backup"]).exists())
+            self.assertEqual(len(list(Path(tmp).glob("steward.repair-catalogue-v2-*.sqlite"))),1)
 
 
 if __name__=="__main__":unittest.main()
