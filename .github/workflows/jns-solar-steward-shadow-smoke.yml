@@ -1,0 +1,25 @@
+name: JNS Solar Steward Shadow Smoke Node C
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-steward-shadow-smoke.yml'
+      - 'gateway/solar/steward_nodec_shadow_smoke_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-solar-steward-shadow-smoke
+  cancel-in-progress: false
+jobs:
+  smoke:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Node C shadow service on loopback with apply disabled
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/steward_nodec_shadow_smoke_v1.py
+          python3 gateway/solar/steward_nodec_shadow_smoke_v1.py
