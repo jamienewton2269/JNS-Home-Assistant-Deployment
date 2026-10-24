@@ -86,6 +86,16 @@ Read-only placement audit: https://github.com/jamienewton2269/JNS-Home-Assistant
 7. Only after backup, cold-copy integrity, consumer checks and explicit safety gates pass: cleanly shut down the original Node A HA900, set onboot=0 and remove its Node A disk via the guarded migration cleanup. Record all removed image/container/volume identifiers, the config archive pointers, cleanup timestamps, checksums, reclaimed GiB, and rollback instructions in the always-on Steward.
 
 **Do not claim cleanup finished until the archive is verified and service payloads are actually removed.** Current status is read-only assessment; no HA900 services or volumes have been deleted.
+## HA900 private service register — captured
+
+Read-only private manifest capture succeeded: https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40119664083
+
+- 2026-10-24: **21 containers recorded, including 19 running**.
+- A root-only manifest containing names, images, versions as encoded in image tags, states, declared ports and mount metadata was written on **Node A** under /var/lib/jns-solar/ha900/evidence (directory mode 0700, manifest mode 0600). This is deliberately not in public GitHub or public CI logs.
+- SHA-256 evidence: 77555d0defa1574c7e4d22e63130a42e8958766264b713b2e9f361524a221e82.
+- **This is metadata capture, not a complete configuration/secret export or restorable backup.** Capture and verify full service configurations in protected backup storage before stripping any add-ons or images.
+- Protected importer to the always-on **Node C Steward** is not yet verified; the unprivileged GitHub runner cannot write Node C's existing /var/lib/jns-steward directory. Do not claim Node C already has the private manifest.
+- Container removal, guest slimming, off-host backup and VM900 relocation have **not** happened. HA900 remains on Node A until consumers are verified and storage/restore tests pass.
 ## Stage gates
 
 1. **Independent-host / Guardian recovery topology.** Live `pvecm` checks on A/B confirmed neither is in a Proxmox Corosync cluster. Retain independent hosts (no added quorum witness). Audit Guardian/Consul, licensing/locks and split-brain behavior separately; sleeping Node B must not be treated as an unplanned outage or trigger a duplicate MQTT/Zigbee/HA leader. Explicit fencing and controlled recovery are required for B wake. Do not apply `pvecm expected` or in-cluster HA migration commands.
