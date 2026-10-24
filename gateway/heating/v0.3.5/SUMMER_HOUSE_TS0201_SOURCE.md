@@ -55,3 +55,39 @@ Therefore it cannot currently be changed safely via the UI.
 **Production status:** original v0.3.4 still configured to the Honeywell
 outdoor-temperature entity. v0.3.5 thermal learner remains staged and pending
 separate authenticated release approval. This note does not change either.
+
+
+## Relocation follow-up — 25 October 2026, 00:43 BST
+
+The user confirms this TS0201 has been physically moved to an appropriate
+shaded, ventilated outdoor location and explicitly requested activation.
+
+**Activation blocked by telemetry freshness and mismatch, not by lack of user
+approval for the sensor choice.**
+
+Fresh read-only HA-General audit from
+[GitHub run 40143991115](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40143991115):
+
+- `sensor.0xa4c13880bb5cffff_temperature`: **22.6°C, last recorded ~95.6 minutes earlier**
+- Humidity: 56%, also ~95.6 minutes old
+- `sensor.thermostat_thermostat_outdoor_temperature`: **12.0°C, ~0.9 minutes old**
+- Deviation between last recorded readings: **+10.6°C**; the readings are
+  not simultaneous. The TS0201 may be holding a pre-relocation value.
+- Node B CT214 (Zigbee2MQTT) and CT212 (Mosquitto) both **running**;
+  Zigbee2MQTT service and MQTT broker active; bridge health published.
+  [Read-only reporting audit](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40144073384).
+- HA-General integration still uses Honeywell outdoor sensor; no changes
+  to the config entry or live heating source were performed.
+
+Before activation require a *new real timestamped TS0201 report after the
+outdoor relocation*, preferably consistent with a separate shaded outdoor
+reference (significant microclimate variation must be examined), and a
+robust **stale-reading fallback**, since v0.3.4 `coordinator._number()`
+accepts stale numeric Home Assistant states without an age test.
+Protect existing thermal-model samples from conflating the two source
+epochs. The runtime update still requires the JNS root-owned approved
+release path described in `RELEASE_OPERATOR.md` / `NODEC_ROOT_GATEWAY.md`,
+which has not been installed.
+
+Zigbee2MQTT TS0201 vendor documentation warns about an OTA firmware update
+that can brick this model; do **not** initiate OTA as a troubleshooting step.
