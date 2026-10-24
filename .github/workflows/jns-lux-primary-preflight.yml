@@ -1,0 +1,16 @@
+name: JNS HA-Primary Evening Lighting Panel Preflight
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/lux_manual_override/primary-preflight.request']
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          python3 -m py_compile gateway/lux_manual_override/patch_vm902.py gateway/lux_manual_override/primary_runner.py
+          python3 gateway/lux_manual_override/primary_runner.py --dry-run
