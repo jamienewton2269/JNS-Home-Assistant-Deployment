@@ -1,0 +1,20 @@
+name: JNS Lux Evening Manual Off Deploy
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/lux_manual_override/deploy.request']
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-lux-manual-off
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/lux_manual_override/patch_vm905.py gateway/lux_manual_override/runner.py gateway/lux_manual_override/rollback_vm905.py gateway/lux_manual_override/deploy.py
+          python3 gateway/lux_manual_override/deploy.py
