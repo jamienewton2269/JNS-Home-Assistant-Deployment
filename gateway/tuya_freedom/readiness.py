@@ -74,17 +74,29 @@ states=None
 state_access="not_available"
 token=os.environ.get("SUPERVISOR_TOKEN","")
 if token:
-    for endpoint in ("http://supervisor/core/api/states","http://127.0.0.1:8123/api/states"):
-        try:
-            req=urllib.request.Request(endpoint,headers={"Authorization":"Bearer "+token})
-            with urllib.request.urlopen(req,timeout=5) as res:
-                raw=json.load(res)
-            if isinstance(raw,list):
-                states={x["entity_id"]:x["state"] for x in raw}
-                state_access="live_api"
-                break
-        except (OSError,ValueError,KeyError):
-            continue
+    try:
+        import asyncio, aiohttp
+        async def get_states_ws():
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=25)) as session:
+                async with session.ws_connect("ws://supervisor/core/websocket",timeout=8) as ws:
+                    hello=await ws.receive_json(timeout=8)
+                    if hello.get("type")!="auth_required":
+                        return None
+                    await ws.send_json({"type":"auth","access_token":token})
+                    auth=await ws.receive_json(timeout=8)
+                    if auth.get("type")!="auth_ok":
+                        return None
+                    await ws.send_json({"id":1,"type":"get_states"})
+                    for _ in range(5):
+                        res=await ws.receive_json(timeout=8)
+                        if res.get("type")=="result" and res.get("id")==1 and res.get("success"):
+                            return {x["entity_id"]:x["state"] for x in res.get("result",[])}
+            return None
+        states=asyncio.run(get_states_ws())
+        if states is not None:
+            state_access="supervisor_websocket"
+    except (OSError,ValueError,KeyError,TimeoutError,ImportError):
+        state_access="not_available"
 # Never treat stale restored states as live device validation.
 now=datetime.datetime.now(datetime.timezone.utc)
 rows=[]
