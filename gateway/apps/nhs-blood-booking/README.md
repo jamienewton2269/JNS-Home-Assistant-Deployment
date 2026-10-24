@@ -1,56 +1,78 @@
-# JNS NHS Blood Test Booking — staged v0.1
+# JNS NHS Blood Test Booking — staged v0.2 (Google Calendar)
 
-A **non-submitting** browser discovery and calendar-safe appointment planner for the official Mersey Care Southport and Formby blood test service.
+A **non-submitting** browser discovery and Google-calendar-aware appointment planner for the Mersey Care Southport and Formby NHS blood test service.
 
-Official page: https://www.merseycare.nhs.uk/bloodtestsouthportformby
+Official entry: https://www.merseycare.nhs.uk/bloodtestsouthportformby
 
-## Status and limitations
+## Implemented in source
 
-- **Implemented**: `me` / `jane` / `both` choices; find adjacent pairs at same clinic; check both diaries over the entire shared trip with before/after travel buffers; reject unavailable calendars, unknown clinics, ambiguous timestamps and stale availability; NHS public page inspection with Playwright; tests.
-- **Not implemented, deliberately disabled**: verified live slot extraction from NHS/SimplyBook, entering patient details, submitting or cancelling appointments, parsing confirmation email/SMS, or writing calendar events. No site-specific selectors or booking endpoint have been validated. This package **cannot yet book an NHS appointment**.
-- A pair of slots is a **proposal only**. Mersey Care may require separate submissions; two consecutive bookings cannot be atomic. If booking one succeeds and the other fails, the correct future behaviour is to stop, show the confirmed one, and obtain fresh approval before changes.
-- Appointment availability feeds must come from authorised live inspection of the real NHS page. Never fabricate a candidate record and present it as real availability.
+- Choose **me**, **Jane**, or **both** on every interactive booking request (or supply `--who` for a scripted request).
+- When **both** is selected: propose immediately consecutive slots, same clinic, same day, either patient ordering.
+- Check **all configured Google calendars** for each selected patient, with a shared travel interval and optional before/after buffers. DST-aware Europe/London calculations.
+- Use Google's FreeBusy endpoint and narrow `https://www.googleapis.com/auth/calendar.events.freebusy` permission. **No diary event titles, descriptions or attendees are requested**.
+- If any relevant calendar is inaccessible, any response is partial, or a slot source is stale, **stop without booking**.
+- Public NHS page Playwright discovery is isolated from any patient details; no NHS booking form is submitted.
+- Patient medical details, booking credentials and token files must never be stored in GitHub.
 
-## Safe commissioning checklist
+## Not yet commissioned
 
-1. Provision an isolated, resource-limited JNS service container on an approved host (prefer Node B if capacity allows); do not install Playwright on HA-Primary VM902 or HA-General VM905. No fixed IP or DHCP reservation; DNS-first policy.
-2. Commission through the **existing JNS GitHub signed/guarded deployment pathway**. Inventory the actual package schema, target container and root-owned deploy wrapper, then pin source hash, run dry-run, backup, stage, verify and enable rollback. This repository folder is source material, **not** an authorised deployment action.
-3. Install `requirements.txt` inside a dedicated unprivileged environment; install Playwright Chromium after confirming available storage. Allow outbound HTTPS only to the official booking provider and read-only calendar servers. Do not publish a browser debugging port to the Internet.
-4. Set the secret, read-only calendar URLs as environment variables `JNS_NHS_ICAL_ME_URL` and (with Jane's permission) `JNS_NHS_ICAL_JANE_URL`. Store in root-readable secret store, **not** in GitHub or the command line; enforce `0600` for credentials and avoid backups containing patient data. An unavailable diary prevents a proposal.
-5. `python nhs_booking.py inspect` inspects only public NHS browser structure; no patient entry or website submission.
-6. Independently verify the actual NHS booking widget and provider authorisation before writing a site adapter. Use a local approval screen and explicit consent per patient. Respect rate limits; never bypass CAPTCHA, access controls or confirmation steps.
-7. Only after approved live booking validation: extract authoritative slots, recheck calendar immediately before submission, stop on any discrepancy, store confirmation ID locally encrypted, then create private calendar events. For two people confirm each appointment separately and never roll back a valid first appointment automatically.
+This does **NOT** submit or confirm any NHS appointment. Still pending: verified NHS/SimplyBook widget inspection, a supported real-time availability adapter, a patient-data vault and separate consent, appointment approval UI, submission/confirmation logic, duplicate/partial-booking handling, Google event write-back after NHS confirmation, and the guarded JNS host deployment. There is **no** live deployment workflow or approved production container in this commit.
 
-## Usage
+## Google setup (read-only)
 
-```sh
-python -m venv .venv
-. .venv/bin/activate
-pip install -r requirements.txt
-python -m playwright install chromium
-python nhs_booking.py inspect
-PYTHONPATH=. python -m unittest discover -s tests -v
-python nhs_booking.py propose --slots /secure/nhs-observed-slots.json  # asks me/Jane/both
-python nhs_booking.py propose --who both --slots /secure/nhs-observed-slots.json --before 20 --after 20
-```
+1. Use a dedicated Google Cloud project with Google Calendar API enabled and an OAuth **Desktop** client, with an explicitly authorised user. Set the OAuth consent screen appropriately; in **External / Testing** mode Google refresh tokens normally expire after **7 days** for calendar scopes.
+2. On a trusted administration workstation with a browser, prepare a **private** 0700 directory outside any Git checkout. Store the downloaded Desktop OAuth client JSON there.
+3. Run once for **your** account and obtain the free/busy token, for example:
 
-The `--slots` input is a short-lived internal handoff format for the future verified provider adapter, **not** a user-maintained file. It must identify genuine slot IDs and include UTC offsets:
+   ```sh
+   mkdir -m 700 -p "$HOME/.config/jns-nhs-booking"
+   python google_authorize.py --person me --client /private/oauth-client.json --output "$HOME/.config/jns-nhs-booking/me.json"
+   ```
+
+4. Jane must separately authorise her account before the service checks her private calendar. Run `--person jane` while signed in to Jane's account, writing `jane.json` to a new filename. **Alternatively**, Jane can explicitly share the necessary calendar's free/busy access with an already-authorised Google account; in that case use the same token file path but her **actual shared calendar ID**, not `primary`.
+5. Transfer credential files by the **existing approved private JNS path**, NOT by GitHub or chat; keep them outside the repository, owned by the service identity and mode 0600. Never publish a credential in environment variables. Token file paths and calendar IDs may be configured in a local root-managed environment file:
+
+   ```ini
+   JNS_NHS_GOOGLE_TOKEN_ME_FILE=/run/credentials/jns-nhs/me.json
+   JNS_NHS_GOOGLE_CALENDAR_IDS_ME=primary
+   JNS_NHS_GOOGLE_TOKEN_JANE_FILE=/run/credentials/jns-nhs/jane.json
+   JNS_NHS_GOOGLE_CALENDAR_IDS_JANE=primary
+   ```
+
+   For a person with several diaries, use a comma-separated list of all calendars holding busy commitments, e.g. `primary,shared-diary-id`. Google FreeBusy respects the calendars the authorised account can see; missing sharing permissions block the request. Configure both profiles only after consent; a booking for **me** does not require Jane's token.
+6. Run discovery and unit tests in an **isolated unprivileged JNS service** with bounded resource use and browser storage. Don't install Chromium or Google credentials on HA-Primary VM902 or HA-General VM905.
+
+   ```sh
+   python -m venv .venv
+   . .venv/bin/activate
+   pip install -r requirements.txt
+   python -m playwright install chromium
+   PYTHONPATH=. python -m unittest discover -s tests -v
+   python nhs_booking.py inspect
+   python nhs_booking.py propose --slots /secure/verified-provider-slots.json
+   ```
+
+`propose` asks whether to search for you, Jane or both, then calculates candidate intervals against Google FreeBusy. Unattended CLI requests must specify `--who`. No Google write scopes are requested: **calendar-event creation is future work and must occur only after verified NHS confirmation, with separate authorisation**.
+
+## Slots data contract (for future verified NHS adapter)
+
+The `--slots` input is a short-lived internal handoff generated by a yet-to-be-built *verified* NHS provider adapter, not a file to fabricate or edit as if it were current availability:
 
 ```json
 {
   "provider": "merseycare-southport-formby",
   "observed_at": "2026-11-03T09:00:00Z",
   "slots": [
-    {"id": "provider-id-1", "clinic": "Churchtown Clinic", "start": "2026-11-05T09:00:00+00:00", "end": "2026-11-05T09:10:00+00:00"},
-    {"id": "provider-id-2", "clinic": "Churchtown Clinic", "start": "2026-11-05T09:10:00+00:00", "end": "2026-11-05T09:20:00+00:00"}
+    {"id":"EXAMPLE-ONLY-1","clinic":"Churchtown Clinic","start":"2026-11-05T09:00:00+00:00","end":"2026-11-05T09:10:00+00:00"},
+    {"id":"EXAMPLE-ONLY-2","clinic":"Churchtown Clinic","start":"2026-11-05T09:10:00+00:00","end":"2026-11-05T09:20:00+00:00"}
   ]
 }
 ```
 
-Example data above is illustrative **only**. `observed_at` must be within ten minutes of the current clock or the program stops.
+This JSON is illustrative only; `observed_at` must be no more than 10 minutes old when planning. Available times must be obtained from the real NHS provider with permission and revalidated before future booking submission.
 
-All displayed candidate times use Europe/London with DST-aware timestamps. Existing diaries must expose all-day, recurring and time-zoned commitments via read-only HTTPS ICS feeds. No event titles or health details are printed. Free/busy URL credentials must be treated as secrets. The planner does not guarantee two bookings will remain available when NHS submissions begin.
+## Guarded deployment
 
-## Public reference
+The existing JNS GitHub repository's **signed/guarded** pathway remains authoritative. Identify the actual destination node after the low-power consolidation plan, target container, signed package schema and narrow root-owned deployment wrapper first. Apply SHA256 pinning, no-argument deployment, dry-run, backup, rollback and independent verification before enabling any service. Do not add new SSH routes or deploy directly from this feature branch.
 
-NHS guidance says confirmation email/SMS is required to demonstrate a successful request and patients should bring the blood test request form. Urgent bookings must be arranged via the referring GP. Phone alternative: 0151 285 4548.
+For paired bookings, the NHS might demand two independent submissions. These cannot be atomic: when one booking succeeds and another fails, preserve the first confirmation, report the partial result and seek human approval for further action. Never cancel or rebook implicitly. Preserve separate patient permissions and avoid using screenshots or logs containing medical data.
