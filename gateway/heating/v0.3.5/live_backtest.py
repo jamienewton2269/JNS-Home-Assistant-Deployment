@@ -59,7 +59,7 @@ for path in stores:
           if k in s}
     results.append({"samples":len(records),"legacy":fields(result0),
         "candidate":fields(result1),"storage_unchanged":True})
-print(json.dumps({"live_version":manifest.get("version"),
+print(json.dumps({"live_version":manifest.get("version"),"baseline_sha256":hashlib.sha256(baseline_code).hexdigest(),
  "zone_count":len(results),"zones":results},sort_keys=True))
 """
 script=GUEST.replace("CANDIDATE_B64",repr(base64.b64encode(candidate).decode()))
