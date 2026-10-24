@@ -90,7 +90,15 @@ def get_guest(vm, node):
         except ValueError:return {"status":"invalid_process_status"}
     if not j.get("exited"):return {"status":"guest_still_running"}
     if j.get("exitcode")!=0:
-        return {"status":"guest_python_unavailable"}
+        err=(j.get("err-data") or "")[:3000]
+        import re
+        classes=re.findall(r"\\b([A-Za-z_]+(?:Error|Exception))\\b",err)
+        if "No such container" in err: cause="homeassistant_container_not_found"
+        elif "not found" in err.lower(): cause="guest_executable_not_found"
+        elif "permission denied" in err.lower():cause="guest_permission_denied"
+        elif classes:cause="python_exception_"+classes[-1]
+        else:cause="unclassified_guest_failure"
+        return {"status":"guest_python_unavailable","exitcode":j.get("exitcode"),"failure_category":cause}
     lines=[a for a in (j.get("out-data") or "").splitlines() if a.startswith("JNS_PARITY_JSON=")]
     if not lines:return {"status":"no_aggregate_payload"}
     try: return {"status":"ok",**json.loads(lines[-1].split("=",1)[1])}
