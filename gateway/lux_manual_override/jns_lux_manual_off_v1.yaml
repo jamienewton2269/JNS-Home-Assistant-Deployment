@@ -1,0 +1,103 @@
+# JNS Evening Manual-Off v1 | HA-General VM905
+# Keeps user-off Lux-controlled lights off until next sunrise.
+# Independent WC PIR, garden schedule, security/doorbell and fan rules unchanged.
+input_text:
+  jns_lux_off_tonight_entities:
+    name: JNS Lux lights manually switched off tonight
+    max: 255
+    icon: mdi:lightbulb-off-outline
+
+input_boolean:
+  jns_lux_manual_hold_all:
+    name: Lux Controller - Pause all automatic evening lighting
+    icon: mdi:hand-back-left-off
+
+script:
+  jns_lux_resume_all:
+    alias: Resume Lux Automatic Lighting
+    icon: mdi:lightbulb-auto
+    sequence:
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.jns_lux_off_tonight_entities
+        data:
+          value: ""
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.jns_lux_manual_hold_all
+
+automation:
+  - id: jns_lux_record_manual_off_tonight_v1
+    alias: JNS Lux - Remember Manual Off Until Sunrise
+    description: >-
+      Tracks deliberate user/dashboard or direct physical OFF commands
+      on existing lux-labelled lamps and known kitchen lux aliases. Avoids
+      software automation-generated OFF transitions; physical reports require
+      no parent context. Stops a re-on at the next 2-minute lux evaluation.
+    mode: queued
+    max: 20
+    triggers:
+      - trigger: event
+        event_type: state_changed
+    conditions:
+      - condition: state
+        entity_id: sun.sun
+        state: below_horizon
+      - condition: template
+        value_template: >-
+          {% set old = trigger.event.data.get('old_state') %}
+          {% set new = trigger.event.data.get('new_state') %}
+          {% set eid = trigger.event.data.get('entity_id','') %}
+          {% set dev = device_id(eid) if eid else none %}
+          {% set ls = (labels(eid) | list) if eid else [] %}
+          {% set ls = ls + ((labels(dev) | list) if dev else []) %}
+          {{ old is not none and new is not none
+             and old.state == 'on' and new.state == 'off'
+             and (new.context.user_id is not none or new.context.parent_id is none)
+             and ('lighting_lux_controlled' in ls or
+                  eid in ['switch.general_kitchen_worktop_light',
+                          'switch.general_kitchen_radiator_light'])
+             and 'purpose_protected_it' not in ls
+             and 'purpose_fan' not in ls
+             and 'purpose_grow_light' not in ls
+             and eid != 'switch.0xa4c13837e231806e' }}
+    actions:
+      - variables:
+          target_entity: "{{ trigger.event.data.entity_id }}"
+          previous: >-
+            {% set raw = states('input_text.jns_lux_off_tonight_entities') %}
+            {{ '' if raw in ['unknown','unavailable','none'] else raw }}
+      - variables:
+          updated: >-
+            {% set existing = previous.split('|') | reject('eq','') | list %}
+            {{ (existing + ([target_entity] if target_entity not in existing
+                            else [])) | join('|') }}
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ updated | length > 255 }}"
+            sequence:
+              - action: input_boolean.turn_on
+                target:
+                  entity_id: input_boolean.jns_lux_manual_hold_all
+        default:
+          - action: input_text.set_value
+            target:
+              entity_id: input_text.jns_lux_off_tonight_entities
+            data:
+              value: "{{ updated }}"
+
+  - id: jns_lux_release_manual_off_at_sunrise_v1
+    alias: JNS Lux - Reset Manual Off Next Morning
+    mode: single
+    triggers:
+      - trigger: sun
+        event: sunrise
+      - trigger: homeassistant
+        event: start
+    conditions:
+      - condition: state
+        entity_id: sun.sun
+        state: above_horizon
+    actions:
+      - action: script.jns_lux_resume_all
