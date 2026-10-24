@@ -1,3 +1,36 @@
+# Verified activation — 24 October 2026
+
+**LIVE on HA-General VM905.** User-authorised transactional Core-only
+restart completed successfully, with baseline and post-install
+`ha core check` both passing. The protected original
+`configuration.yaml` backup is stored privately on HA-General
+under `/config/.jns_tuya_freedom/observer-activation/`.
+The token-free observer is now enabled at
+`/config/custom_components/jns_tuya_freedom/` and
+`jns_tuya_freedom:` is configured in `configuration.yaml`.
+
+- Deployment: https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40132581822
+- In-memory observer report: `/config/.jns_tuya_freedom/latest-live.json` (0600)
+- Private device-by-device checklist:
+  `/config/.jns_tuya_freedom/ONBOARDING_STATUS.md` (0600)
+- Private checklist workflow: https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40133378677
+- 12 unique physical cloud devices; 5 have local entries; 7 still need
+  local onboarding.
+- 33 enabled local entities, all 33 loaded, **23 available**.
+  Three of the five local devices have one or more available entities;
+  one has every enabled entity available; **two have no available
+  entities**. Diagnose these before any entity-ID cutover.
+- No device command, cloud disablement, entity migration, WAN denial or
+  additional VM/Node restart was performed. Available states by themselves
+  **do not** prove cloud independence.
+- The separate Home Assistant API token route was abandoned; revoke any
+  token previously exposed in chat.
+
+**Future changes:** do not deploy the activation request a second time;
+the transaction folder intentionally blocks a duplicate deployment.
+The observer updates its private `latest-live.json` every five minutes.
+
+---
 # 24 October 2026 — tokenless path (preferred)
 
 The earlier manually pasted Home Assistant long-lived token route was unreliable
