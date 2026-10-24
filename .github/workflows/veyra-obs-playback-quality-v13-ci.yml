@@ -1,0 +1,42 @@
+name: VEYRA OBS MKV playback isolation v1.3 CI
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/trusted/veyra-obs-playback-quality-v1.3.sh'
+      - '.github/workflows/veyra-obs-playback-quality-v13-ci.yml'
+permissions: {contents: read}
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify playback-only code and no service changes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          p=gateway/trusted/veyra-obs-playback-quality-v1.3.sh
+          bash -n "$p"
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path("gateway/trusted/veyra-obs-playback-quality-v1.3.sh").read_text()
+          for required in (
+              "play-hw", "play-sw", "inspect", "--hwdec=",
+              "LIBVA_DRIVER_NAME=i965", "ffprobe", "obs-console.log",
+              "veyra-kiosk.service", "veyra-virtual-loopback-v01.service",
+              "veyra-itvx-vnc-v01.service", "--gpu-context=wayland",
+              "Using hardware decoding", "--log-file", "clip_path",
+          ):
+              assert required in s, f"missing: {required}"
+          for disallowed in (
+              "ffplay ", "ffmpeg ", "obs --multi", "--startrecording",
+              "Xvfb :92", "Xvfb :93", "kill -STOP", "kill -CONT",
+              "systemctl stop ", "systemctl restart ", "systemctl disable ",
+              "systemctl enable ", "pkill ", "killall ", "apt-get",
+              "curl ", "wget ", "rm -rf ",
+          ):
+              assert disallowed not in s, f"unexpected operation: {disallowed}"
+          assert 'flag=vaapi' in s and 'flag=no' in s
+          print("PASS: playback-only hardware-vs-software A/B test, no capture or service mutation")
+          PY
