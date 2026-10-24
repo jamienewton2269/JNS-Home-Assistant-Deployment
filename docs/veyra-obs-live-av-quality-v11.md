@@ -92,6 +92,13 @@ sudo bash ~/veyra-obs-mkv-review-v1.1.sh play
 - What remains unverified is **the actual programme pixels in the most recent OBS MKV** (`2026-10-24 18-37-25.mkv`), rather than just an encoded H.264/AAC container. To isolate the remaining failure from SRT, replay the existing third sample with the trusted read-only `veyra-obs-mkv-review-v1.1.sh play` utility *without running OBS again*.
 - If that recording has visible programme picture and sound, the live SRT stream/player path (repeated connection rejections) is the next fault. If it is blank/black, inspect OBS XSHM capture source and the :92 browser picture before any further recording. OBS `xshm_input_v2` does support `advanced=true, server=:92, screen=0` per upstream plugin source, but runtime source settings/visibility must be verified. No DRM workarounds.
 
+## 24 October 2026 — OBS MKV playback blank after physical mpv test passed
+
+- User reported that playing the saved OBS third buffer (`2026-10-24 18-37-25.mkv`) on the laptop causes a **blank screen**. The separate 12-second coloured pattern displayed normally using mpv in the existing Cage session, confirming that mpv itself can present at least static imagery.
+- Distinguish **black recorded pixels** from **Intel VAAPI decoded video presentation problem**; container H.264/AAC metadata and terminal AV timestamps alone cannot differentiate these.
+- Added `gateway/trusted/veyra-obs-blackframe-diagnostic-v1.2.sh` with two safe modes, GitHub syntax/static CI PASS: `scan` extracts frames at 4/14/24 seconds from the EXISTING MKV using mpv software decode into ephemeral private PNG files and reports image size, fingerprint and colour statistics when Pillow is available; `play-sw` displays the MKV with `--hwdec=no` over existing Cage to bypass VAAPI decoding. Neither mode starts OBS, SRT, FFmpeg capture or restarts Chrome, kiosk or recorder. `scan` deletes temporary frame files on exit and does not publish programme images.
+- Run `scan` first. Identical/tiny encoded stills indicate a static/blank source and motivate inspecting OBS scene/XSHM visibility/real programme playback. If scan frames vary and have rich pixels, test `play-sw`; that differentiates Intel VAAPI playback from OBS capture. If content is protected, do not attempt DRM workarounds.
+
 ## Retention and next gate
 
 This run creates **one approximately 30-second audiovisual test buffer**, not 30 minutes, and is *not yet a circular buffer*. Once capture/perception are verified, switch to OBS-backed bounded segmented storage with play/pause/rewind using a separate recorder output strategy and proper disk/time limits. Prefer source frame-rate rather than repeating fixed 50 fps.
