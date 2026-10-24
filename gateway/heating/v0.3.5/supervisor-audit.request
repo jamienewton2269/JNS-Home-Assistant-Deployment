@@ -1,3 +1,4 @@
 operation=read_only
 container=existing_app_core_ssh
 api=supervisor_core_local
+repeat=sanitised-entity-diagnostics
