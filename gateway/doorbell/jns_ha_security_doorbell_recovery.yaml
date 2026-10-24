@@ -1,0 +1,71 @@
+# JNS HA-Security VM906 — reconstructed doorbell automation definitions.
+# Preserves original HA-Security automation IDs. Not an extract of lost YAML.
+# Physical sounder = ESPHome siren Y01; NEVER use legacy HA900 switch Y10.
+automation:
+  - id: '1792316952337'
+    alias: Doorbell DingDong 7am till 11pm
+    description: >-
+      Reconstructed from HA-Security registry. Ring siren Y01 for 3 seconds
+      on a fresh KC868 X15 press only during the enabled daytime schedule.
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.alarmpanel_kc868_a16_x15
+        from: 'off'
+        to: 'on'
+    conditions:
+      - condition: state
+        entity_id: schedule.daytime
+        state: 'on'
+      - condition: time
+        after: '06:59:59'
+        before: '23:00:00'
+      - condition: state
+        entity_id: siren.alarmpanel_kc868_a16_y01
+        state: 'off'
+    actions:
+      - action: siren.turn_on
+        target:
+          entity_id: siren.alarmpanel_kc868_a16_y01
+      - delay: '00:00:03'
+      - action: siren.turn_off
+        target:
+          entity_id: siren.alarmpanel_kc868_a16_y01
+    mode: single
+    max_exceeded: silent
+
+  - id: '1792512302559'
+    alias: JNS Security - Publish Doorbell Press
+    description: >-
+      Reconstructed event publishing for HA-General security-lighting consumer.
+      Runs on a fresh press regardless of the daytime sounder schedule.
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.alarmpanel_kc868_a16_x15
+        from: 'off'
+        to: 'on'
+    actions:
+      - action: mqtt.publish
+        data:
+          topic: jns/security/doorbell/press
+          payload: 'pressed'
+          qos: 1
+          retain: false
+    mode: single
+    max_exceeded: silent
+
+  - id: jns_security_doorbell_siren_safety_off_v1
+    alias: JNS Security - Doorbell Sounder Safety Off
+    description: >-
+      Secondary safeguard: if the chime remains on for 6 seconds, turn it off.
+      This requires HA Core to remain running; hardware firmware cutoff
+      should also be verified separately.
+    triggers:
+      - trigger: state
+        entity_id: siren.alarmpanel_kc868_a16_y01
+        to: 'on'
+        for: '00:00:06'
+    actions:
+      - action: siren.turn_off
+        target:
+          entity_id: siren.alarmpanel_kc868_a16_y01
+    mode: single
