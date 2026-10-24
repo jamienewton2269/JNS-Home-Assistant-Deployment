@@ -50,6 +50,29 @@ JSON
   chmod 644 "$BASE/manifest.json"
   echo "STAGED: OBS workspace only; no service started, source switched or package installed."
 }
+# Only stop the known throwaway :93 process; never act on ITVX Xvfb :92.
+# The X lock is the authoritative server PID, not the runuser wrapper PID.
+recover_x93() {
+  test "$EUID" -eq 0 || { echo "Use sudo for :93 recovery"; return 2; }
+  if test ! -f /tmp/.X93-lock; then
+    echo "RECOVERY: no :93 server lock; nothing to stop"
+    return 0
+  fi
+  local pid proc_uid argv
+  read -r pid < /tmp/.X93-lock || return 2
+  [[ "$pid" =~ ^[0-9]+$ ]] || { echo "SAFETY STOP: malformed :93 lock PID"; return 2; }
+  [[ -r "/proc/$pid/cmdline" ]] || { echo "SAFETY STOP: stale :93 lock; no process signalled"; return 2; }
+  proc_uid=$(stat -c %u "/proc/$pid")
+  argv=$(tr '\0' ' ' < "/proc/$pid/cmdline")
+  if [[ "$proc_uid" != "$UID_VEYRA" ||
+        "$argv" != '/usr/bin/Xvfb :93 -screen 0 1366x768x24 -nolisten tcp '* ]]; then
+    echo "SAFETY STOP: process $pid does not match the isolated veyra Xvfb :93 command"
+    return 2
+  fi
+  kill -TERM "$pid"
+  echo "RECOVERED: signal sent ONLY to validated throwaway Xvfb :93 PID $pid"
+}
+
 probe() {
   test "$EUID" -eq 0 || { echo "Use sudo"; return 2; }
   audit
@@ -63,7 +86,8 @@ probe() {
     >"$BASE/logs/xvfb-probe.log" 2>&1 &
   xvfb_pid=$!
   # EXIT fires after probe() returns. xvfb_pid must remain global with set -u.
-  trap 'if [[ "$xvfb_pid" =~ ^[0-9]+$ ]]; then kill -TERM "$xvfb_pid" 2>/dev/null || true; wait "$xvfb_pid" 2>/dev/null || true; fi' EXIT
+  # Terminate the verified server process before its runuser wrapper.
+  trap 'recover_x93 || true; if [[ "$xvfb_pid" =~ ^[0-9]+$ ]]; then kill -TERM "$xvfb_pid" 2>/dev/null || true; wait "$xvfb_pid" 2>/dev/null || true; fi' EXIT
   sleep 2
   kill -0 "$xvfb_pid" 2>/dev/null || { echo "FAIL: isolated Xvfb could not start"; return 3; }
   runuser -u "$USER_NAME" -- env DISPLAY=:93 xdpyinfo >/dev/null 2>&1 || {
@@ -98,7 +122,8 @@ probe() {
 case "$*" in
   audit) audit ;;
   stage) stage ;;
+  recover) recover_x93 ;;
   probe) probe ;;
   status) audit; test ! -f "$BASE/manifest.json" || cat "$BASE/manifest.json"; test ! -f "$BASE/logs/obs-probe.log" || tail -20 "$BASE/logs/obs-probe.log" ;;
-  *) echo "Usage: bash $0 audit | sudo bash $0 stage | sudo bash $0 probe | bash $0 status"; exit 2 ;;
+  *) echo "Usage: bash $0 audit | sudo bash $0 stage | sudo bash $0 recover | sudo bash $0 probe | bash $0 status"; exit 2 ;;
 esac
