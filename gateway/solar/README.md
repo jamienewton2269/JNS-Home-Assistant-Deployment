@@ -108,6 +108,31 @@ Read-only private manifest capture succeeded: https://github.com/jamienewton2269
 
 **Off-host full backup pending**: [Read-only capacity check](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40123502737) confirms approximately **800 GiB available on Node A `vmdata`**, suitable for a controlled local staging backup, and **88.1 GiB free on Node B's mounted `NAS` CIFS**. Neither node has `WD-BACKUP` mounted and Node A's `NAS` mount is inactive. The 256 GB provisioned/44.4 GB ZFS-accounted HA900 source is **not a verified compressed backup size**. Measure/validate actual compressed output and NAS free-space reserve before any off-host copy; ensure the archive can be restored when NAS is sleeping (on-demand wake permitted). No full backup, transfer or restore test has yet occurred. Destructive cleanup remains blocked.
 
+## 2026-10-24 service migration execution checkpoint
+
+### Steward/Natural Automation Node B → Node C
+
+- [Read-only staging preflight](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40124227906): Node B code, repair modules and current site knowledge all found; total source dataset is small, private Node C runner home writable; existing Node C sudo is only via preapproved JNS gateway paths, NOT general root installation.
+- [Private source copy](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40124424320): 26 files, 112819-byte protected archive staged on Node C; SHA-256 `517a78dc7ccfc3547181626b59c67fbddbd8a9155bf37d91d203a5c9042ec3e4`; SQLite source copied via consistent read-only backup. Node B service remains active.
+- [Isolated Node C shadow smoke](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40125137370): read-only temp service replied HTTP 200 on loopback with `NA_ENABLE_APPLY=0`; copied 13-object database passed `PRAGMA quick_check`; shadow process stopped and temporary data cleared.
+- Prepared guarded one-time installer: `gateway/solar/install_nodec_steward_shadow_root_v1.sh`. **Not executed**. It must be installed through an authorised, reviewed Node C root workflow; the current unprivileged GitHub runner must not bypass its JNS sudo allowlist. Installation would set up a disabled-autostart, loopback-only, apply-disabled shadow unit and import HA900's checksum-pinned private records into protected root Steward storage.
+- Final promotion is still pending: privileged installation, test HA-General read-only Proxmox transport from Node C, fresh Node B SQLite/knowledge delta export, service equivalence validation, tightly staged DNS/entrypoint change, then explicit Node B service deactivation with rollback. Do not copy Node B's apply-enabled unit verbatim.
+
+### MQTT and Zigbee2MQTT Node B → Node A
+
+- [Destination preflight](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40124709863): Node A has free CT230 and CT231 targets; Node B CT212 is MQTT and CT214 is Zigbee2MQTT (despite both container names containing `mqtt`); both use independent ZFS rootfs and have **no external CT bind mounts**. Node A's CT212 is occupied by unrelated logging.
+- First Proxmox `vzdump --mode snapshot` for MQTT **failed**; private diagnostic found a guest tar read-permission/user-namespace failure. The source was not stopped. Do not retry an unchanged permission-failing backup as though it succeeded.
+- [Application-aware source audit](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40125399295) found Mosquitto config at `/etc/mosquitto`, persistence at `/var/lib/mosquitto`, and Zigbee2MQTT data under `/opt/zigbee2mqtt/data` plus its installation and systemd definition.
+- [Verified, root-only application copies on Node A](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40125637374): MQTT CT212 tar.gz 92794 bytes, SHA-256 `f5ae7662427133df4f6e175bf0169bbeac170cdf89750274f5bcc4fe0bbf126f`; Zigbee2MQTT CT214 tar.gz 63404741 bytes, SHA-256 `a40904dfa4405bb55849f4814dfd729dfb9d9c0e66afe7d5968a802313bf6ff9`. Archives are private to host root, not committed to GitHub. **No destination CT is registered or started.**
+- Full dataset stage via `gateway/solar/ct_full_zfs_stage_nodea_v1.py` is a separate, guarded step: ZFS sends source snapshots into unmounted, `canmount=off`, non-Proxmox destination datasets. Treat it as **pending until a completed workflow explicitly verifies matching source/target snapshot GUIDs**. Do not infer completion from workflow launch.
+- Application copies and live ZFS snapshots are crash-consistent staging points, NOT final clean cutover state. At cutover, quiesce broker/adapter deliberately; take a final consistent checkpoint; verify broker passwords, persistence/retained topics and all consumers, one Zigbee coordinator, bridge CT210 connectivity, DNS alias/leases and HA reconnects. Keep old Node B CTs disabled on boot before promoting new CT230/CT231. Verify rollback in reverse order.
+
+### Operational blockers
+
+- Node A RAM remains ~8 GB with significant swap already used; moving HA-General, Plant Manager, HA-Security and MQTT/Zigbee production there requires retiring/stopping HA900 support only after dependencies and measured RAM headroom pass. Likely evaluate a 16 GB or larger physical RAM upgrade.
+- Node C's Steward permanent root installation requires its existing authorised deployment gate or a reviewed one-time root command; no broad sudo grant for `github-runner`.
+- HA900 full recoverable backup and slim cold reference on Node C still pending storage validation and verified restore; no old service or images deleted yet.
+- Node B, NAS and HA-Security remain in production locations until explicit tests and rollback criteria pass. Node C stays always-on by design.
 ## Stage gates
 
 1. **Independent-host / Guardian recovery topology.** Live `pvecm` checks on A/B confirmed neither is in a Proxmox Corosync cluster. Retain independent hosts (no added quorum witness). Audit Guardian/Consul, licensing/locks and split-brain behavior separately; sleeping Node B must not be treated as an unplanned outage or trigger a duplicate MQTT/Zigbee/HA leader. Explicit fencing and controlled recovery are required for B wake. Do not apply `pvecm expected` or in-cluster HA migration commands.
