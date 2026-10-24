@@ -33,7 +33,14 @@ check_entity() {
 }
 for entity in "$climate" "$indoor" "$call" "$learner"; do
     if ! check_entity "$entity"; then
-        echo 'JNS_HEATING_RUNTIME_BLOCKED essential_entity_unverified'
+        case "$entity" in
+          "$climate") label=climate ;;
+          "$indoor") label=indoor_sensor ;;
+          "$call") label=heating_call ;;
+          "$learner") label=learner ;;
+          *) label=unknown ;;
+        esac
+        echo "JNS_HEATING_RUNTIME_BLOCKED essential_entity_unverified:$label"
         exit 2
     fi
 done
