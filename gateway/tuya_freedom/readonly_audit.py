@@ -108,6 +108,50 @@ result["local_registry_health"] = {
     "entities_with_config_entry_link":sum(bool(e.get("config_entry_id")) for e in entity_by_platform["tuya_local"])
 }
 
+
+# Match native cloud device IDs to existing tuya_local entries, without
+# exporting or logging identifiers/local keys.
+cloud_entry_ids = {e.get("entry_id") for e in entries if e.get("domain") == "tuya"}
+local_configs = [e for e in entries if e.get("domain") == "tuya_local"]
+def normalized_ids(value):
+    vals = set()
+    if isinstance(value, list):
+        for x in value:
+            if isinstance(x, (list, tuple)) and len(x) == 2:
+                val = str(x[1]).strip().lower()
+                if len(val) >= 12:
+                    vals.add(val)
+    return vals
+cloud_devices = [
+    d for d in devices
+    if d.get("config_entry_id") in cloud_entry_ids
+]
+cloud_ids = {d["id"]: normalized_ids(d.get("identifiers", []))
+             for d in cloud_devices}
+local_ids = set()
+for d in devices:
+    if by_entry.get(str(d.get("config_entry_id"))) == "tuya_local":
+        local_ids.update(normalized_ids(d.get("identifiers", [])))
+for entry in local_configs:
+    data = entry.get("data", {})
+    for field in ("device_id", "id"):
+        value = data.get(field)
+        if isinstance(value, str) and len(value) >= 12:
+            local_ids.add(value.strip().lower())
+matched_cloud = {did for did, ids in cloud_ids.items() if ids & local_ids}
+result["device_reconciliation"] = {
+    "cloud_devices": len(cloud_devices),
+    "cloud_devices_with_identifiers": sum(bool(v) for v in cloud_ids.values()),
+    "cloud_devices_exact_id_matched_to_local": len(matched_cloud),
+    "cloud_devices_without_exact_local_match": len(cloud_devices) - len(matched_cloud),
+    "tuya_local_config_entries": len(local_configs)
+}
+# Entity IDs are private; count direct device-id references only.
+ref_cloud_dev = sum(
+    raw.count(d["id"]) for d in cloud_devices
+) if f.is_file() else 0
+result["automation_device_id_reference_count"] = ref_cloud_dev
+
 print(json.dumps(result, sort_keys=True))
 '''
 
