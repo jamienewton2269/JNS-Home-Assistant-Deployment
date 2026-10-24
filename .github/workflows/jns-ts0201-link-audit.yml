@@ -1,0 +1,17 @@
+name: JNS TS0201 Outdoor Sensor Link Readiness
+on:
+  push:
+    branches:
+      - 'dev/heating-thermal-learning-v035-20261024'
+    paths:
+      - 'gateway/heating/v0.3.5/ts0201-link.request'
+permissions:
+  contents: read
+jobs:
+  read-only:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect CT214 and CT212 service health and relevant logs
+        run: python3 gateway/heating/v0.3.5/ts0201_link_audit.py
