@@ -1,0 +1,25 @@
+name: JNS Solar Steward Location Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-steward-placement.yml'
+      - 'gateway/solar/steward_placement_readonly_v1.sh'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-solar-steward-placement
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm Steward location and restricted evidence directory
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/solar/steward_placement_readonly_v1.sh
+          bash gateway/solar/steward_placement_readonly_v1.sh
