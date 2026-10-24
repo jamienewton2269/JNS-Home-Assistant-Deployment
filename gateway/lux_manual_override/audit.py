@@ -29,6 +29,24 @@ for p in paths:
    name=str(a.get('alias',''))
    if re.search('lux|dusk|light.*control|light.*monitor',name,re.I):
     print('JNS_LUX_AUTOMATION',p.name,yaml.safe_dump(a,sort_keys=False,allow_unicode=True,width=160)[:18000],flush=True)
+print('JNS_LUX_CONTROLLED_AUTOMATIONS_SCRIPTS')
+for p in [root/'automations.yaml',root/'scripts.yaml',root/'jns/jns_lux_phase2_package.yaml']:
+ if not p.exists():continue
+ try: data=yaml.safe_load(p.read_text())
+ except Exception as e:
+  print('YAML_ERROR',str(p.relative_to(root)),type(e).__name__);continue
+ if p.name=='automations.yaml' and isinstance(data,list):
+  for a in data:
+   if not isinstance(a,dict):continue
+   dump=yaml.safe_dump(a,sort_keys=False,allow_unicode=True,width=160)
+   if re.search(r'(lux|brightness|lighting.*monitor|lighting.*apply|jns_lighting|general_lux)',dump,re.I) and re.search(r'(light.turn_on|switch.turn_on|script.jns|light.turn_off|automation.turn)',dump,re.I):
+    print('JNS_CONTROL_RULE',p.name,dump[:16500],flush=True)
+ elif p.name=='scripts.yaml' and isinstance(data,dict):
+  for key,item in data.items():
+   if re.search(r'(evening|lux|lighting)',key,re.I):
+    print('JNS_CONTROL_SCRIPT',p.name,key,yaml.safe_dump(item,sort_keys=False,allow_unicode=True,width=160)[:12000],flush=True)
+ elif p.name=='jns_lux_phase2_package.yaml':
+  print('JNS_PHASE2_PACKAGE',str(p.relative_to(root)),yaml.safe_dump(data,sort_keys=False,width=160)[:30000],flush=True)
 print('JNS_LUX_EXTRA_FILES')
 for p in sorted(root.rglob('*lux*')):
  if p.is_file() and len(p.parts)<9: print(str(p.relative_to(root)),flush=True)
