@@ -178,6 +178,27 @@ result["strict_device_reconciliation"] = {
     "cloud_devices_without_strict_match":len(cloud_devices)-len(strict_matches)
 }
 
+
+# Newer HA device registries deliberately split a physical device across config
+# entries. Count unique native identifiers before treating device records as
+# unique hardware; never print the identifiers themselves.
+native_freq = collections.Counter(v for d in cloud_devices for v in strict_native_ids(d))
+local_match_freq = {
+    local_id:sum(local_id in strict_native_ids(d) for d in cloud_devices)
+    for local_id in local_explicit_ids
+}
+cloud_entity_devices = {e.get("device_id") for e in entity_by_platform["tuya"]}
+result["physical_identity_summary"] = {
+    "unique_native_tuya_identifier_count":len(native_freq),
+    "native_identifier_record_multiplicity":dict(sorted(
+        collections.Counter(native_freq.values()).items())),
+    "local_ids_matched_to_cloud":sum(v>0 for v in local_match_freq.values()),
+    "local_explicit_id_match_multiplicity":dict(sorted(
+        collections.Counter(v for v in local_match_freq.values() if v>0).items())),
+    "cloud_records_without_tuya_entities":sum(
+        d["id"] not in cloud_entity_devices for d in cloud_devices)
+}
+
 print(json.dumps(result, sort_keys=True))
 '''
 
