@@ -13,6 +13,7 @@ import secrets
 import socket
 import struct
 import sys
+import time
 import uuid
 
 PORT = 24593
@@ -151,7 +152,11 @@ def stop(w):
         print("OBS_RECORDING_ALREADY_STOPPED")
         return
     response = request(w, "StopRecord")
-    if request(w, "GetRecordStatus").get("outputActive"):
+    for _ in range(12):
+        if not request(w, "GetRecordStatus").get("outputActive"):
+            break
+        time.sleep(0.25)
+    else:
         raise RuntimeError("OBS did not confirm recording stopped")
     path = response.get("outputPath", "")
     print("OBS_RECORD_STOP_CONFIRMED")
