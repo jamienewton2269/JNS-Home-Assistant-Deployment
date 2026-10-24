@@ -1,0 +1,14 @@
+name: JNS Node A SSH Trust Audit
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/repair/nodea-trust.request']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/repair/nodea-trust-audit.py
