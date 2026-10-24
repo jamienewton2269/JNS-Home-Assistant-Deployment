@@ -30,6 +30,24 @@ for name,key in (("core.entity_registry","entities"),("core.config_entries","ent
    print("ENABLED_MQTT_CONFIG_COUNT",len([e for e in data if e.get("domain")=="mqtt" and e.get("disabled_by") is None]),flush=True)
  except Exception as e:print("REGISTRY_ERR",name,type(e).__name__,flush=True)
 print("CORE_VERSION",Path("/config/.HA_VERSION").read_text().strip() if (P/".HA_VERSION").exists() else "unknown",flush=True)
+print("=== CAMERA DASHBOARD SUMMARY ===",flush=True)
+try:
+ d=json.loads((P/".storage"/"lovelace.dashboard_cameras").read_text())
+ config=d.get("data",{}).get("config",d.get("data",{}))
+ def walk(v,path="",depth=0):
+  if depth>10:return
+  if isinstance(v,dict):
+   relevant={k:v[k] for k in ("type","title","path","entity","camera_image","camera_view","url","view_layout") if k in v}
+   if relevant:print("CARD",path,json.dumps(relevant,default=str)[:950],flush=True)
+   for k,x in v.items():
+    if isinstance(x,(dict,list)):walk(x,path+"/"+str(k),depth+1)
+  elif isinstance(v,list):
+   for i,x in enumerate(v[:100]):walk(x,path+"/"+str(i),depth+1)
+ walk(config)
+except Exception as e:print("CAMERA_DASHBOARD_ERROR",type(e).__name__,flush=True)
+for e in json.loads((P/".storage"/"core.entity_registry").read_text())["data"]["entities"]:
+ if e.get("entity_id","").startswith("camera."):
+  print("CAMERA_ENTITY_PLATFORM",e.get("entity_id"),e.get("platform"),"disabled",e.get("disabled_by"),flush=True)
 print("HA_PRIMARY_NOTIFY_PREFLIGHT_COMPLETE",flush=True)
 '''
 enc="exec(__import__('base64').b64decode("+repr(base64.b64encode(SRC.encode()).decode())+"))"
