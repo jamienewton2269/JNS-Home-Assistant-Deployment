@@ -24,6 +24,7 @@ if ts.st_uid!=0 or stat.S_IMODE(ts.st_mode)!=0o600 or not 64<=ts.st_size<=4096:
                         "owner_root":ts.st_uid==0,
                         "mode_0600":stat.S_IMODE(ts.st_mode)==0o600,
                         "length_64_to_4096":64<=ts.st_size<=4096,
+                        "length_class":"empty" if ts.st_size==0 else ("short" if ts.st_size<64 else ("too_long" if ts.st_size>4096 else "expected")),
                         "file_is_regular":stat.S_ISREG(ts.st_mode),
                       }}))
     raise SystemExit(0)
