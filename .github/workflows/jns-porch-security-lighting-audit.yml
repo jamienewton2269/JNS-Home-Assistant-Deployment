@@ -1,0 +1,16 @@
+name: JNS Porch Security Lighting Read-only Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/doorbell/porch-lighting.request'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check HA-General porch sensor and security light path
+        run: python3 gateway/doorbell/porch-security-lighting-readonly.py
