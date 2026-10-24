@@ -85,6 +85,25 @@ GitHub Actions, on this development branch:
 9. Initially monitor learning **in advisory mode**; do not enable any new
    forecast-driven heating action until long-term field validation.
 
+## Operator promotion boundary — 24 October, later development
+
+- A narrow **audit-only** root gate has been drafted in
+  `nodeb_root_gate.py`. It is intended for root ownership on Node B,
+  never for execution from an arbitrary GitHub payload.
+- It binds to exact VM ID 905, stage ID
+  `v035-20261024T162546Z-43b0f6ec`, and candidate digest
+  `43b0f6ec0229d15dc137bbf3c52cd41b4bb125072fbcc49202e744ba8a19bc6c`.
+- The operator approval file belongs under `/etc/jns/` with mode 0600,
+  root ownership and `intent: assess_only`. There is no approved
+  activation/restart command in this gate.
+- Explicitly **not installed** on Node B, not added to sudoers, and not
+  connected to GitHub Actions for activation.
+- No runtime promotion until an independently verified HA integration
+  reload/restart + health checks and rollback are available.
+- The offline root-gate tests cover absent/wrong approvals, permissions,
+  unexpected input and non-root callers; check their CI run before relying
+  on the draft.
+
 ## Run links
 
 - Candidate green CI / live shadow:
