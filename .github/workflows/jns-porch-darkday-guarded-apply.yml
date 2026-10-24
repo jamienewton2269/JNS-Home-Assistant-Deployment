@@ -1,0 +1,21 @@
+name: JNS Porch Dark-day Guarded Apply
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/doorbell/porch-darkday-apply.request'
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-general-porch-darkday-condition
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate guarded patch script
+        run: python3 -m py_compile gateway/doorbell/porch-darkday-apply.py
+      - name: Apply exclusively to existing VM905 porch PIR condition and validate
+        run: python3 gateway/doorbell/porch-darkday-apply.py
