@@ -1,0 +1,35 @@
+name: VEYRA OBS blackframe v1.2 safety
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/trusted/veyra-obs-blackframe-diagnostic-v1.2.sh'
+      - '.github/workflows/veyra-obs-blackframe-v12-ci.yml'
+permissions: {contents: read}
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse bash and embedded Python, validate read-only source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-obs-blackframe-diagnostic-v1.2.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          import ast
+          s=Path('gateway/trusted/veyra-obs-blackframe-diagnostic-v1.2.sh').read_text()
+          embedded=s.split("python3 - \"$d\" <<'PY'\n",1)[1].split("\nPY\n",1)[0]
+          ast.parse(embedded)
+          for want in ("--hwdec=no", "--frames=1", "--vo=image", "--vo-image-outdir",
+                       "2026-10-24 18-37-25.mkv", "veyra-kiosk.service",
+                       "veyra-itvx-vnc-v01.service", "scan)", "play-sw)"):
+              assert want in s, want
+          for prohibited in ("systemctl stop", "systemctl restart", "kill -STOP", "apt-get",
+                             "ffmpeg -", "ffplay ", "Xvfb :92", "obs --",
+                             "--startrecording", "--startstreaming"):
+              assert prohibited not in s, prohibited
+          print("PASS: saved OBS frame examination and VAAPI-disabled replay only")
+          PY
