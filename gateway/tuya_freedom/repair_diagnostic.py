@@ -33,7 +33,7 @@ for e in entities:
 local={str(e.get("data",{}).get("device_id","")).lower():e for e in entries if e.get("domain")=="tuya_local"}
 cloud=collections.defaultdict(list)
 for d in devices:
-    if not set(d.get("config_entries",[])) & {e["entry_id"] for e in entries if e.get("domain")=="tuya"}:continue
+    if not ({d.get("config_entry_id")} | set(d.get("config_entries",[]))) & {e["entry_id"] for e in entries if e.get("domain")=="tuya"}:continue
     for name,value in d.get("identifiers",[]):
         if str(name).lower()=="tuya" and len(str(value))>=12:
             cloud[str(value).lower()].append(d)
