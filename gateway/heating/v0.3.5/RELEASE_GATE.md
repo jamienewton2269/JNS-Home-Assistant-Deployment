@@ -104,6 +104,28 @@ GitHub Actions, on this development branch:
   unexpected input and non-root callers; check their CI run before relying
   on the draft.
 
+## Final release architecture correction
+
+**Integration entry reload is not sufficient for an edited Python `thermal.py`**.
+Even though `async_unload_entry` exists, Home Assistant normally retains the
+old `custom_components.jns_heating_zones.thermal` module in Python's import
+cache. To activate this candidate, use a **controlled HA Core restart** and
+verify the new learner's `valid_windows` attribute through a genuine
+administrator-authenticated REST session.
+
+The root-owned `release_controller.py` and
+[RELEASE_OPERATOR.md](RELEASE_OPERATOR.md) supersede any earlier suggestion to
+promote solely by `homeassistant.reload_config_entry`. The controller is
+**not installed**; no administrator access token or local promotion approval
+has been provisioned, so actual promotion remains blocked. The available
+Supervisor token returned HTTP 401 against the real HA Core REST API
+(`http://ha-general.home.arpa:80`).
+
+Emergency rollback must work through the HAOS host volume
+(`/mnt/data/supervisor/homeassistant`) because a broken custom integration
+may prevent the Core container from starting. Retain the verified private
+backups and historic learning data.
+
 ## Run links
 
 - Candidate green CI / live shadow:
