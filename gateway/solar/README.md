@@ -96,6 +96,18 @@ Read-only private manifest capture succeeded: https://github.com/jamienewton2269
 - **This is metadata capture, not a complete configuration/secret export or restorable backup.** Capture and verify full service configurations in protected backup storage before stripping any add-ons or images.
 - Protected importer to the always-on **Node C Steward** is not yet verified; the unprivileged GitHub runner cannot write Node C's existing /var/lib/jns-steward directory. Do not claim Node C already has the private manifest.
 - Container removal, guest slimming, off-host backup and VM900 relocation have **not** happened. HA900 remains on Node A until consumers are verified and storage/restore tests pass.
+## Continuation evidence — 2026-10-24
+
+**Private HA900 inventory copied from Node A to Node C** (without disclosing service details). [Verified transfer](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40122911210) matches original manifest SHA-256 `77555d0defa1574c7e4d22e63130a42e8958766264b713b2e9f361524a221e82`. Stored in the Node C GitHub runner user's mode-0700 private staging directory; this is NOT yet the root-owned Steward database.
+
+**Per-container retirement register created privately on Node C**. [Verified protected register](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40123394762) documents all 21 containers across 12 candidate service groups with state, image, ports and unresolved replacement dependencies. Register SHA-256: `71bac555d65ac726394ba89b89d4a1ff61e254182681799784497d8e4c068ec0`. No container has yet been approved for removal. This register is intentionally **not committed to public GitHub**.
+
+**Steward migration checkpoint**: [read-only source/target gate](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40123069226) confirms the Node B service is `active` and `enabled`, knowledge seed and site-state are present, and the live ~0.05 MB SQLite `steward.db` passed its quick integrity check (13 schema objects). CT221 was not configured on Node B at audit time. The Node C private HA900 register staging is checksum-verified; no root-owned import utility is installed yet.
+
+**Natural Automation API blocker**: [read-only diagnostic](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40123208524) confirms Node B port 8099 accepts connections and `/` returns HTTP 200 while `/api/status` exceeded a 5-second timeout. The repository implementation of `/api/status` runs target resolver and full HA entity inventory; this diagnostic does not establish a broken service. Use a dedicated lightweight readiness probe plus dependency inventory before moving active Natural Automation to Node C. Keep Node B service unchanged until tested Node C sidecar and rollback exist.
+
+**Off-host full backup pending**: Read-only capacity check `.github/workflows/jns-solar-ha900-backup-capacity.yml` checks source ZFS and mounted NAS destination headroom without creating backups or mounting shares. Restore tests and backup source consistency are not yet complete, so destructive cleanup remains blocked.
+
 ## Stage gates
 
 1. **Independent-host / Guardian recovery topology.** Live `pvecm` checks on A/B confirmed neither is in a Proxmox Corosync cluster. Retain independent hosts (no added quorum witness). Audit Guardian/Consul, licensing/locks and split-brain behavior separately; sleeping Node B must not be treated as an unplanned outage or trigger a duplicate MQTT/Zigbee/HA leader. Explicit fencing and controlled recovery are required for B wake. Do not apply `pvecm expected` or in-cluster HA migration commands.
