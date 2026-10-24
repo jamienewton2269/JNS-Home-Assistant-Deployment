@@ -23,3 +23,5 @@ jobs:
           set -Eeuo pipefail
           bash -n gateway/solar/read_only_inventory_v1.sh
           bash gateway/solar/read_only_inventory_v1.sh
+          bash -n gateway/solar/read_only_cluster_v2.sh
+          bash gateway/solar/read_only_cluster_v2.sh
