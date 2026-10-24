@@ -1,0 +1,3 @@
+action=validate_existing_five
+reason=local_token_installed_by_operator
+safety=read_only
