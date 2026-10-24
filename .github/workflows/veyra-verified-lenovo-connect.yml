@@ -34,7 +34,7 @@ jobs:
             if timeout -k 2s 16s ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes \
               -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$work/known_hosts" \
               -o ConnectTimeout=6 -o ConnectionAttempts=1 \
-              "jnsadmin@$TARGET" 'echo VEYRA_OBS_NATIVE_XSHM_READONLY_AUDIT; echo SHARED_LIB_SYMBOLS; ls -l /usr/lib/x86_64-linux-gnu/obs-plugins/linux-capture.so; strings /usr/lib/x86_64-linux-gnu/obs-plugins/linux-capture.so | grep -Ei "^xshm_input(_v2)?$|^xshm-input|^xcomposite_input" | sort -u | head -35; echo OBS_VERSION; obs --version; echo DISPLAY_EXTENSIONS; DISPLAY=:92 xdpyinfo -queryExtensions 2>&1 | grep -Ei "MIT-SHM|RANDR|XINERAMA|COMPOSITE" | head -15; echo OBS_APP_STATE; ps -eo pid,user,args | grep -E "[o]bs --multi|[X]vfb :9(2|3)" | head -10; echo AUDIO_SERVICE; systemctl is-active veyra-kiosk.service veyra-virtual-loopback-v01.service veyra-itvx-vnc-v01.service; echo AUDIT_DONE' ; then
+              "jnsadmin@$TARGET" 'echo OBS_REPAIR_UTILITIES; for x in xdotool wmctrl xprop xwininfo obs ffprobe pactl python3; do if command -v "$x" >/dev/null; then command -v "$x"; else echo MISSING_$x; fi; done; echo XSHM_PREVIEW; DISPLAY=:92 xdpyinfo 2>&1 | grep -E "dimensions:|depths:" | head -3; echo VIRTUAL_CHROME; ps -eo pid,user,args | grep -E "[c]hrome.*--display=:92|[c]hrome.*--user-data-dir|[X]vfb :92" | head -5 | cut -c 1-210; echo DONE' ; then
               echo "VEYRA_REMOTE_ACCESS_PASS: $(basename "$key")"
               exit 0
             else
