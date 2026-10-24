@@ -1,0 +1,22 @@
+name: JNS Lux Manual OFF V2 Transactional Deploy
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/lux_manual_override/v2-deploy.request'
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-lux-manual-v2
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Guarded VM905 correction, reload without restart
+        run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/lux_manual_override/patch_v2_vm905.py gateway/lux_manual_override/runner_v2.py gateway/lux_manual_override/rollback_v2_vm905.py gateway/lux_manual_override/deploy_v2.py
+          python3 gateway/lux_manual_override/deploy_v2.py
