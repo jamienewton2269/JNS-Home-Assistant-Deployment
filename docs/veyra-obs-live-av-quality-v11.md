@@ -87,6 +87,11 @@ sudo bash ~/veyra-obs-mkv-review-v1.1.sh play
 - Created `gateway/trusted/veyra-display-isolation-v1.2.sh`: a **12-second static four-colour test pattern** shown via mpv directly in existing Wayland session (no capture, SRT, OBS startup, recorder pause or compositor changes). Its output will determine whether a newly launched mpv Wayland client can become visible. GitHub safety validation PASS.
 - If colour bars remain invisible while mpv reports video output, fix physical kiosk window presentation before repeating OBS test. If bars are visible, inspect recorded MKV's actual programme content and OBS XSHM source geometry; focus on captured black frames or protected-player output. Preserve all three MKVs; no production cutover.
 
+## 24 October 2026 — Physical mpv picture confirmed
+- User confirmed the **four-colour static mpv test pattern was visible** on the laptop physical screen. Therefore a separate mpv Wayland client **can** present over Cage; do not assume the kiosk is preventing all new mpv windows.
+- What remains unverified is **the actual programme pixels in the most recent OBS MKV** (`2026-10-24 18-37-25.mkv`), rather than just an encoded H.264/AAC container. To isolate the remaining failure from SRT, replay the existing third sample with the trusted read-only `veyra-obs-mkv-review-v1.1.sh play` utility *without running OBS again*.
+- If that recording has visible programme picture and sound, the live SRT stream/player path (repeated connection rejections) is the next fault. If it is blank/black, inspect OBS XSHM capture source and the :92 browser picture before any further recording. OBS `xshm_input_v2` does support `advanced=true, server=:92, screen=0` per upstream plugin source, but runtime source settings/visibility must be verified. No DRM workarounds.
+
 ## Retention and next gate
 
 This run creates **one approximately 30-second audiovisual test buffer**, not 30 minutes, and is *not yet a circular buffer*. Once capture/perception are verified, switch to OBS-backed bounded segmented storage with play/pause/rewind using a separate recorder output strategy and proper disk/time limits. Prefer source frame-rate rather than repeating fixed 50 fps.
