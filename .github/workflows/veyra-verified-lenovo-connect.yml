@@ -34,7 +34,7 @@ jobs:
             if timeout -k 2s 16s ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes \
               -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$work/known_hosts" \
               -o ConnectTimeout=6 -o ConnectionAttempts=1 \
-              "jnsadmin@$TARGET" 'echo OBS_X93_RECOVERY_VERIFICATION; date; echo X93_LOCK_AND_SOCKET; ls -l /tmp/.X93-lock /tmp/.X11-unix/X93 2>&1 || true; echo X93_PROCESSES; ps -eo pid,ppid,user,stat,etime,args | grep -E "[X]vfb :93|[X]vfb :92" | cut -c 1-220; echo GUARDED_SERVICES; for u in veyra-kiosk.service veyra-virtual-loopback-v01.service veyra-itvx-vnc-v01.service; do echo "$u=$(systemctl is-active "$u")"; done; echo RECORDER; ps -C ffmpeg -o pid,stat,pcpu,args | cut -c 1-185 | head -4; echo AUDIT_END' ; then
+              "jnsadmin@$TARGET" 'echo OBS_CAPTURE_PREP_AUDIT; echo OBS_PROBE_FILE_STRUCTURE; find /opt/veyra/obs-backend-v1/probe-config -maxdepth 7 -type f 2>/dev/null | head -40; echo OBS_DEFAULT_SCENE; for f in /opt/veyra/obs-backend-v1/probe-config/obs-studio/basic/scenes/*.json; do test -f "$f" && head -c 11000 "$f"; done; echo OBS_PROFILE_DATA; for f in /opt/veyra/obs-backend-v1/probe-config/obs-studio/basic/profiles/*/basic.ini; do if test -f "$f"; then grep -E "^\[|^Base|^Output|^FPS|^Sample|^Channel|^File|^Rec|^Mode|^VBitrate|^ABitrate|^StreamEncoder|^RecEncoder" "$f"; fi; done; echo VIDEO_PLAYERS; for p in mpv vlc gst-play-1.0 gst-launch-1.0 ffprobe mediainfo; do command -v "$p" || true; done; echo AUDIO_PULSE; ls -l /run/user/999/pulse/native /tmp/.X11-unix/X92; echo EXIT' ; then
               echo "VEYRA_REMOTE_ACCESS_PASS: $(basename "$key")"
               exit 0
             else
