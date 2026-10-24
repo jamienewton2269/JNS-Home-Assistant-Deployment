@@ -32,3 +32,17 @@ for url in ('http://supervisor/core/api/','http://supervisor/core/api/config',
 src="exec(__import__('base64').b64decode("+repr(base64.b64encode(CODE.encode()).decode())+"))"
 r=qga(['docker','exec','homeassistant','python3','-c',src])
 print('HA_CORE_API_PROBE',(r.get('out-data') or '')[-3000:],'EXIT',r.get('exitcode'),flush=True)
+
+# Probe HAOS guest's own authorised management context; never emit tokens.
+HOST=r"""
+printf 'HOST_PROBE_BINARIES '
+command -v curl || true
+printf 'HOST_PROBE_CONFIG_EXISTS '
+if test -f "$HOME/.homeassistant.yaml"; then echo yes; else echo no; fi
+printf 'HOST_PROBE_SUPERVISOR_TOKEN_EXISTS '
+if test -n "$SUPERVISOR_TOKEN"; then echo yes; else echo no; fi
+printf 'HOST_PROBE_CLI_ENDPOINT '
+ha cli info 2>&1 | head -c 1100
+"""
+r=qga(['sh','-c',HOST])
+print('HAOS_CLI_CONTEXT',(r.get('out-data') or '')[-1600:],'EXIT',r.get('exitcode'),flush=True)
