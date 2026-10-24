@@ -4,9 +4,9 @@ Status: **AUDIT / NOT APPROVED FOR CUTOVER**. No VM, CT, NAS, host, quorum, or a
 
 ## Goal
 
-Run production Home Assistant, control, DNS, MQTT, Zigbee, security, and monitoring on **Node A** where capacity and dependency checks allow. Keep Node B powered down until standby/recovery or a planned backup/maintenance operation needs it. Power down high-draw NAS only after it is cleanly quiesced and there are no active mounts, recordings, backups, or authoritative DNS dependencies.
+Run production Home Assistant, security, MQTT, Zigbee, DNS and house control on **Node A** where capacity and dependency checks allow. Keep **Node C always on for the JNS Steward server, GitHub runner and management/diagnostics plane**. Keep **Node B powered down** until recovery or maintenance needs it. Power down the high-draw NAS only after safe backup completion and storage release.
 
-Retain DNS-first addressing and the existing GitHub Node C trusted inspection/deployment path until an equivalent, tested runner has been relocated. Preserve VM903 Plant Manager's configuration, VM905 HA-General automations, VM902 lightweight Primary, VM906 HA-Security, camera ownership on VM905, and all history/authentication.
+Retain DNS-first addressing and the established GitHub Node C trusted inspection/deployment path permanently on the management-plane host. Preserve VM903 Plant Manager's configuration, VM905 HA-General automations, VM902 lightweight Primary, VM906 HA-Security, camera ownership on VM905, and all history/authentication.
 
 ## Live preflight — 2026-10-24
 
@@ -47,7 +47,7 @@ Read-only NAS/DNS backend relationships: https://github.com/jamienewton2269/JNS-
 
 ## Additional mandatory migration: HA-Security VM906 (Node C → Node A)
 
-This is **in scope for Solar Economy**: HA-Security is not to remain dependent on Node C when Node C is eventually put into a low-power or maintenance state. Current Node C VM906 service is the authority for manual alarm logic, ESPHome/KC868-A16 security endpoints and future SecureAssist integration. The approved target is **Node A**, keeping DNS name `ha-security.home.arpa` managed dynamically by Sheriff (no fixed addressing/DHCP reservations).
+This is **in scope for Solar Economy**: HA-Security VM906 will move to production Node A while Node C remains the always-on Steward and management server. Current Node C VM906 service is the authority for manual alarm logic, ESPHome/KC868-A16 security endpoints and future SecureAssist integration. The approved target is **Node A**, keeping DNS name `ha-security.home.arpa` managed dynamically by Sheriff (no fixed addressing/DHCP reservations).
 
 **Migration safety conditions:**
 
@@ -58,15 +58,32 @@ This is **in scope for Solar Economy**: HA-Security is not to remain dependent o
 5. Install and stage an offline guest copy (no production network attachment or alarm output) on Node A if resources permit. Preserve its identity and storage ownership; confirm config parity with source before stopping original. For actual cutover, coordinate controlled source shutdown, preserve desired alarm state and alert pathways, bring up only the new guest, verify `ha-security.home.arpa` resolves to its live address and all alarm/tamper/doorbell paths work, then monitor and explicitly mark source as non-booting standby.
 6. Reversal: if security monitoring or alarm control fails, shut down the target first, then restore the original Node C VM906 and DNS identity after checking network uniqueness; restore the previous security state and verify notifications. Never leave both armed controllers running.
 
-**Node C cannot be powered off simply by moving VM906.** It still hosts the GitHub runner/deployment gateway, management bridge, DNS importer and CT117/130/249; separately relocate or retain those dependencies before claiming one always-on physical node. Keep Node C online until its services and emergency recovery path have migrated and been verified.
+**Node C stays powered on by design.** Keep the Steward, GitHub runner/deployment gateway, management bridge, DNS importer and required CT117/130/249 on Node C. Only the HA-Security workload moves to Node A. Target is two powered hosts (production A + management C), with B and large backup NAS normally off.
 
+## HA900 cold reference and supporting-service cleanup
+
+**Approved objective:** After dependencies are moved and documented, move HA900 from Node A to Node C as a **stopped, non-autostart reference** and remove unnecessary supporting-service runtime payloads to save disk space. Node C continues running the independent Steward and management services. HA900 itself must not have an active network, Zigbee, alarm, MQTT or automation role.
+
+**Storage constraint (live audits 2026-10-24):** HA900 has a 256 GB provisioned virtual disk, approximately 27.9 GB referenced data and 44.4 GB ZFS-accounted usage. Node C root had only ~5.9 GiB free on an 80 GiB host disk. Further datastore capacity checks are needed; a thick 256 GB restore is NOT authorised. Reducing auxiliary containers and compacting a sparse archival image may help, but must not compromise recovery.
+
+**Ordered safe procedure:**
+
+1. Inventory and document every HA900 add-on and container: purpose, version, image, enabled status, ports, data locations, settings, backup methods, dependent consumers and which live lean-node service supersedes it. The earlier audit found 19 running containers; identified roles include DNS, ESPHome, audio, Piper, multicast, SSH, observer and Supervisor. Unknown service consumers block cleanup.
+2. Record the complete service manifest and configuration exports in **protected onsite Steward storage on Node C**, with secrets, encryption keys and auth tokens restricted to authorised local access. Never publish raw config, identities, network addresses, credentials or exports to public GitHub or GitHub Actions logs. Save only redacted roles/versions/progress publicly.
+3. Before any deletion, produce a full **independently restorable pre-cleanup backup** of HA900 with Supervisor, service config, addon data, encrypted secrets, HA history and relevant ZFS/VM configuration. Verify backup digest, the off-host copy, restore/decryption feasibility and location before any destructive step. Preserve one unmodified complete recovery copy even after slimming the reference guest.
+4. Confirm every live consumer has been moved away or is deliberately retired: especially ESPHome/KC868 security, DNS forwarding, TTS/Piper/audio, MQTT/Zigbee and remote management paths. Verify replacement service health and retain rollback.
+5. Strip **only a disposable staged copy**, not the live source: uninstall identified redundant add-ons via supported HA Supervisor methods where possible, preserve exported configs and safely remove unused image layers without deleting required Docker volumes, HAOS data partitions or Supervisor state. Reclaim sparse blocks only with filesystem/storage-format-aware operations and verify saved bytes.
+6. Place a slim, verified cold-reference guest or importable snapshot on Node C under a collision-free VM ID with adequate datastore headroom. Keep guest stopped, onboot=0 and network disabled so it cannot conflict with live HA. Document cold boot/reference procedures but do not boot it on the production network.
+7. Only after backup, cold-copy integrity, consumer checks and explicit safety gates pass: cleanly shut down the original Node A HA900, set onboot=0 and remove its Node A disk via the guarded migration cleanup. Record all removed image/container/volume identifiers, the config archive pointers, cleanup timestamps, checksums, reclaimed GiB, and rollback instructions in the always-on Steward.
+
+**Do not claim cleanup finished until the archive is verified and service payloads are actually removed.** Current status is read-only assessment; no HA900 services or volumes have been deleted.
 ## Stage gates
 
 1. **Independent-host / Guardian recovery topology.** Live `pvecm` checks on A/B confirmed neither is in a Proxmox Corosync cluster. Retain independent hosts (no added quorum witness). Audit Guardian/Consul, licensing/locks and split-brain behavior separately; sleeping Node B must not be treated as an unplanned outage or trigger a duplicate MQTT/Zigbee/HA leader. Explicit fencing and controlled recovery are required for B wake. Do not apply `pvecm expected` or in-cluster HA migration commands.
 2. **Guest identity and capacity.** Record exact running guest's node, disk type, filesystem, memory peaks, config fingerprint, onboot, device passthrough, mountpoints, bindings, IP/DNS identity, and recovery snapshot. No collisions with Node A CT212 or existing stopped VMIDs.
 3. **Service continuity.** Replicate/restore Node B MQTT persistence (CT212), Zigbee2MQTT state (CT214) and automation (VM905) to conflict-free Node A targets; preserve broker hostname/client reconnection, one active Zigbee coordinator, serial bridge CT210, Lyric auth, recorder and learned state. No blanket source/target restarts. Verify HA General, HA Primary, Plant Manager, Security and camera capabilities individually. Explicitly include moving HA-Security VM906 from Node C to Node A (see mandatory section above).
 4. **Node B host processes.** Move or retire `natural-automation.service`, infrastructure discovery, CT220 management, logging, time and Guardian dependencies before physical shutdown. Determine what remains intentionally sleeping and disable onboot where duplicated service starts could split brain.
-5. **Node C dependencies.** Do not power down the Node C runner, DNS reservation importer, management bridge, CT249/130/117 or HA-Security VM906 before relocating/retaining those capabilities. Re-register the GitHub runner with a fresh identity on an always-on host (never clone credentials). If Node C remains on for quorum, document this as a two-powered-node interim mode, not full single-node economy.
+5. **Always-on Node C Steward and management.** Keep the existing Node C GitHub runner, Steward, DNS importer, management bridge and required CT249/130/117 in service; confirm the actual Steward service path. Transfer only HA-Security VM906 to Node A. Node C is NOT a Proxmox quorum witness. This is intentionally a two-powered-node operating mode, not an interim state.
 6. **NAS discipline.** Identify XigmaNAS high-draw hardware vs WD My Cloud NFS shares. XigmaNAS's known Wake-on-LAN limitations mean clean remote shutdown and the specifically approved Tuya/BIOS power-recovery mechanism, not unguarded power removal. Keep socket energised through OS shutdown and verify device is off before controlled socket restart. Never cycle the protected router plug. Backup targets must show mounted/reachable before a backup; verify success and data integrity, release open handles, unmount and only then shut NAS down. Keep authoritative DNS data reachable when NAS is off.
 7. **System boot order and fallback.** Start essential DNS/NTP → MQTT → Zigbee → HA-General → HA-Primary / Plant Manager / HA-Security as dependencies require. Automatic 'onboot' should be enabled only for verified active production guests. A sleeping Node B may wake on explicit service recovery or maintenance, but must not start duplicate HA brokers/bridges by itself. Test physical wake path and independent out-of-band recovery before any power-off.
 8. **Solar automation later.** First commission a manual Economy/Normal/Recovery switch with dry-run gate results. After verifying inverter PV/battery SOC entities, add hysteresis and minimum on/off dwell times, forecasts, battery reserve and critical load exemptions. Never cut safety-critical systems solely on low PV readings.
@@ -83,5 +100,5 @@ This is **in scope for Solar Economy**: HA-Security is not to remain dependent o
 
 ## Prohibited operations until gates clear
 
-No host shutdown, hard Tuya power cut, Proxmox cluster conversion, blind ID migration, destroy/delete VM/CT, automatic failover promotion, or NAS shared-storage unmount while in use.
+No host shutdown, hard Tuya power cut, Proxmox cluster conversion, blind ID migration, removal of HA900 source data before a verified independent recovery copy, automatic failover promotion, or NAS shared-storage unmount while in use.
 
