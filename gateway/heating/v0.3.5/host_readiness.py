@@ -38,6 +38,16 @@ if db.is_file():
       "age_minutes":round((datetime.datetime.now(datetime.timezone.utc).timestamp()-ts)/60,1)}
   con.close()
  except Exception as exc:report["recorder_error"]=type(exc).__name__
+import ast
+try:
+ comp=root/"custom_components"/"jns_heating_zones"
+ tree=ast.parse((comp/"__init__.py").read_text())
+ report["entry_handler_names"]=[n.name for n in tree.body
+    if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef)) and n.name.startswith("async_")]
+ source=(comp/"sensor.py").read_text()
+ report["sensor_attribute_key_supported"]=("extra_state_attributes" in source)
+ report["sensor_learned_reference"]=("learned" in source)
+except Exception as e:report["component_inspect_error"]=type(e).__name__
 print(json.dumps(report,sort_keys=True))
 '''
 def guest(args,timeout=75):
