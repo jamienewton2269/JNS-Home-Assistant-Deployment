@@ -1,0 +1,19 @@
+name: JNS Node A Verified SSH Repair
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/repair/nodea-fix.request'
+permissions:
+  contents: read
+concurrency:
+  group: jns-nodec-ssh-alias-maintenance
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Establish verified nodea alias and check both SSH connections
+        run: python3 gateway/repair/fix-nodec-nodea-trust.py
