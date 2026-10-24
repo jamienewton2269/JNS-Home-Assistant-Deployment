@@ -236,6 +236,14 @@ try:
 except (ValueError,IndexError,OSError,KeyError,TypeError,ZeroDivisionError):
     out["thermal_signal_summary_unavailable"]=True
 
+
+# Version-locked source snapshot for offline v0.3.5 candidate derivation.
+source_file=comp/"thermal.py"
+if source_file.is_file() and hashlib.sha256(source_file.read_bytes()).hexdigest()=="SHA_UNKNOWN":
+    out["thermal_source_snapshot"]=source_file.read_text(encoding="utf-8")
+else:
+    out["thermal_source_snapshot"]="SOURCE_CHANGED_OR_MISSING"
+
 print(json.dumps(out,sort_keys=True))
 '''
 
