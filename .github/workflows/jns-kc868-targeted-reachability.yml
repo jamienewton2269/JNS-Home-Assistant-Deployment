@@ -1,0 +1,19 @@
+name: JNS KC868 Original Address Reachability
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/doorbell/kc868-targeted.request'
+permissions:
+  contents: read
+concurrency:
+  group: jns-kc868-doorbell-network-survey
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe old KC868 endpoint without altering outputs
+        run: python3 gateway/doorbell/kc868-targeted-reachability.py
