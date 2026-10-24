@@ -24,3 +24,24 @@ try:
     print("NODEC_SCAN_FINGERPRINT",p.stdout.strip()[:180],"keyscan_rc",s.returncode,flush=True)
 except Exception as e:print("NODEC_SCAN_BLOCKED",type(e).__name__,flush=True)
 print("DONE_READ_ONLY",flush=True)
+
+
+# Prove direct auth with a TEMPORARY known_hosts entry, sourced from Node A via
+# a verified SSH session on Node B. Never use accept-new or disable verification.
+import tempfile,os
+rc,pub,err=remote(["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes","root@nodea.home.arpa","cat /etc/ssh/ssh_host_ed25519_key.pub"])
+if rc==0 and pub.split()[:1]==["ssh-ed25519"] and len(pub.split())>=2:
+    observed=subprocess.run(["ssh-keyscan","-T","4","-t","ed25519","nodea.home.arpa"],capture_output=True,text=True,timeout=8)
+    match=any(line.split()[1:3]==pub.split()[:2] for line in observed.stdout.splitlines() if line and not line.startswith("#"))
+    print("NODEA_CROSS_VERIFIED",match,flush=True)
+    if match:
+        with tempfile.NamedTemporaryFile(mode="w",prefix="jns-ssh-attested-",delete=False) as f:
+            f.write("nodea.home.arpa "+pub.split()[0]+" "+pub.split()[1]+"\n")
+            file=f.name
+        try:
+            rc,out,err=run(["ssh","-o","UserKnownHostsFile="+file,"-o","GlobalKnownHostsFile=/dev/null",
+                "-o","BatchMode=yes","-o","StrictHostKeyChecking=yes","-o","ConnectTimeout=5",
+                "root@nodea.home.arpa","hostname -s"],timeout=12)
+            print("NODEC_TO_NODEA_WITH_VERIFIED_PIN","rc",rc,"identity",out[:30],"error",err[:140],flush=True)
+        finally:os.unlink(file)
+else:print("NODEA_PIN_TEST_BLOCKED",rc,err[:140],flush=True)
