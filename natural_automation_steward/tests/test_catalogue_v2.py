@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import subprocess
 from pathlib import Path
 import sqlite3
 import sys
@@ -24,6 +25,9 @@ class CatalogueTests(unittest.TestCase):
             'name: Repair Lux Controller\n'
             'jobs:\n  deploy:\n    steps:\n      - run: python3 gateway/lux_manual_override/repair.py\n'
         )
+        subprocess.run(["git","init","-q"],cwd=root,check=True)
+        subprocess.run(["git","-c","user.name=Test","-c","user.email=test@example.invalid",
+            "commit","--allow-empty","-qm","fixture"],cwd=root,check=True)
     def test_complete_static_dossiers_and_linked_workflow(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);self._fixture(root)
