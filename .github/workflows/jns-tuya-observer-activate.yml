@@ -1,0 +1,24 @@
+name: JNS Tuya Freedom Activate Tokenless Observer
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/tuya_freedom/activate.request'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-tuya-observer-deployment
+  cancel-in-progress: false
+jobs:
+  activate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - name: Transactional HA-General Core-only activation; verify or rollback
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/tuya_freedom/activate_tokenfree.py gateway/tuya_freedom/component/__init__.py
+          python3 gateway/tuya_freedom/activate_tokenfree.py --apply
