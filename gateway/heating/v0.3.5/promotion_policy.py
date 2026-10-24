@@ -23,8 +23,10 @@ def approve(job, permit, now=None):
     if job["job_type"]!=JOB_TYPE or job["stage_id"]!=STAGE_ID:
         raise PolicyDenied("wrong job type or pinned stage")
     if not isinstance(permit,dict) or set(permit)!={
-        "operation","stage_id","candidate_sha","expires_utc","heating_outage_approved"}:
+        "operation","stage_id","candidate_sha","expires_utc","heating_outage_approved","job_id"}:
         raise PolicyDenied("local root approval fields invalid")
+    if permit["job_id"]!=job["job_id"]:
+        raise PolicyDenied("local maintenance permit not bound to exact immutable job")
     if permit["operation"]!=APPROVAL_OPERATION or permit["stage_id"]!=STAGE_ID:
         raise PolicyDenied("local maintenance approval not for this stage")
     if permit["candidate_sha"]!=CANDIDATE_SHA or permit["heating_outage_approved"] is not True:
