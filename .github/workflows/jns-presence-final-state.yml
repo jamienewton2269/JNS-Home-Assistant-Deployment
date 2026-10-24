@@ -1,0 +1,14 @@
+name: JNS MQTT Deployment Final State
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/area_presence/final.request']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/area_presence/final_state.py
