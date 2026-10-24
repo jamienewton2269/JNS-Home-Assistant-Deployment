@@ -1,0 +1,27 @@
+name: JNS Steward Complete Repair Knowledge Sync
+on:
+  schedule:
+    - cron: '27 */6 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'steward_knowledge/repair-catalogue-sync.request'
+permissions:
+  contents: read
+concurrency:
+  group: jns-steward-repair-knowledge
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Static safety acceptance then on-site transactional repair knowledge sync
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n steward_knowledge/sync_catalogue_nodec.sh
+          bash steward_knowledge/sync_catalogue_nodec.sh
