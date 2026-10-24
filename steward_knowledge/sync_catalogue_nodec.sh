@@ -9,7 +9,7 @@ SEED="/tmp/jns-steward-repairs-$GITHUB_RUN_ID.json"
 NODE=nodeb.home.arpa
 REMOTE="/tmp/jns-steward-repair-$GITHUB_RUN_ID"
 trap 'rm -f "$SEED"' EXIT
-python3 -m py_compile "$PY" steward_knowledge/verify_catalogue_live.py
+python3 -m py_compile "$PY" steward_knowledge/verify_catalogue_live.py steward_knowledge/repair_lookup.py
 python3 -m unittest discover -s natural_automation_steward/tests -p test_catalogue_v2.py -v
 python3 "$PY" --repo-root . --export-json "$SEED"
 COUNT="$(python3 - "$SEED" "$GITHUB_SHA" <<'PY'
@@ -28,17 +28,21 @@ SCP=(scp -q -o BatchMode=yes -o StrictHostKeyChecking=yes)
 "${SSH[@]}" "install -d -m 0700 '$REMOTE'"
 "${SCP[@]}" "$PY" "root@$NODE:$REMOTE/loader.py"
 "${SCP[@]}" steward_knowledge/verify_catalogue_live.py "root@$NODE:$REMOTE/verify.py"
+"${SCP[@]}" steward_knowledge/repair_lookup.py "root@$NODE:$REMOTE/lookup.py"
 "${SCP[@]}" "$SEED" "root@$NODE:$REMOTE/seed.json"
 SUM_PY="$(sha256sum "$PY" | cut -d' ' -f1)"
 SUM_SEED="$(sha256sum "$SEED" | cut -d' ' -f1)"
 SUM_VERIFY="$(sha256sum steward_knowledge/verify_catalogue_live.py | cut -d' ' -f1)"
+SUM_LOOKUP="$(sha256sum steward_knowledge/repair_lookup.py | cut -d' ' -f1)"
 "${SSH[@]}" "set -Eeuo pipefail
   cd '$REMOTE'
-  printf '%s  %s\n' '$SUM_PY' loader.py '$SUM_SEED' seed.json '$SUM_VERIFY' verify.py | sha256sum -c - >/dev/null
-  python3 -m py_compile loader.py verify.py
+  printf '%s  %s\n' '$SUM_PY' loader.py '$SUM_SEED' seed.json '$SUM_VERIFY' verify.py '$SUM_LOOKUP' lookup.py | sha256sum -c - >/dev/null
+  python3 -m py_compile loader.py verify.py lookup.py
   flock -n /run/lock/jns-steward-repair-catalogue.lock \
     python3 loader.py --db /opt/natural-automation/data/steward.db --import-json seed.json
   python3 verify.py '$GITHUB_SHA' '$COUNT'
+  install -o root -g root -m 0755 lookup.py /opt/natural-automation/tools/steward_repair_lookup.py
+  python3 /opt/natural-automation/tools/steward_repair_lookup.py zigbee --limit 3 | python3 -c 'import json,sys; v=json.load(sys.stdin);assert v[\"count\"]>=1;assert v[\"execution_authority\"]==\"none\";print(\"JNS_STEWARD_OFFLINE_REPAIR_SEARCH_OK\",v[\"count\"])'
   systemctl is-active --quiet natural-automation.service
 "
 echo JNS_STEWARD_REPAIR_SYNC_OK_NO_HA_RESTART
