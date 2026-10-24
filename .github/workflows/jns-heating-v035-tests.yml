@@ -1,0 +1,23 @@
+name: JNS Heating v0.3.5 Candidate Tests
+on:
+  push:
+    branches:
+      - 'dev/heating-thermal-learning-v035-20261024'
+    paths:
+      - 'gateway/heating/v0.3.5/**'
+      - '.github/workflows/jns-heating-v035-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unit-tests:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Candidate syntax and safe offline model tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/heating/v0.3.5/thermal.py
+          python3 -m unittest discover -v -s gateway/heating/v0.3.5 -p 'test_*.py'
