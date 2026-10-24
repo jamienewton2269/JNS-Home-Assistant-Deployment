@@ -1,1 +1,1 @@
-2026-10-24T18:31+01:00 approved user request dark-day porch PIR OR lux threshold; change only one condition; validate, rollback; no HA restart or relay activation
+2026-10-24T18:43+01:00 retry patch and validation with increased 240s bounded timeout; prior attempt rolled back
