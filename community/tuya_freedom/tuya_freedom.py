@@ -249,7 +249,7 @@ def user_rollback(ha, journalfile, confirm):
 def main():
     parser = argparse.ArgumentParser(description="Cloud-to-local Tuya migration, HA WebSocket based")
     parser.add_argument("action", choices=["audit", "plan", "cutover", "rollback", "verify"])
-    parser.add_argument("--url", default="http://ha-general.home.arpa:8123",
+    parser.add_argument("--url", default="http://homeassistant.local:8123",
                         help="Home Assistant URL (any installation)")
     parser.add_argument("--token-env", default="HA_TOKEN",
                         help="Environment variable holding HA long-lived admin token")
