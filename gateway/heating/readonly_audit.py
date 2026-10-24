@@ -131,6 +131,29 @@ for entry in out.get("matching_storage_files",[]):
     except (ValueError,OSError):
         entry["shape_unavailable"]=True
 
+
+for filename,ranges in {"thermal.py":[(5,100)],"coordinator.py":[(28,90)],"sensor.py":[(35,65)]}.items():
+    file_path=comp/filename
+    if not file_path.exists():
+        continue
+    lines=file_path.read_text(errors="replace").splitlines()
+    excerpts=[]
+    for first,last in ranges:
+        for i in range(first-1,min(last,len(lines))):
+            line=lines[i]
+            if re.search(r"(?i)(password|api_key|secret|authorization|bearer|access_token|refresh_token|client_secret)",line):
+                line="[REDACTED]"
+            excerpts.append(f"{i+1}: {line[:180]}")
+    out.setdefault("model_readiness_code",{})[filename]="\n".join(excerpts)[:15000]
+# Structural sample metadata only; raw temperatures, locations and times are withheld.
+try:
+    store=json.loads((stor/out["matching_storage_files"][0]["name"]).read_text())
+    sample_data=store.get("data",{}).get("samples",[])
+    if sample_data and isinstance(sample_data[0],dict):
+        out["saved_sample_schema"]=sorted(sample_data[0].keys())
+except (IndexError,KeyError,ValueError,OSError,TypeError):
+    out["saved_sample_schema_unavailable"]=True
+
 print(json.dumps(out,sort_keys=True))
 '''
 
