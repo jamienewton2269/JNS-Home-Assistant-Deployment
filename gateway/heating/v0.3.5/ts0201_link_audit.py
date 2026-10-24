@@ -36,7 +36,7 @@ shell="""for file in /opt/zigbee2mqtt/data/configuration.yaml /var/lib/zigbee2mq
  fi
 done"""
 block=read("nodeb",["pct","exec","214","--","sh","-c",shell])
-out["temperature_calibration_declared"]=bool(re.search(r"(?m)^\\s*temperature_calibration\\s*:",block))
-cal=re.search(r"(?im)^\\s*temperature_calibration\\s*:\\s*(-?\\d+(?:\\.\\d+)?)",block)
+out["temperature_calibration_declared"]=bool(re.search(r"(?m)^\s*temperature_calibration\s*:",block))
+cal=re.search(r"(?im)^\s*temperature_calibration\s*:\s*(-?\d+(?:\.\d+)?)",block)
 out["temperature_calibration"]=float(cal.group(1)) if cal else None
 print("JNS_TS0201_LINK_READONLY",json.dumps(out,sort_keys=True))
