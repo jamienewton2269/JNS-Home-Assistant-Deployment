@@ -135,6 +135,29 @@ def legacy_guest_diagnostic():
         err=(j.get("err-data") or "")
         result[label]={"exited":j.get("exited",False),"exitcode":j.get("exitcode"),
                        "marker_present":("JNS_" in out),"stdout_chars":len(out),"stderr_chars":len(err)}
+    # Do not publish Docker names; classify only the count and HA Core state.
+    inventory=ssh("nodea",["qm","guest","exec","900","--","docker","ps","-a","--format","{{.Names}}|{{.Status}}"],20)
+    if inventory["ok"]:
+        try:
+            j=json.loads(inventory["text"])
+            for _ in range(4):
+                if j.get("exited"):break
+                pid=j.get("pid")
+                if pid is None:break
+                time.sleep(1)
+                step=ssh("nodea",["qm","guest","exec-status","900",str(pid)],8)
+                if not step["ok"]:break
+                j=json.loads(step["text"])
+            names=[x.split("|",1) for x in (j.get("out-data") or "").splitlines() if "|" in x]
+            matched=[state for name,state in names if name.lower() in ("homeassistant","home-assistant")]
+            result["container_inventory"]={
+              "daemon_available":j.get("exitcode")==0,
+              "containers_total":len(names),
+              "containers_up":sum(state.startswith("Up ") for name,state in names),
+              "homeassistant_core_state":("running" if any(v.startswith("Up ") for v in matched) else "not_running" if matched else "not_named_homeassistant")
+            }
+        except (ValueError,TypeError,KeyError):
+            result["container_inventory"]={"status":"unavailable"}
     return result
 
 def main():
