@@ -46,6 +46,20 @@ GitHub Actions, on this development branch:
 - Live v0.3.4 source SHA256, to enforce during guarded deployment:
   `44054f9172e3c9e2e944240b5369b49d9735d8349fb7ca2dd0a2a782d7c8a4f8`.
 
+## Private staging record — 24 October 2026
+
+- [Backup-only staging workflow](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40111495234): **SUCCESS**.
+- 16 isolated tests, current historical-data backtest and VM905 source preflight passed before staging.
+- VM905 stage identifier: `v035-20261024T162546Z-43b0f6ec`.
+- The private staging directory lives only inside VM905:
+  `/config/.jns_heating_backups/v035-20261024T162546Z-43b0f6ec/`.
+- Staged originals include the integration manifest, thermal module and one Home Assistant learning Store containing 296 samples at staging time. The candidate code and JSON transaction metadata are also staged.
+- The backup tree is restricted to private mode 0700 directories / 0600 files and copy digests are checked.
+- **Production `thermal.py` and `manifest.json` were NOT changed**. Active v0.3.4 remains authoritative.
+- An independent post-stage integrity workflow is required before any promotion.
+- The public self-hosted workflows expose preflight, backup staging and read-only verification only; there is deliberately **no production commit/rollback GitHub workflow**.
+- The `transaction.py` apply/rollback primitives are tested against a synthetic filesystem, but must not be used on production until a distinct root-owned allowlisted gateway capability, a thermal-safety availability window and an approved reload/rollback check exist. Its `--gateway-authorised` flag is an acknowledgement only, not an authorization system.
+
 ## Required before production promotion
 
 1. Confirm the current runtime version and source digest; **block** if they
