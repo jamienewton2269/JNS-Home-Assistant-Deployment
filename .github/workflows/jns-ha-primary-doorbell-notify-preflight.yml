@@ -1,0 +1,15 @@
+name: JNS HA-Primary Doorbell Notify Preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/doorbell/ha-primary-notify-preflight.request'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/doorbell/ha-primary-notify-preflight.py
