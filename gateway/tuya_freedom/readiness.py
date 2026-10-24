@@ -138,6 +138,11 @@ for native_id, dlist in sorted(clouds.items()):
             summary["local_entities_bad_or_missing"]+=len(lentities)-online_count
     else:
         summary["onboarding_cloud_entities"]+=len(centities)
+        summary["onboarding_devices_without_cloud_entities"]+=int(len(centities)==0)
+        domains_with_cloud={e.get("entity_id","").split(".")[0] for e in centities}
+        for domain in sorted(domains_with_cloud):
+            if domain in {"sensor","switch","light","select","binary_sensor","climate","cover","lock","fan","number"}:
+                summary["onboarding_devices_with_"+domain]+=1
         if any("lock"==e.get("entity_id","").split(".")[0] for e in centities):
             summary["onboarding_security_critical_device"]+=1
     rows.append({
