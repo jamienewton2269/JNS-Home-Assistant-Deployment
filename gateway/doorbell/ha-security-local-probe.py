@@ -37,3 +37,16 @@ if w.is_file() and os.access(w,os.R_OK):
  for n,s in enumerate(w.read_text(errors="replace").splitlines(),1):
   if n>=21 and n<=42 and not re.search(r"(?i)(token|password|secret|private|identity|credential|key)",s):
    print("WRAPPER_JOB_MAPPING",n,s.strip()[:160],flush=True)
+
+print("=== BASE GATEWAY JOB TYPE ENUMERATION ===",flush=True)
+base=Path("/usr/local/sbin/jns-gateway-exec.base")
+if base.is_file() and os.access(base,os.R_OK):
+ lines=base.read_text(errors="replace").splitlines()
+ print("BASE_WRAPPER_LINES",len(lines),flush=True)
+ for i,s in enumerate(lines,1):
+  v=s.strip()
+  if re.search(r"^([a-z0-9_-]+)(\\|[a-z0-9_-]+)*\\)|^case \\$JOB_TYPE|^case \\"\\$JOB_TYPE",v):
+   if len(v)<150 and not re.search(r"(?i)(token|secret|password|key)",v):
+    print("BASE_JOB_TYPE",i,v,flush=True)
+else:print("BASE_UNREADABLE_OR_MISSING",flush=True)
+print("=== BASE CAPABILITY CHECK DONE ===",flush=True)
