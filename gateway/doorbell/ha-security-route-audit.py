@@ -33,3 +33,22 @@ for host in ("nodeb","nodea"):
     r=run(["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes",host,cmd],25)
     print("HOP_TO_NODEC",host,"rc",r[0],"out",r[1],"err",r[2],flush=True)
 print("=== NODE C PLACEMENT CHECK COMPLETE ===",flush=True)
+
+print("=== TRUSTED NODE A/B TO NODE C AUTH CHECK ===",flush=True)
+for hop in ("nodea","nodeb"):
+    for dest in ("nodec","nodec.home.arpa","10.10.110.13"):
+        inner=["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes","-o","ConnectTimeout=4","root@"+dest,"hostname -s"]
+        outer=["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes",hop, __import__('shlex').join(inner)]
+        result=run(outer,12)
+        print("TRUSTED_HOP",hop,dest,"rc",result[0],"out",result[1][:100],"error",result[2][:180],flush=True)
+    for dest in ("nodec","nodec.home.arpa","10.10.110.13"):
+        outer=["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes",hop,
+        __import__('shlex').join(["ssh-keygen","-F",dest])]
+        result=run(outer,12)
+        print("HOSTKEY_TRUST",hop,dest,"rc",result[0],"found",bool(result[1]),"err",result[2][:100],flush=True)
+scan=run(["ssh-keyscan","-T","5","-t","ed25519","10.10.110.13"],9)
+if scan[0]==0 and scan[1]:
+    fp=run(["ssh-keygen","-lf","-","-E","sha256"],7)
+    print("NODEC_SCAN_REACHABLE",bool(scan[1]),flush=True)
+else:print("NODEC_SCAN",scan[0],scan[2],flush=True)
+print("=== TRUST ROUTE AUDIT DONE ===",flush=True)
