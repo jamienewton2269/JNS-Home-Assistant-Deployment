@@ -222,7 +222,12 @@ def build(repo_root:Path)->dict:
         raise RuntimeError("duplicate source paths")
     repo_commit=subprocess.run(["git","rev-parse","HEAD"],cwd=repo_root,text=True,
         capture_output=True,check=True).stdout.strip()
-    return {"schema":SCHEMA,"repo_commit":repo_commit,
+    digest=sha256(json.dumps(sorted((r["source_path"],r["source_sha256"]) for r in records),
+        separators=(",",":")).encode())
+    gaps=sorted(r["source_path"] for r in records if
+        r["evidence"]["purpose_provenance"]=="filename_only_inference")
+    return {"schema":SCHEMA,"repo_commit":repo_commit,"catalogue_digest":digest,
+            "purpose_review_gaps":gaps,
             "source_repository":"jamienewton2269/JNS-Home-Assistant-Deployment",
             "record_count":len(records),"records":records}
 def export(payload:dict,path:Path)->None:
@@ -241,6 +246,10 @@ def import_catalogue(seed:Path,db_path:Path)->dict:
     records=payload["records"]
     if not records or len(records)!=payload["record_count"]:raise RuntimeError("Manifest count mismatch")
     if len({x["source_path"] for x in records})!=len(records):raise RuntimeError("Nonunique catalogue source")
+    expected_digest=sha256(json.dumps(sorted((r["source_path"],r["source_sha256"]) for r in records),
+        separators=(",",":")).encode())
+    if payload.get("catalogue_digest")!=expected_digest:
+        raise RuntimeError("Source catalogue integrity digest mismatch")
     if not db_path.is_file():raise RuntimeError("Existing Steward DB is missing")
     connection=sqlite3.connect(str(db_path),timeout=20)
     connection.execute("PRAGMA busy_timeout=20000")
@@ -248,6 +257,23 @@ def import_catalogue(seed:Path,db_path:Path)->dict:
         for tbl in ("repairs","repair_search","facts"):
             if not connection.execute("SELECT 1 FROM sqlite_master WHERE name=?",(tbl,)).fetchone():
                 raise RuntimeError("Expected live Steward table missing: "+tbl)
+        row=connection.execute("SELECT value_json FROM facts WHERE namespace=? AND key=?",
+            ("repair_catalogue","manifest")).fetchone()
+        current=json.loads(row[0]) if row else None
+        if current and current.get("catalogue_digest")==expected_digest and current.get("record_count")==len(records):
+            new_manifest=dict(current)
+            new_manifest["repo_commit"]=payload["repo_commit"]
+            new_manifest["checked_utc"]=datetime.now(timezone.utc).isoformat()
+            count=connection.execute("SELECT count(*) FROM repairs").fetchone()[0]
+            indexed=connection.execute("SELECT count(*) FROM repair_search WHERE repair_id=?",
+                (records[0]["id"],)).fetchone()[0]
+            if indexed!=1:raise RuntimeError("Existing repair search index missing")
+            with connection:
+                connection.execute("UPDATE facts SET value_json=?,updated_at=? WHERE namespace=? AND key=?",
+                    (json.dumps(new_manifest,sort_keys=True),time.time(),"repair_catalogue","manifest"))
+            return {"ok":True,"unchanged":True,"imported":0,
+                    "repairs_before":count,"repairs_after":count,
+                    "backup":current["backup"],"repo_commit":payload["repo_commit"]}
         backup=db_path.with_name("steward.repair-catalogue-v2-"+time.strftime("%Y%m%dT%H%M%SZ",time.gmtime())+"-"+uuid.uuid4().hex[:8]+".sqlite")
         if backup.exists():raise RuntimeError("Refusing to replace an existing DB backup")
         dest=sqlite3.connect(str(backup))
@@ -287,6 +313,8 @@ def import_catalogue(seed:Path,db_path:Path)->dict:
         manifest={
             "schema":SCHEMA,"source_repository":payload["source_repository"],
             "repo_commit":payload["repo_commit"],"record_count":len(records),
+            "catalogue_digest":expected_digest,
+            "unreviewed_purpose_paths":payload.get("purpose_review_gaps",[]),
             "imported_utc":datetime.now(timezone.utc).isoformat(),
             "source_inspection_only":True,"execution_authority":"none",
             "backup":str(backup)
