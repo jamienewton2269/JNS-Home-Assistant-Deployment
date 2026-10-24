@@ -19,7 +19,13 @@ if not token_file.is_file() or token_file.is_symlink():
     raise SystemExit(0)
 ts=token_file.stat()
 if ts.st_uid!=0 or stat.S_IMODE(ts.st_mode)!=0o600 or not 64<=ts.st_size<=4096:
-    print(json.dumps({"status":"BLOCKED_UNSAFE_TOKEN_PERMISSIONS"}))
+    print(json.dumps({"status":"BLOCKED_UNSAFE_TOKEN_PERMISSIONS",
+                      "credential_metadata_only":{
+                        "owner_root":ts.st_uid==0,
+                        "mode_0600":stat.S_IMODE(ts.st_mode)==0o600,
+                        "length_64_to_4096":64<=ts.st_size<=4096,
+                        "file_is_regular":stat.S_ISREG(ts.st_mode),
+                      }}))
     raise SystemExit(0)
 token=token_file.read_text(encoding="utf-8").strip()
 if not 64<=len(token)<=4096 or any(ch.isspace() for ch in token):
