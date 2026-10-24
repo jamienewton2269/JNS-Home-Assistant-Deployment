@@ -153,10 +153,14 @@ def haos_core(action):
     return result.get("out-data","")
 
 
-def restart_core():
+def restart_core(*,recovery=False):
     # Custom Python integration modules are cached in the HA process. A
     # config-entry reload cannot be used to claim the changed module is live.
     haos_core("check")
+    if not recovery:
+        # Check heat activity once more *after* configuration validation.
+        idle(live_snapshot())
+    # During emergency recovery the API may be down; do not require it.
     haos_core("restart")
 
 
@@ -254,7 +258,7 @@ def _run_body():
             # The Core container may not exist after a failed restart. Use
             # fixed HAOS host paths, not docker exec, for emergency recovery.
             host_rollback()
-            restart_core()
+            restart_core(recovery=True)
             loaded()
             print("JNS_HEATING_CORE_ROLLBACK_RECOVERED")
         except BaseException:
