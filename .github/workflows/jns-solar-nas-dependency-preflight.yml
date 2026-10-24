@@ -1,0 +1,25 @@
+name: JNS Solar NAS Dependency Preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-nas-dependency-preflight.yml'
+      - 'gateway/solar/storage_dependency_readonly_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-solar-nas-readonly
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare anonymised backup and DNS backend dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/storage_dependency_readonly_v1.py
+          python3 gateway/solar/storage_dependency_readonly_v1.py
