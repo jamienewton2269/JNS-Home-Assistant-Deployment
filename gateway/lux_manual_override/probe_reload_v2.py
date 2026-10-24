@@ -60,3 +60,7 @@ test "$code" = "200"
 """
 r=qga(['docker','exec','app_core_ssh','sh','-c',APP])
 print('SSH_APP_RELOAD_API_AUTH',(r.get('out-data') or '')[-800:],'EXIT',r.get('exitcode'),flush=True)
+
+# Check first-party HAOS CLI management container's delegated API privilege.
+r=qga(['docker','exec','hassio_cli','sh','-c',APP])
+print('HAOS_CLI_RELOAD_API_AUTH',(r.get('out-data') or '')[-800:],'EXIT',r.get('exitcode'),flush=True)
