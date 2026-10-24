@@ -167,50 +167,6 @@ report={
     "device_records":rows,
     "aggregate":dict(summary),
 }
-# Passive recorder evidence, not live state or offline proof.
-passive=collections.Counter()
-evidence_by_entity={}
-db=root/"home-assistant_v2.db"
-if db.is_file():
-    try:
-        import sqlite3
-        dbcon=sqlite3.connect("file:"+str(db)+"?mode=ro",uri=True,timeout=6)
-        dbcon.execute("PRAGMA query_only=ON")
-        for d in rows:
-            if not d.get("local_configured"):
-                continue
-            found_recent=False
-            seen=0
-            for eid in d.get("local_entity_ids",[]):
-                result=dbcon.execute(
-                   "SELECT s.state,s.last_updated_ts FROM states_meta m JOIN states s ON m.metadata_id=s.metadata_id "
-                   "WHERE m.entity_id=? ORDER BY s.state_id DESC LIMIT 1",
-                   (eid,)).fetchone()
-                if not result:
-                    continue
-                state,ts=result
-                if ts is None:continue
-                seen+=1
-                fresh=(now.timestamp()-float(ts))<=86400 and (now.timestamp()-float(ts))>=-300
-                healthy=state not in ("unknown","unavailable",None)
-                if fresh and healthy:
-                    found_recent=True
-                    passive["recent_healthy_entity_records"]+=1
-                evidence_by_entity[eid]={
-                    "recorder_last_update_utc":datetime.datetime.fromtimestamp(float(ts),datetime.timezone.utc).isoformat(),
-                    "recorder_last_state_usable":healthy,
-                    "recorder_recent_24h":bool(fresh),
-                }
-            passive["devices_with_recorded_entities"]+=int(seen>0)
-            passive["devices_with_fresh_healthy_entity_record"]+=int(found_recent)
-        dbcon.close()
-    except Exception:
-        passive["recorder_inspection_failed"]=1
-else:
-    passive["recorder_db_unavailable"]=1
-report["passive_recorder_evidence"]=dict(passive)
-report["recorder_by_entity"]=evidence_by_entity
-
 filename=dpath/("readiness-"+now.strftime("%Y%m%dT%H%M%SZ")+".json")
 fd=os.open(str(filename), os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
 with os.fdopen(fd,"w",encoding="utf-8") as f:
@@ -224,7 +180,6 @@ print(json.dumps({"schema":2,"mode":"read_only","unique_cloud_devices":len(cloud
                   "ha_live_state_access":state_access,
                   "local_key_in_cloud_entries":cloud_key_counts["cloud_entry_contains_local_key"],
                   "aggregate":dict(summary),
-                  "passive_recorder_evidence":dict(passive),
                   "private_report_staged":True},sort_keys=True))
 '''
 
