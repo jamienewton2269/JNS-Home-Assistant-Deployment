@@ -1,0 +1,16 @@
+name: JNS Heating v0.3.5 Promotion Readiness Audit
+on:
+  push:
+    branches: ['dev/heating-thermal-learning-v035-20261024']
+    paths:
+      - 'gateway/heating/v0.3.5/promotion-readiness.request'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only JNS privileged route and VM905 heating readiness audit
+        run: python3 gateway/heating/v0.3.5/promotion_readiness.py
