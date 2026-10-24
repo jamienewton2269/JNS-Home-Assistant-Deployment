@@ -71,7 +71,11 @@ def run(command, timeout):
 
 
 def host_command(argv, timeout=35):
-    opts=["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes",
+    # Use the established Node C -> Node B identity belonging to the
+    # github-runner account; root itself may not hold any SSH identity.
+    # The handler chooses fixed commands. The runner supplies no command text.
+    opts=["/usr/sbin/runuser","-u","github-runner","--","/usr/bin/ssh",
+          "-o","BatchMode=yes","-o","StrictHostKeyChecking=yes",
           "-o","ConnectTimeout=6","root@"+NODE]
     if run(opts+["hostname -s"],15)!="nodeb":
         raise DeploymentBlocked("wrong physical Proxmox host")
