@@ -1,0 +1,3 @@
+operation=read_only
+entities=fixed_lyric_heating_allowlist
+uses_existing_steward_token=true
