@@ -2,3 +2,4 @@ sensor_ieee=0xa4c13880bb5cffff
 kind=ts0201
 purpose=read-only-heating-external-temperature-source
 pass=temperature-freshness-flow
+recheck=20261025-relocated-outdoors
