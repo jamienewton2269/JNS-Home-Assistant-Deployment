@@ -70,7 +70,22 @@ recover_x93() {
     return 2
   fi
   kill -TERM "$pid"
-  echo "RECOVERED: signal sent ONLY to validated throwaway Xvfb :93 PID $pid"
+  # SIGTERM is asynchronous: wait for the verified :93 process to disappear.
+  local n state
+  for ((n=0; n<30; n++)); do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      echo "RECOVERY VERIFIED: throwaway Xvfb :93 PID $pid has exited"
+      return 0
+    fi
+    state=$(ps -o stat= -p "$pid" 2>/dev/null || true)
+    if [[ "$state" == Z* ]]; then
+      echo "RECOVERY VERIFIED: Xvfb :93 is terminated (waiting for parent to reap zombie)"
+      return 0
+    fi
+    sleep 0.2
+  done
+  echo "WARNING: termination requested, but :93 process $pid has not exited after six seconds" >&2
+  return 4
 }
 
 probe() {
