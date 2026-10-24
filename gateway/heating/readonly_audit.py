@@ -188,6 +188,23 @@ try:
 except (ValueError,OSError,KeyError,IndexError,TypeError):
     out["sample_interval_audit_unavailable"]=True
 
+
+# Evaluate the actual deployed learner against its persisted samples, without changing HA state.
+try:
+    import importlib.util,sys
+    p=comp/"thermal.py"
+    spec=importlib.util.spec_from_file_location("_jns_heating_thermal_probe",p)
+    mdl=importlib.util.module_from_spec(spec)
+    sys.modules[spec.name]=mdl
+    spec.loader.exec_module(mdl)
+    rec=json.loads((stor/out["matching_storage_files"][0]["name"]).read_text())
+    learner=mdl.ZoneLearner(rec["data"].get("samples",[]))
+    result=learner.status()
+    out["computed_learner_status"]={k:v for k,v in result.items() if k in (
+      "ready","reason","samples","loss_per_hour","heat_gain_c_per_hour","drift_c_per_hour")}
+except (ValueError,KeyError,OSError,IndexError,ImportError,AttributeError,TypeError) as exc:
+    out["computed_learner_status_error"]=type(exc).__name__
+
 print(json.dumps(out,sort_keys=True))
 '''
 
