@@ -190,6 +190,17 @@ def unique_backup(entity_id, existing):
     return candidate
 
 
+def metadata_snapshot(entity):
+    """Capture editable entity metadata for reversible presentation preservation."""
+    return {k: entity[k] for k in ("name", "area_id", "icon", "labels")
+            if k in entity and entity[k] is not None}
+
+
+def apply_metadata(ha, entity_id, data):
+    if data:
+        ha.call("config/entity_registry/update", entity_id=entity_id, **data)
+
+
 def rollback_operations(ha, journal):
     """Best-effort reverse rename, handling interruptions during each operation."""
     for pair in reversed(journal["mappings"]):
@@ -200,6 +211,7 @@ def rollback_operations(ha, journal):
         if old in by_id and by_id[old].get("platform") in LOCAL:
             if local not in by_id:
                 ha.call("config/entity_registry/update", entity_id=old, new_entity_id=local)
+                apply_metadata(ha, local, pair.get("local_metadata", {}))
         ents, _, _ = ha.inventory()
         by_id = {e["entity_id"]: e for e in ents}
         if backup in by_id and by_id[backup].get("platform") == CLOUD and old not in by_id:
@@ -214,8 +226,12 @@ def cutover(ha, planfile, journalfile, confirm):
     es, _, states = ha.inventory()
     mappings = validate_mappings(load_json(planfile), es, states)
     occupied = {e["entity_id"] for e in es}
+    by_id = {e["entity_id"]: e for e in es}
     journal = {"schema": SCHEMA, "status": "prepared", "source": "JNS Tuya Freedom",
-               "mappings": [{**x, "backup": unique_backup(x["cloud"], occupied)} for x in mappings]}
+               "mappings": [{**x, "backup": unique_backup(x["cloud"], occupied),
+                             "cloud_metadata": metadata_snapshot(by_id[x["cloud"]]),
+                             "local_metadata": metadata_snapshot(by_id[x["local"]])}
+                            for x in mappings]}
     secure_write(journalfile, journal)
     try:
         for pair in journal["mappings"]:
@@ -223,6 +239,7 @@ def cutover(ha, planfile, journalfile, confirm):
                     entity_id=pair["cloud"], new_entity_id=pair["backup"])
             ha.call("config/entity_registry/update",
                     entity_id=pair["local"], new_entity_id=pair["cloud"])
+            apply_metadata(ha, pair["cloud"], pair.get("cloud_metadata", {}))
         journal["status"] = "local_entity_ids_active_cloud_entries_retained"
         secure_write(journalfile, journal)
     except Exception:
