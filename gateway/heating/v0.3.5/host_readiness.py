@@ -67,7 +67,7 @@ for label,command in [
    out[label]={k:doc.get(k) for k in ("memory_usage","memory_limit","cpu_percent") if k in doc}
   elif label=="listen":
    import re
-   lines=[x for x in data.splitlines() if re.search(r":(80|443|8123|8124|8443)\\b",x)]
+   lines=[x for x in data.splitlines() if any(":"+str(p) in x for p in (80,443,8123,8124,8443))]
    out[label]={"bound":lines[:12],"exitcode":response.get("exitcode")}
   else:out[label]={"result":data[:100],"exitcode":response.get("exitcode")}
  except Exception as e:out[label]={"error":type(e).__name__}
