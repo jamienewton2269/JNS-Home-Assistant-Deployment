@@ -1,0 +1,24 @@
+name: JNS Solar Full CT ZFS Offline Staging
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-full-ct-zfs-stage.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-solar-full-ct-zfs-stage
+  cancel-in-progress: false
+jobs:
+  replicate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preflight source/target, then ZFS send full CT snapshot into unmounted targets
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ct_full_zfs_stage_nodea_v1.py
+          python3 gateway/solar/ct_full_zfs_stage_nodea_v1.py
