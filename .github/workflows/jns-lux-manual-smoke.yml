@@ -1,0 +1,14 @@
+name: JNS Lux Manual Off Runtime Smoke Test
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/lux_manual_override/smoke.request']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/lux_manual_override/smoke.py
