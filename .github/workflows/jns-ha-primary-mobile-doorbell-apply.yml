@@ -1,0 +1,21 @@
+name: JNS HA-Primary Doorbell Mobile Notification Apply
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/doorbell/ha-primary-mobile-doorbell-apply.request'
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-primary-doorbell-mobile-notification
+  cancel-in-progress: false
+jobs:
+  guarded:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate safe patch code
+        run: python3 -m py_compile gateway/doorbell/ha-primary-mobile-doorbell-apply.py
+      - name: Back up, patch only doorbell automation, check and rollback if needed
+        run: python3 gateway/doorbell/ha-primary-mobile-doorbell-apply.py
