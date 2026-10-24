@@ -43,31 +43,19 @@ if p.exists():
 dbpath=P/"home-assistant_v2.db"
 if dbpath.exists():
  try:
-  db=sqlite3.connect("file:"+str(dbpath)+"?mode=ro",uri=True,timeout=3)
+  db=sqlite3.connect("file:"+str(dbpath)+"?mode=ro",uri=True,timeout=2)
   cur=db.cursor()
-  ids=("binary_sensor.0xa4c138b3446c34e1_occupancy","switch.0xa4c138bda6ec8ea0","switch.0x84fd27fffe9ce438","sun.sun","automation.external_security_lights_porch_pir")
-  for eid in ids:
-   cur.execute("""SELECT s.state,s.last_updated_ts,a.shared_attrs
-   FROM states s JOIN states_meta m ON s.metadata_id=m.metadata_id
-   LEFT JOIN state_attributes a ON a.attributes_id=s.attributes_id
-   WHERE m.entity_id=? ORDER BY s.state_id DESC LIMIT 24""",(eid,))
-   rows=cur.fetchall()
-   clean=[]
-   for state,ts,attrs in rows:
-    at={}
-    if attrs:
-     try:
-      raw=json.loads(attrs)
-      at={key:raw[key] for key in ("last_triggered","current","next_rising","next_setting") if key in raw}
-     except:pass
-    clean.append({"time":uk(ts),"state":state,"extra":at})
-   print("STATE_HISTORY",eid,json.dumps(clean[:24],default=str)[:9000],flush=True)
+  for eid in ("sun.sun","automation.external_security_lights_porch_pir","binary_sensor.0xa4c138b3446c34e1_occupancy"):
+   cur.execute("""SELECT s.state,s.last_updated_ts
+     FROM states s JOIN states_meta m ON s.metadata_id=m.metadata_id
+     WHERE m.entity_id=? ORDER BY s.state_id DESC LIMIT 12""",(eid,))
+   print("LAST_STATES",eid,json.dumps([{"state":st,"time":uk(ts)} for st,ts in cur.fetchall()]),flush=True)
   db.close()
  except Exception as e:print("STATE_DB_ERROR",type(e).__name__,str(e)[:180],flush=True)
 print("PORCH_TRACE_SUN_AUDIT_COMPLETE",flush=True)
 '''
 code="exec(__import__('base64').b64decode("+repr(base64.b64encode(SOURCE.encode()).decode())+"))"
-def ssh(argv,timeout=30):
+def ssh(argv,timeout=65):
  p=subprocess.run(["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes","nodeb",shlex.join(argv)],capture_output=True,text=True,timeout=timeout)
  if p.returncode:raise RuntimeError(p.stderr[-220:])
  return json.loads(p.stdout)
