@@ -15,3 +15,20 @@ if os.path.isfile("/usr/sbin/qm"):
  check("QM_STATUS_SUDO_N",["sudo","-n","/usr/sbin/qm","status","906"])
 check("GATEWAY_HELP_UNPRIVILEGED",["/bin/sh","-c","test -r /usr/local/sbin/jns-gateway-exec && echo readable || echo restricted"])
 print("VM906_LOCAL_PROBE_DONE",flush=True)
+
+print("=== JNS TRUSTED WRAPPER READ-ONLY CAPABILITY SUMMARY ===",flush=True)
+allowed=subprocess.run(["sudo","-n","-l","/usr/local/sbin/jns-gateway-exec"],text=True,capture_output=True,timeout=10)
+print("WRAPPER_NOSUDO_PASSWORDLESS_ALLOWED",allowed.returncode==0,flush=True)
+from pathlib import Path
+import re
+w=Path("/usr/local/sbin/jns-gateway-exec")
+if w.is_file() and os.access(w,os.R_OK):
+ lines=w.read_text(errors="replace").splitlines()
+ print("WRAPPER_LINE_COUNT",len(lines),flush=True)
+ for i,line in enumerate(lines,1):
+  s=line.strip()
+  if re.search(r"(?i)(job_type|ha[-_]security|vm906|(^[a-z0-9_-]+\\)|qm guest exec|source_handler|^case |^\s*case )",s):
+   if not re.search(r"(?i)(token|secret|password|key|authorization)",s):
+    print("ALLOWLIST_STRUCTURE",i,s[:135],flush=True)
+else:print("WRAPPER_UNREADABLE",flush=True)
+print("=== JNS WRAPPER INVENTORY DONE ===",flush=True)
