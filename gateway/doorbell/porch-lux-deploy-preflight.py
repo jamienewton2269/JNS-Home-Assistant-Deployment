@@ -48,3 +48,12 @@ for fn in ("/usr/local/libexec/jns-gateway-ha-package-install","/usr/local/sbin/
    if not any(s in line.lower() for s in ("token","password","secret","encryption","authorization")):
     print("HANDLER_HINT",n,line.strip()[:160],flush=True)
 print("LIVE_UTILITY_PREFLIGHT_COMPLETE",flush=True)
+
+print("=== JNS PACKAGE INSTALLER SCHEMA / RELOAD ===",flush=True)
+handler=Path("/usr/local/libexec/jns-gateway-ha-package-install")
+if handler.is_file():
+ for n,s in enumerate(handler.read_text(errors="replace").splitlines(),1):
+  if 102<=n<=185:
+   if any(x in s.lower() for x in ("secret","password","token","authorization","bearer","key")):continue
+   print("INSTALLER",n,s[:180],flush=True)
+print("=== PACKAGE ROUTE PREFLIGHT COMPLETE ===",flush=True)
