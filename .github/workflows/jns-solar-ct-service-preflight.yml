@@ -1,0 +1,25 @@
+name: JNS Solar MQTT Zigbee Move Preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-ct-service-preflight.yml'
+      - 'gateway/solar/ct212_ct214_to_nodea_readonly_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-solar-ct-service-preflight
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check collision-free CT targets and backup headroom without changes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ct212_ct214_to_nodea_readonly_v1.py
+          python3 gateway/solar/ct212_ct214_to_nodea_readonly_v1.py
