@@ -1,0 +1,16 @@
+name: JNS Front Doorbell Read-only Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/doorbell/diagnose.request'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read only front doorbell path diagnostics
+        run: python3 gateway/doorbell/diagnose_readonly.py
