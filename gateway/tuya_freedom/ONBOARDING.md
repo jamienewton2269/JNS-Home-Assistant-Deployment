@@ -1,3 +1,45 @@
+# 24 October 2026 — tokenless path (preferred)
+
+The earlier manually pasted Home Assistant long-lived token route was unreliable
+in the user's terminal. The user's previously pasted token must be revoked in
+Home Assistant; **do not reuse or paste tokens into GitHub or chat**.
+
+Instead use a **Home Assistant native, read-only observer**, with no token and no
+API bridge. The source and manifest are in
+`gateway/tuya_freedom/component/`. It uses Home Assistant's own in-process
+`hass.states` and device/entity registries. No Tuya control commands,
+second device connection, cloud API or account authentication is made.
+
+Status: the observer has been syntax-checked and privately staged in
+`/config/.jns_tuya_freedom/staged_observer/jns_tuya_freedom/`.
+Neither the active `custom_components` directory nor
+`configuration.yaml` was modified, and there has been no restart.
+The existing system has no active Pyscript, Python Script or MQTT
+statestream integration that would expose live HA states without a reload.
+
+**Pending activation:** following explicit approval for a controlled
+HA-General Core restart, securely back up `configuration.yaml`, install
+the staged module at `/config/custom_components/jns_tuya_freedom/`,
+append `jns_tuya_freedom:` to configuration, run `ha core check`,
+restart **Core only** (not VM/Proxmox), verify a recent private
+`/config/.jns_tuya_freedom/latest-live.json` report, and auto-rollback
+if unsuccessful. Do not disable native cloud integration, change entity IDs,
+or send device commands during this observation phase.
+
+Token-free findings: all five locally configured hosts resolve; a passive
+three-sample socket inspection saw no established TCP connection to their
+exact resolved addresses, but did see three other Tuya TCP peers. This is
+inconclusive because Tuya connections can be short-lived or use different
+endpoints. Private details are on HA-General, not in public Actions logs.
+
+For the seven unconfigured devices, the existing **Tuya Local Add
+Integration** UI can acquire local connection keys through a one-time
+authorised Smart Life/Tuya app login; it does not require the JNS observer
+token or admin REST token. This is not a promise every device supports
+Tuya Local or will remain operable with WAN denied. See
+https://github.com/make-all/tuya-local for device-specific limitations.
+
+---
 # JNS Tuya Freedom — VM905 operator handoff
 
 ## Verified preflight (2026-10-24)
