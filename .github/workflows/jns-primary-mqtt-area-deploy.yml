@@ -1,0 +1,20 @@
+name: JNS Primary MQTT Presence and Area Receiver Deployment
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/area_presence/deploy-primary.request']
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-primary-presence-areas
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/area_presence/deploy_primary.py gateway/area_presence/primary_runner.py gateway/area_presence/patch_primary.py gateway/area_presence/rollback_primary.py
+          python3 gateway/area_presence/deploy_primary.py
