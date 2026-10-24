@@ -150,11 +150,16 @@ def legacy_guest_diagnostic():
                 j=json.loads(step["text"])
             names=[x.split("|",1) for x in (j.get("out-data") or "").splitlines() if "|" in x]
             matched=[state for name,state in names if name.lower() in ("homeassistant","home-assistant")]
+            known_roles=["supervisor","observer","dns","multicast","audio","zigbee","mqtt","matter","ssh","samba","esphome","tts","piper","go2rtc","camera","backup","mariadb","influxdb","node_red","nodered","watchdog","plex","file_editor","adguard"]
+            active_roles={role:sum(role in name.lower() and state.startswith("Up ") for name,state in names) for role in known_roles}
+            stopped_roles={role:sum(role in name.lower() and not state.startswith("Up ") for name,state in names) for role in known_roles}
             result["container_inventory"]={
               "daemon_available":j.get("exitcode")==0,
               "containers_total":len(names),
               "containers_up":sum(state.startswith("Up ") for name,state in names),
-              "homeassistant_core_state":("running" if any(v.startswith("Up ") for v in matched) else "not_running" if matched else "not_named_homeassistant")
+              "homeassistant_core_state":("running" if any(v.startswith("Up ") for v in matched) else "not_running" if matched else "not_named_homeassistant"),
+              "known_roles_active":{k:v for k,v in active_roles.items() if v},
+              "known_roles_stopped":{k:v for k,v in stopped_roles.items() if v}
             }
         except (ValueError,TypeError,KeyError):
             result["container_inventory"]={"status":"unavailable"}
