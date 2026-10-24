@@ -21,6 +21,7 @@ def job():
 def permit():
     return {
         "operation":"one_time_heating_maintenance",
+        "job_id":job()["job_id"],
         "stage_id":STAGE_ID,
         "candidate_sha":CANDIDATE_SHA,
         "expires_utc":(NOW+timedelta(minutes=8)).isoformat(),
@@ -56,7 +57,8 @@ class PromotionPolicyTests(unittest.TestCase):
 
     def test_approval_must_be_explicitly_local_and_correct_hash(self):
         for field,value in (("candidate_sha","0"*64),("heating_outage_approved",False),
-                            ("operation","read_only"),("stage_id","other")):
+                            ("operation","read_only"),("stage_id","other"),
+                            ("job_id","20261024T185500Z-heating-v035-deadbe")):
             altered=permit();altered[field]=value
             with self.assertRaises(PolicyDenied):
                 approve(job(),altered,now=NOW)
