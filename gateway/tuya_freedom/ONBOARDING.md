@@ -1,3 +1,56 @@
+# Follow-up diagnostic and repair status — 25 October 2026
+
+The following live, safeguarded actions were performed through the Node C
+GitHub runner **without** an HA token, HA restart, or configuration mutation.
+
+- Two devices with zero available local entities: both configured LAN addresses
+  did **not** accept a TCP connection on Tuya's local port 6668.
+  [Targeted TCP diagnostic](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40144286534).
+- The installed `tinytuya.find_device(dev_id=...)` discovery found **one**
+  of the two at a **different** current IP, and did not discover the other.
+  [Discovery run](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40144449217).
+- A private repair checklist with the device name, old IP and discovered
+  IP is stored at
+  `/config/.jns_tuya_freedom/LOCAL_REPAIR_INSTRUCTIONS.md`.
+  [Checklist workflow](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40144607539).
+- Seven not-yet-local devices: none identified in one
+  noninvasive native Tuya UDP broadcast sweep.
+  This **does not** prove Zigbee, BLE, sleeping battery devices, or
+  incompatibility. [LAN scan](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40144677615).
+  Names, device IDs and any detected metadata are retained privately at
+  `/config/.jns_tuya_freedom/PENDING_SEVEN_LAN.md`.
+- All five existing local entries still hold keys and hard-coded IP hosts;
+  the HA-native observer shows one fully available device, two partly
+  available devices and two devices with no available entities.
+- No cloud config entry, local key, host setting, HA entity ID, or automation
+  was changed; **no device is marked repaired or migrated**.
+
+## Safe supported recovery
+
+Use **HA-General** Settings → Devices & Services → Tuya Local → select
+the device shown in `LOCAL_REPAIR_INSTRUCTIONS.md` → **Configure**.
+Tuya Local's options flow exposes Host, Local Key and Protocol Version.
+Use the discovered host from the private report *only when the returned
+native Tuya ID is verified to match*; preserve local key, type and entity IDs.
+The undiscovered device cannot be assigned a guessed address. Check power,
+Wi-Fi or hub association before deciding whether a new pairing is needed.
+
+To investigate the seven, start [Add Tuya Local integration](https://my.home-assistant.io/redirect/config_flow_start/?domain=tuya_local)
+while logged into **HA-General** and select **Cloud-assisted**.
+Authorise with Smart Life/Tuya app once; choose unconfigured devices
+one by one. The cloud-assisted setup fills in local IDs and keys for
+eligible Wi-Fi devices. If a device is a battery sensor without a hub
+or a Zigbee subdevice, prefer Zigbee2MQTT with the existing JNS broker
+if it can pair there, preserving old cloud entities until tested.
+No blind entity rename or deletion.
+
+After each successful options change or new onboarding, this integration's
+observer updates `/config/.jns_tuya_freedom/latest-live.json` at five-minute
+intervals. Re-run `gateway/tuya_freedom/repair_diagnostic.py` through GitHub
+to verify the new available entities. Availability alone isn't proof of
+operation with WAN blocked.
+
+---
 # Verified activation — 24 October 2026
 
 **LIVE on HA-General VM905.** User-authorised transactional Core-only
