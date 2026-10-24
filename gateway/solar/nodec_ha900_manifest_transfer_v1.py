@@ -56,8 +56,9 @@ def main():
         if node.exists():
             if node.is_symlink() or not node.is_dir() or node.stat().st_uid!=os.geteuid():
                 fail("unsafe_staging_directory")
+            if child in ("jns-solar","ha900","evidence") and node.stat().st_mode & 0o077:
+                fail("private_staging_directory_too_open")
         else:node.mkdir(mode=0o700)
-        os.chmod(node,0o700)
     target_name="vm900-services-"+EXPECTED_SHA256[:16]+".json"
     dest=target/target_name
     if dest.exists():
