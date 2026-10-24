@@ -7,6 +7,12 @@ on:
     paths:
       - 'gateway/apps/nhs-blood-booking/mobile-android/**'
       - '.github/workflows/jns-nhs-mobile-debug.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'gateway/apps/nhs-blood-booking/mobile-android/**'
+      - '.github/workflows/jns-nhs-mobile-debug.yml'
   workflow_dispatch:
 
 permissions:
