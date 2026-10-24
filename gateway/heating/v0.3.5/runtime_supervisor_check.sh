@@ -13,11 +13,11 @@ call='binary_sensor.lyric_home_heating_heating_call'
 learner='sensor.lyric_home_heating_thermal_learning'
 check_entity() {
     ent="$1"
-    data="$(curl -fsS -m 8 -H "$AUTH" "$BASE/$ent" 2>/dev/null)" || return 1
-    printf '%s' "$data" | jq -e --arg e "$ent" '.entity_id == $e' >/dev/null 2>&1 || return 1
+    data="$(curl -fsS -m 8 -H "$AUTH" "$BASE/$ent" 2>/dev/null)" || { echo "JNS_HEATING_RUNTIME_DETAIL local_api_query_failed:$ent"; return 1; }
+    printf '%s' "$data" | jq -e --arg e "$ent" '.entity_id == $e' >/dev/null 2>&1 || { echo "JNS_HEATING_RUNTIME_DETAIL identity_mismatch:$ent"; return 1; }
     case "$ent" in
       "$climate")
-        printf '%s' "$data" | jq -e '.state != "unavailable" and .state != "unknown" and .state != "" and .state != null' >/dev/null 2>&1
+        printf '%s' "$data" | jq -e '.state != "unavailable" and .state != "unknown" and .state != "" and .state != null' >/dev/null 2>&1 || { echo "JNS_HEATING_RUNTIME_DETAIL climate_not_available"; return 1; }
         ;;
       "$indoor")
         printf '%s' "$data" | jq -e '(.state | tonumber) | . > -30 and . < 60' >/dev/null 2>&1
