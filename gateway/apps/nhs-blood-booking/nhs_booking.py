@@ -31,7 +31,24 @@ def inspect() -> int:
     return 0
 
 
+def select_patients(explicit: str | None) -> str:
+    """Ask for the patients on every interactive request; never infer from an earlier booking."""
+    if explicit:
+        return explicit
+    if not sys.stdin.isatty():
+        raise RuntimeError('Select --who me, jane or both in non-interactive mode')
+    print('Who needs the NHS blood test?')
+    print('  1. Just me')
+    print('  2. Just Jane')
+    print('  3. Both — consecutive appointments')
+    selection = input('Choose 1, 2 or 3: ').strip()
+    if selection not in {'1','2','3'}:
+        raise ValueError('Choose 1, 2 or 3')
+    return {'1': 'me', '2': 'jane', '3': 'both'}[selection]
+
+
 def propose(args) -> int:
+    args.who = select_patients(args.who)
     now = datetime.now(timezone.utc).astimezone(LOCAL_TZ)
     slots = parse_slots(Path(args.slots), now=now)
     if not slots:
@@ -54,7 +71,7 @@ def main() -> int:
     subs = parser.add_subparsers(dest='command', required=True)
     subs.add_parser('inspect', help='Inspect public website structure using Playwright')
     proposal = subs.add_parser('propose', help='Calendar-safe proposals from fresh, observed NHS slots')
-    proposal.add_argument('--who', required=True, choices=['me', 'jane', 'both'])
+    proposal.add_argument('--who', choices=['me', 'jane', 'both'], help='Omit in a terminal to be asked who needs appointments')
     proposal.add_argument('--slots', required=True)
     proposal.add_argument('--before', type=int, default=20, help='Travel buffer before, minutes')
     proposal.add_argument('--after', type=int, default=20, help='Travel buffer after, minutes')
