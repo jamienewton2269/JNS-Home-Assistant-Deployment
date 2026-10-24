@@ -48,8 +48,8 @@ A controlled promotion later needs:
 
 1. Confirm VM905 is hosting essential live heating services and choose a safe maintenance window. Check that someone can recover local heating if HA Core does not restart.
 2. Verify the reviewed commit and install only the dormant root dispatcher extension interactively on Node C, using `install_nodec_gateway.py --apply`. Its dry-run does no writes; the `--apply` mode refuses unattended execution.
-3. Create a unique immutable queue job on the **main** branch, using the specific job type and stage ID. The queued job must contain no other keys.
-4. Use the installed `approval_once.py --confirm-heating-outage --job-id <EXACT_JOB_ID>` as **local root in an interactive session** just before submitting that job. The approval is short-lived and single use. Do not put permits, credentials or learning files in the repository.
+3. Prepare (but **do not yet publish**) a unique immutable queue job using the specific job type and stage ID. The job must contain no other keys, and its `job_id` must match the filename stem `YYYYMMDDTHHMMSSZ-heating-v035-abcdef`. Publishing it triggers the JNS dispatcher immediately, so premature submission would be rejected.
+4. Use the installed `approval_once.py --confirm-heating-outage --job-id <EXACT_JOB_ID>` as **local root in an interactive session** immediately before publishing that exact queue job to the **main** branch. The approval is short-lived and single use. Do not put permits, credentials or learning files in the repository.
 5. Observe the explicit gateway result and independently validate heating sensor states and Lyric heating demand after Home Assistant comes back.
 6. If checks or heating availability fail, stop. Investigate the gateway/HAOS recovery result before any repeat; do not use generic root shell deployment as a workaround.
 
