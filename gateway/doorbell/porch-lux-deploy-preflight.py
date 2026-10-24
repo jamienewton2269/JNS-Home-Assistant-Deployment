@@ -57,3 +57,13 @@ if handler.is_file():
    if any(x in s.lower() for x in ("secret","password","token","authorization","bearer","key")):continue
    print("INSTALLER",n,s[:180],flush=True)
 print("=== PACKAGE ROUTE PREFLIGHT COMPLETE ===",flush=True)
+
+print("=== HA GENERAL AUTOMATION RELOAD CAPABILITY ===",flush=True)
+def sshshort(cmd,timeout=18):
+ a=subprocess.run(["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes","nodeb",shlex.join(cmd)],capture_output=True,text=True,timeout=timeout)
+ try: d=json.loads(a.stdout); out=(d.get("out-data") or "").strip() if d.get("exited") else "ASYNC";err=(d.get("err-data") or "").strip() if d.get("exited") else ""
+ except Exception:d={};out=a.stdout.strip()[:1000];err=a.stderr.strip()[:100]
+ print("RELOAD_ACCESS",cmd[0:5],"rc",a.returncode,"out",out[:1400],"err",err[:130],flush=True)
+sshshort(["qm","guest","exec","905","--","docker","ps","--format","{{.Names}}"],20)
+sshshort(["qm","guest","exec","905","--","ha","core","--help"],20)
+print("=== RELOAD ACCESS PREFLIGHT COMPLETE ===",flush=True)
