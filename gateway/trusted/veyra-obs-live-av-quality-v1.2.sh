@@ -24,7 +24,7 @@ audit() {
   [[ -f /usr/lib/x86_64-linux-gnu/obs-plugins/linux-capture.so ]] ||
     { block "linux-capture plugin missing"; return 2; }
   strings /usr/lib/x86_64-linux-gnu/obs-plugins/linux-capture.so |
-    grep -Fxq xshm_input || { block "plugin lacks xshm_input"; return 2; }
+    grep -Fx xshm_input >/dev/null || { block "plugin lacks xshm_input"; return 2; }
   for svc in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do
     systemctl is-active --quiet "$svc" || { block "protected service $svc inactive"; return 2; }
   done
