@@ -2,7 +2,13 @@
 # Veyra virtual-display / OBS protected-playback compatibility experiment.
 # TEST ONLY. Does not touch Cage, Sway, systemd kiosk, real display or provider profiles.
 set -Eeuo pipefail
+# DEPRECATED: this pre-existing experiment attempts to create Xvfb :92.
+# :92 is now the LIVE ITVX Chrome display. Never run start/install here.
 CMD="${1:-}"
+if [[ "$CMD" == start || "$CMD" == install ]]; then
+  echo "SAFETY STOP: obsolete OBS experiment conflicts with live ITVX Xvfb :92; use veyra-obs-backend-v1.sh instead." >&2
+  exit 2
+fi
 BASE=/home/jnsadmin/veyra-obs-test
 DISPLAY_NUM=:92
 need(){ command -v "$1" >/dev/null || { echo "Missing $1"; exit 2; }; }
