@@ -10,11 +10,11 @@ find_file() {
   local files=()
   [[ -d "$OUT" ]] || { echo "No OBS QA buffer directory"; return 2; }
   mapfile -d '' -t files < <(find "$OUT" -maxdepth 1 -type f -name '*.mkv' -print0 | sort -z)
-  if (( \${#files[@]} != 1 )); then
+  if (( ${#files[@]} != 1 )); then
     echo "Expected exactly one OBS quality MKV; refuse ambiguous file selection."
     return 2
   fi
-  QA_FILE="\${files[0]}"
+  QA_FILE="${files[0]}"
   [[ -s "$QA_FILE" ]] || { echo "MKV empty"; return 2; }
 }
 inspect_file() {
@@ -46,7 +46,7 @@ play_file() {
     mpv --no-config --fullscreen --no-border --vo=gpu --gpu-context=wayland \
     --hwdec=vaapi --ao=pulse "$QA_FILE"
 }
-case "\${1:-}" in
+case "${1:-}" in
   inspect) inspect_file ;;
   play) play_file ;;
   *) echo "Usage: sudo bash $0 {inspect|play}"; exit 2 ;;
