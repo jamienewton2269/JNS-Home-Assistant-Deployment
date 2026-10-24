@@ -1,0 +1,22 @@
+name: JNS Steward HA-General Reload Capability Install
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/lux_manual_override/steward-install.request'
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-lux-manual-v2
+  cancel-in-progress: false
+jobs:
+  stage:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate and stage root-only capability on VM905
+        run: |
+          set -euo pipefail
+          python3 -m py_compile natural_automation_steward/ops/ha_general_reload_capability.py gateway/lux_manual_override/steward_ha_api_install.py
+          python3 gateway/lux_manual_override/steward_ha_api_install.py
