@@ -233,8 +233,10 @@ def main():
         print("JNS_TUYA_PREFLIGHT_PASSED_NO_CHANGES",flush=True)
         return
     applied=False
+    install_attempted=False
     restarted=False
     try:
+        install_attempted=True
         in_core("install",digests)
         applied=True
         if not cli("core","check",limit=340):
@@ -262,7 +264,9 @@ def main():
         raise RuntimeError("observer_no_valid_fresh_report_after_core_restart")
     except Exception as err:
         print("JNS_TUYA_OBSERVER_ACTIVATION_FAILED",type(err).__name__,str(err)[:105],flush=True)
-        if applied:
+        if install_attempted:
+            # Handles QGA interruptions after writes but before install attestation.
+            # A missing transaction fails safely and remains visible for review.
             rollback=in_core("rollback",digests,limit=90)
             if not cli("core","check",limit=340):
                 raise RuntimeError("original_config_check_failed_after_rollback")
