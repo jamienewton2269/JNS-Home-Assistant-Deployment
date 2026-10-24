@@ -15,7 +15,7 @@ def remote(argv, timeout=27):
     except Exception:raise RuntimeError("NODEB_GUEST_JSON_INVALID "+p.stdout[-260:])
 
 def qga(argv, timeout_seconds=180):
-    d=remote(["qm","guest","exec",VMID,"--",*argv],timeout=30)
+    d=remote(["qm","guest","exec",VMID,"--",*argv],timeout=timeout_seconds+30)
     start=time.monotonic()
     while not d.get("exited"):
         if time.monotonic()-start>timeout_seconds: raise RuntimeError("GUEST_TIMEOUT_AFTER_"+str(timeout_seconds))
