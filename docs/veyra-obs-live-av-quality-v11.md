@@ -60,6 +60,14 @@ sudo bash ~/veyra-obs-mkv-review-v1.1.sh play
 - Earlier OBS live SRT output reported **193 render-lagged frames (27.3%)** and repeated SRT connection rejections. Neither a usable MKV nor 749 encoded frames demonstrate unique frames or broadcast-quality motion.
 - Pending investigation/gates before *any* production cutover: physical playback visual/audio report; OBS renderer hardware path (Xvfb :93 currently Mesa llvmpipe software renderer); replace forced OBS process-group teardown with an OBS-supported **graceful recording stop and verified MKV finalisation**; make restream errors independent of local recording test; confirm video dimensions/codec/clean EOF; measure actual capture drops and not just encoded frame totals. Preserve ITVX Xvfb :92, Chrome profile, VNC, Cage and original recorder; **no standalone FFmpeg/FFplay development**.
 
+## 24 October 2026 — saved MKV inspected and replayed
+
+- The OBS MKV was inspected by the user: H.264 video **1364×768 at 25/1 fps** (different from the requested 1366×768), AAC **two channels at 48000 Hz**, 24,317,952-byte file, **749 video frames** counted. Approximate frame-count duration is 30 seconds. This demonstrates codec data exists, **not** that video contains the desired ITVX programme, or that its content is visually smooth, or that audio contains audible programme sound.
+- `ffprobe` warned `File ended prematurely`: the MKV is playable but may be incomplete/unfinalised. Review the OBS shutdown path before the next capture. Do not overwrite the sample.
+- Physical `mpv` replay reported `Using hardware decoding (vaapi)`, `VO: [gpu] 1364x768 vaapi[nv12]`, `AO: [pulse] 48000Hz stereo`, replayed through **00:00:29**, and finished with `A-V: 0.000`. This proves **player** hardware decoding and nominal A/V clock alignment, *not* OBS hardware rendering/encoding or actual ITVX sound quality.
+- The OBS *streaming output* separately logged **193 lagged frames (27.3%)** and persistent SRT `Connection rejected` errors. Do not conflate this streaming-output metric with a verified dropped-frame count for the MKV recording.
+- NEXT quality decision requires the user's first-hand observation: **was the ITVX programme visible in the saved MKV; was motion smooth; was its programme audio audible and synchronised?** If the MKV itself was poor, prioritise OBS rendering (earlier llvmpipe) and isolate recording from broken SRT before another combined test. If the saved MKV was good, prioritise SRT connection/protocol and receiver buffering. Do not claim broadcast-equivalent quality yet.
+
 ## Retention and next gate
 
 This run creates **one approximately 30-second audiovisual test buffer**, not 30 minutes, and is *not yet a circular buffer*. Once capture/perception are verified, switch to OBS-backed bounded segmented storage with play/pause/rewind using a separate recorder output strategy and proper disk/time limits. Prefer source frame-rate rather than repeating fixed 50 fps.
