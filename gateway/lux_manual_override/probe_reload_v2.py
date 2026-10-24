@@ -46,3 +46,6 @@ ha cli info 2>&1 | head -c 1100
 """
 r=qga(['sh','-c',HOST])
 print('HAOS_CLI_CONTEXT',(r.get('out-data') or '')[-1600:],'EXIT',r.get('exitcode'),flush=True)
+
+r=qga(['docker','ps','--format','{{.Names}}'])
+print('VM905_CONTAINER_NAMES',(r.get('out-data') or '')[:2000],'EXIT',r.get('exitcode'),flush=True)
