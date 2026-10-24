@@ -6,6 +6,8 @@ BASE=/opt/veyra/obs-backend-v1
 USER_NAME=veyra
 UID_VEYRA=$(id -u "$USER_NAME")
 RUNTIME=/run/user/$UID_VEYRA
+# Global because the EXIT trap runs after probe() local variables go out of scope.
+xvfb_pid=""
 
 audit() {
   echo "=== VEYRA OBS AUDIT ==="
@@ -56,11 +58,12 @@ probe() {
     echo "BLOCKED: temporary test display :93 already occupied"; return 2;
   }
   test -d "$RUNTIME" || { echo "BLOCKED: veyra runtime missing"; return 2; }
-  local xvfb_pid rc
+  local rc
   runuser -u "$USER_NAME" -- /usr/bin/Xvfb :93 -screen 0 1366x768x24 -nolisten tcp \
     >"$BASE/logs/xvfb-probe.log" 2>&1 &
   xvfb_pid=$!
-  trap 'kill "$xvfb_pid" 2>/dev/null || true; wait "$xvfb_pid" 2>/dev/null || true' EXIT
+  # EXIT fires after probe() returns. xvfb_pid must remain global with set -u.
+  trap 'if [[ "$xvfb_pid" =~ ^[0-9]+$ ]]; then kill -TERM "$xvfb_pid" 2>/dev/null || true; wait "$xvfb_pid" 2>/dev/null || true; fi' EXIT
   sleep 2
   kill -0 "$xvfb_pid" 2>/dev/null || { echo "FAIL: isolated Xvfb could not start"; return 3; }
   runuser -u "$USER_NAME" -- env DISPLAY=:93 xdpyinfo >/dev/null 2>&1 || {
@@ -82,10 +85,15 @@ probe() {
   if grep -Eiq 'Failed to initialize video|Failed to initialize graphics|OpenGL 3.[012] (not supported|required)' "$BASE/logs/obs-probe.log"; then
     echo "FAIL: OBS OpenGL startup incompatible with current virtual graphics"; return 4
   fi
+  if grep -Eiq 'Mesa llvmpipe|softpipe|Software Rasterizer' "$BASE/logs/obs-probe.log"; then
+    echo "BLOCKED: OBS uses software OpenGL (llvmpipe), not Intel GPU rendering."
+    echo "Do not proceed to live OBS capture/restream on this Xvfb screen."
+    return 6
+  fi
   if test "$rc" -ne 0 && test "$rc" -ne 124; then
     echo "FAIL: OBS exited unexpectedly in the isolated graphics test"; return 5
   fi
-  echo "PROBE COMPLETE: capture/output still NOT activated; inspect OBS log for renderer evidence."
+  echo "PROBE COMPLETE: renderer did not identify itself as software; still requires performance and GPU verification."
 }
 case "$*" in
   audit) audit ;;
