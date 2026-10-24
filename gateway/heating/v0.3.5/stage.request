@@ -1,0 +1,6 @@
+JNS_HEATING_V035_PRIVATE_STAGE_REQUEST
+vm=905
+mode=backup_and_stage_only
+no_service_restart=true
+no_active_integration_change=true
+issued=2026-10-24
