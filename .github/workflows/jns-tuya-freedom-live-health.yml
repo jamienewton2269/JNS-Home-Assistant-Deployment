@@ -1,0 +1,26 @@
+name: JNS Tuya Freedom Live Health Validation
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/tuya_freedom/live_validation.py'
+      - 'gateway/tuya_freedom/live_validation.request'
+      - '.github/workflows/jns-tuya-freedom-live-health.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-tuya-live-health
+  cancel-in-progress: false
+jobs:
+  health:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Query Home Assistant read-only via protected local token
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/tuya_freedom/live_validation.py
+          python3 gateway/tuya_freedom/live_validation.py
