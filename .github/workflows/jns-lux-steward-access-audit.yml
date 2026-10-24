@@ -18,3 +18,4 @@ jobs:
           set -euo pipefail
           bash -n gateway/lux_manual_override/steward-access-audit.sh
           bash gateway/lux_manual_override/steward-access-audit.sh
+          python3 gateway/lux_manual_override/steward-loopback-audit.py
