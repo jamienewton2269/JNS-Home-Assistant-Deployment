@@ -44,7 +44,7 @@ def guard_filesystem():
     if os.geteuid()!=0:
         raise DeploymentBlocked("root-owned execution required")
     for path in (INSTALL, Path(__file__).resolve(), INSTALL/"transaction.py",
-                 INSTALL/"promotion_policy.py"):
+                 INSTALL/"promotion_policy.py", INSTALL/"runtime_supervisor_check.sh"):
         st=path.lstat()
         if path.is_symlink() or st.st_uid!=0 or st.st_mode & 0o022:
             raise DeploymentBlocked("non-root or writeable privileged code")
@@ -138,6 +138,29 @@ def core_ready():
         return guest(["docker","exec","homeassistant","python3","-c",expr],timeout=30).strip()=="READY"
     except (DeploymentBlocked,subprocess.TimeoutExpired):
         return False
+
+
+def authenticated_heating_ready():
+    """All four essential HA entities must be readable via add-on local token.
+
+    The fixed shell source is root-owned. It never exposes Supervisor tokens or
+    raw states, and makes GET requests only to fixed heating entities.
+    """
+    script=(INSTALL/"runtime_supervisor_check.sh").read_text()
+    try:
+        output=guest(["docker","exec","app_core_ssh","sh","-c",script],timeout=90)
+        return output.strip()=="JNS_HEATING_RUNTIME_AUTHENTICATED_READY"
+    except (DeploymentBlocked,subprocess.TimeoutExpired):
+        return False
+
+
+def await_authenticated_heating(seconds=110):
+    end=time.monotonic()+seconds
+    while time.monotonic()<end:
+        if authenticated_heating_ready():
+            return True
+        time.sleep(8)
+    return False
 
 
 def await_core(seconds=170):
@@ -239,6 +262,8 @@ def perform(job):
         verify_host_recovery()
         if not core_ready():
             raise DeploymentBlocked("HA-General Core not answering before update")
+        if not authenticated_heating_ready():
+            raise DeploymentBlocked("essential authenticated heating entities unavailable before update")
         config_check()
         # No Core / thermostat writes before all checks above.
         applied=False
@@ -251,10 +276,13 @@ def perform(job):
             guest(["ha","core","restart"],timeout=95)
             if not await_core():
                 raise DeploymentBlocked("Home Assistant Core health not confirmed after restart")
+            if not await_authenticated_heating():
+                raise DeploymentBlocked("essential heating entities not verified after Core restart")
             if digest_on_host(f"{LIVE}/thermal.py")!=CANDIDATE_SHA:
                 raise DeploymentBlocked("deployed thermal version changed")
             print("JNS_HEATING_V035_ACTIVATED",json.dumps({
                 "stage_id":STAGE_ID,"runtime_responding":True,
+                "essential_heating_entities_verified":True,
                 "manual_control_unchanged":True}),flush=True)
         except BaseException:
             if applied:
