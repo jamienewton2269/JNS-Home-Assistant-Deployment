@@ -1,0 +1,25 @@
+name: JNS Solar Steward Migration Gate
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-steward-migration-gate.yml'
+      - 'gateway/solar/steward_migration_gate_readonly_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-solar-steward-migration-gate
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify live Node B Natural Automation and private Node C evidence
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/steward_migration_gate_readonly_v1.py
+          python3 gateway/solar/steward_migration_gate_readonly_v1.py
