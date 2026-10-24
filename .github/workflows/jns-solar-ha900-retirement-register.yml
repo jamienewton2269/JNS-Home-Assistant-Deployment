@@ -1,0 +1,25 @@
+name: JNS Solar Private HA900 Retirement Register
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-ha900-retirement-register.yml'
+      - 'gateway/solar/ha900_private_retirement_register_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-solar-ha900-retirement-register
+  cancel-in-progress: false
+jobs:
+  document:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write restricted local HA900 service register, never publicise service data
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha900_private_retirement_register_v1.py
+          python3 gateway/solar/ha900_private_retirement_register_v1.py
