@@ -1,0 +1,22 @@
+name: JNS Solar MQTT Z2M Application State Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-appstate-source-audit.yml'
+      - 'gateway/solar/appstate_ct212_ct214_readonly_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit active CT application config and persistent-data paths
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/appstate_ct212_ct214_readonly_v1.py
+          python3 gateway/solar/appstate_ct212_ct214_readonly_v1.py
