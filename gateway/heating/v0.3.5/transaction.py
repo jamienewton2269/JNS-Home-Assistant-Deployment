@@ -290,7 +290,17 @@ def verify(root, stage_id):
     if meta["state"]=="staged":
         insist(sha(read(comp / "thermal.py",root))==meta["legacy_thermal_sha"],
                "unexpected active thermal source")
-        return {"state":"staged","runtime_reload":False}
+        insist(sha(read(comp / "manifest.json",root))==meta["legacy_manifest_sha"],
+               "unexpected active integration manifest")
+        for directory in (root/SNAPSHOT,destination,destination/"stores",destination/"original"):
+            insist(directory.stat().st_mode & 0o077 == 0,"private backup directory permissions unsafe")
+        for file in (destination/"candidate.py",destination/"state.json",
+                     destination/"original/thermal.py",destination/"original/manifest.json"):
+            insist(file.stat().st_mode & 0o077 == 0,"private backup file permissions unsafe")
+        for name in meta["stores"]:
+            insist((destination/"stores"/name).stat().st_mode & 0o077 == 0,
+                   "private learning backup file permissions unsafe")
+        return {"state":"staged","runtime_reload":False,"backups_integrity_verified":True}
     if meta["state"]=="applied_pending_runtime_verification":
         insist(sha(read(comp / "thermal.py",root))==meta["candidate_sha"],
                "applied source hash mismatch")
