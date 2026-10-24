@@ -1,0 +1,6 @@
+target=ha-general-vm905
+authorisation=user-approved-one-guarded-core-restart
+mode=transactional-core-only
+preflight=passed-40132376783
+observer=tokenfree-in-process-readonly
+rollback=automatic-on-check-or-post-start-verification-failure
