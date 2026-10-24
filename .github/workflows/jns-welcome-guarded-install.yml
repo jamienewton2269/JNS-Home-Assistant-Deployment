@@ -1,0 +1,20 @@
+name: JNS Welcome Home HA-General Guarded Install
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/arrival_lighting/deploy-welcome.request']
+permissions:
+  contents: read
+concurrency:
+  group: jns-welcome-home-ha-general
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/arrival_lighting/patch_welcome.py gateway/arrival_lighting/deploy_welcome.py
+          python3 gateway/arrival_lighting/deploy_welcome.py
