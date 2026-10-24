@@ -60,6 +60,15 @@ This is **in scope for Solar Economy**: HA-Security VM906 will move to productio
 
 **Node C stays powered on by design.** Keep the Steward, GitHub runner/deployment gateway, management bridge, DNS importer and required CT117/130/249 on Node C. Only the HA-Security workload moves to Node A. Target is two powered hosts (production A + management C), with B and large backup NAS normally off.
 
+## Steward placement and Node C power policy — live audit
+
+Read-only placement audit: https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40119338960
+
+- User-approved steady state: **Node C remains powered on for Steward, management and the GitHub gateway**. Node B can sleep after production and its remaining services have migrated; Node A owns live house control.
+- Node C currently has a protected /var/lib/jns-steward directory; it is **not writable by the unprivileged GitHub runner**. Node C management bridge and DNS reservation importer are active.
+- Tested Node C systemd unit names natural-automation.service, jns-steward.service and jns-steward-agent.service are currently **not installed or inactive** at the host level; do not claim Steward has already moved. It could run inside an LXC or under a differently named service and needs explicit verification.
+- Node B currently runs **natural-automation.service** with its knowledge directory under /opt/natural-automation/data/knowledge. Preserve the live Natural Automation/Steward stack and working state before Node B shutdown. Do not clone service private keys or blindly copy credentials to Node C.
+- No need to move the Node C GitHub runner. Any full HA900 add-on manifest must be transferred to the protected Node C Steward store through an explicitly restricted, verified local importer. The public GitHub repository retains safe aggregate metadata only.
 ## HA900 cold reference and supporting-service cleanup
 
 **Approved objective:** After dependencies are moved and documented, move HA900 from Node A to Node C as a **stopped, non-autostart reference** and remove unnecessary supporting-service runtime payloads to save disk space. Node C continues running the independent Steward and management services. HA900 itself must not have an active network, Zigbee, alarm, MQTT or automation role.
