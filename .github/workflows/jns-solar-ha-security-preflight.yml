@@ -1,0 +1,26 @@
+name: JNS Solar HA-Security VM906 Read-only Preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-ha-security-preflight.yml'
+      - 'gateway/solar/ha_security_vm906_readonly_v1.py'
+      - 'gateway/solar/ha-security.request'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-solar-security-readonly
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read Node C VM906 metadata and Node A destination capacity
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha_security_vm906_readonly_v1.py
+          python3 gateway/solar/ha_security_vm906_readonly_v1.py
