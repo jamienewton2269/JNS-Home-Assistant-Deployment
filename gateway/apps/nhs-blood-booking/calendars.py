@@ -1,73 +1,105 @@
-"""HTTPS-only read-only iCalendar free/busy adapter (titles never retained)."""
+"""Google Calendar FreeBusy adapter: no event titles, attendees or descriptions are requested.
+
+Each person must explicitly authorise a read-only Google Calendar credential or
+share the relevant calendars with an already authorised account. No calendar
+details are persisted, and any API/permission failure blocks a proposal.
+"""
 from __future__ import annotations
+
 import os
-import ssl
-from datetime import date, datetime, time, timedelta, timezone
-from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
-from zoneinfo import ZoneInfo
+import stat
+from datetime import datetime
+from pathlib import Path
 
-from planner import Interval, PEOPLE, LOCAL_TZ
+import requests
+from google.auth.transport.requests import Request as GoogleAuthRequest
+from google.oauth2.credentials import Credentials
 
-MAX_ICS = 4 * 1024 * 1024
+from planner import Interval, PEOPLE, date_time, LOCAL_TZ
+
+FREEBUSY_SCOPE = 'https://www.googleapis.com/auth/calendar.events.freebusy'
+GOOGLE_ENDPOINT = 'https://www.googleapis.com/calendar/v3/freeBusy'
+MAX_CALENDARS = 20
+
+
+def _secret_path(person: str) -> Path:
+    key = f'JNS_NHS_GOOGLE_TOKEN_{person.upper()}_FILE'
+    raw = os.environ.get(key, '')
+    if not raw or not Path(raw).is_absolute():
+        raise RuntimeError(f'{person} Google calendar authorisation is not configured')
+    path = Path(raw)
+    try:
+        mode = path.lstat()
+        if not stat.S_ISREG(mode.st_mode) or mode.st_mode & 0o077:
+            raise ValueError('credential file must be regular and readable only by its owner')
+        if mode.st_uid not in (os.geteuid(), 0):
+            raise ValueError('credential file owner is untrusted')
+    except (OSError, ValueError):
+        raise RuntimeError(f'Unsafe or missing {person} calendar credential') from None
+    return path
+
+
+def _calendar_ids(person: str) -> list[str]:
+    raw = os.environ.get(f'JNS_NHS_GOOGLE_CALENDAR_IDS_{person.upper()}', '')
+    ids = [part.strip() for part in raw.split(',') if part.strip()]
+    if not ids or len(ids) > MAX_CALENDARS or len(set(ids)) != len(ids):
+        raise RuntimeError(f'{person} Google calendar IDs must be configured uniquely (1–20)')
+    if any(any(c in cal for c in '\r\n\t') or len(cal) > 254 for cal in ids):
+        raise RuntimeError(f'{person} Google calendar ID is invalid')
+    return ids
+
+
+def parse_freebusy(body: dict, ids: list[str]) -> list[Interval]:
+    """Fail closed on partial Google responses, calendar errors or invalid periods."""
+    if not isinstance(body, dict) or body.get('groups'):
+        raise RuntimeError('Unexpected Google free/busy response')
+    calendars = body.get('calendars')
+    if not isinstance(calendars, dict):
+        raise RuntimeError('Google free/busy did not return calendars')
+    busy = []
+    for cal in ids:
+        result = calendars.get(cal)
+        if not isinstance(result, dict) or result.get('errors'):
+            raise RuntimeError('Missing or inaccessible Google calendar')
+        if not isinstance(result.get('busy'), list):
+            raise RuntimeError('Malformed Google calendar busy periods')
+        for period in result['busy']:
+            if not isinstance(period, dict):
+                raise RuntimeError('Malformed Google calendar busy period')
+            try:
+                busy.append(Interval(date_time(period['start']), date_time(period['end'])))
+            except (ValueError, TypeError, KeyError):
+                raise RuntimeError('Invalid Google calendar busy period') from None
+    return busy
 
 
 def fetch_calendar(person: str, range_start: datetime, range_end: datetime) -> list[Interval]:
     if person not in PEOPLE:
-        raise ValueError('Unknown calendar owner')
-    url = os.environ.get('JNS_NHS_ICAL_' + person.upper() + '_URL', '')
-    parts = urlsplit(url)
-    if parts.scheme != 'https' or not parts.hostname or parts.username or parts.password or parts.fragment:
-        raise RuntimeError(f'Missing or invalid HTTPS iCalendar URL for {person}')
-    # No redirects: avoid leaking bearer-in-URL credentials to a different host.
-    from urllib.request import build_opener, HTTPSHandler, HTTPRedirectHandler
-    class NoRedirect(HTTPRedirectHandler):
-        def redirect_request(self, request, fp, code, msg, headers, newurl):
-            return None
-    opener = build_opener(HTTPSHandler(context=ssl.create_default_context()), NoRedirect())
+        raise ValueError('Unknown patient')
+    if (range_start.tzinfo is None or range_end.tzinfo is None or
+            range_end <= range_start or (range_end-range_start).days > 62):
+        raise ValueError('Invalid Google calendar query range')
+    token_file = _secret_path(person)
+    ids = _calendar_ids(person)
     try:
-        with opener.open(Request(url, headers={'User-Agent': 'JNS-NHS-Booking/0.1'}), timeout=12) as response:
-            if response.status != 200:
-                raise RuntimeError('Calendar HTTP failure')
-            payload = response.read(MAX_ICS + 1)
-    except Exception as exc:
-        # Do not include URLs or their embedded tokens in error output.
-        raise RuntimeError(f'Unable to read {person} calendar: {type(exc).__name__}') from None
-    if len(payload) > MAX_ICS:
-        raise RuntimeError('Calendar exceeds size limit')
-    from icalendar import Calendar
-    import recurring_ical_events
-    try:
-        calendar = Calendar.from_ical(payload)
-        events = recurring_ical_events.of(calendar).between(range_start, range_end)
+        credentials = Credentials.from_authorized_user_file(str(token_file), scopes=[FREEBUSY_SCOPE])
+        if not credentials.valid:
+            if not credentials.refresh_token:
+                raise RuntimeError('Offline calendar authorisation missing')
+            credentials.refresh(GoogleAuthRequest())
+        if not credentials.valid or FREEBUSY_SCOPE not in (credentials.scopes or []):
+            raise RuntimeError('Google calendar authorisation is not valid')
+        response = requests.post(
+            GOOGLE_ENDPOINT,
+            json={'timeMin': range_start.isoformat(), 'timeMax': range_end.isoformat(),
+                  'timeZone': 'Europe/London', 'items': [{'id': x} for x in ids]},
+            headers={'Authorization': f'Bearer {credentials.token}',
+                     'Content-Type': 'application/json'},
+            timeout=(5, 12), allow_redirects=False,
+        )
+        if response.status_code != 200:
+            raise RuntimeError('Google calendar request failed')
+        return parse_freebusy(response.json(), ids)
     except Exception:
-        raise RuntimeError('Calendar parse failure') from None
-    intervals = []
-    def to_datetime(raw):
-        if isinstance(raw, datetime):
-            if raw.tzinfo is None:
-                raise ValueError('Naive calendar event time; cannot safely compare')
-            return raw.astimezone(LOCAL_TZ)
-        if isinstance(raw, date):
-            return datetime.combine(raw, time.min, LOCAL_TZ)
-        raise ValueError('Invalid calendar date')
-    for event in events:
-        if str(event.get('STATUS', '')).upper() == 'CANCELLED':
-            continue
-        if str(event.get('TRANSP', '')).upper() == 'TRANSPARENT':
-            continue
-        ds = event.get('DTSTART')
-        if not ds:
-            raise RuntimeError('Calendar event without start')
-        start = to_datetime(ds.dt)
-        de = event.get('DTEND')
-        if de:
-            end = to_datetime(de.dt)
-        elif event.get('DURATION'):
-            end = start + event['DURATION'].dt
-        else:
-            end = start + (timedelta(days=1) if isinstance(ds.dt, date) and not isinstance(ds.dt, datetime) else timedelta(0))
-        if end <= start:
-            raise RuntimeError('Calendar event with invalid duration')
-        intervals.append(Interval(start, end))
-    return intervals
+        # Never log the token, response body, calendar IDs or Google account details.
+        raise RuntimeError(f'Google calendar free/busy check failed for {person}') from None
