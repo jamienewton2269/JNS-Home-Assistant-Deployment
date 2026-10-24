@@ -52,17 +52,24 @@ out={}
 for label,command in [
  ("core_info",["ha","core","info","--raw-json"]),
  ("core_container",["docker","inspect","--format","{{.State.Status}} {{.State.Running}} {{.State.Restarting}}","homeassistant"]),
+ ("listen",["ss","-lnt"]),
  ("core_status",["ha","core","stats","--raw-json"])]:
  try:
   response=guest(command,timeout=45)
   data=response.get("out-data","").strip()
   if label=="core_info" and data.startswith("{"):
    doc=json.loads(data)
-   out[label]={k:doc.get(k) for k in ("version","version_latest","boot","port","ssl","state","watchdog","audio_input","audio_output","ip_address") if k in doc}
+   out[label]={"envelope_keys":list(doc.keys())[:20]}
+   core=doc.get("data") or doc
+   out[label].update({k:core.get(k) for k in ("version","version_latest","boot","port","ssl","state","watchdog","audio_input","audio_output") if k in core})
   elif label=="core_status" and data.startswith("{"):
    doc=json.loads(data)
    out[label]={k:doc.get(k) for k in ("memory_usage","memory_limit","cpu_percent") if k in doc}
-  else:out[label]={"result":data[:200],"exitcode":response.get("exitcode")}
+  elif label=="listen":
+   import re
+   lines=[x for x in data.splitlines() if re.search(r":(80|443|8123|8124|8443)\\b",x)]
+   out[label]={"bound":lines[:12],"exitcode":response.get("exitcode")}
+  else:out[label]={"result":data[:100],"exitcode":response.get("exitcode")}
  except Exception as e:out[label]={"error":type(e).__name__}
 encoded=base64.b64encode(GUEST.encode()).decode()
 r=guest(["docker","exec","homeassistant","python3","-c",
