@@ -1,0 +1,25 @@
+name: JNS Solar HA900 Parity Preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-ha900-parity-preflight.yml'
+      - 'gateway/solar/parity.request'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-solar-ha900-parity
+  cancel-in-progress: false
+jobs:
+  parity:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read bounded registry metadata from running Home Assistants
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha900_parity_preflight_v1.py
+          python3 gateway/solar/ha900_parity_preflight_v1.py
