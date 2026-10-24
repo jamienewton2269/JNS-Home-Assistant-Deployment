@@ -1,0 +1,3 @@
+sensor_ieee=0xa4c13880bb5cffff
+kind=ts0201
+purpose=read-only-heating-external-temperature-source
