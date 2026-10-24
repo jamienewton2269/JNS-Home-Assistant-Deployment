@@ -1,0 +1,34 @@
+name: JNS Steward Repair Catalogue V2 Static CI
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'natural_automation_steward/tools/sync_repair_catalogue_v2.py'
+      - 'natural_automation_steward/tests/test_catalogue_v2.py'
+      - 'steward_knowledge/catalogue-v2-ci.request'
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Test and inventory complete script catalogue without on-site writes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile natural_automation_steward/tools/sync_repair_catalogue_v2.py
+          python3 -m unittest discover -s natural_automation_steward/tests -p 'test_catalogue_v2.py' -v
+          python3 natural_automation_steward/tools/sync_repair_catalogue_v2.py --repo-root . --export-json /tmp/jns-steward-repair-v2-dryrun.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/jns-steward-repair-v2-dryrun.json'))
+          assert p['schema']=='jns-steward-repair-catalogue-v2'
+          assert p['record_count']==len(p['records']) and p['record_count']>=100
+          assert all(x['artifact']['content'] and x['source_sha256'] for x in p['records'])
+          assert all(x['safety_class']=='manual_review' and x['portable'] is False for x in p['records'])
+          print('JNS_STEWARD_CATALOGUE_STATIC_ACCEPTANCE_OK',p['record_count'])
+          PY
