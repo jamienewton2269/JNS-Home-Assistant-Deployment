@@ -248,7 +248,7 @@ def import_catalogue(seed:Path,db_path:Path)->dict:
         for tbl in ("repairs","repair_search","facts"):
             if not connection.execute("SELECT 1 FROM sqlite_master WHERE name=?",(tbl,)).fetchone():
                 raise RuntimeError("Expected live Steward table missing: "+tbl)
-        backup=db_path.with_name("steward.repair-catalogue-v2-"+time.strftime("%Y%m%dT%H%M%SZ",time.gmtime())+".sqlite")
+        backup=db_path.with_name("steward.repair-catalogue-v2-"+time.strftime("%Y%m%dT%H%M%SZ",time.gmtime())+"-"+uuid.uuid4().hex[:8]+".sqlite")
         if backup.exists():raise RuntimeError("Refusing to replace an existing DB backup")
         dest=sqlite3.connect(str(backup))
         try:connection.backup(dest,pages=256,sleep=.05)
@@ -295,8 +295,8 @@ def import_catalogue(seed:Path,db_path:Path)->dict:
             VALUES('repair_catalogue','manifest',?,?)
             ON CONFLICT(namespace,key) DO UPDATE SET value_json=excluded.value_json,
               updated_at=excluded.updated_at""",(json.dumps(manifest,sort_keys=True),now))
-        indexed=connection.execute("""SELECT count(*) FROM repairs WHERE id IN
-            (SELECT repair_id FROM repair_search WHERE repair_search MATCH 'jns')""").fetchone()[0]
+        indexed=connection.execute("SELECT count(*) FROM repair_search WHERE repair_id=?",
+            (records[0]["id"],)).fetchone()[0]
         if indexed<1:raise RuntimeError("FTS validation failed")
         if connection.execute("SELECT count(*) FROM repair_search").fetchone()[0]<fts_before:
             raise RuntimeError("FTS unexpectedly shrank")
