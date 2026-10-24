@@ -1,0 +1,19 @@
+name: JNS Node C SSH Alias Safe Repair
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/repair/fix-nodec-ssh.request'
+permissions:
+  contents: read
+concurrency:
+  group: jns-nodec-ssh-alias-maintenance
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repair only outdated nodeb HostName, backup and verify
+        run: python3 gateway/repair/fix-nodec-ssh-alias.py
