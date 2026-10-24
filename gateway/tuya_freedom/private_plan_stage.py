@@ -66,10 +66,14 @@ def sample(d):
 clouds = [d for d in devices if entries.get(d.get("config_entry_id"), {}).get("domain") == "tuya"]
 locals_ = [d for d in devices if entries.get(d.get("config_entry_id"), {}).get("domain") == "tuya_local"]
 loc_ids = {d["id"]:normalized_ids(d) for d in locals_}
+# A shared identifier is not sufficient to prove a 1:1 device correspondence.
+cloud_matches = {d["id"]:[l for l in locals_ if normalized_ids(d) & loc_ids[l["id"]]] for d in clouds}
+local_uses = collections.Counter(l["id"] for matches in cloud_matches.values() for l in matches)
 source = []
 coverage = collections.Counter()
 for d in clouds:
-    matches = [l for l in locals_ if normalized_ids(d) & loc_ids[l["id"]]]
+    matches = cloud_matches[d["id"]]
+    ambiguous = len(matches) != 1 or any(local_uses[l["id"]] != 1 for l in matches)
     choices = []
     for loc in matches:
         suggestions = []
@@ -82,7 +86,7 @@ for d in clouds:
                     (old.get("entity_id") or "").split(".")[0]
                 and norm(name(e)) == norm(name(old))
             ]
-            if len(choices_here) == 1:
+            if len(choices_here) == 1 and not ambiguous:
                 suggestions.append({
                     "old_entity_id":old.get("entity_id"),
                     "local_entity_id":choices_here[0].get("entity_id"),
@@ -91,9 +95,14 @@ for d in clouds:
                 })
         choices.append({"local":sample(loc), "suggestions":suggestions})
     coverage["cloud_with_identifier_candidate" if matches else "no_identifier_candidate"] += 1
+    if matches and ambiguous:
+        coverage["identifier_overlap_ambiguous"] += 1
+    if matches and not ambiguous:
+        coverage["identifier_overlap_one_to_one_candidate"] += 1
     if len(matches) > 1:
         coverage["ambiguous_multiple_local_devices"] += 1
-    source.append({"cloud":sample(d), "local_candidates":choices,
+    source.append({"cloud":sample(d), "identifier_overlap_ambiguous":ambiguous,
+                   "local_candidates":choices,
                    "local_key_present_in_matched_entry":any(
                        "local_key" in (entries.get(x.get("config_entry_id"),{}).get("data",{}))
                        for x in matches)})
