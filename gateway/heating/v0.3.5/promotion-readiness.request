@@ -1,3 +1,4 @@
 audit=read_only
 scope=vm905_heating
 approved_action=none
+repeat=cli-and-capabilities
