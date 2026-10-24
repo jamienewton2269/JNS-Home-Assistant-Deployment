@@ -53,6 +53,13 @@ sudo bash ~/veyra-obs-mkv-review-v1.1.sh inspect
 sudo bash ~/veyra-obs-mkv-review-v1.1.sh play
 ```
 
+### Saved MKV inspection and physical replay (24 October 2026)
+- User ran the existing read-only `veyra-obs-mkv-review-v1.1.sh inspect` and `play` commands, both completed.
+- **MKV:** 24,317,952 bytes, Matroska container, video H.264 **1364×768 at 25/1 fps**, audio AAC **2 channels at 48,000 Hz**. `ffprobe -count_frames` read **749 video frames**, but warned **`File ended prematurely`**. File format duration missing, so about 29.96s is estimated from counted frames; the original OBS script uses TERM followed by KILL after ~2 seconds, so a missing/truncated muxer trailer is a likely issue to investigate, not yet conclusively proven.
+- Physical laptop `mpv` replay reported `Using hardware decoding (vaapi)`, `VO: [gpu] 1364x768 vaapi[nv12]`, `AO: [pulse] 48000Hz stereo 2ch float`, `AV: 00:00:29 / 00:00:29 (100%) A-V: 0.000`, then normal end of file. This verifies successful **decoder and audio output initialization and transport streams**, but **does not yet verify that actual ITVX programme pixels were visible, sound was audible, or motion was smooth**; request user's direct observation.
+- Earlier OBS live SRT output reported **193 render-lagged frames (27.3%)** and repeated SRT connection rejections. Neither a usable MKV nor 749 encoded frames demonstrate unique frames or broadcast-quality motion.
+- Pending investigation/gates before *any* production cutover: physical playback visual/audio report; OBS renderer hardware path (Xvfb :93 currently Mesa llvmpipe software renderer); replace forced OBS process-group teardown with an OBS-supported **graceful recording stop and verified MKV finalisation**; make restream errors independent of local recording test; confirm video dimensions/codec/clean EOF; measure actual capture drops and not just encoded frame totals. Preserve ITVX Xvfb :92, Chrome profile, VNC, Cage and original recorder; **no standalone FFmpeg/FFplay development**.
+
 ## Retention and next gate
 
 This run creates **one approximately 30-second audiovisual test buffer**, not 30 minutes, and is *not yet a circular buffer*. Once capture/perception are verified, switch to OBS-backed bounded segmented storage with play/pause/rewind using a separate recorder output strategy and proper disk/time limits. Prefer source frame-rate rather than repeating fixed 50 fps.
