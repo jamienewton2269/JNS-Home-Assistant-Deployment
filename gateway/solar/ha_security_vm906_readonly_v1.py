@@ -82,7 +82,7 @@ pvesm status 2>/dev/null | awk '$1=="vmdata" {print "TARGET_VMDATA_STATUS="$3;pr
 qm list 2>/dev/null | awk 'NR>1 && ($1==900 || $1==902 || $1==903 || $1==905 || $1==906) {print "VM_ON_A_"$1"="$3}'
 '''
     cmd=["ssh","-o","BatchMode=yes","-o","ConnectTimeout=5",
-         "-o","StrictHostKeyChecking=yes","nodea","bash","-c",command]
+         "-o","StrictHostKeyChecking=yes","nodea",shlex.join(["bash","-c",command])]
     p=run(cmd,20)
     if not p or p.returncode:return {"status":"trusted_nodea_read_blocked"}
     allowed={"TARGET_906_COLLISION","TARGET_PVE_AVAILABLE","TARGET_MEM_TOTAL_MB",
