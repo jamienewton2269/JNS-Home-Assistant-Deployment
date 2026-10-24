@@ -14,3 +14,11 @@ script="grep -HinEi 'door.?bell|kc868|chime|ding.?dong|mqtt.*press|ring.*bell|al
 print("LEGACY_AUTOMATION_MATCHES",guest(script),flush=True)
 script="grep -nEi 'on_press:|on_click:|mqtt:|KC868-A16-X|KC868-A16-Y|binary_sensor:|switch:' /mnt/data/supervisor/homeassistant/esphome/alarmpanel.yaml | head -110"
 print("LEGACY_ESPHOME_MAPPING",guest(script),flush=True)
+
+import re
+selected=guest("sed -n '1040,1195p' /mnt/data/supervisor/homeassistant/automations.yaml")
+print("LEGACY_BELL_AUTOMATION_DETAILS",flush=True)
+for line in selected.splitlines():
+    s=line.strip()
+    if re.search(r"(?i)^(alias:|id:|description:|trigger:|triggers:|platform:|entity_id:|from:|to:|for:|action:|actions:|service:|delay:|seconds:|minutes:|milliseconds:|counter:|domain:|type:|topic:|event_type:|mode:)",s):
+        print(s[:170],flush=True)
