@@ -1,0 +1,22 @@
+name: JNS Solar MQTT Snapshot Failure Diagnostic
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-mqtt-stage-diagnostic.yml'
+      - 'gateway/solar/mqtt_stage_backup_diagnostic_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Classify latest private CT212 backup error without revealing logs
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/mqtt_stage_backup_diagnostic_v1.py
+          python3 gateway/solar/mqtt_stage_backup_diagnostic_v1.py
