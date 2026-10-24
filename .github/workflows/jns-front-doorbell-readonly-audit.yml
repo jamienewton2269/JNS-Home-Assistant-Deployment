@@ -16,3 +16,6 @@ jobs:
         run: python3 gateway/doorbell/diagnose_readonly.py
       - name: Read-only ESPHome file inventory
         run: python3 gateway/doorbell/esp32-file-inventory.py
+
+      - name: Inspect HA-General local doorbell automation
+        run: python3 gateway/doorbell/audit_vm905_automation.py
