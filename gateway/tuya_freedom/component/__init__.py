@@ -22,7 +22,7 @@ from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.event import async_track_time_interval
 
 DOMAIN = "jns_tuya_freedom"
-CONFIG_SCHEMA = vol.Schema({vol.Optional(DOMAIN): vol.Schema({})}, extra=vol.ALLOW_EXTRA)
+CONFIG_SCHEMA = vol.Schema({vol.Optional(DOMAIN): vol.Any(None, vol.Schema({}))}, extra=vol.ALLOW_EXTRA)
 INTERVAL = timedelta(minutes=5)
 TARGET = Path("/config/.jns_tuya_freedom/latest-live.json")
 
