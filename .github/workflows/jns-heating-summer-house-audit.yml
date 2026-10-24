@@ -1,0 +1,17 @@
+name: JNS Heating Summer House Sensor Mapping
+on:
+  push:
+    branches:
+      - 'dev/heating-thermal-learning-v035-20261024'
+    paths:
+      - 'gateway/heating/v0.3.5/summer-house-audit.request'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only Zigbee TS0201 identity and heat learning sensor mapping
+        run: python3 gateway/heating/v0.3.5/audit_summer_house_sensor.py
