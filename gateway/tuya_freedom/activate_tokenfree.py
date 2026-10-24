@@ -180,11 +180,14 @@ except Exception as err:
 def guest(args,limit=140):
     result=json.loads(ssh_host("nodeb",["qm","guest","exec",VM,"--",*args]))
     expiry=time.monotonic()+limit
+    pid=result.get("pid")
     while not result.get("exited"):
-        if not isinstance(result.get("pid"),int) or time.monotonic()>expiry:
+        if not isinstance(pid,int):
+            raise RuntimeError("vm905_guest_agent_missing_initial_pid")
+        if time.monotonic()>expiry:
             raise RuntimeError("vm905_guest_agent_timeout")
         time.sleep(3)
-        result=json.loads(ssh_host("nodeb",["qm","guest","exec-status",VM,str(result["pid"])]))
+        result=json.loads(ssh_host("nodeb",["qm","guest","exec-status",VM,str(pid)]))
     return result
 
 def in_core(action,digests,limit=90):
