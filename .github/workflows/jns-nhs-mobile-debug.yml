@@ -1,0 +1,68 @@
+name: JNS NHS mobile debug build
+
+on:
+  push:
+    branches:
+      - feature/nhs-blood-booking-v0.1
+    paths:
+      - 'gateway/apps/nhs-blood-booking/mobile-android/**'
+      - '.github/workflows/jns-nhs-mobile-debug.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'gateway/apps/nhs-blood-booking/mobile-android/**'
+      - '.github/workflows/jns-nhs-mobile-debug.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: gateway/apps/nhs-blood-booking/mobile-android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android API 35 from preinstalled runner SDK manager
+        run: |
+          echo "SDK root: ${ANDROID_HOME:?Android SDK not provided by runner}"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort -V | tail -1)"
+          test -n "$SDKMANAGER"
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Test scheduling core
+        run: |
+          mkdir -p /tmp/jns-nhs-test
+          javac -d /tmp/jns-nhs-test \
+            app/src/main/java/uk/co/jnsystems/nhsbooker/AppointmentPlanner.java \
+            core-tests/PlannerSmokeTest.java
+          java -cp /tmp/jns-nhs-test PlannerSmokeTest
+      - name: Build unsigned-for-release Android debug APK
+        run: gradle --no-daemon :app:assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jns-nhs-android-debug-apk
+          path: gateway/apps/nhs-blood-booking/mobile-android/app/build/outputs/apk/debug/*.apk
+          retention-days: 7
+          if-no-files-found: error
+      - name: Package tracked Android source only
+        run: |
+          git -C "$GITHUB_WORKSPACE" archive --format=zip \
+            --output="$RUNNER_TEMP/jns-nhs-mobile-source.zip" \
+            HEAD:gateway/apps/nhs-blood-booking/mobile-android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jns-nhs-android-source
+          path: ${{ runner.temp }}/jns-nhs-mobile-source.zip
+          retention-days: 7
+          if-no-files-found: error
