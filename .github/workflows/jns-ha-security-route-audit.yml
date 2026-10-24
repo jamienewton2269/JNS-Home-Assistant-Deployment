@@ -1,0 +1,15 @@
+name: JNS HA-Security Doorbell Route Check
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/doorbell/ha-security-route.request'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/doorbell/ha-security-route-audit.py
