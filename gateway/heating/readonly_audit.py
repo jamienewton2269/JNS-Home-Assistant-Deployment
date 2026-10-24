@@ -239,7 +239,7 @@ except (ValueError,IndexError,OSError,KeyError,TypeError,ZeroDivisionError):
 
 # Version-locked source snapshot for offline v0.3.5 candidate derivation.
 source_file=comp/"thermal.py"
-if source_file.is_file() and hashlib.sha256(source_file.read_bytes()).hexdigest()=="SHA_UNKNOWN":
+if source_file.is_file() and json.loads(manifest.read_text()).get("version")=="0.3.4":
     out["thermal_source_snapshot"]=source_file.read_text(encoding="utf-8")
 else:
     out["thermal_source_snapshot"]="SOURCE_CHANGED_OR_MISSING"
