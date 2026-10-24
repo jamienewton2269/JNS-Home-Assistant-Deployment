@@ -1,0 +1,30 @@
+name: VEYRA OBS MKV review read-only safety
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/trusted/veyra-obs-mkv-review-v1.1.sh'
+      - '.github/workflows/veyra-obs-mkv-review-v11-ci.yml'
+permissions: {contents: read}
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate no recording or protected service changes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-obs-mkv-review-v1.1.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path("gateway/trusted/veyra-obs-mkv-review-v1.1.sh").read_text()
+          for a in ("ffprobe", "mpv --no-config", "case \"\$\{1:-\}\"", "find_file", "inspect_file", "play_file", "pulse/native", "wayland-*"):
+              if a.startswith("case"): continue
+              assert a in s, f"missing {a}"
+          for forbidden in ("systemctl stop","systemctl restart","kill -","rm -","ffmpeg -","obs --", "Xvfb :93", "curl "):
+              assert forbidden not in s, f"non-review operation {forbidden}"
+          assert s.count("mapfile -d") == 1
+          print("PASS: OBS sample metadata/replay uses no capture, stream or service mutation")
+          PY
