@@ -14,3 +14,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Read only front doorbell path diagnostics
         run: python3 gateway/doorbell/diagnose_readonly.py
+      - name: Read-only ESPHome file inventory
+        run: python3 gateway/doorbell/esp32-file-inventory.py
