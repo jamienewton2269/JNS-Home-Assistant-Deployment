@@ -1,2 +1,3 @@
 mode=read-only
 check=MQTT-control-capability
+check=target-and-anonymous-broker
