@@ -1,0 +1,38 @@
+name: JNS VM906 GitHub Gateway Execution Check
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-github-gateway-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Determine if existing GitHub gateway can perform VM906 migration
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo "JNS_VM906_GITHUB_EXECUTION_CHECK"
+          test "$(hostname -s)" = nodec
+          echo "NODEC_RUNNER=$(id -un)"
+          echo "AUTHORIZED_SUDO_COMMANDS:"
+          sudo -n -l 2>/dev/null | sed -n '/NOPASSWD:/p' | sed -E 's#(/home/)[^/]+/#\1REDACTED/#g' | head -15 || true
+          echo "EXISTING_GATEWAY_JOB_TYPES:"
+          if test -r /usr/local/sbin/jns-gateway-exec; then
+            sed -n '/^case "\$JOB_TYPE" in/,/^esac/p' /usr/local/sbin/jns-gateway-exec \
+              | grep -E '^[[:space:]]{2}[a-z][a-z0-9_\|:-]*\)' | sed -E 's/^[[:space:]]+//' | head -30 || true
+          fi
+          echo "VM906_GATEWAY_HANDLER_PRESENT=$(test -x /usr/local/libexec/jns-gateway-vm906-migration && echo yes || echo no)"
+          echo "VM906_NODEC_ROOT_SSH=$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=4 root@localhost 'test "$(id -u)" = 0' >/dev/null 2>&1 && echo yes || echo no)"
+          echo "VM906_LOCAL_CONFIG_PRESENT=$(test -f /etc/pve/qemu-server/906.conf && echo yes || echo no)"
+          echo "VM906_MIGRATION_SCRIPT_STAGED=$(test -f "$HOME/.local/share/jns-solar/ha-security-906/move_vm906.py" && echo yes || echo no)"
+          echo "VM906_NODEA:"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=6 nodea \
+            'if qm config 906 >/dev/null 2>&1; then echo "VM906_DESTINATION_DEFINED=yes"; qm status 906; else echo "VM906_DESTINATION_DEFINED=no"; fi; free -m | awk '\''/^Mem:/ {print "MEM_AVAILABLE_MB="$7}'\''' \
+            || echo "NODEA_QUERY_UNAVAILABLE"
+          echo "JNS_VM906_GITHUB_EXECUTION_CHECK_COMPLETE"
