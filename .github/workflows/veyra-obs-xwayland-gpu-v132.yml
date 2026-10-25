@@ -61,7 +61,7 @@ jobs:
           ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$tmp/known_hosts" -o ConnectTimeout=6 "jnsadmin@$target" 'sudo -n bash -s' <<'REMOTE'
           set -u
           base=/tmp/veyra-obs-xwayland-gpu-v1.3.2.sh
-          rev=96b0ec476ffb0b4fbaeff21c9ec8224105fc265c
+          rev=0e91bdbb92b1ef43a13056478cd950678b4d56ef
           uri="https://raw.githubusercontent.com/jamienewton2269/JNS-Home-Assistant-Deployment/$rev/gateway/trusted/veyra-obs-xwayland-gpu-v1.3.2.sh"
           curl -fsSL --max-time 20 "$uri" -o "$base" || exit 4
           bash -n "$base" || exit 4
