@@ -35,8 +35,8 @@ jobs:
             'OBS_RENDER_LAG_PERCENT','WLR_HEADLESS_OUTPUTS=1','cage -- env',
             'trap cleanup EXIT','--hwdec=no'):
             assert x in s,x
-          assert s.index('OBS_INTEL_GPU_ADAPTER_VERIFIED') < s.index('guarded_pause_after_gpu')
-          assert s.index('guarded_pause_after_gpu') < s.index('sleep 18')
+          assert s.index('say "OBS_INTEL_GPU_ADAPTER_VERIFIED"') < s.index('\n  guarded_pause_after_gpu\n')
+          assert s.index('\n  guarded_pause_after_gpu\n') < s.index('\n  sleep 18\n')
           assert s.index('resume_recorder ||') < s.index('if [[ -n "$OBS_GROUP" ]]')
           for x in ('Xvfb :93','Xvfb :92','QT_QPA_PLATFORM=xcb',
                     'WLR_BACKENDS=drm','systemctl restart ','systemctl enable ',
