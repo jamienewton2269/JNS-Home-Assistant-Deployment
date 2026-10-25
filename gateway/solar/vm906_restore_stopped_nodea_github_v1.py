@@ -30,7 +30,7 @@ def find_backup():
         except (OSError,ValueError):continue
         if m.get("schema")!="jns.solar.vm906.source-snapshot.v1" or m.get("vmid")!=906:continue
         name=m.get("archive_name","")
-        if not isinstance(name,str) or not re.fullmatch(r"vzdump-qemu-906-[0-9_-]+\\.vma\\.zst",name):
+        if not isinstance(name,str) or not re.fullmatch(r"vzdump-qemu-906-[0-9_-]+\.vma\.zst",name):
             continue
         data=f.parent/name
         if data.is_symlink() or not data.is_file():continue
@@ -43,7 +43,7 @@ def find_backup():
 def local_ha_security_process():
     p=subprocess.run(["ps","-eo","args="],capture_output=True,text=True,timeout=10)
     return bool(p.returncode==0 and any(
-        ("qemu-system" in l or "kvm " in l) and re.search(r" -id 906(?:\\s|$)",l)
+        ("qemu-system" in l or "kvm " in l) and re.search(r" -id 906(?:\s|$)",l)
         for l in p.stdout.splitlines()))
 def copy_to_nodea(src,m,dest):
     part=dest+".partial"
@@ -94,7 +94,7 @@ zfs create -o compression=zstd -o atime=off __DATASET__
 path="$(zfs get -H -o value mountpoint __DATASET__)"
 test -d "$path" && test "$path" != /
 chmod 0700 "$path"
-printf 'STAGE_PATH=%s\\n' "$path"
+printf 'STAGE_PATH=%s\n' "$path"
 '''.replace("__DATASET__",shlex.quote(DATASET))
     out=remote(prepare,55)
     lines=[x.split("=",1)[1] for x in out.splitlines() if x.startswith("STAGE_PATH=")]
