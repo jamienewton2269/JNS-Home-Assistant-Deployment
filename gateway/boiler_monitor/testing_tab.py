@@ -33,7 +33,7 @@ if existing:
  raise SystemExit(0)
 node=yaml.compose(text)
 views=next(value for key,value in node.value if key.value=='views')
-indent=views.value[0].start_mark.column
+indent=views.start_mark.column
 addition=yaml.safe_dump([view],allow_unicode=True,sort_keys=False)
 addition=''.join(' '*indent+line if line.strip() else line for line in addition.splitlines(keepends=True))
 pos=views.end_mark.index
