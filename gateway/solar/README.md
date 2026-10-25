@@ -54,6 +54,21 @@ Read-only NAS/DNS backend relationships: https://github.com/jamienewton2269/JNS-
 
 **Decision:** Production cutover and NAS/Node B power-off remain BLOCKED pending service migration, snapshots, capacity and rollback verification.
 
+## HA-Security VM906 relocation checkpoint — 25 October 2026
+
+**Current state: NOT MIGRATED. Source VM906 remains live on Node C.** [Current source/destination audit](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40199089457) confirms VM906 definition and disk present on Node C; VM906 does not exist on Node A. Node A has 3795 MiB available RAM, 2687 MiB swap in use and ~778 GiB free vmdata. Node C NFS backup share has ~1382 GiB free.
+
+The HA900 archive run 40194270323 ended cancelled; Node A VM900 is stopped and onboot=0, its disk removal is unverified. Do not confuse an archived VM900 copy with a freed or deleted VM900 source.
+
+**Privileged source access gate:** Node C GitHub runner cannot directly run `qm`/ `vzdump` as root. The [existing allowlist inspection](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40199885120) found the gateway's already-installed handlers cover HA package/network identity, Tuya, Veyra and DNS tasks, NOT VM906 relocation. Do not escalate the runner or bypass its trust boundary.
+
+Prepared, syntax-tested, narrowly scoped source scripts in `gateway/solar/`:
+- `ha_security_906_source_prebackup_nodec_v1.sh`: run by approved root on Node C only; checks source identity, NFS headroom and passthrough; creates a private current Proxmox `vzdump` snapshot of VM906 on NFS, full zstd test and SHA-256 manifest. Does not stop source.
+- `ha_security_906_stage_nodea_from_nfs_v1.py`: run from approved Node C root after the source backup; through the runner's existing SSH identity streams the pinned archive directly to root-only storage on Node A, verifies SHA-256, runs `qmrestore` to **stopped, onboot=0 VM906** on `vmdata`. Source remains running until a separately approved, controlled final cutover.
+- Both files were syntax-validated by [JNS Solar VM906 Migration Script Validation](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40200179593). **Syntax checks do not constitute VM migration success.**
+
+**Final live cutover is NOT authorised to happen blindly:** verify the offline restore and HA-Security target configuration, security/tamper integrations, existing alarm state, source/target MAC/DNS ownership, available Node A RAM under load and rollback. Stop Node C VM906 and set onboot=0 before bringing up the Node A copy; never run them concurrently. Preserve source VM906 stopped for rollback until HA-Security endpoint and actual alarm/doorbell functionality are verified. On successful cutover Node C remains the always-on Steward host.
+
 ## Additional mandatory migration: HA-Security VM906 (Node C → Node A)
 
 This is **in scope for Solar Economy**: HA-Security VM906 will move to production Node A while Node C remains the always-on Steward and management server. Current Node C VM906 service is the authority for manual alarm logic, ESPHome/KC868-A16 security endpoints and future SecureAssist integration. The approved target is **Node A**, keeping DNS name `ha-security.home.arpa` managed dynamically by Sheriff (no fixed addressing/DHCP reservations).
