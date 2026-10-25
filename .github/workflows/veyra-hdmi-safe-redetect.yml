@@ -1,0 +1,53 @@
+name: VEYRA safe HDMI re-detect and verify
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-hdmi-safe-redetect.yml'
+permissions: {contents: read}
+jobs:
+  redetect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - name: Recheck kernel HDMI hotplug after HPD storm without modeset
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          target=veyra.home.arpa
+          key="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          expect='SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          tmp=$(mktemp -d)
+          chmod 700 "$tmp"
+          trap 'rm -rf "$tmp"' EXIT
+          ssh-keyscan -T 5 -t ed25519 "$target" 2>/dev/null >"$tmp/known_hosts"
+          test "$(awk '$2=="ssh-ed25519"{n++}END{print n+0}' "$tmp/known_hosts")" -eq 1
+          test "$(ssh-keygen -lf "$tmp/known_hosts" -E sha256 | awk '{print $2;exit}')" = "$expect"
+          ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$tmp/known_hosts" \
+            -o ConnectTimeout=6 "jnsadmin@$target" 'sudo -n bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          hdmi=/sys/class/drm/card0-HDMI-A-1
+          panel=/sys/class/drm/card0-eDP-1
+          test -d "$hdmi" && test -d "$panel"
+          systemctl is-active --quiet veyra-kiosk.service
+          systemctl is-active --quiet veyra-itvx-vnc-v01.service
+          systemctl is-active --quiet veyra-virtual-loopback-v01.service
+          echo "BEFORE_HDMI_STATUS=$(cat "$hdmi/status")"
+          echo "BEFORE_INTERNAL_PANEL_STATUS=$(cat "$panel/status")"
+          for p in /sys/module/drm_kms_helper/parameters/poll /sys/module/i915/parameters/hpd_storm_threshold; do
+            if [[ -r "$p" ]]; then echo "DRIVER_PARAMETER_$p=$(cat "$p")"; fi
+          done
+          echo "=== DRM HDMI UDEV CHANGE (NO REBOOT OR MODESET) ==="
+          udevadm trigger --action=change --subsystem-match=drm --sysname-match=card0-HDMI-A-1
+          udevadm settle --timeout=8 || true
+          sleep 4
+          echo "AFTER_HDMI_STATUS=$(cat "$hdmi/status")"
+          echo "AFTER_HDMI_EDID_BYTES=$(wc -c < "$hdmi/edid")"
+          echo "AFTER_HDMI_MODES=$(head -12 "$hdmi/modes" | paste -sd ',' -)"
+          echo "AFTER_INTERNAL_PANEL_STATUS=$(cat "$panel/status")"
+          echo "=== SYSTEMD PRESERVED ==="
+          for svc in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do
+            echo "$svc=$(systemctl is-active "$svc")"
+          done
+          REMOTE
