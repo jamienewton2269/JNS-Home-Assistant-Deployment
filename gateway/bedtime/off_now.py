@@ -7,10 +7,17 @@ sys.path.insert(0,"gateway/arrival_lighting")
 from readiness_probe import ssh_host
 NODE=r"""
 const fs=require('fs');
-const yaml=require('/opt/zigbee2mqtt/node_modules/yaml');
-const mqtt=require('/opt/zigbee2mqtt/node_modules/mqtt');
-const dev=yaml.parse(fs.readFileSync('/opt/zigbee2mqtt/data/devices.yaml','utf8'));
-const cfg=yaml.parse(fs.readFileSync('/opt/zigbee2mqtt/data/configuration.yaml','utf8'));
+const {createRequire}=require('module');
+const zrequire=createRequire('/opt/zigbee2mqtt/index.js');
+let loader=null;
+for (const name of ['yaml','js-yaml']) {
+ try {loader=zrequire(name);break;}catch(e){}
+}
+if(!loader){console.log('JNS_STRING_OFF_BLOCKED no_existing_yaml_parser');process.exit(2);}
+const parse=loader.parse || loader.load;
+const mqtt=zrequire('mqtt');
+const dev=parse(fs.readFileSync('/opt/zigbee2mqtt/data/devices.yaml','utf8'));
+const cfg=parse(fs.readFileSync('/opt/zigbee2mqtt/data/configuration.yaml','utf8'));
 const ieee='0xa4c1388ba234f2e3', desired='Garden String Lights';
 const entry=dev[ieee];
 if (!entry || entry.friendly_name!==desired) {
