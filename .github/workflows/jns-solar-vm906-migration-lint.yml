@@ -1,0 +1,24 @@
+name: JNS Solar VM906 Migration Script Validation
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-vm906-migration-lint.yml'
+      - 'gateway/solar/ha_security_906_source_prebackup_nodec_v1.sh'
+      - 'gateway/solar/ha_security_906_stage_nodea_from_nfs_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  syntax:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate migration scripts without executing privileged commands
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/solar/ha_security_906_source_prebackup_nodec_v1.sh
+          python3 -m py_compile gateway/solar/ha_security_906_stage_nodea_from_nfs_v1.py
+          echo "JNS_VM906_MIGRATION_SCRIPTS_SYNTAX_OK"
