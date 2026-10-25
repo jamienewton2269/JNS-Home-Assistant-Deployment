@@ -1,0 +1,35 @@
+name: VEYRA OBS performance report read-only CI
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/trusted/veyra-obs-performance-report-v1.sh'
+      - '.github/workflows/veyra-obs-performance-report-v1-ci.yml'
+permissions: {contents: read}
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate read-only OBS existing-log report
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          f=gateway/trusted/veyra-obs-performance-report-v1.sh
+          bash -n "$f"
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('gateway/trusted/veyra-obs-performance-report-v1.sh').read_text()
+          for good in ('obs-console.log','ffprobe','mpv-replay-hw.log',
+                       'rendering lag','encoding lag','llvmpipe','ps -eo',
+                       'veyra-virtual-loopback-v01.service',
+                       'ffprobe -v error -count_frames'):
+              assert good in s,good
+          for bad in ('systemctl stop ', 'systemctl restart ', 'kill -STOP',
+                      'kill -CONT','/usr/bin/ffmpeg ', 'obs --multi',
+                      'Xvfb :93','Xvfb :92','rm -rf ','pkill ','killall ',
+                      'apt-get ', 'chown ', 'chmod ', 'sed -i '):
+              assert bad not in s,bad
+          print('PASS: no capture, process changes or playback; safe existing-log collection')
+          PY
