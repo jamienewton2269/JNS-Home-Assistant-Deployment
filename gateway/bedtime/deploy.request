@@ -5,3 +5,4 @@ entity=switch.0xa4c1388ba234f2e3
 actions=bedtime-relay,morning-sunrise-0800
 mode=guarded-transactional
 attempt=2-async-qga-after-verified-rollback
+attempt=3-detached-core-cli
