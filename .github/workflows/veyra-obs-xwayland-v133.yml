@@ -63,7 +63,7 @@ jobs:
           test "$(ssh-keygen -lf "$tmp/known_hosts" -E sha256 | awk '{print $2;exit}')" = "$fp"
           ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$tmp/known_hosts" -o ConnectTimeout=6 "jnsadmin@$target" 'sudo -n bash -s' <<'REMOTE'
           set -u
-          rev=1e7ce156f7a15c3adfad7b22351fb08acdecbbf0
+          rev=ee37b8a39cfc9ea5cc5dcfc95a757a8d9c8764a4
           url="https://raw.githubusercontent.com/jamienewton2269/JNS-Home-Assistant-Deployment/$rev/gateway/trusted"
           code=/tmp/veyra-obs-xwayland-gpu-v1.3.3.sh
           ctl=/tmp/veyra-obs-ws-control-v1.3.3.py
