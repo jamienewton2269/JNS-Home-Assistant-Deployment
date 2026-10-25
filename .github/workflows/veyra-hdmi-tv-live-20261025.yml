@@ -1,0 +1,75 @@
+name: VEYRA HDMI TV live 75s test 20261025
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-hdmi-tv-live-20261025.yml'
+permissions: {contents: read}
+concurrency:
+  group: veyra-hdmi-tv-live-test
+  cancel-in-progress: false
+jobs:
+  tv-test:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - name: Verified remote temporary HDMI enable and automatic safe return
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          target=veyra.home.arpa
+          key="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          fp='SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          work=$(mktemp -d)
+          chmod 700 "$work"
+          trap 'rm -rf "$work"' EXIT
+          ssh-keyscan -T 5 -t ed25519 "$target" 2>/dev/null >"$work/known_hosts"
+          test "$(awk '$2=="ssh-ed25519"{n++}END{print n+0}' "$work/known_hosts")" -eq 1
+          test "$(ssh-keygen -lf "$work/known_hosts" -E sha256 | awk '{print $2;exit}')" = "$fp"
+          ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$work/known_hosts" \
+            -o ConnectTimeout=6 "jnsadmin@$target" 'sudo -n bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          hdmi=/sys/class/drm/card0-HDMI-A-1
+          panel=/sys/class/drm/card0-eDP-1
+          [[ -d "$hdmi" && -d "$panel" ]]
+          for unit in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do
+            systemctl is-active --quiet "$unit" || exit 3
+          done
+          [[ "$(cat "$panel/status")" == connected ]] || exit 4
+          before=$(cat "$hdmi/status")
+          echo "ORIGINAL_HDMI_STATUS=$before"
+          [[ "$before" == disconnected ]] || {
+            echo "SAFETY_STOP: HDMI state has changed since user readiness; no force"; exit 4;
+          }
+          unit="veyra-hdmi-tv-revert-$(date +%s)"
+          systemd-run --quiet --collect --unit="$unit" --on-active=105s \
+            /usr/bin/bash -c 'echo detect > /sys/class/drm/card0-HDMI-A-1/status'
+          systemctl is-active --quiet "$unit.timer" || exit 4
+          revert() {
+            echo detect > "$hdmi/status" 2>/dev/null || true
+            echo "RESTORED_HDMI_STATUS=$(cat "$hdmi/status" 2>/dev/null)"
+            echo "INTERNAL_PANEL_POST=$(cat "$panel/status" 2>/dev/null)"
+            for svc in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do
+              echo "$svc=$(systemctl is-active "$svc" 2>/dev/null)"
+            done
+          }
+          trap revert EXIT
+          echo "AUTO_ROLLBACK_ARMED=105s"
+          echo on > "$hdmi/status"
+          sleep 5
+          echo "TEST_HDMI_STATUS=$(cat "$hdmi/status")"
+          echo "TEST_HDMI_ENABLED=$(cat "$hdmi/enabled")"
+          echo "TEST_MODES=$(head -8 "$hdmi/modes" | paste -sd ',' -)"
+          echo "INTERNAL_PANEL_ENABLED=$(cat "$panel/enabled")"
+          echo "=== HDMI CONNECTOR CRTC ROUTING ==="
+          for f in /sys/kernel/debug/dri/*/state; do
+            if [[ -r "$f" ]]; then
+              grep -A9 '^connector.*HDMI-A-1' "$f" | head -14 || true
+            fi
+          done
+          echo "TV_LIVE_TEST_ACTIVE=YES duration=55s; WATCH_TV_INPUT_NOW"
+          sleep 55
+          echo "TV_LIVE_TEST_WINDOW_FINISHED"
+          echo "TEST_HDMI_END_STATE=$(cat "$hdmi/status")"
+          REMOTE
