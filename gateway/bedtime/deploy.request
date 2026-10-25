@@ -6,3 +6,4 @@ actions=bedtime-relay,morning-sunrise-0800
 mode=guarded-transactional
 attempt=2-async-qga-after-verified-rollback
 attempt=3-detached-core-cli
+attempt=4-busybox-compatible-validation
