@@ -41,3 +41,12 @@ for container,cmd in [
   result=ssh_host("nodeb",["pct","exec",container,"--","sh","-c",cmd])
   print("CONTAINER",container,result[:1300],flush=True)
  except Exception as e:print("CONTAINER_BLOCKED",container,type(e).__name__,str(e)[:110],flush=True)
+
+print("JNS_Z2M_TARGET_READONLY_CHECK",flush=True)
+for id,script in (
+ ("214", "printf 'TARGET_MAP '; grep -Fn 'Garden String Lights' /opt/zigbee2mqtt/data/configuration.yaml | head -3 || :;printf 'NODE_BIN ';for x in /usr/bin/node /usr/local/bin/node /opt/zigbee2mqtt/node_modules/.bin/node;do if test -x \"$x\";then echo yes;fi;done;printf 'Z2M_SERVICE ';systemctl is-active zigbee2mqtt || :"),
+ ("212", "mosquitto_sub -h 127.0.0.1 -t 'zigbee2mqtt/Garden String Lights' -C 1 -W 3 >/dev/null 2>&1; code=$?; echo \"ANON_SUB_EXIT $code\"")
+):
+ try:
+  print("DEVICE",id,ssh_host("nodeb",["pct","exec",id,"--","sh","-c",script])[:550],flush=True)
+ except Exception as e:print("DEVICE_PROBE_BLOCKED",id,type(e).__name__,str(e)[:140],flush=True)
