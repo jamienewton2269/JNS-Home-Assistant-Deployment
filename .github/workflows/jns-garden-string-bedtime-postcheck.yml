@@ -1,0 +1,17 @@
+name: JNS Garden String Bedtime Postcheck
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/bedtime/postcheck.request']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/bedtime/postcheck.py
+          python3 gateway/bedtime/postcheck.py
