@@ -160,7 +160,7 @@ resume_recorder() {
 }
 guarded_pause_after_gpu() {
   recorder_identity
-  LEGACY_TIMER="veyra-v13-resume-$(date +%s)-$"
+  LEGACY_TIMER="veyra-v13-resume-$(date +%s)-$$"
   systemd-run --quiet --collect --unit="$LEGACY_TIMER" --on-active=95s \
     /usr/bin/bash -c '
       p="$1"; start="$2"; marker="$3"
@@ -200,7 +200,7 @@ cleanup() {
     # X_GROUP is unused: OBS and its disposable Cage compositor share OBS_GROUP.
     echo "WARN: unexpected second graphics group; left untouched."
   fi
-  say "CLEANUP: existing ITVX/Chrome, kiosk, VNC, recorder never stopped."
+  say "CLEANUP: ITVX/Chrome, kiosk, VNC unchanged; original recorder resume attempted."
   exit "$rc"
 }
 frames() {
@@ -237,8 +237,8 @@ PY
   return "$result"
 }
 run_test() {
-  exec 9>/run/lock/veyra-obs-v12.lock
-  flock -n 9 || { block "another OBS v1.2 trial running"; return 2; }
+  exec 9>/run/lock/veyra-obs-v13.lock
+  flock -n 9 || { block "another OBS GPU trial running"; return 2; }
   stage
   trap cleanup EXIT
   trap 'exit 130' INT
@@ -329,7 +329,7 @@ print("PASS: OBS rendering stalls <=5%; still require motion, sound and sync acc
 PY
   say "CANDIDATE_MKV=$clip"
   say "GPU_CAPTURE_CANDIDATE; protected legacy recorder restored after bounded test."
-  say "REPLAY: sudo bash veyra-obs-live-av-quality-v1.2.sh play '$clip'"
+  say "REPLAY: sudo bash ~/veyra-obs-wayland-gpu-guarded-v1.3.1.sh play '$clip'"
 }
 play_saved() {
   local clip="$1" rt sock sink
@@ -337,7 +337,7 @@ play_saved() {
   clip=$(readlink -f -- "$clip") || return 2
   case "$clip" in
     "$ROOT"/runs/*/buffer/*.mkv) ;;
-    *) block "replay accepts only v1.2 recorded MKVs"; return 2 ;;
+    *) block "replay accepts only OBS v1.3 candidate MKVs"; return 2 ;;
   esac
   [[ -s "$clip" ]] || { block "clip empty or missing"; return 2; }
   systemctl is-active --quiet veyra-kiosk.service ||
@@ -350,7 +350,7 @@ play_saved() {
   runuser -u veyra -- env XDG_RUNTIME_DIR="$rt" WAYLAND_DISPLAY="$sock" \
     PULSE_SERVER="unix:$rt/pulse/native" PULSE_SINK="$sink" \
     timeout -k 2s 45s mpv --no-config --fullscreen --no-border \
-      --vo=gpu --gpu-context=wayland --hwdec=no --ao=pulse "$clip"
+      --vo=gpu --gpu-context=wayland --hwdec=vaapi --ao=pulse "$clip"
 }
 case "$1" in
   audit) audit ;;
