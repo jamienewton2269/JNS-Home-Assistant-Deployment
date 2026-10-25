@@ -1,0 +1,14 @@
+name: JNS Sensor Friendly Name API Probe
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/sensor_names/api-probe.request']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/sensor_names/api_probe.py
