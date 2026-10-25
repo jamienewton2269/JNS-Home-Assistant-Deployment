@@ -2,7 +2,7 @@
 """Issue ONE verified Garden String Lights OFF via local Zigbee2MQTT MQTT client.
 Node C -> Node B CT214; no credentials transferred to Node C; no HA configuration edits.
 """
-import base64,json,sys,time
+import base64,json,sys,time,subprocess,shlex
 sys.path.insert(0,"gateway/arrival_lighting")
 from readiness_probe import ssh_host
 NODE=r"""
@@ -72,8 +72,11 @@ def main():
  src="eval(Buffer.from('"+code+"','base64').toString('utf8'))"
  command=["pct","exec","214","--","/opt/node22/bin/node","-e",src]
  try:
-  result=ssh_host("nodeb",command)
-  print("JNS_GARDEN_STRING_CONTROL",result[-1600:],flush=True)
+  assert ssh_host("nodeb",["hostname","-s"]).strip()=="nodeb","Trusted node identity mismatch"
+  proc=subprocess.run(["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes","-o","ConnectTimeout=6","root@nodeb.home.arpa",shlex.join(command)],capture_output=True,text=True,timeout=48)
+  result=proc.stdout
+  print("JNS_GARDEN_STRING_CONTROL",json.dumps({"rc":proc.returncode,"stdout_tail":result[-1400:],"stderr_tail":proc.stderr[-500:]}),flush=True)
+  if proc.returncode:raise RuntimeError("CT214 MQTT action command rejected")
   if "JNS_STRING_OFF_DEVICE_REPORTED_OFF" not in result:
    raise RuntimeError("OFF not confirmed by Zigbee2MQTT state topic")
  except Exception as e:
