@@ -1,0 +1,22 @@
+name: JNS Tuya Cloud-Free Recovery Plan
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/tuya_freedom/cloudless_recovery_plan.py'
+      - '.github/workflows/jns-tuya-cloudless-plan.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  plan:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stage private cloudless repair and recovery plan
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/tuya_freedom/cloudless_recovery_plan.py
+          python3 gateway/tuya_freedom/cloudless_recovery_plan.py
