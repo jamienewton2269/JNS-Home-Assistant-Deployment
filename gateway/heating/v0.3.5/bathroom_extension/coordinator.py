@@ -37,7 +37,10 @@ class ZoneCoordinator(DataUpdateCoordinator):
         saved = await self.store.async_load() or {}
         self.learner = ZoneLearner(saved.get("samples"))
         self.watch.update(saved.get("watch", {}))
-        await self.bathroom.async_setup()
+        try:
+            await self.bathroom.async_setup()
+        except Exception:
+            _LOGGER.exception("Optional bathroom advisory learner failed to load; existing heating continues")
 
     def _number(self, entity_id):
         state = self.hass.states.get(entity_id) if entity_id else None
@@ -76,8 +79,14 @@ class ZoneCoordinator(DataUpdateCoordinator):
         await self._watch_response(now, indoor, demand)
         learned = self.learner.status()
         projected = self.learner.project(now, self._forecast, float(demand))
-        bathroom = await self.bathroom.update(now=now, indoor=indoor, outdoor=outdoor,
-                                              duty=float(demand), forecast=self._forecast)
+        try:
+            bathroom = await self.bathroom.update(now=now, indoor=indoor, outdoor=outdoor,
+                                                  duty=float(demand), forecast=self._forecast)
+        except Exception:
+            _LOGGER.exception("Optional bathroom learner failed; legacy heating remains authoritative")
+            bathroom = {"eligible": False, "state": "unavailable",
+                        "reason": "Bathroom advisory update failed safely",
+                        "advisory_only": True, "temperature": None, "projected": None}
         forecast_phrase = "forecast unavailable"
         if self._forecast:
             change = self._forecast[min(len(self._forecast)-1, 2)][1] - self._forecast[0][1]
@@ -240,4 +249,7 @@ class ZoneCoordinator(DataUpdateCoordinator):
 
     async def async_shutdown(self):
         await self.store.async_save({"samples": self.learner.dump(), "watch": self.watch})
-        await self.bathroom.async_shutdown()
+        try:
+            await self.bathroom.async_shutdown()
+        except Exception:
+            _LOGGER.exception("Optional bathroom advisory history failed to save; legacy store preserved")
