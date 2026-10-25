@@ -2,6 +2,15 @@
 
 Status: **AUDIT / NOT APPROVED FOR CUTOVER**. No VM, CT, NAS, host, quorum, or automation has been modified or powered down by this workstream.
 
+## HA900 retirement action — 25 October 2026
+
+- VM900 `homeassistant-recovery` on Node A is **stopped** with `onboot=0`, independently verified in [live archival preflight](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40193967811). The Proxmox shutdown UI also showed successful Stop.
+- Operator has expressly authorised retaining a complete cold-recovery archive on Node C NFS and **removing VM900 and its local disks from Node A** afterward. Do **not** start another Home Assistant controller. Node C VM909 is a separate pre-existing stopped reference and is **not** part of the authorised deletion.
+- Node C `nfs-ct` is mounted with ~1.4 TiB free. Node A original VM900 has two ZFS volumes: 1 MiB EFI and 256 GiB system image; the source VM was not deleted during the audit.
+- [Native VMA backup and verify workflow](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40194270323) exports a stopped-guest `vzdump` to Node C NFS via the trusted runner, retaining its full Proxmox configuration. It then verifies transferred file size/SHA-256 and performs a full `zstd`/Proxmox `vma verify` integrity check. Archive manifest and files are private, mode 0600/0700.
+- `jns-solar-ha900-verified-removal.yml` is an independent source cleanup workflow triggered **only on successful archive completion**. It re-hashes the NFS archive/config, checks original guest name/ID/onboot and stopped state, then targets **only Node A VM900**, preserving Node C VM909. It removes the temporary Node A backup stage after successful deletion.
+- **Never declare HA900 VM/disk cleanup complete based on the backup launch.** Confirm the removal workflow succeeds and Proxmox no longer defines VM900, its ZFS rootfs volumes are absent, and NFS manifest & archive survive. If archive or verification fails, leave VM900 stopped and its source volumes intact.
+
 ## Goal
 
 Run production Home Assistant, security, MQTT, Zigbee, DNS and house control on **Node A** where capacity and dependency checks allow. Keep **Node C always on for the JNS Steward server, GitHub runner and management/diagnostics plane**. Keep **Node B powered down** until recovery or maintenance needs it. Power down the high-draw NAS only after safe backup completion and storage release.
