@@ -1,0 +1,25 @@
+name: JNS VM906 Resume Offline Restore
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-resume-offline-restore.yml'
+      - 'gateway/solar/vm906_retry_restore_original_vzdump_name_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-vm906-resume-restore
+  cancel-in-progress: false
+jobs:
+  restore:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repair VMA basename and restore guest offline, with source unchanged
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/vm906_retry_restore_original_vzdump_name_v1.py
+          python3 gateway/solar/vm906_retry_restore_original_vzdump_name_v1.py
