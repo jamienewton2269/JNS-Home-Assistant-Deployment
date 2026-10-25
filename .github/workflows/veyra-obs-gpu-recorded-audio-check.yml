@@ -1,0 +1,42 @@
+name: VEYRA last GPU recording silent-audio check
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-obs-gpu-recorded-audio-check.yml'
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - name: Authenticated read-only saved-MKV volume report, no programme copying
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          target=veyra.home.arpa
+          key="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          fp='SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          temp=$(mktemp -d); chmod 700 "$temp"; trap 'rm -rf "$temp"' EXIT
+          ssh-keyscan -T 5 -t ed25519 "$target" 2>/dev/null >"$temp/known_hosts"
+          test "$(awk '$2=="ssh-ed25519"{n++}END{print n+0}' "$temp/known_hosts")" -eq 1
+          test "$(ssh-keygen -lf "$temp/known_hosts" -E sha256 | awk '{print $2;exit}')" = "$fp"
+          ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$temp/known_hosts" -o ConnectTimeout=6 "jnsadmin@$target" 'sudo -n bash -s' <<'REMOTE'
+          set -eu
+          root=/opt/veyra/obs-backend-v1/av-qa-v133/runs
+          latest=$(find "$root" -mindepth 1 -maxdepth 1 -type d | sort | tail -1)
+          test -n "$latest"
+          clip=$(find "$latest/buffer" -maxdepth 1 -name '*.mkv' -type f -print -quit)
+          test -s "$clip"
+          echo "CANDIDATE=$clip"
+          echo "=== AUDIO LEVEL (NO MEDIA UPLOADED) ==="
+          timeout -k 3s 30s nice -n 10 ffmpeg -nostdin -hide_banner -loglevel info             -i "$clip" -map 0:a:0 -af volumedetect -f null - 2>&1 |
+            grep -E 'mean_volume:|max_volume:|n_samples:|video:|audio:' | tail -12
+          echo "=== PER-RUN OBS RENDER METRICS ==="
+          cat "$latest/logs/stats.log"
+          echo "=== PROTECTED SERVICES ==="
+          for name in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do
+            echo "$name=$(systemctl is-active "$name")"
+          done
+          test ! -f /run/veyra-obs-v133-paused-recorder && echo "LEGACY_PAUSE_MARKER=ABSENT"
+          REMOTE
