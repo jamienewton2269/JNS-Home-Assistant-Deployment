@@ -1,0 +1,22 @@
+name: JNS Shark IQ Original Login Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-sharkiq-original-login-audit.yml'
+      - 'gateway/solar/sharkiq_auth_original_preflight_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check original HA900 disk availability and SharkIQ on HA902/HA905
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/sharkiq_auth_original_preflight_v1.py
+          python3 gateway/solar/sharkiq_auth_original_preflight_v1.py
