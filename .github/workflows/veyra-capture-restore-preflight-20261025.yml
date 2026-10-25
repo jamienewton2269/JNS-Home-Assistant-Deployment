@@ -1,0 +1,52 @@
+name: VEYRA capture restoration preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-capture-restore-preflight-20261025.yml'
+permissions: {contents: read}
+jobs:
+  preflight:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - name: Host-key verified VEYRA ITVX restore inspection (read-only)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          target=veyra.home.arpa
+          key="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          known=$(mktemp)
+          trap 'rm -f "$known"' EXIT
+          ssh-keyscan -T 5 -t ed25519 "$target" 2>/dev/null > "$known"
+          test "$(ssh-keygen -lf "$known" -E sha256 | awk '{print $2;exit}')" = 'SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          ssh -i "$key" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known" "jnsadmin@$target" 'sudo -n bash -s' <<'REMOTE'
+          set -u
+          test "$(hostname -s)" = veyra || exit 3
+          echo "BOOT_ID=$(cat /proc/sys/kernel/random/boot_id)"
+          echo "KIOSK=$(systemctl is-active veyra-kiosk.service 2>/dev/null || true)"
+          echo "ITVX_VNC=$(systemctl is-active veyra-itvx-vnc-v01.service 2>/dev/null || true)"
+          echo "ITVX_CAPTURE=$(systemctl is-active veyra-virtual-loopback-v01.service 2>/dev/null || true)"
+          echo "PHYSICAL_PANEL=$(cat /sys/class/drm/card0-eDP-1/status)"
+          echo "HDMI_CONNECTOR=$(cat /sys/class/drm/card0-HDMI-A-1/status)"
+          root=/opt/veyra/virtual-loopback-v01
+          for file in "$root/runner.sh" "$root/runner.sh.pre-itvx-live-github-v01"; do
+            test ! -f "$file" || { ls -l "$file"; sha256sum "$file"; }
+          done
+          if test -f "$root/runner.sh"; then
+            bash -n "$root/runner.sh" && echo RUNNER_SYNTAX=PASS
+            grep -E 'Xvfb|--user-data-dir|x11grab|www.itv.com|framerate|mpeg2video' "$root/runner.sh" | sed -E 's#(password|token|cookie)=([^ ]+)#\1=[REDACTED]#gi' | cut -c 1-220 | head -15 || true
+          fi
+          if test -d "$root/profile"; then
+            echo PROFILE_DIR=EXISTS
+            find "$root/profile" -maxdepth 1 -type f -printf '%f\n' | head -12
+          else echo PROFILE_DIR=ABSENT; fi
+          for cmd in x11vnc Xvfb google-chrome ffmpeg systemd-run; do
+            command -v "$cmd" || true
+          done
+          echo "DISPLAY_92=$(test -S /tmp/.X11-unix/X92 && echo available || echo absent)"
+          echo "VNC_PORT_5902=$(ss -lnt 2>/dev/null | grep -E ':5902\b' | wc -l)"
+          for path in /run/systemd/transient/veyra-itvx-vnc-v01.service /etc/systemd/system/veyra-itvx-vnc-v01.service /run/systemd/transient/veyra-virtual-loopback-v01.service /etc/systemd/system/veyra-virtual-loopback-v01.service; do
+            test ! -f "$path" || ls -l "$path"
+          done
+          REMOTE
