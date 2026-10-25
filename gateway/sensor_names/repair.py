@@ -120,6 +120,6 @@ expr="exec(__import__('base64').b64decode("+repr(base64.b64encode(INNER.encode()
 script=("set -o pipefail; docker exec "+shlex.quote(addon)+
         " sh -c 'printf %s \"$SUPERVISOR_TOKEN\"' | "+
         "docker exec -i homeassistant python3 -c "+shlex.quote(expr))
-out=guest(['bash','-c',script],110)
+out=guest(['/bin/sh','-c',script],110)
 print(out[-8500:],flush=True)
 if 'JNS_SENSOR_NAMES_APPLIED ' not in out:raise RuntimeError('No verified apply result')
