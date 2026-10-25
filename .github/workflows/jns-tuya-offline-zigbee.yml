@@ -1,0 +1,22 @@
+name: JNS Tuya Offline Zigbee Inventory
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/tuya_freedom/z2m_local_inventory.py'
+      - '.github/workflows/jns-tuya-offline-zigbee.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect CT214 Zigbee2MQTT database read-only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/tuya_freedom/z2m_local_inventory.py
+          python3 gateway/tuya_freedom/z2m_local_inventory.py
