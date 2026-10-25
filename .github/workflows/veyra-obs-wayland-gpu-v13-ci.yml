@@ -1,0 +1,50 @@
+name: VEYRA GPU-backed OBS Wayland candidate v1.3
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/trusted/veyra-obs-wayland-gpu-v1.3.sh'
+      - '.github/workflows/veyra-obs-wayland-gpu-v13-ci.yml'
+permissions: {contents: read}
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax, source-linkage and isolation guards
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-obs-wayland-gpu-v1.3.sh
+          python3 - <<'PY'
+          import ast,re
+          from pathlib import Path
+          p=Path('gateway/trusted/veyra-obs-wayland-gpu-v1.3.sh')
+          s=p.read_text()
+          blocks=re.findall(r"<<'PY'[^\n]*\n(.*?)\nPY",s,re.S)
+          assert len(blocks)==4, len(blocks)
+          for b in blocks: ast.parse(b)
+          for good in (
+              'xshm_input','"server":":92"','pulse_output_capture',
+              'veyra_virtual_capture.monitor',
+              'WLR_BACKENDS=headless','WLR_HEADLESS_OUTPUTS=1','WLR_RENDERER=gles2',
+              'WLR_RENDER_DRM_DEVICE=/dev/dri/renderD128',
+              'QT_QPA_PLATFORM=wayland','LIBGL_ALWAYS_SOFTWARE=0',
+              'obs --multi','--startrecording', 'control stop',
+              'OBS_INTEL_GPU_ADAPTER_VERIFIED','OBS_RENDER_LAG_PERCENT',
+              'Re', 'ffprobe', 'cage -- env', 'StopRecord',
+          ):
+              if good=='StopRecord':continue
+              assert good in s,good
+          for forbidden in (
+              'Xvfb :93','Xvfb :92', 'QT_QPA_PLATFORM=xcb', 'WLR_BACKENDS=drm',
+              'apt-get ', 'systemctl restart ', 'systemctl stop ',
+              'systemctl disable ', 'pkill ', 'killall ', 'kill -STOP',
+              'kill -CONT','ffplay ','/usr/bin/ffmpeg ','--startstreaming',
+              'srt://','/dev/dri/card0',
+          ):
+              assert forbidden not in s,forbidden
+          assert s.index('OBS_INTEL_GPU_ADAPTER_VERIFIED') < s.index('sleep 18')
+          print('PASS: Wayland OBS candidate, plugin source, no changes to protected sources')
+          PY
