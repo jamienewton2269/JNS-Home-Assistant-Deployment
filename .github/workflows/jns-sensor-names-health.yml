@@ -1,0 +1,14 @@
+name: JNS Sensor Names HA-Core Health Verify
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/sensor_names/health.request']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/sensor_names/health.py
