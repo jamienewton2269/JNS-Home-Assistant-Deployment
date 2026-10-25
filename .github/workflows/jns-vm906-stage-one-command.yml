@@ -1,0 +1,34 @@
+name: JNS VM906 Prepare One Command Cutover
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-stage-one-command.yml'
+      - 'gateway/solar/move_vm906_nodec_to_nodea_one_time_20261025.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Safely install user-authorised Python cutover script in protected Node C runner files
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          SCRIPT=gateway/solar/move_vm906_nodec_to_nodea_one_time_20261025.py
+          python3 -m py_compile "$SCRIPT"
+          DEST="$HOME/.local/share/jns-solar/ha-security-906"
+          test ! -L "$DEST"
+          install -d -m 0700 "$DEST"
+          test -O "$DEST"
+          install -m 0600 "$SCRIPT" "$DEST/move_vm906.py"
+          test -O "$DEST/move_vm906.py"
+          echo 'JNS_VM906_CUTOVER_SCRIPT_STAGED=yes'
+          echo "NODEC_RUNNER_HOME=$HOME"
+          echo "CUTOVER_SCRIPT_SHA256=$(sha256sum "$DEST/move_vm906.py" | awk '{print $1}')"
+          echo 'NODEC_ROOT_EXECUTION_REQUIRED=yes'
+          echo 'CUTOVER_NOT_EXECUTED=yes'
