@@ -1,0 +1,43 @@
+name: VEYRA GPU OBS guarded first runtime acceptance
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-obs-gpu-remote-acceptance.yml'
+permissions: {contents: read}
+concurrency:
+  group: veyra-obs-gpu-remote-acceptance
+  cancel-in-progress: false
+jobs:
+  guarded-lenovo-test:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - name: Verify SSH trust, stage pinned experiment, run bounded OBS QA
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          TARGET=veyra.home.arpa
+          EXPECT='SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          KEY="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          test -r "$KEY" || { echo "FAIL: existing authorised identity unavailable"; exit 2; }
+          dir=$(mktemp -d)
+          chmod 700 "$dir"
+          trap 'rm -rf "$dir"' EXIT
+          timeout -k 2s 15s ssh-keyscan -T 5 -t ed25519 "$TARGET" 2>/dev/null >"$dir/known_hosts"
+          test "$(awk '$2=="ssh-ed25519" {n++}END{print n+0}' "$dir/known_hosts")" -eq 1
+          got=$(ssh-keygen -lf "$dir/known_hosts" -E sha256 | awk '{print $2;exit}')
+          test "$got" = "$EXPECT" || { echo "FAIL: host key fingerprint changed"; exit 3; }
+          echo "VEYRA_HOST_KEY_VERIFIED"
+          SSH=(ssh -i "$KEY" -o IdentitiesOnly=yes -o BatchMode=yes
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$dir/known_hosts"
+            -o ConnectTimeout=6 -o ConnectionAttempts=1 "jnsadmin@$TARGET")
+          "${SSH[@]}" 'sudo -n true && echo VEYRA_PASSWORDLESS_SUDO_CONFIRMED'
+          REV=45e74709a9bee4bdc001b8443be996d912cef298
+          SCRIPT="https://raw.githubusercontent.com/jamienewton2269/JNS-Home-Assistant-Deployment/$REV/gateway/trusted/veyra-obs-wayland-gpu-guarded-v1.3.1.sh"
+          "${SSH[@]}" "curl -fsSL --max-time 20 '$SCRIPT' -o /tmp/veyra-obs-wayland-gpu-guarded-v1.3.1.sh && bash -n /tmp/veyra-obs-wayland-gpu-guarded-v1.3.1.sh && sudo -n bash /tmp/veyra-obs-wayland-gpu-guarded-v1.3.1.sh audit"
+          echo "=== GUARDED 18-SECOND RECORDING; ORIGINAL RECORDER AUTO-RESTORES ==="
+          # Always run host-side cleanup; the deployed test has independent 95s resume timer.
+          "${SSH[@]}" 'sudo -n timeout -k 8s 90s bash /tmp/veyra-obs-wayland-gpu-guarded-v1.3.1.sh run'
+          echo "=== RUN FINISHED; PRESERVED SERVICES ==="
+          "${SSH[@]}" 'for u in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do printf "%s=" "$u"; systemctl is-active "$u"; done; if test -e /run/veyra-obs-v13-paused-recorder; then echo FAIL_RECORDER_RECOVERY_MARKER_PRESENT; exit 4; else echo RECORDER_RECOVERY_MARKER_ABSENT; fi'
