@@ -83,3 +83,25 @@ try:
  s=ssh_host("nodeb",["qm","help","guest","exec"])
  print("QGA_HELP",s[:1300],flush=True)
 except Exception as e:print("QGA_HELP_BLOCKED",type(e).__name__,str(e)[:180],flush=True)
+
+print("JNS_HA_CORE_CHECK_ERROR_REVIEW",flush=True)
+diagnostic=r"""python3 - <<'PY'
+import pathlib,re,hashlib,json
+p=pathlib.Path('/tmp/jns-bedtime-check-40191337039.out')
+if not p.is_file():
+ print('CORE_CHECK_LOG_MISSING')
+ raise SystemExit(0)
+ls=p.read_text(errors='replace').splitlines()
+rx=re.compile(r'(?i)(invalid config|error|exception|failed|missing|not found|required key|unknown|configuration|checking|config check)')
+hits=[x for x in ls[-180:] if rx.search(x)]
+def scrub(x):
+ x=re.sub(r'(?i)(token|password|api.key|secret|bearer|authorization)[^\s:]*([:=])\s*\S+',r'\1\2[REDACTED]',x)
+ x=re.sub(r'https?://[^\s]+','[URL]',x)
+ return x[:210]
+print('CORE_CHECK_LOG_SUMMARY',json.dumps({'size':p.stat().st_size,'total_lines':len(ls),'selected':list(map(scrub,hits[-16:]))}))
+PY"""
+try:
+ r=ssh_host("nodeb",["qm","guest","exec","905","--","sh","-c",diagnostic])
+ obj=json.loads(r)
+ print("CORE_CHECK_LOG_RESULT",obj.get("exitcode"),(obj.get("out-data") or "")[-4400:],flush=True)
+except Exception as e:print("CORE_CHECK_LOG_BLOCKED",type(e).__name__,str(e)[:160],flush=True)
