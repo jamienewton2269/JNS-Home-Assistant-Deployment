@@ -1,0 +1,38 @@
+name: JNS Boiler Runtime Deploy and Verify
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/boiler_monitor/deploy.request']
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add monitoring, validate configuration, activate and verify
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p gateway/boiler_monitor/results
+          python3 gateway/boiler_monitor/deploy.py 2>&1 | tee gateway/boiler_monitor/results/deploy-${{ github.run_id }}.txt
+      - name: Return diagnostic
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          result="gateway/boiler_monitor/results/deploy-${{ github.run_id }}.txt"
+          cp "$result" /tmp/jns-boiler-deploy-${{ github.run_id }}.txt
+          git config user.name jns-nodec-gateway
+          git config user.email jns-nodec-gateway@users.noreply.github.com
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            mkdir -p gateway/boiler_monitor/results
+            cp /tmp/jns-boiler-deploy-${{ github.run_id }}.txt "$result"
+            git add "$result"
+            git commit -m "boiler: return monitoring activation result"
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          exit 1

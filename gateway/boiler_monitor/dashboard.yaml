@@ -1,0 +1,54 @@
+title: Boiler Usage
+views:
+  - title: Boiler Usage
+    path: usage
+    icon: mdi:radiator
+    cards:
+      - type: markdown
+        content: |
+          ## Boiler usage
+          Runtime follows Honeywell Lyric's **call for space heating**. It is an estimate of boiler demand time, not measured gas use or confirmed burner firing. Hot-water-only firing is not included.
+
+          Totals begin when monitoring is installed. The first day and month are partial. Times follow Home Assistant's configured timezone. Gaps while Lyric or Home Assistant is offline cannot be measured.
+      - type: entities
+        title: Heating activity
+        show_header_toggle: false
+        entities:
+          - entity: binary_sensor.jns_boiler_heating_demand
+            name: Calling for heat
+          - entity: binary_sensor.jns_boiler_monitoring_available
+            name: Lyric monitoring available
+          - entity: sensor.jns_boiler_runtime_today
+            name: Today (hours)
+          - entity: sensor.jns_boiler_runtime_yesterday
+            name: Yesterday (hours)
+          - entity: sensor.jns_boiler_runtime_this_month
+            name: This month (hours)
+          - entity: sensor.jns_boiler_runtime_last_month
+            name: Last month (hours)
+      - type: history-graph
+        title: Heating calls — last 24 hours
+        hours_to_show: 24
+        entities:
+          - entity: binary_sensor.jns_boiler_heating_demand
+            name: Heating demand
+          - entity: binary_sensor.jns_boiler_monitoring_available
+            name: Monitoring available
+      - type: statistics-graph
+        title: Daily heating runtime — last 30 days
+        chart_type: bar
+        period: day
+        days_to_show: 30
+        stat_types: [change]
+        entities:
+          - entity: sensor.jns_boiler_runtime_total
+            name: Heating demand hours
+      - type: statistics-graph
+        title: Monthly heating runtime
+        chart_type: bar
+        period: month
+        days_to_show: 365
+        stat_types: [change]
+        entities:
+          - entity: sensor.jns_boiler_runtime_total
+            name: Heating demand hours

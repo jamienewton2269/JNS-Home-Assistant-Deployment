@@ -1,0 +1,71 @@
+# JNS Boiler demand runtime: observation only; no thermostat service calls.
+# A Lyric heat call is a proxy for boiler runtime, not a burner or gas meter.
+template:
+  - binary_sensor:
+      - name: JNS Boiler Heating Demand
+        unique_id: jns_boiler_heating_demand_v1
+        device_class: heat
+        availability: >-
+          {{ states('climate.thermostat_thermostat') not in ['unknown', 'unavailable']
+             and state_attr('climate.thermostat_thermostat', 'hvac_action')
+               in ['heating', 'idle', 'off', 'cooling', 'drying', 'fan', 'defrosting'] }}
+        state: "{{ is_state_attr('climate.thermostat_thermostat', 'hvac_action', 'heating') }}"
+      - name: JNS Boiler Monitoring Available
+        unique_id: jns_boiler_monitoring_available_v1
+        device_class: connectivity
+        state: >-
+          {{ states('climate.thermostat_thermostat') not in ['unknown', 'unavailable']
+             and state_attr('climate.thermostat_thermostat', 'hvac_action')
+               in ['heating', 'idle', 'off', 'cooling', 'drying', 'fan', 'defrosting'] }}
+    sensor:
+      - name: JNS Boiler Runtime Rate
+        unique_id: jns_boiler_runtime_rate_v1
+        unit_of_measurement: ""
+        state_class: measurement
+        # Unknown periods contribute no assumed runtime; availability is shown separately.
+        state: "{{ 1 if is_state('binary_sensor.jns_boiler_heating_demand', 'on') else 0 }}"
+        attributes:
+          measurement: Lyric call for space heating; not confirmed burner operation
+      - name: JNS Boiler Runtime Yesterday
+        unique_id: jns_boiler_runtime_yesterday_v1
+        unit_of_measurement: h
+        device_class: duration
+        availability: "{{ state_attr('sensor.jns_boiler_runtime_today', 'last_period') is not none }}"
+        state: "{{ state_attr('sensor.jns_boiler_runtime_today', 'last_period') | float(0) | round(3) }}"
+      - name: JNS Boiler Runtime Last Month
+        unique_id: jns_boiler_runtime_last_month_v1
+        unit_of_measurement: h
+        device_class: duration
+        availability: "{{ state_attr('sensor.jns_boiler_runtime_this_month', 'last_period') is not none }}"
+        state: "{{ state_attr('sensor.jns_boiler_runtime_this_month', 'last_period') | float(0) | round(3) }}"
+sensor:
+  - platform: integration
+    source: sensor.jns_boiler_runtime_rate
+    name: JNS Boiler Runtime Total
+    unique_id: jns_boiler_runtime_total_v1
+    unit_time: h
+    method: left
+    round: 6
+    max_sub_interval:
+      minutes: 1
+utility_meter:
+  jns_boiler_runtime_today:
+    name: JNS Boiler Runtime Today
+    unique_id: jns_boiler_runtime_today_v1
+    source: sensor.jns_boiler_runtime_total
+    cycle: daily
+    periodically_resetting: false
+  jns_boiler_runtime_this_month:
+    name: JNS Boiler Runtime This Month
+    unique_id: jns_boiler_runtime_this_month_v1
+    source: sensor.jns_boiler_runtime_total
+    cycle: monthly
+    periodically_resetting: false
+lovelace:
+  dashboards:
+    jns-boiler:
+      mode: yaml
+      title: Boiler Usage
+      icon: mdi:radiator
+      show_in_sidebar: true
+      filename: dashboards/jns_boiler_monitor.yaml
