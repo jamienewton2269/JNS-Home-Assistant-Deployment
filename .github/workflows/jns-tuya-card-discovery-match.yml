@@ -1,0 +1,19 @@
+name: JNS Tuya Card Discovery Match
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/tuya_freedom/card_discovery_match.py','.github/workflows/jns-tuya-card-discovery-match.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  match:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare saved exact native Tuya ID to existing HA entry title
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/tuya_freedom/card_discovery_match.py
+          python3 gateway/tuya_freedom/card_discovery_match.py
