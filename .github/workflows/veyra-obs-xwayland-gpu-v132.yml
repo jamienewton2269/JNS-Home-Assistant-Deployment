@@ -1,0 +1,88 @@
+name: VEYRA OBS GPU Xwayland acceptance v1.3.2
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-obs-xwayland-gpu-v132.yml'
+permissions: {contents: read}
+concurrency:
+  group: veyra-obs-xwayland-gpu-validation
+  cancel-in-progress: false
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure compiled Xwayland path preserves xshm and guarded recorder
+        run: |
+          set -Eeuo pipefail
+          p=gateway/trusted/veyra-obs-xwayland-gpu-v1.3.2.sh
+          bash -n "$p"
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,ast
+          s=Path("gateway/trusted/veyra-obs-xwayland-gpu-v1.3.2.sh").read_text()
+          b=re.findall(r"<<'PY'[^\n]*\n(.*?)\nPY",s,re.S)
+          assert len(b)==4,len(b)
+          for x in b:ast.parse(x)
+          for item in ('QT_QPA_PLATFORM=xcb','WLR_BACKENDS=headless','WLR_RENDERER=gles2',
+            'WLR_RENDER_DRM_DEVICE=/dev/dri/renderD128',
+            'LIBGL_ALWAYS_SOFTWARE=0','wlr_xwayland_create','cage -- env',
+            'xshm_input','"server":":92"','pulse_output_capture',
+            'veyra_virtual_capture.monitor',
+            'OBS_INTEL_GPU_ADAPTER_VERIFIED_WITH_XWAYLAND','guarded_pause_after_gpu',
+            'systemd-run --quiet --collect','--on-active=95s','resume_recorder',
+            'kill -STOP "$LEGACY"','kill -CONT "$LEGACY"','control stop',
+            'OBS_RENDER_LAG_PERCENT','trap cleanup EXIT'):
+            assert item in s,item
+          assert 'cage -- env DISPLAY=:92' not in s
+          assert 'Xvfb :93' not in s
+          assert 'QT_QPA_PLATFORM=wayland' not in s
+          assert s.index('say "OBS_INTEL_GPU_ADAPTER_VERIFIED_WITH_XWAYLAND"') < s.index('\n  guarded_pause_after_gpu\n')
+          print('PASS: Xwayland OBS GPU with separate :92 screen and automatic FFmpeg resume')
+          PY
+  runtime:
+    needs: static
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Verified remote SSH single bounded test on Lenovo
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          target=veyra.home.arpa
+          key="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          fp='SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          tmp=$(mktemp -d); chmod 700 "$tmp"; trap 'rm -rf "$tmp"' EXIT
+          ssh-keyscan -T 5 -t ed25519 "$target" 2>/dev/null >"$tmp/known_hosts"
+          test "$(awk '$2=="ssh-ed25519"{n++}END{print n+0}' "$tmp/known_hosts")" -eq 1
+          test "$(ssh-keygen -lf "$tmp/known_hosts" -E sha256 | awk '{print $2;exit}')" = "$fp"
+          ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$tmp/known_hosts" -o ConnectTimeout=6 "jnsadmin@$target" 'sudo -n bash -s' <<'REMOTE'
+          set -u
+          base=/tmp/veyra-obs-xwayland-gpu-v1.3.2.sh
+          rev=96b0ec476ffb0b4fbaeff21c9ec8224105fc265c
+          uri="https://raw.githubusercontent.com/jamienewton2269/JNS-Home-Assistant-Deployment/$rev/gateway/trusted/veyra-obs-xwayland-gpu-v1.3.2.sh"
+          curl -fsSL --max-time 20 "$uri" -o "$base" || exit 4
+          bash -n "$base" || exit 4
+          echo "=== PRE-FLIGHT ==="
+          bash "$base" audit || exit 5
+          echo "=== GUARDED GPU XWAYLAND CAPTURE ==="
+          timeout -k 10s 85s bash "$base" run
+          code=$?
+          echo "RUN_EXIT=$code"
+          echo "=== POST-RUN PRODUCTION INTEGRITY ==="
+          for unit in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do
+            echo "$unit=$(systemctl is-active "$unit")"
+          done
+          test ! -f /run/veyra-obs-v132-paused-recorder && echo "RECORDER_MARKER=ABSENT" || echo "RECORDER_MARKER=PRESENT"
+          echo "=== LATEST GPU LOG INDICATORS ==="
+          latest=$(find /opt/veyra/obs-backend-v1/av-qa-v132/runs -mindepth 1 -maxdepth 1 -type d | sort | tail -1)
+          if test -n "$latest"; then
+            echo "LATEST_RUN=$latest"
+            for file in "$latest/logs/obs-console.log" "$latest/logs/verify.log"; do
+              test -f "$file" && grep -Ei 'OpenGL on adapter|Platform:|Source ID|Failed to create source|lagged frames|recording start|recording stop|xshm-input|capture|error' "$file" | tail -40 || true
+            done
+          fi
+          exit "$code"
+          REMOTE
