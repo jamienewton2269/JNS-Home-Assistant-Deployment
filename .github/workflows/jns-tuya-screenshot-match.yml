@@ -1,0 +1,19 @@
+name: JNS Tuya Screenshot Bulb Match
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/tuya_freedom/screenshot_match.py','.github/workflows/jns-tuya-screenshot-match.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  match:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify discovered host against existing Tuya Local config ID
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/tuya_freedom/screenshot_match.py
+          python3 gateway/tuya_freedom/screenshot_match.py
