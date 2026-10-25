@@ -1,0 +1,22 @@
+name: JNS VM906 Console Capabilities Readonly
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-console-capabilities.yml'
+      - 'gateway/solar/vm906_console_capabilities_readonly_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Identify supported HAOS console and agent without modifying guest
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/vm906_console_capabilities_readonly_v1.py
+          python3 gateway/solar/vm906_console_capabilities_readonly_v1.py
