@@ -1,0 +1,65 @@
+name: VEYRA firmware reboot and HDMI retest
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/veyra-firmware-reboot-hdmi-retest.yml']
+permissions: {contents: read}
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - name: Reboot firmware-installed VEYRA only and verify fresh HDMI driver
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          target=veyra.home.arpa
+          identity="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          tmp=$(mktemp)
+          trap 'rm -f "$tmp"' EXIT
+          ssh-keyscan -T 6 -t ed25519 "$target" 2>/dev/null > "$tmp"
+          test "$(ssh-keygen -lf "$tmp" -E sha256 | awk '{print $2;exit}')" = 'SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          old=$(ssh -i "$identity" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$tmp" "jnsadmin@$target" 'sudo -n bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          test "$(hostname -s)" = veyra
+          test -s /usr/lib/firmware/i915/bxt_dmc_ver1_07.bin
+          cat /proc/sys/kernel/random/boot_id
+          REMOTE
+          )
+          test -n "$old"
+          echo "PREVIOUS_BOOT_ID=$old"
+          ssh -i "$identity" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$tmp" "jnsadmin@$target" 'sudo -n bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          test "$(hostname -s)" = veyra
+          test -s /usr/lib/firmware/i915/bxt_dmc_ver1_07.bin
+          systemd-run --quiet --collect --unit="veyra-firmware-reboot-$(date +%s)" --on-active=5s /usr/bin/systemctl reboot
+          echo 'VEYRA_ONLY_REBOOT_ARMED'
+          REMOTE
+          complete=0
+          for i in $(seq 1 36); do
+            sleep 8
+            if result=$(ssh -i "$identity" -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=6 -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$tmp" "jnsadmin@$target" 'sudo -n bash -s' 2>/dev/null <<'REMOTE'
+          set -Eeuo pipefail
+          test "$(hostname -s)" = veyra
+          cat /proc/sys/kernel/random/boot_id
+          echo "HDMI=$(cat /sys/class/drm/card0-HDMI-A-1/status)"
+          echo "HDMI_EDID_BYTES=$(wc -c < /sys/class/drm/card0-HDMI-A-1/edid)"
+          echo "HDMI_MODES=$(head -8 /sys/class/drm/card0-HDMI-A-1/modes | paste -sd, -)"
+          echo "PANEL=$(cat /sys/class/drm/card0-eDP-1/status)"
+          echo "FIRMWARE_FILE=$(test -s /usr/lib/firmware/i915/bxt_dmc_ver1_07.bin && echo yes || echo no)"
+          journalctl -k -b --no-pager | grep -Ei 'i915.*(DMC|firmware)|bxt_dmc' | tail -10 || true
+          echo "KIOSK=$(systemctl is-active veyra-kiosk.service || true)"
+          echo "ITVX_VNC=$(systemctl is-active veyra-itvx-vnc-v01.service || true)"
+          echo "LEGACY_CAPTURE=$(systemctl is-active veyra-virtual-loopback-v01.service || true)"
+          REMOTE
+            ); then
+              new=$(printf '%s\n' "$result" | head -1)
+              if [[ "$new" != "$old" && -n "$new" ]]; then
+                echo 'FRESH_VEYRA_BOOT_VERIFIED'
+                printf '%s\n' "$result"
+                complete=1
+                break
+              fi
+            fi
+          done
+          test "$complete" -eq 1 || { echo 'POSTBOOT_VERIFICATION_UNAVAILABLE'; exit 5; }
