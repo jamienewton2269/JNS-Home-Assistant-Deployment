@@ -1,0 +1,31 @@
+name: Chicken Tracker local APK hosting preflight
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/chicken-apk-host-preflight.yml']
+permissions: {contents: read}
+jobs:
+  preflight:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - name: Inspect existing static host and scoped write access
+        shell: bash
+        run: |
+          set -eu
+          printf 'HOST='; hostname
+          printf 'USER='; id -un
+          printf 'ADDRESSES='; hostname -I
+          for p in /srv/veyra-pxe/http /var/www/html /home/github-runner; do
+            if test -d "$p"; then
+              stat -c '%A %U:%G %n' "$p"
+              if test -w "$p"; then echo "RUNNER_WRITABLE=$p"; fi
+              df -h "$p" | tail -1
+            fi
+          done
+          echo '=== HTTP HEAD ==='
+          curl --max-time 5 -sI http://127.0.0.1:8098/ | head -8 || true
+          echo '=== NARROW SUDO PROBE ==='
+          sudo -n /usr/bin/id -u 2>/dev/null || true
+          echo '=== DNS ==='
+          for n in nodec.home.arpa nodec; do getent ahostsv4 "$n" | head -1 || true; done
