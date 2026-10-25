@@ -1,0 +1,22 @@
+name: JNS VM906 Active Guest Network Diagnosis
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-active-network-diagnosis.yml'
+      - 'gateway/solar/vm906_nodea_network_diagnostic_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Diagnose HA-Security VM906 Node A network and DNS read-only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/vm906_nodea_network_diagnostic_v1.py
+          python3 gateway/solar/vm906_nodea_network_diagnostic_v1.py
