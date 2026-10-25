@@ -1,0 +1,6 @@
+BOILER_FILES_ADDED {"backup": "/config/.jns-backups/boiler-runtime-40221940397", "hashes": {"packages/jns_boiler_monitor.yaml": "1c0415a744311ed9f4e43c5f9dbb129dae4eff63899dcd69786452a99025b7a9", "dashboards/jns_boiler_monitor.yaml": "69ea7755224593f15a41112661fc25d85596d8913a3081a09d1d5012eb9d7ae4"}}
+BOILER_OPERATION check exit 0
+BOILER_CONFIG_VALIDATED
+BOILER_OPERATION restart exit 143
+BOILER_FAILED_OPERATION_LOG_LINES 1
+BOILER_DEPLOYMENT_BLOCKED RuntimeError Core restart not confirmed; no automatic retry
