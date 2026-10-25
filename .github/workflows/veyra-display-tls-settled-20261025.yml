@@ -1,0 +1,45 @@
+name: VEYRA settled display and x509 checks
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-display-tls-settled-20261025.yml'
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - name: Read-only trusted SSH query of resumed kiosk HDMI and TLS
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          target=veyra.home.arpa
+          key="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          fp='SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          d=$(mktemp -d); chmod 700 "$d"; trap 'rm -rf "$d"' EXIT
+          ssh-keyscan -T 5 -t ed25519 "$target" 2>/dev/null >"$d/known_hosts"
+          test "$(awk '$2=="ssh-ed25519"{n++}END{print n+0}' "$d/known_hosts")" -eq 1
+          test "$(ssh-keygen -lf "$d/known_hosts" -E sha256 | awk '{print $2;exit}')" = "$fp"
+          ssh -i "$key" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$d/known_hosts" -o ConnectTimeout=6 "jnsadmin@$target" 'sudo -n bash -s' <<'REMOTE'
+          set -u
+          test "$(hostname -s)" = veyra || exit 7
+          echo '=== CLOCK / CERTIFICATE ==='
+          date -uIs
+          timedatectl status --no-pager | head -15
+          ls -l /etc/ssl/certs/ca-certificates.crt 2>/dev/null || true
+          curl --head --silent --show-error --max-time 8 --output /dev/null --write-out 'ITV_HTTP=%{http_code} SSL_VERIFY=%{ssl_verify_result}\n' https://www.itv.com/ 2>&1 | tail -5 || true
+          echo '=== RECENT X509 AND TLS ERRORS ==='
+          journalctl -b --no-pager -o short-iso 2>/dev/null | grep -Ei 'x509|certificate|unknown authority|ERR_CERT|not yet valid|TLS handshake|CERTIFICATE_VERIFY' | tail -35 | cut -c 1-200 || true
+          echo '=== UNIT STATE ==='
+          for u in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do
+            echo "$u=$(systemctl is-active "$u" 2>/dev/null || echo unknown)"
+          done
+          echo '=== HDMI / INTERNAL PANEL ==='
+          for p in /sys/class/drm/card*-HDMI* /sys/class/drm/card*-eDP*; do
+            test -d "$p" || continue
+            echo "OUTPUT=$(basename "$p") STATUS=$(cat "$p/status") ENABLED=$(cat "$p/enabled") EDID=$(wc -c < "$p/edid") MODES=$(head -8 "$p/modes" | paste -sd, -)"
+          done
+          echo '=== KERNEL HDMI MESSAGES THIS BOOT ==='
+          journalctl -k -b --no-pager 2>/dev/null | grep -Ei 'i915|HPD|EDID|HDMI' | tail -25 | cut -c 1-200 || true
+          REMOTE
