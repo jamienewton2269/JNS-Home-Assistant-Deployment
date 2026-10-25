@@ -1,0 +1,21 @@
+name: JNS Garden String Bedtime Fix
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/bedtime/deploy.request']
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-bedtime-string-change
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Transactional HA905 bedtime and morning patch, validate, restart, verify
+        run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/bedtime/patch_vm905.py gateway/bedtime/deploy.py
+          python3 gateway/bedtime/deploy.py
