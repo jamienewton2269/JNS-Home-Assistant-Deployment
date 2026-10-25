@@ -85,7 +85,7 @@ def preflight():
         raise RuntimeError("nfs_less_than_80gib_available")
     if not pathlib.Path("/usr/sbin/vzdump").exists():
         raise RuntimeError("vzdump_unavailable")
-    if not pathlib.Path("/usr/bin/runuser").exists():
+    if call(["bash","-c","command -v runuser >/dev/null 2>&1"],5,check=False).returncode:
         raise RuntimeError("runuser_unavailable")
     if call(["id","-u",RUNNER],5,check=False).returncode:
         raise RuntimeError("runner_account_unavailable")
@@ -198,6 +198,9 @@ set -Eeuo pipefail
 test ! -e /etc/pve/qemu-server/906.conf
 if ! timeout 1600 qmrestore __PATH__ 906 --storage vmdata --unique 0 \
      > /var/lib/jns-solar/ha-security-906/private-restore.log 2>&1; then
+  if qm config 906 >/dev/null 2>&1; then
+    qm set 906 --onboot 0 >/dev/null || true
+  fi
   exit 81
 fi
 qm set 906 --onboot 0 >/dev/null
