@@ -1,0 +1,22 @@
+name: JNS RV2820 Passive Capture Readiness
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-rv2820-capture-readiness.yml'
+      - 'gateway/sharklocal/rv2820_capture_readiness_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  passive-preflight:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify capture facilities without capturing traffic
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/sharklocal/rv2820_capture_readiness_v1.py
+          python3 gateway/sharklocal/rv2820_capture_readiness_v1.py
