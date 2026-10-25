@@ -1,0 +1,25 @@
+name: JNS VM906 Activate Node A After Node C Shutdown
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-activate-nodea.yml'
+      - 'gateway/solar/start_vm906_nodea_after_nodec_shutdown_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-vm906-exclusive-live-activation
+  cancel-in-progress: false
+jobs:
+  activate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Node C VM906 is stopped, activate Node A, and check HA-Security
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/start_vm906_nodea_after_nodec_shutdown_v1.py
+          python3 gateway/solar/start_vm906_nodea_after_nodec_shutdown_v1.py
