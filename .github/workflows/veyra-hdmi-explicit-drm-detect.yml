@@ -1,0 +1,48 @@
+name: VEYRA HDMI explicit DRM re-probe
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-hdmi-explicit-drm-detect.yml'
+permissions: {contents: read}
+jobs:
+  detect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - name: Verified Lenovo HDMI-only DRM probe
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          target=veyra.home.arpa
+          key="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          expected='SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          work=$(mktemp -d)
+          chmod 700 "$work"
+          trap 'rm -rf "$work"' EXIT
+          ssh-keyscan -T 5 -t ed25519 "$target" 2>/dev/null >"$work/known_hosts"
+          test "$(awk '$2=="ssh-ed25519"{n++}END{print n+0}' "$work/known_hosts")" -eq 1
+          test "$(ssh-keygen -lf "$work/known_hosts" -E sha256 | awk '{print $2;exit}')" = "$expected"
+          ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$work/known_hosts" -o ConnectTimeout=6 "jnsadmin@$target" 'sudo -n bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          hdmi=/sys/class/drm/card0-HDMI-A-1
+          panel=/sys/class/drm/card0-eDP-1
+          test -d "$hdmi" && test -d "$panel"
+          for svc in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do systemctl is-active --quiet "$svc"; done
+          echo "HDMI_BEFORE=$(cat "$hdmi/status")"
+          echo "PANEL_BEFORE=$(cat "$panel/status")"
+          echo "HDMI_STATUS_FILE_PERMISSIONS=$(stat -c %a "$hdmi/status")"
+          echo "=== KERNEL DRM EXPLICIT DETECT ==="
+          if timeout 8s bash -c 'echo detect > /sys/class/drm/card0-HDMI-A-1/status'; then
+            echo "DRM_DETECT_WRITE=ACCEPTED"
+          else
+            echo "DRM_DETECT_WRITE=NOT_ACCEPTED"
+          fi
+          sleep 2
+          echo "HDMI_AFTER=$(cat "$hdmi/status")"
+          echo "HDMI_ENABLED=$(cat "$hdmi/enabled")"
+          echo "HDMI_EDID_BYTES=$(wc -c < "$hdmi/edid")"
+          echo "HDMI_MODES=$(head -15 "$hdmi/modes" | paste -sd ',' -)"
+          echo "PANEL_AFTER=$(cat "$panel/status")"
+          for svc in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do echo "$svc=$(systemctl is-active "$svc")"; done
+          REMOTE
