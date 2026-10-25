@@ -78,10 +78,53 @@ def leases(node,ct):
             names.add(parts[3].lower())
     return {"status":"ok","matching_hostname_count":len(names),"matches_have_dns_names":bool(names)}
 
+
+def local_endpoint_probe():
+    """Harmless TCP handshakes only, and only to the verified known Shark MAC."""
+    import socket
+    hostname="jns-d7f90e.home.arpa"
+    historical_ip="10.10.101.169"
+    expected_mac="64:82:14:d7:f9:0e"
+    try:
+        answers=socket.getaddrinfo(hostname,None,socket.AF_INET,socket.SOCK_STREAM)
+        candidates=sorted({a[4][0] for a in answers})
+    except OSError:
+        candidates=[]
+    # Prefer the JNS DNS record. Historical IP is only a guarded fallback.
+    if historical_ip not in candidates:
+        candidates.append(historical_ip)
+    result={"dns_resolved":bool(candidates and (candidates[0]!=historical_ip or len(candidates)>1)),
+            "identity_verified":False,"port_states":{},
+            "actions_sent":0}
+    for address in candidates[:4]:
+        subprocess.run(["ping","-n","-c","1","-W","1",address],
+                       capture_output=True,timeout=5,check=False)
+        p=subprocess.run(["ip","neigh","show",address],
+                         capture_output=True,text=True,timeout=5,check=False)
+        if expected_mac not in p.stdout.lower():
+            continue
+        result["identity_verified"]=True
+        result["address_source"]="jns_dns" if address in candidates[:-1] else "historical_fallback"
+        for port in (443,1883,80,8883):
+            try:
+                with socket.create_connection((address,port),timeout=1.5):
+                    result["port_states"][str(port)]="open"
+            except ConnectionRefusedError:
+                result["port_states"][str(port)]="closed"
+            except OSError:
+                result["port_states"][str(port)]="not_open_or_filtered"
+        break
+    if not result["identity_verified"]:
+        result["status"]="identity_unverified_no_port_test"
+    else:
+        result["status"]="probe_completed"
+    return result
+
 def main():
     report={"mode":"read_only","action_commands_sent":0,
             "devices":{f"VM{vm}":metadata(node,vm) for node,vm in HOSTS},
-            "leases":{"CT247":leases("nodea",247),"CT248":leases("nodeb",248)}}
+            "leases":{"CT247":leases("nodea",247),"CT248":leases("nodeb",248)},
+            "target":local_endpoint_probe()}
     print("JNS_SHARK_LOCAL_PREFLIGHT="+json.dumps(report,sort_keys=True))
 
 if __name__=="__main__":
