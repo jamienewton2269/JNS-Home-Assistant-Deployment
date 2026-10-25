@@ -120,7 +120,7 @@ def main():
     if r.get("exitcode")!=0:raise RuntimeError("stage_failed")
     return json.loads(r.get("out-data",""))
 if __name__=="__main__":
-    try:print("JNS_TUYA_CLOUD_FREE_PLAN",json.dumps(main(),sort_keys=True,flush=True))
+    try:print("JNS_TUYA_CLOUD_FREE_PLAN",json.dumps(main(),sort_keys=True),flush=True)
     except Exception as e:
         print("JNS_TUYA_CLOUD_FREE_PLAN_BLOCKED",type(e).__name__,flush=True)
         raise SystemExit(1)
