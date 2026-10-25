@@ -1,3 +1,44 @@
+# CURRENT DIRECTIVE — LOCAL ONLY (25 October 2026)
+
+The Tuya/Smart Life sign-in does not work and is **no longer a
+precondition** for this JNS project. Stop proposing cloud-assisted setup.
+Never attempt the Tuya cloud login, create developer API keys, or depend
+on Tuya's servers for routine device functionality. The user accepts
+losing Tuya cloud features but requires preservation of existing local
+Home Assistant, Zigbee2MQTT, MQTT, security and lighting operation.
+
+The canonical active guide is the **private**, live-generated file on
+HA-General:
+`/config/.jns_tuya_freedom/CLOUDLESS_RECOVERY_STATUS.md`.
+
+Confirmed on 25 October:
+- Five existing `tuya_local` config entries have stored local keys.
+- Three have at least one available local entity; two have none.
+- One unavailable device was matched by **exact native Tuya device ID**
+  to a newly discovered IP; a Host-only correction is appropriate,
+  preferably to a verified `.home.arpa` DNS name via its supported
+  Configure/options flow. Do not edit `.storage` while Core runs.
+- The other unavailable local device was not found by LAN discovery.
+- Seven other cloud-associated physical devices have **no known local
+  key** and none appeared in the Tuya LAN UDP scan; their transport
+  types require physical/model verification.
+- A check of legacy VM900 was inconclusive because its guest registry
+  was unavailable through the authorised path.
+- CT214 Zigbee2MQTT currently lists 21 routers, 10 end devices and
+  one coordinator. Moving Tuya Zigbee devices from a different Zigbee
+  network requires a physical reset and new pairing; preserve existing
+  network devices.
+- No Tuya or Smart Life account login, config-entry disablement, live
+  Host mutation, key extraction, device reset or pairing was performed.
+
+Keep local key secrecy, transactional rollback and working local
+automation as hard requirements. Do not confuse **cloud-offline** with
+**LAN-operational**. Some Tuya Wi-Fi devices require an existing local
+key or supported local firmware replacement; a discovered IP alone is
+insufficient. The older cloud-assisted onboarding instructions below
+are retained as historical context and **superseded** by this section.
+
+---
 # Follow-up diagnostic and repair status — 25 October 2026
 
 The following live, safeguarded actions were performed through the Node C
