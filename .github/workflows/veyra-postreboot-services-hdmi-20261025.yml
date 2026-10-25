@@ -1,0 +1,48 @@
+name: VEYRA after reboot service status and HDMI 20261025
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-postreboot-services-hdmi-20261025.yml'
+permissions: {contents: read}
+jobs:
+  inspection:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - name: Host-key-verified read-only settled post-reboot VEYRA service diagnostics
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          host=veyra.home.arpa
+          key="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          fp='SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          dir=$(mktemp -d);chmod 700 "$dir";trap 'rm -rf "$dir"' EXIT
+          ssh-keyscan -T 5 -t ed25519 "$host" 2>/dev/null > "$dir/known_hosts"
+          test "$(awk '$2=="ssh-ed25519"{n++}END{print n+0}' "$dir/known_hosts")" -eq 1
+          test "$(ssh-keygen -lf "$dir/known_hosts" -E sha256 | awk '{print $2;exit}')" = "$fp"
+          ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$dir/known_hosts" -o ConnectTimeout=6 "jnsadmin@$host" 'sudo -n bash -s' <<'REMOTE'
+          set -u
+          [[ "$(hostname -s)" == veyra ]] || exit 7
+          echo '=== NEW BOOT ==='
+          cat /proc/sys/kernel/random/boot_id
+          uptime -p
+          echo '=== SERVICE ENABLEMENT/STATE ==='
+          for u in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do
+            printf 'UNIT=%s ACTIVE=%s ENABLED=%s MAINPID=%s\n' "$u" \
+              "$(systemctl is-active "$u" 2>/dev/null || true)" \
+              "$(systemctl is-enabled "$u" 2>/dev/null || true)" \
+              "$(systemctl show -p MainPID --value "$u" 2>/dev/null || true)"
+          done
+          echo '=== RELEVANT STATUS ==='
+          systemctl --no-pager --full status veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service 2>&1 | tail -60
+          echo '=== RECENT STARTUP LOG MESSAGES ==='
+          journalctl -b --no-pager -u veyra-kiosk.service -u veyra-itvx-vnc-v01.service -u veyra-virtual-loopback-v01.service -n 90 2>/dev/null | cut -c 1-220
+          echo '=== CONNECTORS ==='
+          for p in /sys/class/drm/card*-HDMI* /sys/class/drm/card*-eDP*; do
+            [[ -d "$p" ]] || continue
+            echo "$(basename "$p") STATUS=$(cat "$p/status") ENABLED=$(cat "$p/enabled") EDID_BYTES=$(wc -c <"$p/edid")"
+          done
+          echo '=== EXISTING DISPLAY ==='
+          ls -l /run/user/999/wayland-* /tmp/.X11-unix/X92 2>/dev/null || true
+          REMOTE
