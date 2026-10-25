@@ -1,1 +1,1 @@
-Final verification of loaded Lyric runtime sensors, hour units, daily/monthly meters and dashboard HTTP. No writes or restart. v6
+Final read-only verify hour units and counters with explicit recorder schema table qualifier. v7

@@ -113,7 +113,7 @@ assert set(ids)<=registered, 'Expected boiler entities not registered'
 con=sqlite3.connect('file:/config/home-assistant_v2.db?mode=ro',uri=True,timeout=4)
 rows={}
 for eid in ids:
- row=con.execute('SELECT state,shared_attrs,last_updated_ts FROM states s JOIN states_meta USING(metadata_id) LEFT JOIN state_attributes a ON s.attributes_id=a.attributes_id WHERE entity_id=? ORDER BY last_updated_ts DESC LIMIT 1',(eid,)).fetchone()
+ row=con.execute('SELECT state,shared_attrs,last_updated_ts FROM states s JOIN states_meta USING(metadata_id) LEFT JOIN state_attributes a ON s.attributes_id=a.attributes_id WHERE states_meta.entity_id=? ORDER BY last_updated_ts DESC LIMIT 1',(eid,)).fetchone()
  assert row, 'Expected recorded entity missing'
  attrs=json.loads(row[1] or '{}')
  rows[eid]={'state':row[0],'unit':attrs.get('unit_of_measurement'),'state_class':attrs.get('state_class')}
