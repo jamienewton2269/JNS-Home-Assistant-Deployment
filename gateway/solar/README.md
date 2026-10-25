@@ -54,6 +54,18 @@ Read-only NAS/DNS backend relationships: https://github.com/jamienewton2269/JNS-
 
 **Decision:** Production cutover and NAS/Node B power-off remain BLOCKED pending service migration, snapshots, capacity and rollback verification.
 
+## HA-Security one-time root cutover handoff — 25 October 19:57 UK
+
+The user has explicitly authorised immediate HA-Security VM906 relocation from Node C to Node A. **Do not claim completion until the on-host cutover runs and both VM states are verified.**
+
+- The installed Node C `github-runner` has only named root sudo grants (gateway executor and network monitor), **not** `qm`/`vzdump`; SSH `root@nodec` from Node A, Node B and localhost is unavailable. This was checked in [live authorised access audit](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40227771925). Do not bypass the allowlist.
+- A single cutover implementation was committed as `gateway/solar/move_vm906_nodec_to_nodea_one_time_20261025.py` and [successfully syntax-checked and staged onto Node C](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40228454934).
+- The staged file is `/home/github-runner/.local/share/jns-solar/ha-security-906/move_vm906.py`, SHA-256 `4951ab5f0c24a83069106c4c6f148ff0f99a10c4a852bdb90d1621294c743e29`. Privileged execution has **not** occurred; this is an explicit root-console handoff.
+- A Node C root shell can copy the staged script to a root-owned immutable-in-use copy, check the above digest and execute it. It validates ID/name/disks/passthrough, Node A RAM/storage/network and NFS mount, disables source autostart, gracefully shuts down original VM906, performs a full **stopped-source** `vzdump` to NFS, verifies SHA and zstd integrity, streams to Node A over the existing GitHub runner's pinned SSH identity, restores as **offline** VM906 on Node A, confirms preserved NIC MAC and Proxmox identity, starts the target only after old source is off, and tests `ha-security.home.arpa:8123`. Success enables Node A onboot=1 and retains Node C VM906 stopped with onboot=0.
+- A cutover error tries to stop the target before restoring the source, never deletes original VM906 on Node C, and never changes any VM ID other than 906. If either VM cannot be proven stopped, it fails closed rather than starting two controllers.
+- **Endpoint reachability is not a full security/alarm/tamper function test.** Check actual alarm and ESPHome/KC868 doorbell functions after the move before removing the old source.
+- Separate HA900 NFS archival run 40194270323 was cancelled; no assumption that VM900 disks are deleted or archive completed.
+
 ## HA-Security VM906 relocation checkpoint — 25 October 2026
 
 **Current state: NOT MIGRATED. Source VM906 remains live on Node C.** [Current source/destination audit](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40199089457) confirms VM906 definition and disk present on Node C; VM906 does not exist on Node A. Node A has 3795 MiB available RAM, 2687 MiB swap in use and ~778 GiB free vmdata. Node C NFS backup share has ~1382 GiB free.
