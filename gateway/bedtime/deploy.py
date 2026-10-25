@@ -74,6 +74,34 @@ ids=[x['entity_id'] for x in reg if x.get('platform')=='automation' or x.get('en
 matches=[x for x in ids if 'garden_string' in x and 'morning' in x]
 print('JNS_BEDTIME_POST_BOOT',json.dumps({'bedtime_contains_relay':True,'morning_yaml_present':True,'morning_registered':matches[:8]}))
 """
+
+def ha_background(label,command,seconds=250):
+ """Start long HAOS CLI check/restart with a short QGA shell, poll private /tmp exit marker."""
+ import os
+ if (label,command) not in (("check","core check"),("restart","core restart")):raise RuntimeError("Unexpected HA operation")
+ runid=os.environ.get("GITHUB_RUN_ID","manual")
+ if not runid.isdecimal():raise RuntimeError("Unsafe run identifier")
+ base="/tmp/jns-bedtime-"+label+"-"+runid
+ done=base+".rc"
+ output=base+".out"
+ shell="if test -e "+done+";then exit 7;fi; ( timeout --signal=TERM "+str(seconds)+" ha "+command+" > "+output+" 2>&1; echo $? > "+done+" ) </dev/null >/dev/null 2>&1 & echo JNS_BEDTIME_BG_STARTED"
+ start=guest(["sh","-c",shell],seconds=35)
+ if start.get("exitcode")!=0 or "JNS_BEDTIME_BG_STARTED" not in (start.get("out-data") or ""):
+  raise RuntimeError("Background HA CLI start not confirmed; do not restart or retry blindly")
+ print("JNS_BEDTIME_BG_STARTED",label,flush=True)
+ until=time.monotonic()+seconds+40
+ while time.monotonic()<until:
+  time.sleep(6)
+  r=guest(["sh","-c","if test -f "+done+";then cat "+done+";else echo PENDING;fi"],seconds=25)
+  if r.get("exitcode")!=0:raise RuntimeError("Background HA CLI status unknown")
+  ans=(r.get("out-data") or "").strip()
+  if ans=="PENDING":continue
+  if not ans.isdigit():raise RuntimeError("Malformed background HA CLI exit status")
+  rc=int(ans)
+  print("JNS_BEDTIME_BG_RESULT",label,"exitcode",rc,flush=True)
+  return rc==0
+ raise RuntimeError("Background HA CLI command still unconfirmed; no retry")
+
 def main():
  print("JNS_BEDTIME_DEPLOY_BEGIN",flush=True)
  if "running" not in ssh_host("nodeb",["qm","status","905"]):raise RuntimeError("VM905 not running")
@@ -81,7 +109,7 @@ def main():
  manifest=patch("--apply")
  print("JNS_BEDTIME_BACKUP",manifest["backup"],flush=True)
  try:
-  if not ha(["core","check"],timeout=290):
+  if not ha_background("check","core check",seconds=250):
    raise RuntimeError("Home Assistant configuration validation rejected change")
  except Exception:
   try:rollback(manifest)
@@ -89,7 +117,7 @@ def main():
   raise
  print("JNS_BEDTIME_CONFIG_VALIDATED",flush=True)
  # HA Core restart required because existing authenticated API reload is HTTP 401.
- if not ha(["core","restart"],timeout=165):
+ if not ha_background("restart","core restart",seconds=170):
   raise RuntimeError("HA Core restart not confirmed; new package remains on disk. Inspect live state before retry.")
  print("JNS_BEDTIME_CORE_RESTART_REQUEST_ACCEPTED",flush=True)
  for i in range(14):
