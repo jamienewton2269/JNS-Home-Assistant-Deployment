@@ -5,10 +5,10 @@ sys.path.insert(0,"gateway/arrival_lighting")
 from readiness_probe import ssh_host
 PKG=pathlib.Path("gateway/bedtime/patch_vm905.py")
 def guest(args,seconds=270):
- r=json.loads(ssh_host("nodeb",["qm","guest","exec","905","--",*args]))
+ r=json.loads(ssh_host("nodeb",["qm","guest","exec","905","--synchronous","0","--",*args]))
  deadline=time.monotonic()+seconds
  while not r.get("exited"):
-  if not isinstance(r.get("pid"),int):raise RuntimeError("Missing QGA PID. Do not retry blindly.")
+  if not isinstance(r.get("pid"),int):raise RuntimeError("Guest agent returned no async PID; "+str({"keys":list(r),"exited":r.get("exited"),"exitcode":r.get("exitcode"),"err_tail":str(r.get("err-data") or "")[-220:]}) )
   if time.monotonic()>deadline:raise RuntimeError("QGA PID "+str(r["pid"])+" incomplete; do not retry.")
   time.sleep(3)
   r=json.loads(ssh_host("nodeb",["qm","guest","exec-status","905",str(r["pid"])]))
