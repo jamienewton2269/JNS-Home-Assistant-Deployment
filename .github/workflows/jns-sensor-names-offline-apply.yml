@@ -1,0 +1,20 @@
+name: JNS HA-General Sensor Name Repair
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/sensor_names/offline-apply.request']
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-sensor-name-maintenance
+  cancel-in-progress: false
+jobs:
+  apply:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate guarded offline device registry name repair
+        run: python3 -m py_compile gateway/sensor_names/offline_repair.py
+      - name: Back up VM905 registry, apply only verified friendly names, restart and validate
+        run: python3 gateway/sensor_names/offline_repair.py
