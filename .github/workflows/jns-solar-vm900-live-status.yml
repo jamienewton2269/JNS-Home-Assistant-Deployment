@@ -1,0 +1,21 @@
+name: JNS Solar VM900 Live Retirement Check
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-vm900-live-status.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  read-only:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify HA900 live and onboot state
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/vm900_live_retirement_check_v1.py
+          python3 gateway/solar/vm900_live_retirement_check_v1.py
