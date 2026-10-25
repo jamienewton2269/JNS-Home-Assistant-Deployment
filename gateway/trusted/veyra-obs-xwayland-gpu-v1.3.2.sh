@@ -43,7 +43,7 @@ audit() {
     [[ -e "$root/libqwayland-generic.so" || -e "$root/libqwayland-egl.so" ]] && qt_plugin=present
   done
   [[ -r /usr/lib/x86_64-linux-gnu/qt6/plugins/platforms/libqxcb.so ]] || { block "Qt xcb plugin missing"; return 2; }
-  strings "$(command -v cage)" | grep -Fq 'wlr_xwayland_create' || { block "installed Cage lacks Xwayland support"; return 2; }
+  strings "$(command -v cage)" | grep -F 'wlr_xwayland_create' >/dev/null || { block "installed Cage lacks Xwayland support"; return 2; }
   [[ ! -e /run/veyra-obs-av-v11.recovery && ! -e "$LEGACY_MARKER" ]] ||
     { block "unresolved recorder recovery marker"; return 2; }
   for svc in veyra-tv-v079.service veyra-tv-v080.service; do
