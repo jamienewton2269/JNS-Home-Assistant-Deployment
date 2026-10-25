@@ -1,0 +1,16 @@
+name: JNS Sensor Friendly Name Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/sensor_names/audit.request'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read HA905 current Zigbee naming records (no modifications)
+        run: python3 gateway/sensor_names/audit.py
