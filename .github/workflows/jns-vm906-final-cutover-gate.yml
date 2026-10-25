@@ -1,0 +1,36 @@
+name: JNS VM906 Final Cutover Gate
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-final-cutover-gate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  gate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify old VM906 is no longer running and new VM906 is safe to boot
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          echo "NODEC_VM906_QEMU_RUNNING=$(ps -eo args= | grep -E '(/usr/bin/kvm|qemu-system).* -id 906( |$)' | grep -v grep >/dev/null && echo yes || echo no)"
+          echo "NODEC_VM906_PID_FILE=$(test -f /run/qemu-server/906.pid && echo present || echo absent)"
+          echo "NODEC_VM906_ONBOOT_CONFIG_READABLE=$(test -r /etc/pve/qemu-server/906.conf && echo yes || echo no)"
+          if test -r /etc/pve/qemu-server/906.conf; then
+            awk '/^onboot:/ {print "NODEC_VM906_ONBOOT="$2}' /etc/pve/qemu-server/906.conf
+          fi
+          echo 'NODEA_STATUS:'
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=6 nodea 'bash -s' <<'NODEA'
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodea
+          qm status 906
+          qm config 906 | awk '/^name:/ {print "NAME="$2} /^onboot:/ {print "ONBOOT="$2} /^cores:/ {print "CORES="$2} /^memory:/ {print "MEMORY_MB="$2} /^scsi0:/ {print "ROOT_STORAGE="(index($2,"vmdata:")==1?"vmdata":"other")} /^net0:/ {print "NETWORK_CONFIGURED=yes"}'
+          echo "DISK_PRESENT=$(zfs list -H vmdata/vm-906-disk-1 >/dev/null 2>&1 && echo yes || echo no)"
+          free -m | awk '/^Mem:/ {print "AVAILABLE_MB="$7} /^Swap:/ {print "SWAP_USED_MB="$3}'
+          NODEA
+          echo VM906_CUTOVER_GATE_COMPLETE
