@@ -1,8 +1,19 @@
 #!/usr/bin/env python3
 """Read-only scoped boiler preflight through existing JNS guest transport."""
 import sys,json
-sys.path.insert(0,"gateway/bedtime")
-from deploy import core
+import base64,time
+sys.path.insert(0,"gateway/arrival_lighting")
+from readiness_probe import ssh_host
+def core(src):
+ code="exec(__import__('base64').b64decode("+repr(base64.b64encode(src.encode()).decode())+"))"
+ r=json.loads(ssh_host("nodeb",["qm","guest","exec","905","--","docker","exec","homeassistant","python3","-c",code]))
+ until=time.monotonic()+70
+ while not r.get("exited"):
+  if not isinstance(r.get("pid"),int): raise RuntimeError("Guest read-only status unavailable")
+  if time.monotonic()>until: raise RuntimeError("Guest read-only timeout")
+  time.sleep(2)
+  r=json.loads(ssh_host("nodeb",["qm","guest","exec-status","905",str(r["pid"])]))
+ return r
 P=r"""
 import json,pathlib,sqlite3,os,urllib.request
 root=pathlib.Path('/config')
