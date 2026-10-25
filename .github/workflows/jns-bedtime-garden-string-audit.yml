@@ -1,0 +1,16 @@
+name: JNS Bedtime Garden String Read-only Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/bedtime/diagnose.request'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only HA905 bedtime and garden string investigation
+        run: python3 gateway/bedtime/diagnose.py
