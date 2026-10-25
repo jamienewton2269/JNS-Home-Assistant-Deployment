@@ -1,0 +1,26 @@
+name: JNS Steward Repair Centre Guarded Deploy
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'steward_knowledge/repair-ui-deploy.request'
+permissions:
+  contents: read
+concurrency:
+  group: jns-steward-ui-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Deploy on-site repair UI without HA restart
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n natural_automation_steward/ops/deploy_repair_ui_nodec.sh
+          python3 -m unittest discover -s natural_automation_steward/tests -p test_repair_console.py -v
+          bash natural_automation_steward/ops/deploy_repair_ui_nodec.sh
