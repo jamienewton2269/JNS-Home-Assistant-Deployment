@@ -1,0 +1,65 @@
+name: VEYRA HDMI and locked-pointer read-only inspection
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-hdmi-readonly-inspect-20261025.yml'
+permissions: {contents: read}
+jobs:
+  display:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - name: Verified remote display and audio health inspection
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          target=veyra.home.arpa
+          key="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          expect='SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          tmp=$(mktemp -d);chmod 700 "$tmp";trap 'rm -rf "$tmp"' EXIT
+          ssh-keyscan -T 5 -t ed25519 "$target" 2>/dev/null >"$tmp/known_hosts"
+          test "$(awk '$2=="ssh-ed25519"{n++}END{print n+0}' "$tmp/known_hosts")" -eq 1
+          test "$(ssh-keygen -lf "$tmp/known_hosts" -E sha256 | awk '{print $2;exit}')" = "$expect"
+          ssh -i "$key" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$tmp/known_hosts" -o ConnectTimeout=6 "jnsadmin@$target" 'sudo -n bash -s' <<'REMOTE'
+          set -u
+          echo "=== CONNECTORS ==="
+          for p in /sys/class/drm/card*-HDMI-* /sys/class/drm/card*-eDP-* /sys/class/drm/card*-DP-* /sys/class/drm/card*-LVDS-*; do
+            test -d "$p" || continue
+            echo "CONNECTOR=$(basename "$p") STATUS=$(cat "$p/status" 2>/dev/null || echo unknown) ENABLED=$(cat "$p/enabled" 2>/dev/null || echo unknown)"
+            echo "MODES=$(tr '\n' ' ' < "$p/modes" 2>/dev/null | cut -c 1-240)"
+            edid=$(wc -c < "$p/edid" 2>/dev/null || echo 0); echo "EDID_BYTES=$edid"
+          done
+          echo "=== VIDEO TOOLING ==="
+          for x in wlr-randr wayland-info swaymsg xrandr mpv cage weston-info drm_info; do command -v "$x" || true; done
+          echo "=== PHYSICAL DISPLAY DRM STATE ==="
+          for p in /sys/kernel/debug/dri/*/state; do
+            if test -r "$p"; then
+              grep -E '^(crtc\[|plane\[|connector\[)|^[[:space:]]*(enable=|active=|mode:|crtc=)' "$p" | head -80 || true
+            fi
+          done
+          echo "=== KIOSK SYSTEMD STATUS ==="
+          systemctl show veyra-kiosk.service -p ActiveState,SubState,MainPID,ExecMainStartTimestamp,NRestarts,FragmentPath,DropInPaths
+          echo "=== GFX & PLAYBACK PROCESS STATUS ==="
+          ps -eo pid,ppid,pgid,stat,comm,pcpu,args --sort=-pcpu | awk 'NR==1 || $5 ~ /^(cage|sway|mpv|ffplay|Xwayland|obs|Xvfb|ffmpeg|weston)$/ {print substr($0,1,230)}' | head -45
+          echo "=== INPUT DEVICES ==="
+          grep -E '^(N: Name|H: Handlers)' /proc/bus/input/devices | head -65 || true
+          echo "=== WAYLAND OUTPUTS ==="
+          u=$(id -u veyra); runtime="/run/user/$u"
+          for sock in "$runtime"/wayland-*; do
+            test -S "$sock" || continue
+            echo "SOCKET=$(basename "$sock")"
+            if command -v wayland-info >/dev/null; then
+              timeout -k 1s 5s runuser -u veyra -- env XDG_RUNTIME_DIR="$runtime" WAYLAND_DISPLAY="$(basename "$sock")" wayland-info 2>&1 | grep -Ei 'wl_output|xdg_output|output_manager|name: |description:|mode|width:|height:' | head -75 || true
+            fi
+            if command -v wlr-randr >/dev/null; then
+              timeout -k 1s 5s runuser -u veyra -- env XDG_RUNTIME_DIR="$runtime" WAYLAND_DISPLAY="$(basename "$sock")" wlr-randr 2>&1 | head -55 || true
+            fi
+          done
+          echo "=== AUDIO SINKS AND HDMI ==="
+          runuser -u veyra -- env XDG_RUNTIME_DIR="$runtime" PULSE_SERVER="unix:$runtime/pulse/native" pactl list short sinks || true
+          echo "=== PRESERVED SERVICES ==="
+          for s in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do
+            echo "$s=$(systemctl is-active "$s")"
+          done
+          REMOTE
