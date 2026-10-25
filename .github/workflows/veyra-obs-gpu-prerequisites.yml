@@ -1,0 +1,36 @@
+name: VEYRA OBS GPU prerequisites on Lenovo
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-obs-gpu-prerequisites.yml'
+permissions: {contents: read}
+jobs:
+  read-only:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - name: Verify host SSH identity and inspect GPU/Qt without mutations
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          EXPECT='SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          TARGET=veyra.home.arpa
+          key="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          test -r "$key" || { echo 'RESULT=NO_AUTHORISED_SSH_KEY'; exit 0; }
+          tmp=$(mktemp -d)
+          chmod 700 "$tmp"
+          trap 'rm -rf "$tmp"' EXIT
+          ssh-keyscan -T 5 -t ed25519 "$TARGET" 2>/dev/null >"$tmp/known_hosts"
+          test -s "$tmp/known_hosts" || { echo 'RESULT=HOST_KEY_UNAVAILABLE'; exit 0; }
+          count=$(awk '$2=="ssh-ed25519"{n++}END{print n+0}' "$tmp/known_hosts")
+          test "$count" = 1 || { echo 'RESULT=HOST_KEY_AMBIGUOUS'; exit 0; }
+          got=$(ssh-keygen -lf "$tmp/known_hosts" -E sha256 | awk '{print $2;exit}')
+          test "$got" = "$EXPECT" || { echo 'RESULT=HOST_FINGERPRINT_MISMATCH'; exit 0; }
+          echo 'HOST_KEY_VERIFIED=YES'
+          ssh -i "$key" -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$tmp/known_hosts" \
+            -o ConnectTimeout=6 -o ConnectionAttempts=1 \
+            "jnsadmin@$TARGET" \
+            'echo RESULT=CONNECTED; for cmd in cage obs ffprobe; do if command -v "$cmd" >/dev/null; then echo "$cmd=available"; else echo "$cmd=missing"; fi; done; for base in /usr/lib/x86_64-linux-gnu/qt6/plugins/platforms /usr/lib/qt6/plugins/platforms; do for n in libqwayland-generic.so libqwayland-egl.so; do test ! -f "$base/$n" || echo WAYLAND_QT_PLUGIN=$base/$n; done; done; ls -l /dev/dri/renderD128 2>/dev/null || true; id veyra; obs --version' \
+            || echo 'RESULT=SSH_REMOTE_CHECK_UNAVAILABLE'
