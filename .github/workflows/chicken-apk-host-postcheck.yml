@@ -1,0 +1,30 @@
+name: Chicken Tracker local download postcheck
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/chicken-apk-host-postcheck.yml']
+permissions: {contents: read}
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 2
+    steps:
+      - name: Verify server survived deployment runner cleanup
+        shell: python
+        run: |
+          import urllib.request,hashlib,json
+          opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
+          base='http://10.10.110.13:8099'
+          with opener.open(base+'/health',timeout=5) as r:
+              status=json.load(r)
+              assert status['service']=='jns-apk-tests'
+          with opener.open(base+'/latest.apk',timeout=20) as r:
+              assert r.headers.get_content_type()=='application/vnd.android.package-archive'
+              data=r.read()
+              assert hashlib.sha256(data).hexdigest()=='a8a00183192e417fd76a7ad080ca97a5c2c40ab3cde27c70d5165c8da2797e1f'
+          with opener.open(base+'/',timeout=5) as r:
+              assert b'Download latest APK' in r.read()
+          print('APK_POST_CLEANUP_DOWNLOAD_PASS')
+          print('page_url='+base+'/')
+          print('apk_url='+base+'/latest.apk')
+          print('bytes='+str(len(data)))
