@@ -1,4 +1,5 @@
 name: JNS VM906 Two Host Safety and Restore Audit
+# Post-restore independent verification, source must remain authoritative
 on:
   push:
     branches: [main]
