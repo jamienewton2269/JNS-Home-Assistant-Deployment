@@ -1,0 +1,22 @@
+name: JNS HA900 Final Cold Archive Gate
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha900-final-archive-gate.yml'
+      - 'gateway/solar/ha900_final_archive_gate_20261025.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify stopped HA900 and Node C archive capacity
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha900_final_archive_gate_20261025.py
+          python3 gateway/solar/ha900_final_archive_gate_20261025.py
