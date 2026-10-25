@@ -1,0 +1,24 @@
+name: JNS Solar HA900 Cold VMA Archive
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-ha900-cold-archive.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-solar-ha900-cold-archive
+  cancel-in-progress: false
+jobs:
+  archive:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 72
+    steps:
+      - uses: actions/checkout@v4
+      - name: Native Proxmox HA900 backup to Node C NFS with full checksum verification
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha900_native_vzdump_to_nodec_nfs_20261025.py
+          python3 gateway/solar/ha900_native_vzdump_to_nodec_nfs_20261025.py
