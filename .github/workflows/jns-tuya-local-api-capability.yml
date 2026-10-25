@@ -1,0 +1,19 @@
+name: JNS Tuya Local API Capability
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/tuya_freedom/addon_api_probe.py','.github/workflows/jns-tuya-local-api-capability.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check local addon API privilege without reading credential
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/tuya_freedom/addon_api_probe.py
+          python3 gateway/tuya_freedom/addon_api_probe.py
