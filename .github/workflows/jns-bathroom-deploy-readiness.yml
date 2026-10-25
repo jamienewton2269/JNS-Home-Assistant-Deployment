@@ -1,0 +1,17 @@
+name: JNS Bathroom Activation Gate Readiness
+on:
+  push:
+    branches:
+      - 'dev/heating-thermal-learning-v035-20261024'
+    paths:
+      - 'gateway/heating/v0.3.5/bathroom-deploy-readiness.request'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only JNS privileged gateway and HA-General state inspection
+        run: python3 gateway/heating/v0.3.5/bathroom_deploy_readiness.py
