@@ -1,0 +1,22 @@
+name: JNS Solar HA Security Relocation Capacity
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-ha-security-capacity.yml'
+      - 'gateway/solar/ha_security_relocation_gate_20261025.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read current VM906 permission and destination capacity gates
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha_security_relocation_gate_20261025.py
+          python3 gateway/solar/ha_security_relocation_gate_20261025.py
