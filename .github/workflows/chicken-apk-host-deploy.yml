@@ -1,0 +1,23 @@
+name: Chicken Tracker local APK publish
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apk_testing/**'
+      - '.github/workflows/chicken-apk-host-deploy.yml'
+permissions: {contents: read}
+concurrency:
+  group: jns-apk-test-host
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish verified APK on unprivileged LAN host
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile apk_testing/server.py apk_testing/deploy.py
+          python3 apk_testing/deploy.py
