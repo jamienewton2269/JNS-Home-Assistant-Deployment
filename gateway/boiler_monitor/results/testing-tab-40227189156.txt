@@ -1,0 +1,3 @@
+TESTING_BOILER_TAB_VERIFIED {"views_before": 14, "views_after": 15, "path": "/testing-dashboard/boiler-usage", "backup": "/config/.jns-backups/boiler-testing-tab-40227189156", "existing_views_preserved": true, "restart_required": false, "after_sha256": "3a145ae98a47c5509eef9d16f850ea783cd0ac3e5137814db2ceda9573873911"}
+
+TESTING_BOILER_HTTP 200
