@@ -1,0 +1,57 @@
+name: VEYRA persistent capture preflight and Intel DMC file test
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-boot-repair-preflight.yml'
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Verified remote preflight read-only and verify firmware archive
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          host=veyra.home.arpa
+          key="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          fp='SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          tmp=$(mktemp -d);chmod 700 "$tmp";trap 'rm -rf "$tmp"' EXIT
+          ssh-keyscan -T 5 -t ed25519 "$host" 2>/dev/null >"$tmp/known_hosts"
+          test "$(awk '$2=="ssh-ed25519"{n++}END{print n+0}' "$tmp/known_hosts")" -eq 1
+          test "$(ssh-keygen -lf "$tmp/known_hosts" -E sha256 | awk '{print $2;exit}')" = "$fp"
+          ssh -i "$key" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$tmp/known_hosts" -o ConnectTimeout=7 "jnsadmin@$host" 'sudo -n bash -s' <<'REMOTE'
+          set -u
+          test "$(hostname -s)" = veyra || exit 7
+          echo '=== ORIGINAL RUNNER SAFETY ==='
+          base=/opt/veyra/virtual-loopback-v01
+          ls -ld "$base" "$base/runner.sh" "$base/profile" "$base/buffer" 2>/dev/null || true
+          if [[ -f "$base/runner.sh" ]]; then
+            bash -n "$base/runner.sh" && echo RUNNER_SYNTAX_OK
+            sed -n '1,130p' "$base/runner.sh" | sed -E 's/(password|token|secret|key|cookie)(=|:)[^ ]+/\1=REDACTED/gi' | cut -c 1-180
+          fi
+          for p in /usr/bin/x11vnc /usr/bin/Xvfb /usr/bin/google-chrome /usr/bin/chromium; do
+            test ! -x "$p" || echo "EXECUTABLE=$p"
+          done
+          echo '=== PRIOR CAPTURE UNIT FILE LOCATIONS ==='
+          for u in veyra-virtual-loopback-v01 veyra-itvx-vnc-v01; do
+            for f in /etc/systemd/system/"$u".service /run/systemd/transient/"$u".service /usr/lib/systemd/system/"$u".service; do
+              test ! -e "$f" || { echo "$f"; ls -l "$f"; }
+            done
+          done
+          echo '=== CANDIDATE FIRMWARE CONTENTS FROM LOCAL PACKAGE CACHE ==='
+          tmp=$(mktemp -d /tmp/veyra-dmc.XXXXXX)
+          trap 'rm -rf "$tmp"' EXIT
+          cd "$tmp" || exit 5
+          timeout -k 2s 35s apt-get download firmware-intel-graphics >/dev/null 2>&1 || true
+          for f in ./*.deb; do
+            test -f "$f" || continue
+            echo "PACKAGE_ARCHIVE=$f"
+            dpkg-deb -c "$f" | grep -E 'i915/bxt_dmc_ver1_07.bin|i915/bxt_dmc_ver' | head -20 || true
+            echo "PACKAGE_NAME=$(dpkg-deb -f "$f" Package)"
+          done
+          echo '=== MEMORY & DISK ==='
+          free -h | head -4
+          df -h / /opt/veyra | tail -2
+          REMOTE
