@@ -1,0 +1,37 @@
+PACKAGE_INCLUDE ["packages: !include_dir_named packages"]
+LYRIC_REGISTRY [{"entity_id": "binary_sensor.thermostat_thermostat_device_pairing_enabled", "platform": "lyric", "disabled_by": null}, {"entity_id": "sensor.thermostat_thermostat_indoor_temperature", "platform": "lyric", "disabled_by": null}, {"entity_id": "sensor.thermostat_thermostat_outdoor_temperature", "platform": "lyric", "disabled_by": null}, {"entity_id": "sensor.thermostat_thermostat_outdoor_humidity", "platform": "lyric", "disabled_by": null}, {"entity_id": "sensor.thermostat_thermostat_schedule_status", "platform": "lyric", "disabled_by": null}, {"entity_id": "sensor.thermostat_thermostat_setpoint_status", "platform": "lyric", "disabled_by": null}, {"entity_id": "climate.thermostat_thermostat", "platform": "lyric", "disabled_by": null}]
+EXISTING_BOILER_FILES []
+LYRIC_RECORDED_ACTIVITY {"state": "heat", "at": 1792953180.2017157, "hvac_action": "heating", "attribute_keys": ["current_temperature", "temperature", "target_temp_high", "target_temp_low", "hvac_action", "preset_mode", "friendly_name"]}
+RECORDER_ROOT False
+HTTP_CONFIG_LINES []
+LYRIC_ACTIVITY_IMPLEMENTATION     def hvac_action(self) -> HVACAction | None:
+        """Return the current hvac action."""
+        action = HVAC_ACTIONS.get(self.device.operation_status.mode)
+        if action == HVACAction.OFF and self.hvac_mode != HVACMode.OFF:
+            action = HVACAction.IDLE
+        return action
+
+    @property
+    @override
+    def hvac_mode(self) -> HVACMode:
+        """Return the hvac mode."""
+        return HVAC_MODES[self.device.changeable_values.mode]
+
+    @property
+    @override
+    def target_temperature(self) -> float | None:
+        """Return the temperature we try to reach."""
+        device = self.device
+        if (
+            device.changeable_values.auto_changeover_active
+            or HVAC_MODES[device.changeable_values.mode] == HVACMode.OFF
+        ):
+            return None
+        if self.hvac_mode == HVACMode.COOL:
+            return device.changeable_values.cool_setpoint
+        return device.changeable_values.heat_setpoint
+
+    @property
+    @override
+    def target_temperature_high(self) -> float | None:
+
