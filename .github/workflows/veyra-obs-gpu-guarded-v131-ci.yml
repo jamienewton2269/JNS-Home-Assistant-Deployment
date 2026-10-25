@@ -1,0 +1,47 @@
+name: VEYRA GPU OBS guarded trial v1.3.1 CI
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/trusted/veyra-obs-wayland-gpu-guarded-v1.3.1.sh'
+      - '.github/workflows/veyra-obs-gpu-guarded-v131-ci.yml'
+permissions: {contents: read}
+jobs:
+  validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse OBS and verify guarded recovery and Intel gate
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-obs-wayland-gpu-guarded-v1.3.1.sh
+          python3 - <<'PY'
+          import re,ast
+          from pathlib import Path
+          s=Path("gateway/trusted/veyra-obs-wayland-gpu-guarded-v1.3.1.sh").read_text()
+          blocks=re.findall(r"<<'PY'[^\n]*\n(.*?)\nPY",s,re.S)
+          assert len(blocks)==4, len(blocks)
+          for x in blocks: ast.parse(x)
+          for x in ("QT_QPA_PLATFORM=wayland","WLR_BACKENDS=headless",
+            "WLR_RENDERER=gles2","/dev/dri/renderD128",'"id":"xshm_input"',
+            '"server":":92"','pulse_output_capture','veyra_virtual_capture.monitor',
+            'obs --multi','guarded_pause_after_gpu','recorder_identity','resume_recorder',
+            'systemd-run --quiet --collect','--on-active=95s',
+            'kill -STOP "$LEGACY"','kill -CONT "$LEGACY"',
+            'LEGACY_START=$(awk','/proc/$LEGACY/stat','LEGACY_MARKER',
+            'control stop','ffprobe','OBS_INTEL_GPU_ADAPTER_VERIFIED',
+            'OBS_RENDER_LAG_PERCENT','WLR_HEADLESS_OUTPUTS=1','cage -- env',
+            'trap cleanup EXIT','--hwdec=no'):
+            assert x in s,x
+          assert s.index('OBS_INTEL_GPU_ADAPTER_VERIFIED') < s.index('guarded_pause_after_gpu')
+          assert s.index('guarded_pause_after_gpu') < s.index('sleep 18')
+          assert s.index('resume_recorder ||') < s.index('if [[ -n "$OBS_GROUP" ]]')
+          for x in ('Xvfb :93','Xvfb :92','QT_QPA_PLATFORM=xcb',
+                    'WLR_BACKENDS=drm','systemctl restart ','systemctl enable ',
+                    'killall ','pkill ','apt-get ','--startstreaming',
+                    'srt://','ffplay ','/usr/bin/ffmpeg '):
+            assert x not in s,x
+          print('PASS: Intel renderer required; original recorder only guarded 95-second pause after GPU confirmation')
+          PY
