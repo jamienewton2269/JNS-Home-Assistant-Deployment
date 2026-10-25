@@ -1,0 +1,22 @@
+name: JNS Shark IQ Local Read-Only Preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-shark-local-readonly.yml'
+      - 'gateway/sharklocal/sharklocal_readonly_audit_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Safe model and hostname inventory, no vacuum commands
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/sharklocal/sharklocal_readonly_audit_v1.py
+          python3 gateway/sharklocal/sharklocal_readonly_audit_v1.py
