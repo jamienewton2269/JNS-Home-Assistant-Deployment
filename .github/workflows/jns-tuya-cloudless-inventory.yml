@@ -1,0 +1,25 @@
+name: JNS Tuya Cloudless Recovery Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/tuya_freedom/cloudless_inventory.py'
+      - '.github/workflows/jns-tuya-cloudless-inventory.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-tuya-cloudless-inventory
+  cancel-in-progress: false
+jobs:
+  inventory:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconcile local Tuya IDs and Zigbee/MQTT candidates without cloud
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/tuya_freedom/cloudless_inventory.py
+          python3 gateway/tuya_freedom/cloudless_inventory.py
