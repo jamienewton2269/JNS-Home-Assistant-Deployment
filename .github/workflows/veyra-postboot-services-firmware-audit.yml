@@ -1,0 +1,53 @@
+name: VEYRA postboot services and Intel firmware audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-postboot-services-firmware-audit.yml'
+permissions: {contents: read}
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - name: Host-key verified read-only Lenovo unit dependency and DMC diagnostics
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          host=veyra.home.arpa
+          key="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          fp='SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          d=$(mktemp -d);chmod 700 "$d";trap 'rm -rf "$d"' EXIT
+          ssh-keyscan -T 5 -t ed25519 "$host" 2>/dev/null >"$d/known_hosts"
+          test "$(awk '$2=="ssh-ed25519"{n++}END{print n+0}' "$d/known_hosts")" -eq 1
+          test "$(ssh-keygen -lf "$d/known_hosts" -E sha256 | awk '{print $2;exit}')" = "$fp"
+          ssh -i "$key" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$d/known_hosts" -o ConnectTimeout=8 "jnsadmin@$host" 'sudo -n bash -s' <<'REMOTE'
+          set -u
+          [[ "$(hostname -s)" == veyra ]] || exit 7
+          echo '=== BOOT / SERVICES ==='
+          cat /proc/sys/kernel/random/boot_id
+          systemctl is-system-running || true
+          for svc in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do
+            echo "--- $svc ---"
+            systemctl show "$svc" -p ActiveState,SubState,Result,MainPID,UnitFileState,ConditionResult,AssertResult,ExecMainStatus,NRestarts,After,Wants,Requires --no-pager | cut -c 1-400
+            systemctl cat "$svc" --no-pager 2>/dev/null | grep -E '^(\[Unit\]|\[Service\]|\[Install\]|After=|Requires=|Wants=|Type=|ExecStart=|WorkingDirectory=|User=|Restart=|WantedBy=|Environment=|ExecStartPre=)' | cut -c 1-270 | head -45 || true
+            journalctl -b -u "$svc" -n 45 --no-pager -o short-iso | grep -Ev 'token=|Authorization:|Cookie:|password=' | cut -c 1-220 || true
+          done
+          echo '=== WAYLAND AND XVFB RESOURCES ==='
+          ls -l /run/user/999/wayland-* /run/user/999/pulse/native /tmp/.X11-unix/X92 2>/dev/null || true
+          ps -eo pid,ppid,stat,comm,args | grep -E 'cage|Xvfb|ffmpeg|x11vnc|wayvnc|veyra\.kiosk' | grep -v grep | cut -c 1-180 | head -30 || true
+          echo '=== DMC FIRMWARE ==='
+          for p in /lib/firmware/i915/bxt_dmc_ver1_07.bin /usr/lib/firmware/i915/bxt_dmc_ver1_07.bin; do
+            ls -l "$p" 2>/dev/null || true
+          done
+          for pkg in firmware-misc-nonfree firmware-intel-graphics linux-firmware; do
+            echo "PACKAGE=$pkg"
+            dpkg-query -W "$pkg" 2>/dev/null || true
+            apt-cache policy "$pkg" 2>/dev/null | head -8 || true
+          done
+          echo '=== HDMI CONNECTION ==='
+          for p in /sys/class/drm/card*-HDMI* /sys/class/drm/card*-eDP*; do
+            [[ -d "$p" ]] || continue
+            echo "$(basename "$p") status=$(cat "$p/status") enabled=$(cat "$p/enabled") edid_bytes=$(wc -c < "$p/edid")"
+          done
+          REMOTE
