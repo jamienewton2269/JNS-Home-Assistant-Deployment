@@ -66,6 +66,19 @@ Read-only NAS/DNS backend relationships: https://github.com/jamienewton2269/JNS-
 - To finish: an authorised Node C Proxmox operator must set original VM906 `Start at boot: No`, gracefully stop it, verify it is stopped (and take final stopped-source backup if state changed), then trigger a gated GitHub Node A promotion workflow that checks the source process is absent and the restored target identity/disk is valid before starting Node A. Verify DNS, alarm/ESPHome/KC868, tamper and doorbell behaviour. Keep the original on Node C stopped as rollback.
 - **No claim of completed HA-Security migration is authorised before the two-host startup exclusivity and functional tests succeed.**
 
+## HA-Security VM906 live activation status — 25 October 21:32 UK
+
+**GitHub migration executed to VM start; full HA Core acceptance failed.** The user shut down source VM906 on Node C. [Cutover gate](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40234878024) verified Node C VM906 QEMU/PID absent and Node A restored VM906 stopped/onboot=0, RAM 2048MB, root disk and network present.
+
+[Activation workflow](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40235042883) **started Node A VM906 successfully** at 21:20:55. Node C source remained stopped. Acceptance job exited 2 because HA web TCP/8123 failed to respond within the retry window. Node A intentionally remained RUNNING, onboot=0; source VM and NFS backup were preserved.
+
+[Node A guest network audit](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40235749317) at 21:29:59: VM906 running, DNS name maps to the NIC seen on vmbr0, TAP up, network TCP/22 and HAOS Observer TCP/4357 reachable, 8123 unreachable, guest agent absent.
+[Observer audit](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40235907892) at 21:31:44: Observer / and /ping HTTP 200, Supervisor Connected, protected /logs HTTP 403. No trusted SSH-key guest access.
+[Guest console audit](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40236030400): VM906 UEFI, no configured serial console and no QEMU guest agent. Core status must be reviewed through graphical Proxmox console/HA CLI or an already-approved guest management route.
+
+**Fencing not finalised**: the Node C unprivileged runner cannot read VM906 onboot settings. User must run qm set 906 --onboot 0 in Node C root shell, verify qm config 906, then Node A onboot can be enabled only after HA Core and alarm acceptance tests. Never permit both copies running or delete the NFS backup.
+
+**Current operational status**: Node A virtual machine booted; HA Core service not yet responding. Open Node A → VM906 → Console and inspect ha core info / ha core logs; safely start Core if appropriate. Validate ESPHome/KC868, manual alarm, doorbell and tamper before treating production migration as finished.
 ## HA-Security one-time root cutover handoff — 25 October 19:57 UK
 
 The user has explicitly authorised immediate HA-Security VM906 relocation from Node C to Node A. **Do not claim completion until the on-host cutover runs and both VM states are verified.**
