@@ -60,5 +60,26 @@ jobs:
               d['failure_categories']=[k for k,rx in checks.items() if re.search(rx,content,re.I)]
               d['last_line_classes']=[('error' if re.search('error|fail',line,re.I) else 'info') for line in content.splitlines()[-5:]]
               d['log_has_task_error']=bool(re.search(r'TASK ERROR|ERROR:',content))
+              safe_patterns={
+                'archive_extract_command':r'vma extract',
+                'archive_header_or_magic':r'header|magic|invalid.*archive|wrong.*format',
+                'zstd_decompress_failed':r'zstd.*(failed|error)|unzstd.*failed',
+                'vm_config_embedded_missing':r'config.*not found|no config|could not find config',
+                'volume_already_exists':r'volume.*already exists',
+                'storage_create_failure':r'create.*(volume|disk).*failed',
+                'zfs_volume_failure':r'zfs.*(failed|error)',
+                'file_missing':r'No such file or directory|file not found',
+                'input_output_error':r'Input/output error',
+                'extraction_failed':r'extract.*failed|failed.*extract',
+                'bad_archived_config':r'error.*config|config.*error',
+                'archive_parse':r'unable.*(parse|open|detect)|parse.*failed',
+                'invalid_option':r'unknown option|option.*not allowed',
+                'argument_error':r'wrong number of arguments|invalid argument',
+                'failed_restore_summary':r'unable to restore',
+              }
+              d['specific_flags']={k:bool(re.search(p,content,re.I)) for k,p in safe_patterns.items()}
+              words=set(re.findall(r'[a-zA-Z]{3,}',content.lower()))
+              allow={'archive','vma','zstd','extract','verify','restore','config','disk','storage','volume','image','error','unable','failed','command','directory','file','empty','invalid','magic','header','format','create','read','write','parse','decompress','unsupported','not','found','permission','denied','missing','compressed','snapshot','unexpected','input','output','argument','block','device','fatal'}
+              d['allowed_error_tokens']=sorted(words & allow)
           print('JNS_VM906_RESTORE_DIAG='+json.dumps(d,sort_keys=True))
           PY
