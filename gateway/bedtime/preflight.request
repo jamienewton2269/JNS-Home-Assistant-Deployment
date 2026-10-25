@@ -5,3 +5,4 @@ check=post-rollback-qga-and-z2m
 check=certified-z2m-target-port1884-qgahelp
 check=ha-core-check-last-error
 check=haos-shell-log
+check=all-safe-ha-check-lines
