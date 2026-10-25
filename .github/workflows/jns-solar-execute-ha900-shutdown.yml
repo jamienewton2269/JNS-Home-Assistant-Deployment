@@ -1,0 +1,25 @@
+name: JNS Solar Execute HA900 Shutdown
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-execute-ha900-shutdown.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-solar-ha900-shutdown
+  cancel-in-progress: false
+jobs:
+  shutdown:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Execute approved targeted HA900 graceful shutdown on Node A
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/solar/ha900_disable_onboot_graceful_shutdown_v1.sh
+          ssh -o BatchMode=yes -o ConnectTimeout=6 -o StrictHostKeyChecking=yes nodea \
+            'bash -s' < gateway/solar/ha900_disable_onboot_graceful_shutdown_v1.sh
