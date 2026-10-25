@@ -48,7 +48,7 @@ for p in [ROOT/"automations.yaml",ROOT/"scripts.yaml",ROOT/"scenes.yaml",*sorted
   if key=="script" and p.name=="scripts.yaml" and isinstance(v,dict):return [{"alias":k,"sequence":x.get("sequence",[]) if isinstance(x,dict) else x} for k,x in v.items()]
   if isinstance(v,dict):
    t=v.get(key,[])
-   return t if isinstance(t,list) else ([dict(alias=k,**item) for k,item in t.items() if isinstance(item,dict)] if isinstance(t,dict) else [])
+   return t if isinstance(t,list) else ([dict(item,alias=item.get('alias',k)) for k,item in t.items() if isinstance(item,dict)] if isinstance(t,dict) else [])
   return []
  for kind in ("automation","script"):
   for row in getrows(v,kind):
@@ -153,7 +153,7 @@ try:
  status=ssh(["qm","status","905"]).strip()
  print("VM905_STATUS",status,flush=True)
  if "running" not in status:raise RuntimeError("VM905 stopped")
- code="import base64,traceback\ntry:\n exec(base64.b64decode('"+base64.b64encode(PROBE.encode()).decode()+"'))\nexcept Exception as ex:\n print('JNS_GUEST_EXCEPTION',type(ex).__name__,str(ex)[:280],flush=True)\n print('JNS_GUEST_TRACE_TAIL',repr(traceback.format_exc().splitlines()[-2:]),flush=True)\n"
+ code="import base64,traceback\ntry:\n exec(base64.b64decode('"+base64.b64encode(PROBE.encode()).decode()+"'))\nexcept Exception as ex:\n print('JNS_GUEST_EXCEPTION',type(ex).__name__,str(ex)[:280],flush=True)\n print('JNS_GUEST_TRACE_TAIL',repr(traceback.format_exc().splitlines()[-2:]),flush=True)\n raise SystemExit(2)\n"
  response=json.loads(ssh(["qm","guest","exec","905","--","docker","exec","homeassistant","python3","-c",code]))
  deadline=time.monotonic()+110
  while not response.get("exited"):
