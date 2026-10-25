@@ -1,0 +1,24 @@
+name: JNS Steward Repair Centre Read-only Preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'steward_knowledge/repair-ui-preflight.request'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Test Repair Centre and compare running source hashes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m unittest discover -s natural_automation_steward/tests -p test_repair_console.py -v
+          python3 -m py_compile natural_automation_steward/src/natural_automation.py natural_automation_steward/src/steward/repair_console.py
+          bash -n natural_automation_steward/ops/repair_ui_preflight.sh
+          bash natural_automation_steward/ops/repair_ui_preflight.sh
