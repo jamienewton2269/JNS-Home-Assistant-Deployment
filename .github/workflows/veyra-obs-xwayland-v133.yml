@@ -1,0 +1,84 @@
+name: VEYRA OBS GPU Xwayland telemetry acceptance v1.3.3
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-obs-xwayland-v133.yml'
+permissions: {contents: read}
+concurrency:
+  group: veyra-obs-xwayland-quality
+  cancel-in-progress: false
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify OBS GetStats measurements, Intel renderer and original recorder recovery
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n gateway/trusted/veyra-obs-xwayland-gpu-v1.3.3.sh
+          python3 -m py_compile gateway/trusted/veyra-obs-ws-control-v1.3.3.py
+          python3 - <<'PY'
+          import ast,re
+          from pathlib import Path
+          s=Path('gateway/trusted/veyra-obs-xwayland-gpu-v1.3.3.sh').read_text()
+          py=Path('gateway/trusted/veyra-obs-ws-control-v1.3.3.py').read_text()
+          blocks=re.findall(r"<<'PY'[^\n]*\n(.*?)\nPY",s,re.S)
+          assert len(blocks)==3,len(blocks)
+          for b in blocks:ast.parse(b)
+          for x in ('xshm_input','"server":":92"','pulse_output_capture',
+             'QT_QPA_PLATFORM=xcb','cage -- env','WLR_BACKENDS=headless',
+             'WLR_RENDERER=gles2','WLR_RENDER_DRM_DEVICE=/dev/dri/renderD128',
+             'OBS_INTEL_GPU_ADAPTER_VERIFIED_WITH_XWAYLAND',
+             'guarded_pause_after_gpu','--on-active=95s','kill -CONT "$LEGACY"',
+             'control stats | tee','control stop | tee','resume_recorder ||'):
+            assert x in s,x
+          for x in ('GetStats','renderSkippedFrames','renderTotalFrames',
+             'outputSkippedFrames','outputTotalFrames','OBS_RENDER_LAG_PERCENT',
+             'OBS_PERFORMANCE_GATE_PASS','"stats": stats'):
+            assert x in py,x
+          assert s.index('control stats | tee') < s.index('control stop | tee')
+          assert s.index('say "OBS_INTEL_GPU_ADAPTER_VERIFIED_WITH_XWAYLAND"') < s.index('\n  guarded_pause_after_gpu\n')
+          assert 'QT_QPA_PLATFORM=wayland' not in s
+          assert 'Xvfb :93' not in s
+          print('PASS: hardware-backed OBS XSHM with authenticated real-time quality and recovery guards')
+          PY
+  runtime:
+    needs: static
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Execute verified pinned Lenovo GPU/XSHM frame-quality test
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          target=veyra.home.arpa
+          key="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          fp='SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          tmp=$(mktemp -d);chmod 700 "$tmp";trap 'rm -rf "$tmp"' EXIT
+          ssh-keyscan -T 5 -t ed25519 "$target" 2>/dev/null >"$tmp/known_hosts"
+          test "$(awk '$2=="ssh-ed25519"{n++}END{print n+0}' "$tmp/known_hosts")" -eq 1
+          test "$(ssh-keygen -lf "$tmp/known_hosts" -E sha256 | awk '{print $2;exit}')" = "$fp"
+          ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$tmp/known_hosts" -o ConnectTimeout=6 "jnsadmin@$target" 'sudo -n bash -s' <<'REMOTE'
+          set -u
+          rev=1e7ce156f7a15c3adfad7b22351fb08acdecbbf0
+          url="https://raw.githubusercontent.com/jamienewton2269/JNS-Home-Assistant-Deployment/$rev/gateway/trusted"
+          code=/tmp/veyra-obs-xwayland-gpu-v1.3.3.sh
+          ctl=/tmp/veyra-obs-ws-control-v1.3.3.py
+          curl -fsSL --max-time 25 "$url/veyra-obs-xwayland-gpu-v1.3.3.sh" -o "$code" || exit 4
+          curl -fsSL --max-time 25 "$url/veyra-obs-ws-control-v1.3.3.py" -o "$ctl" || exit 4
+          bash -n "$code" && python3 -m py_compile "$ctl" || exit 4
+          install -D -m 0755 "$ctl" /usr/local/libexec/veyra-obs-ws-control-v1.3.3.py
+          bash "$code" audit || exit 5
+          echo "=== OBS XWAYLAND VIDEO RENDER & ENCODE QA ==="
+          timeout -k 10s 85s bash "$code" run
+          rc=$?
+          echo "QA_EXIT=$rc"
+          for svc in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do
+            echo "$svc=$(systemctl is-active "$svc")"
+          done
+          test ! -f /run/veyra-obs-v133-paused-recorder && echo "RECORDER_MARKER=ABSENT" || echo "RECORDER_MARKER=PRESENT"
+          exit "$rc"
+          REMOTE
