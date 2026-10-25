@@ -1,1 +1,1 @@
-Read-only preflight native QGA short command 2026-10-25 v3
+Read-only inspect Core after unconfirmed restart; do not retry restart. 2026-10-25 v4
