@@ -10,7 +10,7 @@ jobs:
     timeout-minutes: 2
     steps:
       - name: Verify server survived deployment runner cleanup
-        shell: python
+        shell: python3 {0}
         run: |
           import urllib.request,hashlib,json
           opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
