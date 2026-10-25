@@ -1,0 +1,50 @@
+name: VEYRA browser audio routing inspection
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-obs-audio-routing-inspect.yml'
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - name: Check browser sink-input existence, routing, mute and monitor without changing playback
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          target=veyra.home.arpa
+          key="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          fp='SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          tmp=$(mktemp -d); chmod 700 "$tmp"; trap 'rm -rf "$tmp"' EXIT
+          ssh-keyscan -T 5 -t ed25519 "$target" 2>/dev/null >"$tmp/known_hosts"
+          test "$(awk '$2=="ssh-ed25519"{n++}END{print n+0}' "$tmp/known_hosts")" -eq 1
+          test "$(ssh-keygen -lf "$tmp/known_hosts" -E sha256 | awk '{print $2;exit}')" = "$fp"
+          ssh -i "$key" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$tmp/known_hosts" -o ConnectTimeout=6 "jnsadmin@$target" 'sudo -n bash -s' <<'REMOTE'
+          set -eu
+          uid=$(id -u veyra)
+          prefix="/run/user/$uid"
+          pa() { runuser -u veyra -- env XDG_RUNTIME_DIR="$prefix" PULSE_SERVER="unix:$prefix/pulse/native" pactl "$@"; }
+          echo "=== PULSE SINKS ==="
+          pa list short sinks
+          echo "=== PULSE SOURCE MONITORS ==="
+          pa list short sources | grep -E 'monitor|source' | head -15 || true
+          echo "=== ACTIVE CLIENT AUDIO SINK INPUTS ==="
+          pa list short sink-inputs || true
+          echo "=== SINK INDEX / NAME ==="
+          pa list sinks | grep -E '^Sink #|Name: |Mute: |State:' | head -60
+          echo "=== CLIENT STREAM METADATA ==="
+          pa list sink-inputs | grep -E '^Sink Input #|Sink: |Mute: |Corked: |application.name =|application.process.binary =|application.process.id =|media.name =' | head -100 || true
+          echo "=== KNOWN VIRTUAL CHROME MAIN PROCESS ==="
+          for task in /proc/[0-9]*; do
+            test -r "$task/cmdline" || continue
+            test "$(stat -c %U "$task" 2>/dev/null)" = veyra || continue
+            test "$(basename "$(readlink -f "$task/exe" 2>/dev/null)")" = chrome || continue
+            tr '\0' '\n' < "$task/cmdline" | grep -Fxq -- '--user-data-dir=/opt/veyra/virtual-loopback-v01/profile' || continue
+            echo "CHROME_PID=${task##*/} VIRTUAL_PROFILE=YES"
+            tr '\0' '\n' < "$task/cmdline" | grep -E '^--remote-debugging-(port|pipe)' | head -1 || true
+          done
+          echo "=== PROTECTED SERVICES ==="
+          for u in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do echo "$u=$(systemctl is-active "$u")"; done
+          REMOTE
