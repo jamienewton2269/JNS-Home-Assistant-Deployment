@@ -1,0 +1,14 @@
+name: JNS Boiler Runtime Read-only Preflight
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/boiler_monitor/audit.request']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/boiler_monitor/audit.py
