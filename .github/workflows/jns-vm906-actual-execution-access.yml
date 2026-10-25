@@ -1,0 +1,31 @@
+name: JNS VM906 Actual Execution Access
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-actual-execution-access.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  access:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify authorised Node C privileged paths and source state
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo 'VM906_CURRENT_ACCESS_READONLY'
+          echo "RUNNER_ID=$(id -un)"
+          sudo -n -l 2>/dev/null | grep -E '(NOPASSWD|jns-gateway-exec|/usr/sbin/qm|/usr/sbin/vzdump)' | sed -E 's#(/home/)[^/]+/#\1REDACTED/#g' | head -20 || true
+          echo "NFS_MOUNT=$(findmnt -rn -M /mnt/pve/nfs-ct -o FSTYPE || echo none)"
+          echo "PVE_CONFIG_READABLE=$(test -r /etc/pve/qemu-server/906.conf && echo yes || echo no)"
+          echo "LOCAL_ROOT_SSH=$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=3 root@localhost 'test "$(id -u)" = 0 && echo yes' 2>/dev/null || echo no)"
+          for host in nodea nodeb; do
+            echo "$host" \
+              "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=4 "$host" 'test "$(id -u)" = 0 && echo ROOT_AUTH_OK' 2>/dev/null || echo SSH_UNAVAILABLE)"
+            echo "$host"_to_nodec_root="$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=4 "$host" 'ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=4 root@nodec "test \\"\$(id -u)\\" = 0" >/dev/null 2>&1 && echo AUTHORISED || echo UNAVAILABLE' 2>/dev/null || echo UNAVAILABLE)"
+          done
+          echo "VM906_CURRENT_ACCESS_DONE"
