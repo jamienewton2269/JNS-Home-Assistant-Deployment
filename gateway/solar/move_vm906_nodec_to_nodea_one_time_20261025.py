@@ -273,9 +273,10 @@ def commit():
 
 def rollback():
     note("ROLLBACK_STARTED=yes")
-    # If destination VM exists, stop it before attempting Node C source restart.
+    # If destination VM is absent (or stopped), source is safe to restart.
+    # If destination state cannot be proved, fail closed to avoid split brain.
     try:
-        states=nodea("qm status 906")
+        states=nodea("if qm config 906 >/dev/null 2>&1; then qm status 906; else echo 'status: absent'; fi")
         if "status: running" in states:
             stop=r'''
 qm shutdown 906 --timeout 90 >/dev/null 2>&1 || true
