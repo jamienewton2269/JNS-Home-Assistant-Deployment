@@ -1,0 +1,53 @@
+name: VEYRA HDMI hotplug and keypad remote recheck
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-hdmi-hotplug-recheck.yml'
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - name: Verified read-only HDMI, EDID, hotkey and seat recheck
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          target=veyra.home.arpa
+          key="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          expected='SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          dir=$(mktemp -d)
+          chmod 700 "$dir"
+          trap 'rm -rf "$dir"' EXIT
+          timeout -k 2s 15s ssh-keyscan -T 5 -t ed25519 "$target" 2>/dev/null >"$dir/known_hosts"
+          test "$(awk '$2=="ssh-ed25519"{n++}END{print n+0}' "$dir/known_hosts")" -eq 1
+          test "$(ssh-keygen -lf "$dir/known_hosts" -E sha256 | awk '{print $2;exit}')" = "$expected"
+          ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$dir/known_hosts" -o ConnectTimeout=6 "jnsadmin@$target" 'sudo -n bash -s' <<'REMOTE'
+          set -u
+          echo '=== DRM CONNECTOR CURRENT ==='
+          for p in /sys/class/drm/card*-HDMI* /sys/class/drm/card*-eDP* /sys/class/drm/card*-DP*; do
+            [[ -d "$p" ]] || continue
+            echo "CONNECTOR=$(basename "$p") STATUS=$(cat "$p/status" 2>/dev/null) ENABLED=$(cat "$p/enabled" 2>/dev/null) EDID_SIZE=$(wc -c < "$p/edid" 2>/dev/null)"
+            echo "MODES=$(head -8 "$p/modes" 2>/dev/null | paste -sd ',' -)"
+          done
+          echo '=== KERNEL GRAPHICS EVENTS ==='
+          journalctl -k --since '25 minutes ago' --no-pager 2>/dev/null |
+            grep -Ei 'i915|drm|hotplug|hpd|hdmi|edid|link status|display' | tail -60 | cut -c 1-250 || true
+          echo '=== PHYSICAL SEAT ==='
+          loginctl seat-status seat0 --no-pager 2>/dev/null | head -45 || true
+          echo '=== LOGIND GRAPHICAL SESSIONS ==='
+          loginctl list-sessions --no-legend || true
+          echo '=== KIOSK LOG ==='
+          journalctl -u veyra-kiosk.service --since '30 minutes ago' --no-pager | tail -30 | cut -c 1-200 || true
+          echo '=== DISPLAY TOOLS ==='
+          for cmd in wlr-randr wayland-info swaymsg weston xrandr modetest drm_info chvt openvt libinput evtest setkeycodes; do
+            command -v "$cmd" || true
+          done
+          echo '=== VIDEO MEMORY ==='
+          ls -l /dev/dri/card* /dev/dri/renderD* 2>/dev/null || true
+          echo '=== PRESERVED ==='
+          for s in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do
+            echo "$s=$(systemctl is-active "$s")"
+          done
+          REMOTE
