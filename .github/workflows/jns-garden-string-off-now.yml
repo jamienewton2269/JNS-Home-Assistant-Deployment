@@ -1,0 +1,18 @@
+name: JNS Garden String Lights Single OFF
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/bedtime/turn-off.request']
+permissions:
+  contents: read
+jobs:
+  turn_off:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verified single-device Zigbee2MQTT OFF using in-guest broker credentials
+        run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/bedtime/off_now.py
+          python3 gateway/bedtime/off_now.py
