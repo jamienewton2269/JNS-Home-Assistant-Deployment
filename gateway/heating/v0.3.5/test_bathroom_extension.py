@@ -44,6 +44,8 @@ class ExtensionSafetyTests(unittest.TestCase):
         coordinator=(ROOT/"coordinator.py").read_text()
         self.assertIn('"projected": projected',coordinator)
         self.assertIn('"bathroom": bathroom',coordinator)
+        self.assertIn("Optional bathroom learner failed; legacy heating remains authoritative",coordinator)
+        self.assertIn("Optional bathroom advisory learner failed to load; existing heating continues",coordinator)
         self.assertNotIn('"projected": bathroom',coordinator)
     def test_distinct_sample_store_epoch(self):
         src=(ROOT.parent/"bathroom_runtime.py").read_text()
