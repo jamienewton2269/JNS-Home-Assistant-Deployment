@@ -48,11 +48,8 @@ print("CAMERA_REGISTRY_READONLY_COMPLETE",flush=True)
 PAYLOAD="exec(__import__('base64').b64decode("+repr(base64.b64encode(CORE.encode()).decode())+"))"
 
 def exec_host(host, args, timeout):
-    if host=="nodec":
-        command=args
-    else:
-        command=["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes",
-                 host,shlex.join(args)]
+    command=["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes",
+             host,shlex.join(args)]
     result=subprocess.run(command,capture_output=True,text=True,timeout=timeout)
     if result.returncode:
         raise RuntimeError("HOST_EXEC_FAILED "+str(result.returncode)+" "+result.stderr[-140:])
@@ -81,6 +78,14 @@ for name,host,vm in [
         print(out[:23000],flush=True)
         if rc!=0:
             print("ERROR",name,err[-350:],flush=True)
+            if vm==900:
+                try:
+                    stat_rc,stat_out,_=guest(host,vm,["ha","core","info"],deadline=35)
+                    selected=[line.strip() for line in stat_out.splitlines()
+                              if line.strip().startswith(("version:","version_latest:","boot:","ssl:","watchdog:"))]
+                    print("HA900_CORE_INFO",stat_rc,selected[:12],flush=True)
+                except Exception as core_exc:
+                    print("HA900_CORE_INFO_INCONCLUSIVE",type(core_exc).__name__,str(core_exc)[:120],flush=True)
     except Exception as exc:
         print("AUDIT_INCONCLUSIVE",name,type(exc).__name__,str(exc)[:220],flush=True)
 print("NO_CAMERA_OR_CORE_CHANGES",flush=True)
