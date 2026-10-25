@@ -1,0 +1,21 @@
+name: JNS Tuya Legacy Key Coverage
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/tuya_freedom/legacy_key_audit.py'
+      - '.github/workflows/jns-tuya-legacy-key-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check legacy VM900 existing keys without exporting device identities
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/tuya_freedom/legacy_key_audit.py
+          python3 gateway/tuya_freedom/legacy_key_audit.py
