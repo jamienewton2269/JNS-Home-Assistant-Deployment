@@ -1,0 +1,44 @@
+name: VEYRA native Xwayland GPU readiness
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-obs-xwayland-readiness.yml'
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - name: Verify Lenovo host and inspect existing Xwayland components
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          target=veyra.home.arpa
+          key="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          fp='SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          work=$(mktemp -d); chmod 700 "$work"; trap 'rm -rf "$work"' EXIT
+          ssh-keyscan -T 5 -t ed25519 "$target" 2>/dev/null >"$work/known_hosts"
+          test "$(awk '$2=="ssh-ed25519"{n++}END{print n+0}' "$work/known_hosts")" -eq 1
+          test "$(ssh-keygen -lf "$work/known_hosts" -E sha256 | awk '{print $2;exit}')" = "$fp"
+          ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$work/known_hosts" -o ConnectTimeout=6 "jnsadmin@$target" 'sudo -n bash -s' <<'REMOTE'
+          set -eu
+          echo "=== INSTALLED VIDEO/COMPOSITOR EXECUTABLES ==="
+          for x in Xwayland weston sway cage Xorg glxinfo eglinfo glmark2-x11 xdpyinfo xrandr Xvfb; do
+            command -v "$x" || true
+          done
+          echo "=== INSTALLED PACKAGES ==="
+          for name in xwayland cage sway weston mesa-utils libgl1-mesa-dri xserver-xorg-core; do
+            dpkg-query -W -f='${Package}: ${Status} ${Version}\n' "$name" 2>/dev/null || true
+          done
+          echo "=== CAGE LINKED XWAYLAND ==="
+          strings "$(command -v cage)" | grep -Ei 'Xwayland|DISPLAY=|wayland-.*X11' | head -15 || true
+          echo "=== GLX ACCESS ==="
+          if command -v glxinfo >/dev/null; then
+            runuser -u veyra -- env DISPLAY=:92 glxinfo -B 2>&1 | head -24 || true
+          fi
+          echo "=== PRESERVED SERVICES ==="
+          for name in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do
+            echo "$name=$(systemctl is-active "$name")"
+          done
+          REMOTE
