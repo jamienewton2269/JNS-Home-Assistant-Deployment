@@ -32,5 +32,5 @@ jobs:
             -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$tmp/known_hosts" \
             -o ConnectTimeout=6 -o ConnectionAttempts=1 \
             "jnsadmin@$TARGET" \
-            'echo RESULT=CONNECTED; for cmd in cage obs ffprobe; do if command -v "$cmd" >/dev/null; then echo "$cmd=available"; else echo "$cmd=missing"; fi; done; for base in /usr/lib/x86_64-linux-gnu/qt6/plugins/platforms /usr/lib/qt6/plugins/platforms; do for n in libqwayland-generic.so libqwayland-egl.so; do test ! -f "$base/$n" || echo WAYLAND_QT_PLUGIN=$base/$n; done; done; ls -l /dev/dri/renderD128 2>/dev/null || true; id veyra; obs --version' \
+            'echo RESULT=CONNECTED; for cmd in cage obs ffprobe; do if command -v "$cmd" >/dev/null; then echo "$cmd=available"; else echo "$cmd=missing"; fi; done; for base in /usr/lib/x86_64-linux-gnu/qt6/plugins/platforms /usr/lib/qt6/plugins/platforms; do for n in libqwayland-generic.so libqwayland-egl.so; do test ! -f "$base/$n" || echo WAYLAND_QT_PLUGIN=$base/$n; done; done; ls -l /dev/dri/renderD128 2>/dev/null || true; id veyra; obs --version; if sudo -n true >/dev/null 2>&1; then echo NONINTERACTIVE_SUDO=YES; else echo NONINTERACTIVE_SUDO=NO; fi' \
             || echo 'RESULT=SSH_REMOTE_CHECK_UNAVAILABLE'
