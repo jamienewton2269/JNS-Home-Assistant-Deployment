@@ -1,0 +1,59 @@
+name: VEYRA HDMI reversible forced-on diagnostic
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-hdmi-guarded-force-probe.yml'
+permissions: {contents: read}
+jobs:
+  temporary-hdmi:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - name: Verified reversible force-on HDMI with independent recovery
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          target=veyra.home.arpa
+          key="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          expected='SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          tmp=$(mktemp -d); chmod 700 "$tmp";trap 'rm -rf "$tmp"' EXIT
+          ssh-keyscan -T 5 -t ed25519 "$target" 2>/dev/null >"$tmp/known_hosts"
+          test "$(awk '$2=="ssh-ed25519"{n++}END{print n+0}' "$tmp/known_hosts")" -eq 1
+          test "$(ssh-keygen -lf "$tmp/known_hosts" -E sha256 | awk '{print $2;exit}')" = "$expected"
+          ssh -i "$key" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$tmp/known_hosts" -o ConnectTimeout=6 \
+            "jnsadmin@$target" 'sudo -n bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          hdmi=/sys/class/drm/card0-HDMI-A-1
+          panel=/sys/class/drm/card0-eDP-1
+          [[ -d "$hdmi" && -d "$panel" ]]
+          for unit in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do
+            systemctl is-active --quiet "$unit"
+          done
+          before=$(cat "$hdmi/status")
+          [[ "$before" == disconnected ]] || { echo "SAFE_ABORT_UNEXPECTED_HDMI_BEFORE=$before"; exit 2; }
+          [[ "$(cat "$panel/status")" == connected ]] || exit 2
+          timer="veyra-hdmi-force-rollback-$(date +%s)"
+          systemd-run --quiet --collect --unit="$timer" --on-active=45s \
+            /usr/bin/bash -c 'echo detect > /sys/class/drm/card0-HDMI-A-1/status'
+          systemctl is-active --quiet "$timer.timer" || exit 3
+          cleanup() {
+            echo detect >"$hdmi/status" 2>/dev/null || true
+            echo "RESTORED_HDMI_AUTO_STATUS=$(cat "$hdmi/status")"
+            echo "PANEL_STATUS=$(cat "$panel/status")"
+            for unit in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do
+              echo "$unit=$(systemctl is-active "$unit")"
+            done
+          }
+          trap cleanup EXIT
+          echo "FORCE_TEST_RECOVERY_TIMER_ARMED=45s"
+          echo on > "$hdmi/status"
+          sleep 4
+          echo "FORCED_STATUS=$(cat "$hdmi/status")"
+          echo "FORCED_ENABLED=$(cat "$hdmi/enabled")"
+          echo "FORCED_EDID_BYTES=$(wc -c < "$hdmi/edid")"
+          echo "FORCED_MODES=$(head -12 "$hdmi/modes" | paste -sd ',' -)"
+          echo "INTERNAL_PANEL_ENABLED=$(cat "$panel/enabled")"
+          echo "TEST_END_RESTORING_NORMAL_DETECTION"
+          REMOTE
