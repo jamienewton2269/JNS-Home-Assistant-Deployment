@@ -2,3 +2,4 @@ mode=read-only
 check=MQTT-control-capability
 check=target-and-anonymous-broker
 check=post-rollback-qga-and-z2m
+check=certified-z2m-target-port1884-qgahelp
