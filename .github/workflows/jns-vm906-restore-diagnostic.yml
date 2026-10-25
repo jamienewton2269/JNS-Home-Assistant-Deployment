@@ -1,4 +1,5 @@
 name: JNS VM906 Failed Restore Diagnosis
+# Retriable, read-only rootfs restore error classification
 on:
   push:
     branches: [main]
