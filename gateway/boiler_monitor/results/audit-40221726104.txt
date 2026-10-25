@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "/home/github-runner/actions-runner/_work/JNS-Home-Assistant-Deployment/JNS-Home-Assistant-Deployment/gateway/boiler_monitor/audit.py", line 28, in <module>
+    r=core(P)
+  File "/home/github-runner/actions-runner/_work/JNS-Home-Assistant-Deployment/JNS-Home-Assistant-Deployment/gateway/bedtime/deploy.py", line 19, in core
+    return guest(["docker","exec","homeassistant","python3","-c",py,*argv],seconds)
+  File "/home/github-runner/actions-runner/_work/JNS-Home-Assistant-Deployment/JNS-Home-Assistant-Deployment/gateway/bedtime/deploy.py", line 11, in guest
+    if not isinstance(r.get("pid"),int):raise RuntimeError("Guest agent returned no async PID; "+str({"keys":list(r),"exited":r.get("exited"),"exitcode":r.get("exitcode"),"err_tail":str(r.get("err-data") or "")[-220:]}) )
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Guest agent returned no async PID; {'keys': ['exited'], 'exited': 0, 'exitcode': None, 'err_tail': ''}
