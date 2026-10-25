@@ -54,6 +54,18 @@ Read-only NAS/DNS backend relationships: https://github.com/jamienewton2269/JNS-
 
 **Decision:** Production cutover and NAS/Node B power-off remain BLOCKED pending service migration, snapshots, capacity and rollback verification.
 
+## HA-Security moved as an offline VM image — 25 October 20:53 UTC
+
+**Verified current state (not yet live cutover):**
+
+- [Full offline Proxmox restore completed successfully via GitHub runner](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40232356069) after resuming a previously interrupted `qmrestore` using the original `vzdump-qemu-906-...` archive filename. Node A VM906 has a complete disk and VM config; temporary restore archive/dataset were removed. Node C original VM906 was not modified.
+- [Independent two-host audit](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40232866432) confirms: **Node A VM906 is STOPPED, onboot=0, named ha-security, 2 vCPU / 2048 MiB, scsi0 on vmdata, disk exists, net0 exists.** Node C still has a running QEMU process for ID906. Both must **never run simultaneously**.
+- NFS retains a protected `vzdump-qemu-906` source snapshot (~2,870,468,195 bytes, generated 2026-10-25 15:24 UTC). This backup was taken with source running; a final quiesced snapshot is recommended to capture any more recent security state before production handover.
+- `ha-security.home.arpa:8123` was not reachable from the Node C runner at audit time, so no live HA API/security service acceptance has passed.
+- **Node C privileged stop gate:** `github-runner` only has `sudo` permission for already allowlisted JNS gateway jobs, which do not include Proxmox VM shutdown or VM906 migration. Root SSH back to Node C is unavailable. Therefore GitHub connector *can* restore/prepare and start Node A via its established root SSH, **but cannot stop Node C source or change its onboot**. Do not weaken the gateway or use a blanket privilege grant.
+- To finish: an authorised Node C Proxmox operator must set original VM906 `Start at boot: No`, gracefully stop it, verify it is stopped (and take final stopped-source backup if state changed), then trigger a gated GitHub Node A promotion workflow that checks the source process is absent and the restored target identity/disk is valid before starting Node A. Verify DNS, alarm/ESPHome/KC868, tamper and doorbell behaviour. Keep the original on Node C stopped as rollback.
+- **No claim of completed HA-Security migration is authorised before the two-host startup exclusivity and functional tests succeed.**
+
 ## HA-Security one-time root cutover handoff — 25 October 19:57 UK
 
 The user has explicitly authorised immediate HA-Security VM906 relocation from Node C to Node A. **Do not claim completion until the on-host cutover runs and both VM states are verified.**
