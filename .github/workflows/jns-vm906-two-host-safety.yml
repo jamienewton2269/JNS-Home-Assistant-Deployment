@@ -1,0 +1,54 @@
+name: JNS VM906 Two Host Safety and Restore Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-two-host-safety.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check both hosts, restores and security DNS without changes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo VM906_SAFETY_READONLY
+          echo "NODEC_LOCAL_QEMU_PROCESS_PRESENT=$(ps -eo args= | grep -E '(kvm|qemu-system).* -id 906( |$)' | grep -v grep >/dev/null && echo yes || echo no)"
+          echo "NODEC_PID_FILE_PRESENT=$(test -f /run/qemu-server/906.pid && echo yes || echo no)"
+          echo "NODEC_CONFIG_EXISTS=$(test -f /etc/pve/qemu-server/906.conf && echo yes || echo no)"
+          echo 'NODEA_GUEST:'
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=6 nodea 'bash -s' <<'NODEA_CHECK'
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodea
+          if qm config 906 >/dev/null 2>&1; then
+            echo 'VM906_PRESENT=yes'
+            qm status 906
+            qm config 906 | awk '/^onboot:/ {print "ONBOOT="$2} /^name:/ {print "NAME="$2} /^memory:/ {print "MEMORY_MB="$2} /^cores:/ {print "CPU_CORES="$2} /^scsi0:/ {print "DISK_STORAGE="(index($2,"vmdata:")==1 ? "vmdata":"other")} /^net0:/ {print "NIC_PRESENT=yes"}'
+            echo "VM906_DISK_EXISTS=$(zfs list -H vmdata/vm-906-disk-1 >/dev/null 2>&1 && echo yes || echo unknown)"
+          else
+            echo 'VM906_PRESENT=no'
+          fi
+          NODEA_CHECK
+          echo 'NODEC_NFS_VM906_ARCHIVES:'
+          BASE=/mnt/pve/nfs-ct/JNS-Solar-Archives/HA-Security-906
+          echo "NFS_DIR_PRESENT=$(test -d "$BASE" && echo yes || echo no)"
+          if test -d "$BASE"; then
+            echo "NFS_MANIFEST_COUNT=$(find "$BASE" -maxdepth 3 -type f -name '*manifest*.json' -o -name 'MANIFEST.json' | wc -l)"
+            echo "NFS_ARCHIVE_COUNT=$(find "$BASE" -maxdepth 3 -type f -name 'vzdump-qemu-906-*.vma.zst' | wc -l)"
+            echo "NFS_LATEST_ARCHIVE_DATE_UTC=$(find "$BASE" -maxdepth 3 -type f -name 'vzdump-qemu-906-*.vma.zst' -printf '%TY-%Tm-%TdT%TH:%TM:%TSZ\n' | sort | tail -1)"
+          fi
+          python3 - <<'PY'
+          import socket
+          try:
+              s=socket.create_connection(('ha-security.home.arpa',8123),timeout=3)
+              s.close()
+              print('HA_SECURITY_TCP8123_REACHABLE=yes')
+          except OSError:
+              print('HA_SECURITY_TCP8123_REACHABLE=no')
+          PY
+          echo VM906_SAFETY_READONLY_COMPLETE
