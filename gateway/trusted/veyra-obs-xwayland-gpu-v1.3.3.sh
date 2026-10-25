@@ -315,9 +315,9 @@ run_test() {
     block "MKV appears unfinalised"; cat "$err"; return 7
   fi
   ffprobe -v error -show_entries stream=codec_type -of csv=p=0 "$clip" |
-    grep -Fxq video || { block "no video stream"; return 7; }
+    grep -Fx video >/dev/null || { block "no video stream"; return 7; }
   ffprobe -v error -show_entries stream=codec_type -of csv=p=0 "$clip" |
-    grep -Fxq audio || { block "no audio stream"; return 7; }
+    grep -Fx audio >/dev/null || { block "no audio stream"; return 7; }
   frames "$clip" || return 8
   echo "=== OBS RENDERING PERFORMANCE (WEBSOCKET FRAME COUNTERS) ==="
   cat "$RUN/logs/stats.log"
