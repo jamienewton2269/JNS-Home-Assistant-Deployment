@@ -31,3 +31,13 @@ for c in ("app_core_ssh","hassio_cli"):
   r=guest(["docker","exec",c,"sh","-c",test])
   print("AUTH",c,r.get("exitcode"),(r.get("out-data") or "")[-250:],(r.get("err-data") or "")[-100:],flush=True)
  except Exception as e:print("AUTH_BLOCKED",c,type(e).__name__,flush=True)
+
+print("JNS_Z2M_MQTT_DIAGNOSTIC",flush=True)
+for container,cmd in [
+ ("214","printf 'Z2M_ROOT ';systemctl show zigbee2mqtt -p WorkingDirectory --value;printf 'NODE ';command -v node || :; printf 'DATA ';for p in /opt/zigbee2mqtt/data/configuration.yaml /app/data/configuration.yaml /var/lib/zigbee2mqtt/configuration.yaml; do if test -f \"$p\"; then echo \"$p\";fi; done; printf 'MQTT_CLI '; command -v mosquitto_pub || :"),
+ ("212","printf 'MQTT_PUB ';command -v mosquitto_pub || :;printf 'MQTT_SUB ';command -v mosquitto_sub || :;printf 'MOSQUITTO ';systemctl is-active mosquitto || :")
+]:
+ try:
+  result=ssh_host("nodeb",["pct","exec",container,"--","sh","-c",cmd])
+  print("CONTAINER",container,result[:1300],flush=True)
+ except Exception as e:print("CONTAINER_BLOCKED",container,type(e).__name__,str(e)[:110],flush=True)
