@@ -1,0 +1,65 @@
+name: VEYRA restore ITVX VNC and original capture after reboot
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-restore-itvx-transient-services-20261025.yml'
+permissions: {contents: read}
+concurrency:
+  group: veyra-itvx-service-restoration
+  cancel-in-progress: false
+jobs:
+  restore:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - name: Verified SSH restore existing ITVX runner and local-only VNC
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          target=veyra.home.arpa
+          key="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          known=$(mktemp)
+          trap 'rm -f "$known"' EXIT
+          ssh-keyscan -T 5 -t ed25519 "$target" 2>/dev/null > "$known"
+          test "$(ssh-keygen -lf "$known" -E sha256 | awk '{print $2;exit}')" = 'SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          ssh -i "$key" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known" -o ConnectTimeout=6 "jnsadmin@$target" 'sudo -n bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          test "$(hostname -s)" = veyra
+          root=/opt/veyra/virtual-loopback-v01
+          runner="$root/runner.sh"
+          test "$(systemctl is-active veyra-kiosk.service)" = active
+          test -f "$root/runner.sh.pre-itvx-live-github-v01"
+          test -d "$root/profile"
+          test -x "$runner"
+          bash -n "$runner"
+          test "$(sha256sum "$runner" | awk '{print $1}')" = 67903ebd4e5c67b223e6aacce237d65b09732d6071925ded992fe79fac16608d
+          for tool in systemd-run Xvfb x11vnc ffmpeg; do command -v "$tool" >/dev/null; done
+          if systemctl is-active --quiet veyra-virtual-loopback-v01.service; then
+            echo "EXISTING_CAPTURE_ALREADY_ACTIVE"
+          else
+            test ! -e /tmp/.X11-unix/X92
+            test ! -f /run/systemd/transient/veyra-virtual-loopback-v01.service
+            systemd-run --quiet --unit=veyra-virtual-loopback-v01 --collect \
+              -p User=veyra -p Group=veyra -p WorkingDirectory="$root" \
+              -p KillMode=control-group -- "$runner"
+            sleep 5
+          fi
+          systemctl is-active --quiet veyra-virtual-loopback-v01.service
+          test -S /tmp/.X11-unix/X92
+          echo "RESTORED_ITVX_DISPLAY_92"
+          if systemctl is-active --quiet veyra-itvx-vnc-v01.service; then
+            echo "EXISTING_VNC_ALREADY_ACTIVE"
+          else
+            systemd-run --quiet --unit=veyra-itvx-vnc-v01 --collect \
+              -p User=veyra -p Group=veyra -p KillMode=control-group \
+              -- /usr/bin/x11vnc -display :92 -localhost -rfbport 5902 \
+                -forever -shared -nopw -noxdamage -quiet
+            sleep 2
+          fi
+          systemctl is-active --quiet veyra-itvx-vnc-v01.service
+          ss -lnt | grep -E '127[.]0[.]0[.]1:5902|[[]::1[]]:5902'
+          echo 'ITVX_VNC_RESTORED_LOCALHOST_ONLY'
+          for svc in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do echo "$svc=$(systemctl is-active "$svc")"; done
+          echo "HDMI=$(cat /sys/class/drm/card0-HDMI-A-1/status)"
+          REMOTE
