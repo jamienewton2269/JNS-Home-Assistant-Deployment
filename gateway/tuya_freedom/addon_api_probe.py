@@ -22,11 +22,11 @@ def main():
     containers=guest("docker","ps","--format","{{.Names}}").splitlines()
     addons=[x for x in containers if x.startswith("addon_") and
             ("ssh" in x or "terminal" in x or "studio" in x)]
-    probe='''if [ -n "\${SUPERVISOR_TOKEN:-}" ]; then
+    probe='''if [ -n "${SUPERVISOR_TOKEN:-}" ]; then
       echo TOKEN_PRESENT
       if command -v curl >/dev/null 2>&1; then
         status=$(curl --connect-timeout 3 --max-time 8 -sS -o /dev/null -w '%{http_code}' \
-          -H "Authorization: Bearer \${SUPERVISOR_TOKEN}" \
+          -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
           http://supervisor/core/api/ 2>/dev/null || true)
         if [ "$status" = "200" ]; then echo API_READABLE; else echo API_NOT_AVAILABLE; fi
       else echo CURL_MISSING; fi
