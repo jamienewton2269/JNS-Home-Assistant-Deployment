@@ -1,0 +1,25 @@
+name: JNS VM906 Restore Offline to Node A
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-github-offline-restore.yml'
+      - 'gateway/solar/vm906_restore_stopped_nodea_github_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-vm906-offline-restore-nodea
+  cancel-in-progress: false
+jobs:
+  restore:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore NFS VM906 image to Node A without starting either guest
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/vm906_restore_stopped_nodea_github_v1.py
+          python3 gateway/solar/vm906_restore_stopped_nodea_github_v1.py
