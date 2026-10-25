@@ -1,0 +1,63 @@
+name: JNS VM906 Failed Restore Diagnosis
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-restore-diagnostic.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Classify private VM906 restore error without exposing guest data
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=6 nodea 'python3 -' <<'PY'
+          import json,pathlib,re,subprocess
+          cfg=pathlib.Path('/etc/pve/qemu-server/906.conf')
+          d={'config_exists':cfg.is_file()}
+          if cfg.is_file():
+              text=cfg.read_text(errors='replace')
+              d['config_bytes']=cfg.stat().st_size
+              d['config_key_names']=[x.split(':',1)[0] for x in text.splitlines() if re.match(r'^[a-z0-9]+:',x)]
+          p=subprocess.run(['qm','status','906'],capture_output=True,text=True,timeout=15)
+          d['qm_status']=p.stdout.strip()[:80] if p.returncode==0 else 'unavailable'
+          p=subprocess.run(['zfs','list','-H','-o','name','-t','volume'],capture_output=True,text=True,timeout=20)
+          d['vm906_zvol_count']=sum(bool(re.search(r'/vm-906-disk-\d+$',x)) for x in p.stdout.splitlines()) if p.returncode==0 else -1
+          p=subprocess.run(['zfs','list','-H','vmdata/jns-solar-vm906-offline-restore-20261025'],capture_output=True,text=True,timeout=12)
+          d['stage_dataset_present']=p.returncode==0
+          log=pathlib.Path('/var/lib/jns-solar/ha-security-906/offline-restore-private.log')
+          if not log.is_file():
+              pp=subprocess.run(['zfs','get','-H','-o','value','mountpoint','vmdata/jns-solar-vm906-offline-restore-20261025'],capture_output=True,text=True,timeout=12)
+              if pp.returncode==0:
+                  log=pathlib.Path(pp.stdout.strip())/'offline-restore-private.log'
+          d['log_found']=log.is_file()
+          if log.is_file():
+              content=log.read_text(errors='replace')[-200000:]
+              d['log_lines']=len(content.splitlines())
+              checks={
+                 'vmid_already_exists':r'VM 906 already exists|already exists on node',
+                 'missing_tool':r'command not found',
+                 'archive_extract':r'vma.*(error|fail)|error.*vma|decompress',
+                 'unrecognized_archive':r'unknown archive|unable to detect file type',
+                 'storage_not_found':r'storage .*does not exist|storage .*not available',
+                 'vol_exists':r'volume.*already exists|disk.*already exists',
+                 'disk_unsupported':r'not supported|cannot create volume',
+                 'out_of_space':r'No space left|not enough space',
+                 'permission':r'Permission denied|not permitted',
+                 'bridge_missing':r'bridge.*does not exist',
+                 'lock_issue':r'locked|unable to lock',
+                 'syntax_option':r'unknown option|option.*not allowed',
+                 'end_of_file':r'unexpected end|EOF',
+                 'config_parse_error':r'unable to parse|parse error',
+              }
+              d['failure_categories']=[k for k,rx in checks.items() if re.search(rx,content,re.I)]
+              d['last_line_classes']=[('error' if re.search('error|fail',line,re.I) else 'info') for line in content.splitlines()[-5:]]
+              d['log_has_task_error']=bool(re.search(r'TASK ERROR|ERROR:',content))
+          print('JNS_VM906_RESTORE_DIAG='+json.dumps(d,sort_keys=True))
+          PY
