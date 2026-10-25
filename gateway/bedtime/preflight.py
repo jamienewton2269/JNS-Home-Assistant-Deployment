@@ -63,3 +63,23 @@ for cid,cmd in (
 ):
  try:print("TARGET_PROBE",cid,ssh_host("nodeb",["pct","exec",cid,"--","sh","-c",cmd])[:1200],flush=True)
  except Exception as e:print("TARGET_PROBE_BLOCKED",cid,type(e).__name__,str(e)[:120],flush=True)
+
+print("JNS_TARGET_MAPPING_AND_QM_OPTIONS",flush=True)
+probe="""python3 -c 'import json,pathlib
+try:
+ import yaml
+ data=yaml.safe_load(pathlib.Path("/opt/zigbee2mqtt/data/devices.yaml").read_text())
+ record=data.get("0xa4c1388ba234f2e3")
+ print("MAP",json.dumps({"exists":bool(record),"friendly_name":str(record.get("friendly_name")) if record else None}))
+except Exception as e:print("MAP_ERROR",type(e).__name__)'
+"""
+try:print("CT214_MAPPING",ssh_host("nodeb",["pct","exec","214","--","sh","-c",probe])[:800],flush=True)
+except Exception as e:print("CT214_MAPPING_BLOCKED",type(e).__name__,str(e)[:120],flush=True)
+try:
+ s=ssh_host("nodeb",["pct","exec","212","--","sh","-c",'mosquitto_sub -h 10.10.110.230 -p 1884 -t \'zigbee2mqtt/Garden String Lights\' -C 1 -W 3 >/dev/null 2>&1;echo "MQTT_PORT1884_SUB_EXIT $?"'])
+ print("BROKER_TEST",s[:150],flush=True)
+except Exception as e:print("BROKER_TEST_BLOCKED",type(e).__name__,str(e)[:120],flush=True)
+try:
+ s=ssh_host("nodeb",["qm","help","guest","exec"])
+ print("QGA_HELP",s[:1300],flush=True)
+except Exception as e:print("QGA_HELP_BLOCKED",type(e).__name__,str(e)[:180],flush=True)
