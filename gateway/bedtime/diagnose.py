@@ -143,6 +143,39 @@ if lp.exists():
  matching=[s for s in lines if RX.search(s) and (" ERROR " in s or " WARNING " in s)]
  out["relevant_warning_error_count"]=len(matching)
  out["relevant_warning_error_components"]=[(re.search(r"\[([a-zA-Z0-9_.-]+)\]",x).group(1) if re.search(r"\[([a-zA-Z0-9_.-]+)\]",x) else "unknown") for x in matching[-20:]]
+# Targeted second-stage evidence: the bedtime selectors and actual bedtime input transitions.
+out["bedtime_rule_details"]={}
+for basename in ("jns_bedtime_controller.yaml","outdoor_environment.yaml"):
+ path=ROOT/"packages"/basename
+ if not path.exists() or yaml is None: continue
+ try:
+  d=yaml.safe_load(path.read_text())
+  if not isinstance(d,dict):continue
+  chosen={}
+  for key in ("script","automation"):
+   group=d.get(key,{})
+   if isinstance(group,dict):
+    for name,item in group.items():
+     if re.search(r"bedtime|morning|evening_lights_off|outdoor_daylight",name,re.I):
+      chosen[name]=yaml.safe_dump(item,sort_keys=False,allow_unicode=True,width=130)[:18000]
+   elif isinstance(group,list):
+    for item in group:
+     if isinstance(item,dict) and AUTO.search(str(item.get("alias",""))):
+      chosen[str(item.get("alias",""))]=yaml.safe_dump(item,sort_keys=False,width=130)[:5500]
+  out["bedtime_rule_details"][basename]=chosen
+ except Exception as ex:
+  out["bedtime_rule_details"][basename]={"error":type(ex).__name__}
+# Lightweight recorder history of the activation and the staged script.
+try:
+ con=sqlite3.connect("file:"+str(db)+"?mode=ro",uri=True,timeout=3)
+ con.execute("PRAGMA query_only=ON")
+ more={}
+ for eid in ("input_boolean.general_bedtime_mode","script.jns_bedtime_shutdown","script.general_evening_lights_off","sun.sun","input_boolean.jns_bedtime_snapshot_valid","automation.general_shared_lux_progressive_control"):
+  rows=con.execute("SELECT s.state,s.last_updated_ts FROM states s JOIN states_meta m ON m.metadata_id=s.metadata_id WHERE m.entity_id=? AND s.last_updated_ts>=? ORDER BY s.last_updated_ts DESC LIMIT 28",(eid,cutoff)).fetchall()
+  more[eid]=[{"state":state,"at_utc":datetime.datetime.fromtimestamp(t,datetime.timezone.utc).isoformat() if t else None} for state,t in rows]
+ out["bedtime_runtime_history"]=more
+ con.close()
+except Exception as ex:out["bedtime_runtime_history_error"]=type(ex).__name__
 print(json.dumps(out,ensure_ascii=False,default=str,separators=(",",":")))
 '''
 def ssh(args):
