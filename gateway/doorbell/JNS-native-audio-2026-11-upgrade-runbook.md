@@ -91,3 +91,13 @@ No home-assistant backup was created by these audits; no microphone, camera spea
 - Official [Home Assistant contributor post (24 October 2026)](https://contributors.home-assistant.io/blog/2026/10/24/camera-two-way-audio/) confirms Core 2026.11 native two-way audio requires integration-advertised capability, WebRTC path, Labs opt-in and HTTPS for browser microphone access. Planned stable date 4 November 2026. Do not install beta Core on these production nodes.
 
 **Next guarded action:** plan automations-only reload of HA-Primary at a suitable idle moment (no HA Core restart) and press the *real* physical button once to confirm phone receipt and unchanged HA-Security Y01 response. If not observed, inspect a specific trace and notify delivery before retrying. Do not publish a camera deep link or chime playback until front-door camera identity and bidirectional audio route have been verified. Resolve missing Supervisor backups and HA-General 1024 MiB / host swap risk separately before any stable Core upgrade. Keep two-way audio and camera speaker acknowledgement disabled meanwhile.
+
+### Additional legacy/security camera discovery (25 October 2026)
+
+The new read-only workflow [40190496560](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40190496560) validated and ran `doorbell-camera-legacy-discovery-v1.py` through Node C's trusted runner. Its **camera inventory result is inconclusive**, not a finding that no cameras exist:
+
+- Proxmox Node A **VM900 is running**, but its `homeassistant` Docker container returned **not running**. `ha core info` returned Core version 2026.9.4, `boot: false`, and `ssl: false`. This is an observed legacy Core state, **not an instruction to start it**; preserve its current role and investigate separately if needed.
+- The runner has no local `qm` executable. Switching to strict SSH for Node C returned `No route to host` at `nodec`, so HA-Security VM906's camera registry was **not read**. This host resolution/reachability concern must not be confused with a loss of the working HA-Security physical doorbell.
+- No third-party camera source, microphone, speaker, PTZ setting, sounder or automation was changed. The actual physical front-door camera remains **unidentified**; do not route the kitchen camera or enable any audio backchannel until positively identified.
+
+Follow-up discovery should use an audited, currently routable Node C host management name or its established management bridge and should not weaken SSH host-key checking or introduce fixed IP dependencies. Do not infer host accessibility from the GitHub runner's own label.
