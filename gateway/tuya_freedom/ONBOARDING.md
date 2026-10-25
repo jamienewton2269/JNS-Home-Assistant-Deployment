@@ -1,3 +1,50 @@
+# Screenshot reconciliation — 25 October 2026
+
+User supplied the live Tuya Local integrations page and correctly noted that
+**no physical device had been repaired yet**. Diagnostic scripts and HA observer
+deployment did not modify Tuya Local configuration entries.
+
+A verified read-only exact native-ID audit of the saved LAN discovery
+identified **RGBCW lightbulb (TW+RGB, 12 entities)** as the moved-address
+device: its alternative address is different from the configured Host,
+its ID matched exactly, its Tuya TCP port was open, and its local key
+is stored. The address is retained in the private on-site report
+`/config/.jns_tuya_freedom/LOCAL_REPAIR_INSTRUCTIONS.md`, never copied
+to the public repository.
+
+**RGBW lightbulb (Bedroom – Baileys, 13 entities)** was not discovered
+at a new IP. The UI also displayed a green Discovered address
+`10.10.101.185`, but matching confirmed that it is **not** the
+exact-ID verified moved address for either failed existing bulb;
+**do not click Add or overwrite an existing device with this IP**.
+The address's TCP port was open, but that does not provide a Tuya local key.
+
+Relevant GitHub Actions:
+- Exact ID vs UI screenshot:
+  https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40192599966
+- Separate discovered host check:
+  https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40192351558
+
+**Immediate RGBCW recovery (pending user UI save):** on HA-General,
+Settings → Devices & Services → Tuya Local → RGBCW lightbulb
+integration card → **gear/Configure** (NOT pencil/Edit name). Change only
+Host to the private verified address. Leave Local Key, protocol version,
+poll-only mode, device type and entity IDs untouched. Tuya Local's options
+flow tests the local connection before committing options. Confirm state
+recovery using the observer. If options test fails, the old settings remain.
+
+There is no general purpose authenticated HA API bridge available from
+the current running add-ons (capability audit
+https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40192397798).
+Avoid direct edits to live `.storage` or another production restart
+just to update a single Host value through supported UI.
+
+The separate seven cloud-associated unconfigured devices require exact
+transport verification and, for direct Tuya Wi-Fi devices, local keys
+not present in HA's native Tuya cloud entries. Tuya login is not working.
+Do not claim they have been locally onboarded.
+
+---
 # CURRENT DIRECTIVE — LOCAL ONLY (25 October 2026)
 
 The Tuya/Smart Life sign-in does not work and is **no longer a
