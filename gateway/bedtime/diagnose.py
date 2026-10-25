@@ -153,7 +153,7 @@ try:
  status=ssh(["qm","status","905"]).strip()
  print("VM905_STATUS",status,flush=True)
  if "running" not in status:raise RuntimeError("VM905 stopped")
- code="exec(__import__('base64').b64decode('"+base64.b64encode(PROBE.encode()).decode()+"'))"
+ code="import base64,traceback\ntry:\n exec(base64.b64decode('"+base64.b64encode(PROBE.encode()).decode()+"'))\nexcept Exception as ex:\n print('JNS_GUEST_EXCEPTION',type(ex).__name__,str(ex)[:280],flush=True)\n print('JNS_GUEST_TRACE_TAIL',repr(traceback.format_exc().splitlines()[-2:]),flush=True)\n"
  response=json.loads(ssh(["qm","guest","exec","905","--","docker","exec","homeassistant","python3","-c",code]))
  deadline=time.monotonic()+110
  while not response.get("exited"):
