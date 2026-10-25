@@ -112,3 +112,10 @@ try:
  response=json.loads(ssh_host("nodeb",["qm","guest","exec","905","--","sh","-c",cmd]))
  print("CHECK_LOG_EXIT",response.get("exitcode"),"OUTPUT",(response.get("out-data") or "")[-2600:],"ERR",(response.get("err-data") or "")[-130:],flush=True)
 except Exception as e:print("CHECK_LOG_BLOCKED",type(e).__name__,str(e)[:160],flush=True)
+
+print("JNS_HA_CHECK_ALL_SAFE_LINES",flush=True)
+try:
+ cmd="grep -Eiv 'password|token|secret|authorization|bearer|private_key|access_key' /tmp/jns-bedtime-check-40191337039.out | head -n 16 | cut -c 1-190"
+ response=json.loads(ssh_host("nodeb",["qm","guest","exec","905","--","sh","-c",cmd]))
+ print("CHECK_LOG_REDACTED",(response.get("out-data") or "")[-2800:],"exit",response.get("exitcode"),flush=True)
+except Exception as e:print("CHECK_LOG_REDACTED_BLOCKED",type(e).__name__,str(e)[:140],flush=True)
