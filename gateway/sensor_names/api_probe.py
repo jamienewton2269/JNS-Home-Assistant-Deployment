@@ -50,3 +50,24 @@ for _ in range(40):
     data=json.loads(ssh_host('nodeb',['qm','guest','exec-status','905',str(pid)]))
 if not data.get('exited') or data.get('exitcode')!=0:raise RuntimeError('HA sensor name API probe unsuccessful')
 print((data.get('out-data') or '')[:9000])
+
+def host_guest(argv):
+    item=json.loads(ssh_host('nodeb',['qm','guest','exec','905','--',*argv]))
+    pid=item.get('pid')
+    for _ in range(25):
+        if item.get('exited'): break
+        if not isinstance(pid,int):raise RuntimeError('guest PID unavailable')
+        time.sleep(1)
+        item=json.loads(ssh_host('nodeb',['qm','guest','exec-status','905',str(pid)]))
+    if not item.get('exited') or item.get('exitcode')!=0:raise RuntimeError('host guest diagnostic failed')
+    return item.get('out-data') or ''
+names=host_guest(['docker','ps','--format','{{.Names}}']).strip().splitlines()
+print('JNS_SENSOR_ADDON_CONTAINERS '+json.dumps([n for n in names if n.startswith('addon_')]))
+for n in names:
+    if not n.startswith('addon_'):continue
+    shell='printf "token=%s python=%s curl=%s\\n" "${SUPERVISOR_TOKEN:+yes}" "$(command -v python3 || true)" "$(command -v curl || true)"'
+    try:
+        caps=host_guest(['docker','exec',n,'sh','-c',shell]).strip()
+        print('JNS_SENSOR_ADDON_CAPABILITY '+json.dumps({'addon':n,'capabilities':caps}))
+    except Exception as e:
+        print('JNS_SENSOR_ADDON_CAPABILITY '+json.dumps({'addon':n,'error_type':type(e).__name__}))
