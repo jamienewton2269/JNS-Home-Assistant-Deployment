@@ -1,0 +1,29 @@
+name: VEYRA Intel Broxton firmware install
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/veyra-intel-broxton-firmware.yml']
+permissions: {contents: read}
+jobs:
+  firmware:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - name: Install Debian graphics firmware on VEYRA
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          host=veyra.home.arpa
+          tmp=$(mktemp)
+          trap 'rm -f "$tmp"' EXIT
+          ssh-keyscan -T 5 -t ed25519 "$host" 2>/dev/null >"$tmp"
+          test "$(ssh-keygen -lf "$tmp" -E sha256 | awk '{print $2;exit}')" = 'SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          ssh -i "$HOME/.ssh/jns-veyra-nodec-ed25519" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$tmp" "jnsadmin@$host" 'sudo -n bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          test "$(hostname -s)" = veyra
+          grep -q trixie /etc/os-release
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends firmware-intel-graphics
+          test -s /usr/lib/firmware/i915/bxt_dmc_ver1_07.bin
+          update-initramfs -u
+          echo 'VEYRA_BROXTON_FIRMWARE_INSTALLED'
+          REMOTE
