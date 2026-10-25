@@ -162,7 +162,7 @@ try:
   time.sleep(2)
   response=json.loads(ssh(["qm","guest","exec-status","905",str(response["pid"])]))
  print("GUEST_EXIT_CODE",response.get("exitcode"),flush=True)
- if response.get("exitcode")!=0:raise RuntimeError("guest probe non-zero: "+str(response.get("err-data") or "")[:240])
+ if response.get("exitcode")!=0:raise RuntimeError("guest probe non-zero: "+str(response.get("err-data") or "")[-1250:])
  print("JNS_BEDTIME_GARDEN_STRING_AUDIT",response.get("out-data","")[:60000],flush=True)
 except Exception as ex:
  print("JNS_BEDTIME_GARDEN_STRING_BLOCKED",type(ex).__name__,str(ex)[:200],flush=True)
