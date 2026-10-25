@@ -1,0 +1,29 @@
+name: JNS Solar VM906 Authorised Root Routes
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-vm906-root-routes.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect available existing gateway handlers without root operations
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo JNS_VM906_ROOT_ROUTES_READONLY
+          for p in /usr/local/sbin/jns-gateway-exec /usr/local/sbin/jns-gateway-exec.base; do
+            test ! -r "$p" || {
+              echo "FILE_$(basename "$p")_READABLE=yes"
+              grep -Eo '^  [a-z][a-z0-9_:-]+\)' "$p" 2>/dev/null | head -40 || true
+            }
+          done
+          echo HANDLERS
+          find /usr/local/libexec -maxdepth 1 -type f -name 'jns-gateway-*' -printf '%f\n' 2>/dev/null | sort | head -60
+          echo JNS_VM906_ROOT_ROUTES_COMPLETE
