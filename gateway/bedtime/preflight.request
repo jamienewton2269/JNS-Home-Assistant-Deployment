@@ -1,1 +1,2 @@
 mode=read-only
+check=MQTT-control-capability
