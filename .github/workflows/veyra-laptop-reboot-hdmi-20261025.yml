@@ -1,0 +1,70 @@
+name: VEYRA laptop reboot and HDMI check 20261025
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/veyra-laptop-reboot-hdmi-20261025.yml'
+permissions: {contents: read}
+concurrency:
+  group: veyra-laptop-reboot
+  cancel-in-progress: false
+jobs:
+  reboot:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - name: Verified SSH host and reboot VEYRA laptop only; check new boot ID
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          host=veyra.home.arpa
+          key="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          expect='SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          dir=$(mktemp -d); chmod 700 "$dir"; trap 'rm -rf "$dir"' EXIT
+          ssh-keyscan -T 5 -t ed25519 "$host" 2>/dev/null > "$dir/known_hosts"
+          test "$(awk '$2=="ssh-ed25519"{n++}END{print n+0}' "$dir/known_hosts")" -eq 1
+          test "$(ssh-keygen -lf "$dir/known_hosts" -E sha256 | awk '{print $2;exit}')" = "$expect" || exit 3
+          sshopts=(-i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$dir/known_hosts" -o ConnectTimeout=6 "jnsadmin@$host")
+          before=$(ssh "${sshopts[@]}" 'sudo -n bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          [[ "$(hostname -s)" == veyra ]] || { echo 'WRONG_HOST_NO_REBOOT'; exit 7; }
+          [[ -d /sys/class/drm/card0-HDMI-A-1 && -c /dev/dri/card0 ]] || exit 7
+          for svc in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do systemctl is-active --quiet "$svc" || exit 8; done
+          echo "BOOT_ID=$(cat /proc/sys/kernel/random/boot_id)"
+          echo "HDMI_BEFORE=$(cat /sys/class/drm/card0-HDMI-A-1/status)"
+          REMOTE
+          )
+          printf 'BEFORE: %s\n' "$before"
+          old=$(echo "$before" | sed -n 's/^BOOT_ID=//p')
+          [[ -n "$old" ]] || exit 3
+          ssh "${sshopts[@]}" 'sudo -n bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          [[ "$(hostname -s)" == veyra ]] || exit 7
+          systemd-run --quiet --collect --unit="veyra-authorised-reboot-$(date +%s)" --on-active=5s /usr/bin/systemctl reboot
+          echo 'VEYRA_REBOOT_ARMED_IN_5_SECONDS'
+          REMOTE
+          ok=0
+          for n in $(seq 1 40); do
+            sleep 8
+            if data=$(ssh "${sshopts[@]}" 'sudo -n bash -s' 2>/dev/null <<'REMOTE'
+          set -Eeuo pipefail
+          [[ "$(hostname -s)" == veyra ]] || exit 7
+          echo "BOOT_ID=$(cat /proc/sys/kernel/random/boot_id)"
+          echo "HDMI_POST=$(cat /sys/class/drm/card0-HDMI-A-1/status)"
+          echo "HDMI_EDID_BYTES=$(wc -c < /sys/class/drm/card0-HDMI-A-1/edid)"
+          echo "HDMI_MODES=$(head -10 /sys/class/drm/card0-HDMI-A-1/modes | paste -sd, -)"
+          echo "PANEL_POST=$(cat /sys/class/drm/card0-eDP-1/status)"
+          for svc in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do echo "$svc=$(systemctl is-active "$svc" 2>/dev/null || true)"; done
+          REMOTE
+            ); then
+              new=$(echo "$data" | sed -n 's/^BOOT_ID=//p')
+              if [[ -n "$new" && "$new" != "$old" ]]; then
+                echo 'VEYRA_REBOOT_SUCCESS_NEW_BOOT_ID'
+                printf '%s\n' "$data"
+                ok=1
+                break
+              fi
+            fi
+            (( n % 5 != 0 )) || echo "VEYRA_STILL_WAITING checks=$n"
+          done
+          [[ "$ok" == 1 ]] || { echo 'REBOOT_NOT_CONFIRMED'; exit 5; }
