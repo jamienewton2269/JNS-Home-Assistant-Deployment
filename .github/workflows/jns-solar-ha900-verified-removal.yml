@@ -1,0 +1,27 @@
+name: JNS Solar HA900 Verified Source Removal
+on:
+  workflow_run:
+    workflows: ["JNS Solar HA900 Cold VMA Archive"]
+    types: [completed]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-solar-ha900-source-removal
+  cancel-in-progress: false
+jobs:
+  retire:
+    # Fail closed unless the exact archival workflow on main completed successfully.
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Remove only HA900 after independent NFS manifest and VMA verification
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha900_remove_nodea_after_verified_nfs_20261025.py
+          python3 gateway/solar/ha900_remove_nodea_after_verified_nfs_20261025.py
