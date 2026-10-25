@@ -50,3 +50,16 @@ for id,script in (
  try:
   print("DEVICE",id,ssh_host("nodeb",["pct","exec",id,"--","sh","-c",script])[:550],flush=True)
  except Exception as e:print("DEVICE_PROBE_BLOCKED",id,type(e).__name__,str(e)[:140],flush=True)
+
+print("JNS_GUEST_AGENT_STATUS_SAFETY",flush=True)
+try:
+ raw=ssh_host("nodeb",["qm","guest","exec","905","--","ha","core","info"])
+ obj=json.loads(raw)
+ print("CORE_INFO_QGA",json.dumps({"keys":sorted(obj),"pid":obj.get("pid"),"exited":obj.get("exited"),"exitcode":obj.get("exitcode"),"error":str(obj.get("err-data") or "")[-270:],"out_tail":str(obj.get("out-data") or "")[-300:]}),flush=True)
+except Exception as ex:print("CORE_INFO_QGA_ERROR",type(ex).__name__,str(ex)[:190],flush=True)
+for cid,cmd in (
+ ("214","printf 'DEVICE_CONFIG_CANDIDATES '; for p in /opt/zigbee2mqtt/data/devices.yaml /opt/zigbee2mqtt/data/configuration.yaml /opt/zigbee2mqtt/data/database.db;do if test -f \"$p\";then echo \"$p\"; fi;done; printf 'ID_HITS ';grep -Fl '0xa4c1388ba234f2e3' /opt/zigbee2mqtt/data/devices.yaml /opt/zigbee2mqtt/data/configuration.yaml 2>/dev/null || :;printf 'PYTHON ';command -v python3 || :;printf 'NODE_EXEC ';systemctl show zigbee2mqtt -p ExecStart --value | cut -c 1-180"),
+ ("212","printf 'MOSQUITTO_AUTH_LINES ';grep -hE '^[[:space:]]*(allow_anonymous|password_file|listener)[[:space:]]' /etc/mosquitto/mosquitto.conf /etc/mosquitto/conf.d/*.conf 2>/dev/null | cut -c 1-160 || :")
+):
+ try:print("TARGET_PROBE",cid,ssh_host("nodeb",["pct","exec",cid,"--","sh","-c",cmd])[:1200],flush=True)
+ except Exception as e:print("TARGET_PROBE_BLOCKED",cid,type(e).__name__,str(e)[:120],flush=True)
