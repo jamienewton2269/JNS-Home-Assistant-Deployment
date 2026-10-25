@@ -1,1 +1,1 @@
-Read-only inspect Core after unconfirmed restart; do not retry restart. 2026-10-25 v4
+Read-only Core startup and boiler entity mapping after confirmed container restart 2026-10-25 v5
