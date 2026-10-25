@@ -1,0 +1,56 @@
+name: JNS VM906 Restored Image Validation
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-image-validation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Node A guest disks and Node C archive metadata
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo 'VM906_IMAGE_VALIDATION_READONLY'
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=6 nodea 'bash -s' <<'NODEA'
+          set -u
+          echo 'NODEA_VALIDATION:'
+          p=/etc/pve/qemu-server/906.conf
+          echo "CONFIG_FILE_EXISTS=$(test -e "$p" && echo yes || echo no)"
+          if test -f "$p"; then
+            echo "CONFIG_SIZE_BYTES=$(stat -c %s "$p")"
+            echo "CONFIG_KEY_NAMES=$(awk -F: '/^[a-z][a-z0-9]*:/ {printf "%s,", $1}' "$p")"
+            echo "CONFIG_ONBOOT=$(awk '/^onboot:/ {print $2}' "$p")"
+            echo "CONFIG_VM_NAME=$(awk '/^name:/ {print $2}' "$p")"
+            echo "CONFIG_DRIVE_COUNT=$(grep -Ec '^(scsi|virtio|sata|ide|efidisk)[0-9]+:' "$p" || true)"
+            echo "CONFIG_NIC_COUNT=$(grep -Ec '^net[0-9]+:' "$p" || true)"
+          fi
+          echo "VM906_ZFS_VOLUMES=$(zfs list -H -o name -t volume 2>/dev/null | grep -Ec '(^|/)vm-906-disk-[0-9]+$' || true)"
+          echo "VM906_ZFS_REFERENCED_BYTES=$(zfs list -H -p -o name,referenced -t volume 2>/dev/null | awk '/(^|\/)vm-906-disk-[0-9]+[[:space:]]/ {sum+=$2} END {print sum+0}')"
+          echo 'QM906_STATUS:'
+          qm status 906 2>&1 | grep -E '^status:|^.*[Ee]rror' | head -5 || true
+          NODEA
+          python3 - <<'PY'
+          import json,pathlib
+          base=pathlib.Path('/mnt/pve/nfs-ct/JNS-Solar-Archives/HA-Security-906')
+          for f in sorted(base.rglob('*.json')):
+              if f.name not in ('MANIFEST.json','migration-manifest.json'):continue
+              try:v=json.loads(f.read_text())
+              except (OSError,ValueError):continue
+              print('NFS_MANIFEST='+json.dumps({
+                'schema':v.get('schema'),'format':v.get('format'),
+                'vmid':v.get('vmid'),'archive_bytes':v.get('bytes',v.get('size_bytes')),
+                'backup_sha_present':bool(v.get('sha256')),
+                'final_sync_required':v.get('final_quiesced_sync_required'),
+                'stopped_at_capture':v.get('source_stopped_at_capture'),
+                'verification':v.get('verified'),
+                'created_utc':v.get('created_utc')
+              },sort_keys=True))
+          PY
+          echo 'VM906_IMAGE_VALIDATION_COMPLETE'
