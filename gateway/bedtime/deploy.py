@@ -84,7 +84,7 @@ def ha_background(label,command,seconds=250):
  base="/tmp/jns-bedtime-"+label+"-"+runid
  done=base+".rc"
  output=base+".out"
- shell="if test -e "+done+";then exit 7;fi; ( timeout --signal=TERM "+str(seconds)+" ha "+command+" > "+output+" 2>&1; echo $? > "+done+" ) </dev/null >/dev/null 2>&1 & echo JNS_BEDTIME_BG_STARTED"
+ shell="if test -e "+done+";then exit 7;fi; ( timeout -s TERM "+str(seconds)+" ha "+command+" > "+output+" 2>&1; echo $? > "+done+" ) </dev/null >/dev/null 2>&1 & echo JNS_BEDTIME_BG_STARTED"
  start=guest(["sh","-c",shell],seconds=35)
  if start.get("exitcode")!=0 or "JNS_BEDTIME_BG_STARTED" not in (start.get("out-data") or ""):
   raise RuntimeError("Background HA CLI start not confirmed; do not restart or retry blindly")
