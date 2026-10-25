@@ -1,0 +1,6 @@
+CORE_RUNNING 2026-10-25T18:36:24.359165591Z running
+BOILER_LIVE_VERIFIED {"binary_sensor.jns_boiler_heating_demand": {"state": "off", "state_class": null, "unit": null}, "binary_sensor.jns_boiler_monitoring_available": {"state": "on", "state_class": null, "unit": null}, "sensor.jns_boiler_runtime_rate": {"state": "0", "state_class": "measurement", "unit": ""}, "sensor.jns_boiler_runtime_this_month": {"state": "0", "state_class": "total_increasing", "unit": "h"}, "sensor.jns_boiler_runtime_today": {"state": "0", "state_class": "total_increasing", "unit": "h"}, "sensor.jns_boiler_runtime_total": {"state": "0.000000", "state_class": "total", "unit": "h"}}
+
+HA_GENERAL_HTTP http://ha-general.home.arpa/ 200
+HA_GENERAL_HTTP http://ha-general.home.arpa/jns-boiler/usage 200
+BOILER_MONITOR_ACTIVATION_VERIFIED
