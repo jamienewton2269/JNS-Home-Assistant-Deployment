@@ -1,0 +1,38 @@
+name: JNS Boiler Usage Testing Dashboard Tab
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/boiler_monitor/testing-tab.request']
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Append Boiler Usage to live Testing dashboard and verify
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p gateway/boiler_monitor/results
+          python3 gateway/boiler_monitor/testing_tab.py 2>&1 | tee gateway/boiler_monitor/results/testing-tab-${{ github.run_id }}.txt
+      - name: Return diagnostic
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          result="gateway/boiler_monitor/results/testing-tab-${{ github.run_id }}.txt"
+          cp "$result" /tmp/jns-boiler-testing-tab-${{ github.run_id }}.txt
+          git config user.name jns-nodec-gateway
+          git config user.email jns-nodec-gateway@users.noreply.github.com
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            mkdir -p gateway/boiler_monitor/results
+            cp /tmp/jns-boiler-testing-tab-${{ github.run_id }}.txt "$result"
+            git add "$result"
+            git commit -m "boiler: return Testing dashboard tab result"
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          exit 1
