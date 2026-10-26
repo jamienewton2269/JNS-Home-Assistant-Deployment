@@ -22,7 +22,20 @@ def qga(args):
  if not j.get("exited"):return {"status":"timeout"}
  return {"status":"ok" if j.get("exitcode")==0 else "failed","lines":(j.get("out-data") or "").splitlines()}
 out={"read_only":True,"vm":906}
-p=qga(["docker","inspect","matter_server","--format","{{json .HostConfig.RestartPolicy}}"])
+ps=qga(["docker","ps","--format","{{json .}}"])
+matches=[]
+if ps["status"]=="ok":
+ for line in ps["lines"]:
+  try:x=json.loads(line)
+  except ValueError:continue
+  name=str(x.get("Names","")).lower().strip("/")
+  if name=="matter_server" or name.endswith("_matter_server"):
+   matches.append(name)
+out["matter_container_count"]=len(matches)
+out["matter_container_owner_type"]=("haos_system" if matches and matches[0].startswith("hassio_") else
+ "supervisor_addon" if matches and matches[0].startswith("addon_") else
+ "standalone_or_other" if matches else "not_found")
+p=qga(["docker","inspect",matches[0],"--format","{{json .HostConfig.RestartPolicy}}"]) if len(matches)==1 else {"status":"no_unique_match"}
 out["docker_inspect_status"]=p["status"]
 if p["status"]=="ok":
  for l in p["lines"]:
