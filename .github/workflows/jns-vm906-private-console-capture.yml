@@ -1,0 +1,31 @@
+name: JNS VM906 Private Console Capture
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-private-console-capture.yml'
+      - 'gateway/solar/ha_security_guest_console_capture_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-vm906-console-capture
+  cancel-in-progress: false
+jobs:
+  screenshot:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Capture read-only HAOS VM906 console screenshot
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha_security_guest_console_capture_v1.py
+          python3 gateway/solar/ha_security_guest_console_capture_v1.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vm906-private-console
+          path: ${{ runner.temp }}/jns-ha-security-console.png
+          if-no-files-found: error
+          retention-days: 1
