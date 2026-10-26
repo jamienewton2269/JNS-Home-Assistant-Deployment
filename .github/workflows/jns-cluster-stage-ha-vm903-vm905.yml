@@ -1,0 +1,24 @@
+name: JNS Cluster Stage HA General Plant Disks
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-cluster-stage-ha-vm903-vm905.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-cluster-stage-b-production-ha
+  cancel-in-progress: false
+jobs:
+  replicate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 46
+    steps:
+      - uses: actions/checkout@v4
+      - name: Copy Node B active HA disk snapshots to nonbootable isolated Node A ZFS stages
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/vm903_vm905_safe_zfs_stage_nodea_20261026.py
+          python3 gateway/solar/vm903_vm905_safe_zfs_stage_nodea_20261026.py
