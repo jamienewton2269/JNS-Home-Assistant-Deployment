@@ -1,3 +1,13 @@
+## Proxmox native clustering / replication readiness — 26 October 2026
+
+**Current result: not clustered; do not run `pvecm add` on populated Node B or C.** [Live three-host read-only audit](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40306743853) verified no Corosync cluster configuration or working `pvecm status` on A, B or C. Node A and B overlap on guest VMIDs **210, 212, 213, 214, 900, 902, 903, 905**; **906** exists both as active HA-Security on A and stopped rollback copy on C. Their Proxmox storage definitions currently remain standalone. The latest audit showed only **1,887 MiB available RAM on Node A**; avoid adding more production guests until capacity is validated.
+
+**Safety-critical confirmation:** Operator ran `qm set 906 --onboot 0` and `qm status 906` on Node C; output showed `update VM 906: -onboot 0` and `status: stopped`. Runner independently observed no original VM906 QEMU process. Node A VM906 was running but `ha-security.home.arpa:8123` remained unreachable in the 26 October 10:21 live check. Do not enable automatic boot on A, remove the backup or declare HA-Security functional without Core and alarm validation.
+
+Proxmox requires **an empty joining node**, because cluster join overwrites that node's `/etc/pve` configuration. A safe route is to create the cluster on the selected retained production host (likely A after protected configuration backup), then evacuate, back up and validate each joining host's guests/host services, join the emptied hosts individually, and restore their permitted workloads with globally unique VMIDs and node-specific storage definitions. Node C Steward, GitHub runner and DNS/monitoring must remain available through a protected staging/maintenance plan; no blind joining or clearing of `/etc/pve`. The official Proxmox administration guide section *Adding Nodes to the Cluster* is authoritative.
+
+Target remains **A + C normally online, B powered off**. Three member quorum can remain available with A and C (2/3 votes), assuming a healthy Corosync link. Node B cannot receive ZFS incremental replication while powered off and must be awakened before catch-up replication, checks or failover. Built-in ZFS replication needs compatible local ZFS storage IDs on the participating nodes, completed cluster membership, and tested guest snapshot/replication compatibility. Cluster formation is a separately approved, reversible infrastructure migration; **no cluster creation or guest removal has been performed**.
+
 # JNS Solar Economy — guarded consolidation runbook
 
 Status: **AUDIT / NOT APPROVED FOR CUTOVER**. No VM, CT, NAS, host, quorum, or automation has been modified or powered down by this workstream.
