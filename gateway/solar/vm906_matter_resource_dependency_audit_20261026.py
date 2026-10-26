@@ -44,7 +44,7 @@ def role(name):
  return "other"
 p=qga(["docker","ps","-a","--format","{{json .}}"])
 s=qga(["docker","stats","--no-stream","--format","{{json .}}"])
-out={"read_only":True,"vm":906,"docker_ps_status":p["status"],"docker_stats_status":s["status"]}
+out={"read_only":True,"vm":906,"docker_ps_status":p["status"],"docker_stats_status":s["status"],"sample":"post_matter_guarded_rollback"}
 if p["status"]=="ok":
  rows=[]
  for l in p.get("lines",[]):
@@ -102,4 +102,13 @@ if h["status"]=="ok":
    k,v=l.split(":",1)
    if re.fullmatch(r"[a-z0-9 ._-]{1,40}",v.strip(),re.I):
     out["core_"+k.lower()]=v.strip()
+HEALTH=r'''
+import socket
+try:
+ with socket.create_connection(("ha-security.home.arpa",80),timeout=5):print("JNS_PORT80_READY=yes")
+except OSError:print("JNS_PORT80_READY=no")
+'''
+h=ssh(["python3","-c",HEALTH],15)
+out["nodea_http_port80_reachable"]=bool(h and "JNS_PORT80_READY=yes" in h)
+out["qga_host_running"]=bool(ssh(["qm","status","906"],12) and "status: running" in (ssh(["qm","status","906"],12) or ""))
 print("JNS_VM906_MATTER_SECURITY_PROFILE="+json.dumps(out,sort_keys=True),flush=True)
