@@ -1,0 +1,24 @@
+name: JNS VM906 Activate QEMU Guest Agent Guarded
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-activate-guest-agent-20261026.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-vm906-qga-coldstart
+  cancel-in-progress: false
+jobs:
+  activate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify offhost backup, graceful VM906 cold-start, and QGA health
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/vm906_guarded_agent_coldstart_20261026.py
+          python3 gateway/solar/vm906_guarded_agent_coldstart_20261026.py
