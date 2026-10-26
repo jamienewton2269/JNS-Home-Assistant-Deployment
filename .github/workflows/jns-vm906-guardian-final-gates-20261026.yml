@@ -1,0 +1,21 @@
+name: JNS VM906 and Guardian Final Read-Only Gates
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-guardian-final-gates-20261026.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  gates:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Safely check VM906 recovery and Guardian consumers
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha_security_guardian_deep_gate_20261026.py
+          python3 gateway/solar/ha_security_guardian_deep_gate_20261026.py
