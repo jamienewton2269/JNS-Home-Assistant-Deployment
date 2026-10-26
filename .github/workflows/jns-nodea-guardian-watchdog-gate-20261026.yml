@@ -1,0 +1,21 @@
+name: JNS Node A Guardian and Maintenance Watchdog Read-Only Gate
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-nodea-guardian-watchdog-gate-20261026.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  assess:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read CT118 watchdog unit, current VM906 health, and Guardian02
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/nodea_guardian_watchdog_dependency_20261026.py
+          python3 gateway/solar/nodea_guardian_watchdog_dependency_20261026.py
