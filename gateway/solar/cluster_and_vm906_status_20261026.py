@@ -76,7 +76,7 @@ def nodec():
  except PermissionError:d["local_corosync_conf_present"]="unreadable"
  p=local(["ps","-eo","args="])
  d["source_vm906_qemu_process_detected"]=bool(p and any(
-  ("qemu-system" in row or "kvm " in row) and re.search(r" -id 906(?:\\s|$)",row)
+  ("qemu-system" in row or "kvm " in row) and re.search(r" -id 906(?:\s|$)",row)
   for row in p.stdout.splitlines()))
  p=local(["pvecm","status"])
  d["pvecm_status_ok"]=bool(p and p.returncode==0)
