@@ -1,0 +1,24 @@
+name: JNS VM906 QEMU Guest Agent Config Only
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-qga-config-only-20261026.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-vm906-qga-config-only
+  cancel-in-progress: false
+jobs:
+  enable-config:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Guarded config enable on active Node A VM906, no guest restart
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/vm906_enable_qga_config_guarded_20261026.py
+          python3 gateway/solar/vm906_enable_qga_config_guarded_20261026.py
