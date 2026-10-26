@@ -1,0 +1,21 @@
+name: JNS VM906 Matter Supervisor CLI Contract
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-matter-supervisor-contract.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect HAOS Matter add-on boot and safe stop options
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/vm906_matter_supervisor_cli_contract_20261026.py
+          python3 gateway/solar/vm906_matter_supervisor_cli_contract_20261026.py
