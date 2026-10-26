@@ -250,3 +250,39 @@ Production readiness next: physically verify HA-Security's ESPHome/KC868
 doorbell/alarm path and independent HA Core HTTP/API after restart; finish
 Node C CT117 privileged retirement after local dependency validation;
 perform restore drills for saved snapshots before any source VM deletion.
+
+## 21:23 UTC Matter Server reduction — user request after porch bulb diagnosis
+
+The user confirmed the **front door porch bulb is blown**, accounting for the
+physical lamp not illuminating (replace bulb separately). No change to the
+doorbell, alarm or lighting devices is attributed to this statement.
+
+HA-Security VM906 has **no Matter devices or entities**, one enabled Matter
+Core integration and official Matter Server add-on `core_matter_server`
+v9.2.0. The app was `boot:auto`, `state:started`, `watchdog:false`,
+and `system_managed:false`.
+
+**Successfully changed:** `core_matter_server` setting from
+`boot:auto` to `boot:manual` via authenticated Supervisor API using
+the HAOS CLI container and the existing Node C GitHub gateway. Last read:
+`boot:manual`, `state:started`. The app was not uninstalled, HA was not
+restarted, and all databases, Matter configuration and ESPHome devices remain
+preserved.
+
+Important: attempted native stop was rolled back after the still-enabled
+Matter integration restarted the app. Disabling automatic boot alone does
+NOT keep it stopped while the Matter integration remains enabled. The
+available service-to-Core WebSocket tokens were rejected as admin
+credentials, so **Core integration disable was NOT performed**. Do not
+manually edit `/config/.storage/core.config_entries` while Core is running.
+User must go to HA-Security Settings > Devices & Services > Matter >
+Disable (NOT Delete), then to Settings > Apps > Matter Server > Stop.
+Start on boot is already disabled. Only mark full retirement complete after
+Supervisor verifies both `boot:manual` and `state:stopped`.
+
+- [Verified persistent manual boot setting](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40403949991)
+- [Previous managed disable rollback](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40403144566)
+
+Do not change SQLite recorder, entity registries, KC868/siren assignments,
+HA-General lighting or MQTT/Zigbee service placement to complete this
+optimisation.
