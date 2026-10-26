@@ -57,6 +57,19 @@ for label,dirname in sections.items():
  d[label+"_legacy_reference_file_count"]=count
  if label=="systemd":d["legacy_systemd_file_names"]=sorted(set(matched))[:70]
  if label=="automation":d["legacy_automation_files"]=automation_files[:35]
+# Inspect Node A's separate JNS maintenance watchdog without changing it.
+if H=="nodea":
+ p=run(["pct","status","118"],9)
+ d["maintenance_ct118_status"]=p.stdout.strip().removeprefix("status: ") if p and p.returncode==0 else "unavailable"
+ if d["maintenance_ct118_status"]=="running":
+  q=run(["pct","exec","118","--","systemctl","is-active","jns-watchdog.service"],11)
+  d["maintenance_watchdog_active"]=q.stdout.strip() if q and q.stdout.strip() in ("active","inactive","failed","activating") else "unavailable"
+  # Read unit config only to emit booleans.
+  q=run(["pct","exec","118","--","cat","/etc/systemd/system/jns-watchdog.service"],11)
+  if q and q.returncode==0:
+   d["maintenance_watchdog_unit_mentions_guardian"]=bool(re.search(r"guardian|consul|lunar",q.stdout,re.I))
+   d["maintenance_watchdog_unit_mentions_legacy_ha"]=bool(re.search(r"ha900|ha901|homeassistant-recovery|homeassistant-standby",q.stdout,re.I))
+   d["maintenance_watchdog_unit_mentions_current_ha"]=bool(re.search(r"ha-primary|ha-general|ha-security|vm902|vm905|vm906",q.stdout,re.I))
 # No HA entity, secret, network target or sensitive command emitted.
 print("JNS_GUARDIAN_SAFE="+json.dumps(d,sort_keys=True))
 '''
