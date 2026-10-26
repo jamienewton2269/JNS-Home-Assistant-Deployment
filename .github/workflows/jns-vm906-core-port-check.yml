@@ -1,0 +1,41 @@
+name: JNS VM906 Actual Home Assistant Port Check
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-core-port-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - name: Test currently configured guest Core port without modifications
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import concurrent.futures,json,socket,urllib.error,urllib.request
+          host="ha-security.home.arpa"
+          def test(port):
+              info={"port":port,"tcp":False}
+              try:
+                  with socket.create_connection((host,port),timeout=4): info["tcp"]=True
+              except OSError:
+                  return info
+              url=("https" if port==443 else "http")+"://"+host+":"+str(port)+"/"
+              try:
+                  req=urllib.request.Request(url,headers={"User-Agent":"JNS-ReadOnly-Probe"})
+                  with urllib.request.urlopen(req,timeout=7) as resp:
+                      raw=resp.read(65536)
+                      info["http_status"]=resp.status
+                      info["ha_frontend_markers"]=any(x in raw.lower() for x in (b"home assistant",b"hass-frontend",b"ha-panel",b"/auth/"))
+              except urllib.error.HTTPError as e: info["http_status"]=e.code
+              except Exception as e:info["http_error_class"]=type(e).__name__
+              return info
+          with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+              results=list(pool.map(test,(80,443,8123,4357)))
+          print("JNS_VM906_CORE_PORT_RESULTS="+json.dumps(results,sort_keys=True))
+          PY
