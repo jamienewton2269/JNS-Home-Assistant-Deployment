@@ -72,11 +72,9 @@ def pct_status(vmid):
     if d["state"]=="running":
         for service in ("consul","lunar"):
             r=run(["pct","exec",str(vmid),"--","systemctl","is-active",service],12)
-            d[service+"_active"]=r.stdout.strip() if r and r.stdout.strip() in
-                ("active","inactive","failed","activating","deactivating","unknown") else "unavailable"
+            d[service+"_active"]=(r.stdout.strip() if r and r.stdout.strip() in ("active","inactive","failed","activating","deactivating","unknown") else "unavailable")
             r=run(["pct","exec",str(vmid),"--","systemctl","is-enabled",service],12)
-            d[service+"_enabled"]=r.stdout.strip() if r and r.stdout.strip() in
-                ("enabled","disabled","static","masked","indirect","generated","linked","not-found") else "unavailable"
+            d[service+"_enabled"]=(r.stdout.strip() if r and r.stdout.strip() in ("enabled","disabled","static","masked","indirect","generated","linked","not-found") else "unavailable")
     return d
 def storage():
     s=run(["pvesm","status"])
