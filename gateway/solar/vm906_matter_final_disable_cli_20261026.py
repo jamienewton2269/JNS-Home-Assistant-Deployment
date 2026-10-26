@@ -40,7 +40,7 @@ def api_boot(value):
  # Token is expanded ONLY inside the authorized CLI container; neither
  # its value nor raw HTTP response is shown in runner logs.
  cmd="""test -n "$SUPERVISOR_TOKEN" || exit 7
-code=$(curl --silent --show-error --max-time 12 --output /dev/null --write-out '%{http_code}' \
+code=$(curl --silent --show-error --max-time 12 --output /dev/null --write-out '%%{http_code}' \
  --request POST -H "Authorization: Bearer $SUPERVISOR_TOKEN" \
  -H "Content-Type: application/json" --data '{"boot":"%s"}' \
  http://supervisor/addons/core_matter_server/options) || exit 8
