@@ -1,0 +1,24 @@
+name: JNS VM906 Matter Server Managed Disable
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-matter-managed-disable-20261026.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-vm906-matter-guarded-stop
+  cancel-in-progress: false
+jobs:
+  disable:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set Matter Server boot manual; stop using Supervisor; verify security ESPHome
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/vm906_matter_managed_disable_20261026.py
+          python3 gateway/solar/vm906_matter_managed_disable_20261026.py
