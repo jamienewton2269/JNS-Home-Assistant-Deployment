@@ -1,0 +1,21 @@
+name: JNS Security Doorbell and Lights Incident Read Only
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-security-doorbell-lights-incident-20261026.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check KC868 doorbell and HA-General security-light chain without actuations
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/doorbell/incident_20261026_security_doorbell_lights_readonly.py
+          python3 gateway/doorbell/incident_20261026_security_doorbell_lights_readonly.py
