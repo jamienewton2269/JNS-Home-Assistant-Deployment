@@ -1,0 +1,24 @@
+name: JNS VM906 Security Guest Guarded Resume
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-guarded-rescue-20261026.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-vm906-qga-coldstart
+  cancel-in-progress: false
+jobs:
+  recover:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start only stopped existing Node A VM906, verify running and guest agent
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/vm906_rescue_after_graceful_shutdown_20261026.py
+          python3 gateway/solar/vm906_rescue_after_graceful_shutdown_20261026.py
