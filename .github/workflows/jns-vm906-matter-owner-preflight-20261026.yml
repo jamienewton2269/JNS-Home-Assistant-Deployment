@@ -1,0 +1,21 @@
+name: JNS VM906 Matter Owner Preflight 2026-10-26
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-matter-owner-preflight-20261026.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  owner:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only Matter container owner and device inventory
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/vm906_matter_safe_owner_probe_20261026.py
+          python3 gateway/solar/vm906_matter_safe_owner_probe_20261026.py
