@@ -127,3 +127,126 @@ the ordinary Node C runner, whose privileged access is deliberately
 restricted. Keep the workshop stopped in standby until needed.
 
 Preserve all Home Assistant databases and recorder history unchanged.
+
+## Final same-day consolidation results — 26 October 2026, 16:55 UTC
+
+**This section supersedes earlier pending VM906 QGA and Guardian A/B status
+in this document.** All live Home Assistant databases and recorder history,
+integrations, dashboards, automations, credentials and security device pairing
+have been retained. HA-Security alarm/doorbell physical end-to-end testing
+remains a separate requirement.
+
+### VM906 QEMU guest-agent and recovery
+
+- Proxmox agent device was enabled by the previously verified config-only
+  change.
+- Before interrupting the VM, a fresh native Proxmox compressed snapshot
+  archive of VM906 was created on Node A and replicated to the Node B NAS:
+  **2,841,275,559 bytes**, source and off-host SHA-256 comparison passed and
+  Proxmox configuration copy matched. Recovery archive preserved; full
+  restore rehearsal not performed.
+- An attempted `qm shutdown 906 --timeout 180` exited nonzero, but later
+  audits confirmed VM906 **had actually stopped**. No force-stop was used.
+- A separately gated, identity-verified recovery workflow started the
+  **same Node A VM906** only after confirming it was stopped, with no duplicate
+  HA-Security controller. Guest-agent ping succeeded; `qm status 906` is
+  running; `ha core info` and core Docker service verified.
+- **VM906 QGA is now operational**. Its future maintenance shutdown scripts
+  must not infer that a nonzero graceful-shutdown exit code means the guest
+  remained running: always re-read Proxmox state before doing anything.
+- [Full VM906 off-host backup](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40357102982)
+- [Graceful-shutdown error (failed closed)](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40359465817)
+- [Safe same-guest resumption and QGA confirmed](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40360474345)
+
+### Why VM906 appeared much larger than VM902
+
+Proxmox had reported VM906 at 1,878 MiB and VM902 around 964 MiB before
+the restart. VM906 temporarily fell to 821 MiB just after startup, then
+rose to 1,816 MiB after Core finished starting. This alone is **not
+evidence of a leak**: the Linux guest memory breakdown showed:
+
+| Metric | VM902 Primary | VM906 Security |
+|---|---:|---:|
+| MemAvailable | 1,359.1 MiB | **1,019.9 MiB** |
+| Cached | 948.8 MiB | **821.9 MiB** |
+| AnonPages | 489.1 MiB | 769.5 MiB |
+| Swap usage | 0 MiB | **0 MiB** |
+| Memory PSI some/full (10/60/300 sec) | 0/0/0 | **0/0/0** |
+
+There is **no observed guest swap or RAM pressure** at the sample. PVE guest
+memory includes reclaimable cache; do not assume 1,816 MiB is all committed
+nonreclaimable application memory. **Keep VM906 at 2 GiB**, do not resize
+it down until longer-term runtime trending and alarm load tests justify it.
+[Direct HAOS Linux guest cache/pressure audit](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40363591142).
+
+A more representative Core comparison found VM902 Core cgroup approximately
+274.5 MiB versus VM906 approximately 706.6 MiB, with 8 versus 20 configured
+integration entries. VM906 has 548 entities, six automation entities,
+an ESPHome integration with 35 entities, and an unused Matter integration
+entry (zero registered Matter devices/entities). VM906 recorder SQLite file
+is 12.82 MiB and remains unchanged.
+
+VM906 has a separate Matter Server container (not a listed Supervisor
+add-on), measured at 272.2 MiB then 135.7 MiB at separate points,
+with Docker restart policy `no`. It is a **possible future saving,
+not currently disabled**. A guarded stop was attempted only after verifying
+no Matter devices; its post-health check did not pass, so the workflow
+restarted the *same* container. Later independent audit confirmed
+the Matter container running, HA Core running, 35 ESPHome entities
+unchanged, and HA-Security HTTP reachable. We must not claim Matter
+has been permanently offloaded or disabled.
+- [Matter/ESPHome role, integration and RAM audit](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40361243624)
+- [Matter stop fail-closed and rollback](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40362829025)
+- [Independent post-rollback service health](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40363064198)
+- [All three HA roles settled Core/recorder comparison](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40363286646)
+
+### Guardian cold retirement
+
+The old HA900/HA901 Guardian/Consul/Lunar monolithic promotion plane is
+not part of the current three-HA-role design. No host runs a Proxmox
+Corosync cluster. The final dependency audit found the host-level
+Guardian/cluster-proxy and Lunar-export units do not refer to
+HA902/905/906, MQTT, Zigbee or Sheriff DNS. Node B's Natural Automation
+Guardian terms were confined to archived/knowledge JSON rather than
+executed Python or shell code. Node A maintenance CT118 watchdog
+unit showed no Guardian/Consul/Lunar dependency.
+
+- **Node B CT115 Guardian01: stopped, onboot=0**, legacy cluster-proxy,
+  Guardian probe timer and Lunar export timer disabled. Original
+  guest disk/config and unit files intact, private recovery manifest.
+  HA-General, MQTT, Zigbee2MQTT, Sheriff DNS, and other HA endpoints
+  verified after stop.
+- **Node A CT116 Guardian02: stopped, onboot=0**, same obsolete host units
+  disabled. Original CT config/disks and unit files retained, private
+  rollback manifest. HA-Primary, HA-General, HA-Security, Zigbee bridge
+  CT210 and DNS verified after stop.
+- **Node C CT117 Lunar03: unchanged**, last screenshot/inventory shows
+  running. Node C runner is unprivileged and its trusted gateway currently
+  has no approved CT117 operations. Do not bypass the security boundary.
+  Confirm remaining Node C monitoring dependencies and stop via an
+  authorised Node C Proxmox operator before declaring all Guardian retired.
+- [Node B Guardian01 retirement](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40361430272)
+- [Node A maintenance watchdog dependency gate](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40361806635)
+- [Node A Guardian02 retirement](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40361998091)
+
+### Other placement and safety decisions
+
+- **HA-Primary VM902 Node A remains running and lightweight**.
+- **HA-General VM905 Node B remains running**, as do its production MQTT
+  CT212 and Zigbee2MQTT CT214. Node B MUST NOT be powered off yet.
+- **HA-Security VM906 Node A remains running**, guest agent operational.
+- **Plant Manager VM903 Node B is stopped, onboot=0**, with both verified
+  live-safety and cold archives on Node B NAS and independently replicated
+  to Node C NFS backup storage. Original VM disks/config retained.
+- **VM991 `ha-tools-esphome` is correctly allocated 3 GiB**, user
+  confirmed earlier 512 MiB value was a transient Proxmox webpage error.
+  On-demand commissioning VM remains stopped; do not resize/rebuild.
+- **VM9906 haos18-golden stays offline**. Original cloned identity was not
+  documented as sanitised, so not an approved clean production template.
+- **All databases remain unchanged**: no SQLite engine changes, history purge,
+  recorder migration, deletion, retention changes or entity renaming.
+
+Production readiness next: physically verify HA-Security's ESPHome/KC868
+doorbell/alarm path and independent HA Core HTTP/API after restart; finish
+Node C CT117 privileged retirement after local dependency validation;
+perform restore drills for saved snapshots before any source VM deletion.
