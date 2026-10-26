@@ -1,0 +1,21 @@
+name: JNS Plant Cold Archive Guardian Dependencies Read Only
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-plant-guardian-deep-readonly-20261026.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Plant Manager archive route and Guardian quorum non-invasively
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/plant_guardian_deep_preflight_20261026.py
+          python3 gateway/solar/plant_guardian_deep_preflight_20261026.py
