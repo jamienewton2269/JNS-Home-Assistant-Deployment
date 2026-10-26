@@ -1,0 +1,22 @@
+name: JNS Solar Node A Swap Attribution
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-nodea-swap-usage.yml'
+      - 'gateway/solar/nodea_swap_attribution_readonly_20261026.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only identify top swapped processes on Node A
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/nodea_swap_attribution_readonly_20261026.py
+          python3 gateway/solar/nodea_swap_attribution_readonly_20261026.py
