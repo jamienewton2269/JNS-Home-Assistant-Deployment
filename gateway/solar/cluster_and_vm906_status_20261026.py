@@ -69,9 +69,15 @@ def endpoint():
   except Exception:d["http_status"]="not_responding"
  return d
 def nodec():
- d={"host":os.uname().nodename.split(".")[0],
-   "source_vm906_qemu_pid_present":pathlib.Path("/run/qemu-server/906.pid").exists(),
-   "local_corosync_conf_present":pathlib.Path("/etc/pve/corosync.conf").exists()}
+ d={"host":os.uname().nodename.split(".")[0]}
+ try:d["source_vm906_qemu_pid_present"]=pathlib.Path("/run/qemu-server/906.pid").exists()
+ except PermissionError:d["source_vm906_qemu_pid_present"]="unreadable"
+ try:d["local_corosync_conf_present"]=pathlib.Path("/etc/pve/corosync.conf").exists()
+ except PermissionError:d["local_corosync_conf_present"]="unreadable"
+ p=local(["ps","-eo","args="])
+ d["source_vm906_qemu_process_detected"]=bool(p and any(
+  ("qemu-system" in row or "kvm " in row) and re.search(r" -id 906(?:\\s|$)",row)
+  for row in p.stdout.splitlines()))
  p=local(["pvecm","status"])
  d["pvecm_status_ok"]=bool(p and p.returncode==0)
  p=local(["qm","status","906"])
