@@ -1,0 +1,24 @@
+name: JNS Plant Manager VM903 Guarded Cold Offline Archive
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-plant-vm903-cold-archive-20261026.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-plant-manager-vm903-cold-archive
+  cancel-in-progress: false
+jobs:
+  preserve:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verified safety backup then graceful VM903 shutdown and cold backup
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/plant_manager_vm903_cold_archive_guarded_20261026.py
+          python3 gateway/solar/plant_manager_vm903_cold_archive_guarded_20261026.py
