@@ -1,0 +1,21 @@
+name: JNS HA Security Matter Server Management Preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-matter-management-readonly-20261026.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Determine Matter Server restart policy and Home Assistant add-on management
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/vm906_matter_management_readonly_20261026.py
+          python3 gateway/solar/vm906_matter_management_readonly_20261026.py
