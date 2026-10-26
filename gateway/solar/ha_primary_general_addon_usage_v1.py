@@ -36,8 +36,20 @@ def classify(name):
  if name.startswith("hassio_"):
   suffix=name[7:]
   if suffix in ("supervisor","observer","dns","audio","multicast","cli"):return suffix
- for key in TYPES:
-  if key!="other" and key in name:return key
+ if name.startswith("addon_"):
+  slug=name[6:].replace("core_","",1) if name[6:].startswith("core_") else name[6:]
+  mapping=(("ssh","ssh"),("configurator","file_editor"),("studio","studio_code"),
+   ("vscode","studio_code"),("mosquitto","mqtt"),("zigbee","zigbee2mqtt"),
+   ("esphome","esphome"),("mariadb","mariadb"),("mysql","mysql"),
+   ("influxdb","influxdb"),("frigate","frigate"),("go2rtc","go2rtc"),
+   ("matter","matter"),("piper","piper"),("whisper","tts"),
+   ("samba","samba"),("nodered","nodered"),("node-red","nodered"),
+   ("backup","backup"),("rtsp","rtsp"),("web","web"),("music","audio"),
+   ("mpd","audio"),("chromium","browser"),("librespot","audio"))
+  for word,key in mapping:
+   if word in slug:return "addon_"+key
+  return "addon_other"
+ if name in ("hassio","hassio_audio","hassio_dns"):return "supervisor"
  return "other"
 def mb(text):
  # Docker: 183.3MiB / 2GiB
