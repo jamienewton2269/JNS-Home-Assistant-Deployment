@@ -4,7 +4,7 @@ Print normalized HAOS container IDs only when they match expected structured
 names. Never print arbitrary Docker image, environment, labels or commands.
 """
 import json,re,shlex,subprocess,time,hashlib
-GUESTS={902:"nodea",905:"nodeb"}
+GUESTS={902:"nodea",905:"nodeb",906:"nodea"}
 def ssh(host,args,timeout=24):
  try:p=subprocess.run(["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes",
      "-o","ConnectTimeout=5",host,shlex.join(args)],capture_output=True,text=True,timeout=timeout)
