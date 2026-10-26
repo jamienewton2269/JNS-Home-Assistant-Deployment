@@ -1,0 +1,24 @@
+name: JNS Plant Manager Cold Archives Node C NFS Replication
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-plant-vm903-nodec-nfs-replica-20261026.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-plant-vm903-nfs-replica
+  cancel-in-progress: false
+jobs:
+  copy-and-verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Copy two VM903 archives and manifest to Node C mounted NFS, verify SHA-256
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/plant_manager_replicate_cold_archives_nodec_20261026.py
+          python3 gateway/solar/plant_manager_replicate_cold_archives_nodec_20261026.py
