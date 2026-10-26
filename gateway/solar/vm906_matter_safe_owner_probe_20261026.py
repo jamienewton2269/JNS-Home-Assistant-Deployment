@@ -31,10 +31,11 @@ for line in z.get("lines",[]):
  try:x=json.loads(line)
  except ValueError:continue
  name=str(x.get("Names","")).strip("/")
- if name=="matter_server":names.append(name)
-out["exact_matter_containers"]=len(names)
+ if name=="matter_server" or name.lower().endswith("_matter_server"):names.append(name)
+out["matching_matter_containers"]=len(names)
+out["matching_roles"]=[("supervisor_addon" if n.startswith("addon_") else "haos" if n.startswith("hassio_") else "other") for n in names]
 if names:
- z=guest(["docker","inspect","matter_server","--format","{{json .}}"])
+ z=guest(["docker","inspect",names[0],"--format","{{json .}}"]) if len(names)==1 else {"status":"not_unique"}
  if z["status"]=="ok":
   try:
    x=json.loads("".join(z["lines"]))
