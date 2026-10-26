@@ -1,0 +1,47 @@
+name: VEYRA HDMI read-only kernel driver audit
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/veyra-hdmi-kernel-readonly-audit.yml']
+permissions: {contents: read}
+jobs:
+  hdmi-audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - name: Verified VEYRA HDMI and Intel driver inspection
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          host=veyra.home.arpa
+          key="$HOME/.ssh/jns-veyra-nodec-ed25519"
+          known=$(mktemp)
+          trap 'rm -f "$known"' EXIT
+          ssh-keyscan -T 6 -t ed25519 "$host" 2>/dev/null > "$known"
+          test "$(ssh-keygen -lf "$known" -E sha256 | awk '{print $2;exit}')" = 'SHA256:z+E4aqDK9CIFktbLAtHryd6qJAjqhh8uqga5Nkj7ls4'
+          ssh -i "$key" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known" "jnsadmin@$host" 'sudo -n bash -s' <<'REMOTE'
+          set -u
+          test "$(hostname -s)" = veyra || exit 7
+          echo '=== KERNEL AND BOOT ARGUMENTS ==='
+          uname -a
+          cat /proc/cmdline
+          echo '=== ACTIVE INTEL VIDEO ==='
+          lspci -nnk -s 00:02.0
+          echo '=== DRM CONNECTOR ==='
+          for p in /sys/class/drm/card*-HDMI* /sys/class/drm/card*-eDP*; do
+            test -d "$p" || continue
+            echo "$(basename "$p") status=$(cat "$p/status") enabled=$(cat "$p/enabled")"
+            echo "modes=$(head -10 "$p/modes" | paste -sd, -)"
+            echo "edid_bytes=$(wc -c < "$p/edid")"
+          done
+          echo '=== HOTPLUG AND POWER PARAMETERS ==='
+          for p in /sys/module/drm_kms_helper/parameters/poll /sys/module/i915/parameters/enable_dc /sys/module/i915/parameters/enable_psr /sys/module/i915/parameters/enable_fbc /sys/module/i915/parameters/hpd_storm_threshold; do
+            test ! -r "$p" || echo "$p=$(cat "$p")"
+          done
+          echo '=== KERNEL HDMI AND DRIVER EVENTS ==='
+          journalctl -k -b --no-pager | grep -Ei 'i915|HDMI|HPD|EDID|DDC|I2C|firmware|drm' | tail -85 | cut -c 1-230 || true
+          echo '=== DISPLAY DEBUG PATHS ==='
+          find /sys/kernel/debug/dri -maxdepth 2 -iname '*display*' -o -iname '*vbt*' -o -iname '*connector*' 2>/dev/null | head -35 || true
+          echo '=== OUTPUT STATE ==='
+          for u in veyra-kiosk.service veyra-itvx-vnc-v01.service veyra-virtual-loopback-v01.service; do echo "$u=$(systemctl is-active "$u" 2>/dev/null || true)"; done
+          REMOTE
