@@ -35,6 +35,10 @@ if p and p.returncode==0:
  try:out["vmdata_free_GiB"]=round(int(p.stdout.strip())/1073741824,2)
  except ValueError:pass
 out["backup_verified_in_this_workflow"]=False
+try:
+ with socket.create_connection(("ha-security.home.arpa",80),timeout=5):
+  out["ha_security_port_80_reachable"]=True
+except OSError:out["ha_security_port_80_reachable"]=False
 print("JNS_VM906_COLDSTART_READINESS="+json.dumps(out,sort_keys=True))
 '''
 src=base64.b64encode(REMOTE.encode()).decode()
