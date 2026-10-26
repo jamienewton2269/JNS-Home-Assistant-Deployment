@@ -1,0 +1,24 @@
+name: JNS VM906 Unused Matter Server Guarded Stop
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-matter-reversible-stop-20261026.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-vm906-matter-guarded-stop
+  cancel-in-progress: false
+jobs:
+  stop-unused:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stop only unused Matter Server and verify HA-Security/ESPHome remains healthy
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/vm906_unused_matter_guarded_stop_20261026.py
+          python3 gateway/solar/vm906_unused_matter_guarded_stop_20261026.py
