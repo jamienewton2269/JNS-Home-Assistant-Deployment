@@ -1,0 +1,22 @@
+name: JNS Cluster Evacuation Backup Gate
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-cluster-evacuation-backup-gate.yml'
+      - 'gateway/solar/cluster_evacuation_backup_gate_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  backups:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Report current archive coverage and storage availability without changes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/cluster_evacuation_backup_gate_v1.py
+          python3 gateway/solar/cluster_evacuation_backup_gate_v1.py
