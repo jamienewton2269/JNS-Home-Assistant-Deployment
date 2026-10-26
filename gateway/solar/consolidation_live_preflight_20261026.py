@@ -144,6 +144,7 @@ def local_nodec():
         out[k+"_active"]=a.stdout.strip() if a and a.stdout.strip() in ("active","inactive","failed") else "unavailable"
     out["nas_backup_mounted"]=bool(run(["findmnt","-n","-M","/mnt/pve/nfs-ct"]) and
                                   run(["findmnt","-n","-M","/mnt/pve/nfs-ct"]).returncode==0)
+    out["nas_backup_writable_by_runner"]=os.access("/mnt/pve/nfs-ct",os.W_OK)
     return out
 def main():
     print("JNS_CONSOLIDATION_READONLY_PREFLIGHT_20261026")
