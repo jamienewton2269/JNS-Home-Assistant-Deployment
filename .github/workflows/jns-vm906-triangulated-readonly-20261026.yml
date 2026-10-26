@@ -1,0 +1,21 @@
+name: JNS HA Security Multi Node Network Read Only
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-triangulated-readonly-20261026.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare HA Security DNS and network availability from all nodes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha_security_reachability_triangulation_20261026.py
+          python3 gateway/solar/ha_security_reachability_triangulation_20261026.py
