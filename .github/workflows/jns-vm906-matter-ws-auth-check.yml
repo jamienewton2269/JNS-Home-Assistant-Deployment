@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/jns-vm906-matter-ws-auth-check.yml'
+      - 'gateway/solar/vm906_matter_ws_auth_preflight_20261026.py'
   workflow_dispatch:
 permissions:
   contents: read
