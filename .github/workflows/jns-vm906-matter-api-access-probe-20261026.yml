@@ -1,0 +1,21 @@
+name: JNS VM906 Matter Supervisor API Transport Readonly
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-matter-api-access-probe-20261026.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Identify non-secret Supervisor API transport capabilities
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/vm906_matter_supervisor_api_access_probe_20261026.py
+          python3 gateway/solar/vm906_matter_supervisor_api_access_probe_20261026.py
