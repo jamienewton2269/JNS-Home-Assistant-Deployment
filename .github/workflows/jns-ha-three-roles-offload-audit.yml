@@ -1,0 +1,22 @@
+name: JNS HA Three Roles Recorder and Offload Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-three-roles-offload-audit.yml'
+      - 'gateway/solar/ha_three_roles_offload_audit_v1.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read Home Assistant core database/memory/components metadata only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha_three_roles_offload_audit_v1.py
+          python3 gateway/solar/ha_three_roles_offload_audit_v1.py
