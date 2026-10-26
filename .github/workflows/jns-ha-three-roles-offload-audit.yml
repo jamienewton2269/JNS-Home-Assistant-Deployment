@@ -1,4 +1,5 @@
 name: JNS HA Three Roles Recorder and Offload Audit
+# Re-run after VM906 QGA activation and Matter rollback; strictly read-only.
 on:
   push:
     branches: [main]
