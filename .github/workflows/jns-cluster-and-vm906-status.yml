@@ -1,0 +1,22 @@
+name: JNS Cluster and HA Security Live Gate
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-cluster-and-vm906-status.yml'
+      - 'gateway/solar/cluster_and_vm906_status_20261026.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read only host collisions, clustering, HA-Security owner and HTTP
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/cluster_and_vm906_status_20261026.py
+          python3 gateway/solar/cluster_and_vm906_status_20261026.py
