@@ -29,7 +29,7 @@ async def main():
    out[label+"_"+key]=await probe(url,os.environ.get(key))
  print("JNS_MATTER_CORE_WS_PREFLIGHT="+json.dumps(out,sort_keys=True))
 asyncio.run(main())
-
+'''
 def ssh(argv,timeout=36):
  try:p=subprocess.run(["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes","-o","ConnectTimeout=5",
  "nodea",shlex.join(argv)],capture_output=True,text=True,timeout=timeout)
