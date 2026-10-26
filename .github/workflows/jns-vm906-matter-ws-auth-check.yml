@@ -1,0 +1,21 @@
+name: JNS VM906 Matter Config Entry WebSocket Access Readonly
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-matter-ws-auth-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify authenticated Core config-entry interface without changes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/vm906_matter_ws_auth_preflight_20261026.py
+          python3 gateway/solar/vm906_matter_ws_auth_preflight_20261026.py
