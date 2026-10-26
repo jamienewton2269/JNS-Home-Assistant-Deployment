@@ -3,26 +3,33 @@
 import base64,json,shlex,subprocess,time
 SRC=r'''
 import asyncio,os,json,aiohttp
-async def main():
- token=os.environ.get("SUPERVISOR_TOKEN")
- out={"supervisor_token_present":bool(token),"websocket_auth":False,
- "matter_entries":None,"core_ws_endpoint":"supervisor_proxy"}
- if not token:
-  print("JNS_MATTER_CORE_WS_PREFLIGHT="+json.dumps(out));return
+async def probe(endpoint,token):
+ result={"authenticated":False,"handshake":None,"auth_reply":None}
+ if not token:return result
  try:
-  timeout=aiohttp.ClientTimeout(total=15,connect=7)
+  timeout=aiohttp.ClientTimeout(total=9,connect=4)
   async with aiohttp.ClientSession(timeout=timeout) as session:
-   async with session.ws_connect("ws://supervisor/core/websocket",timeout=8) as ws:
-    hello=await ws.receive_json(timeout=6)
-    if hello.get("type")!="auth_required":raise ValueError("unexpected_handshake")
-    await ws.send_json({"type":"auth","access_token":token})
-    ans=await ws.receive_json(timeout=6)
-    out["websocket_auth"]=ans.get("type")=="auth_ok"
+   async with session.ws_connect(endpoint,timeout=5) as ws:
+    hello=await ws.receive_json(timeout=4)
+    result["handshake"]=hello.get("type")
+    if hello.get("type")=="auth_required":
+     await ws.send_json({"type":"auth","access_token":token})
+     ans=await ws.receive_json(timeout=4)
+     result["auth_reply"]=ans.get("type")
+     result["authenticated"]=ans.get("type")=="auth_ok"
  except Exception as e:
-  out["error_class"]=type(e).__name__
+  result["error_class"]=type(e).__name__
+ return result
+async def main():
+ out={}
+ for label,url in (
+  ("proxy","ws://supervisor/core/websocket"),
+  ("local","ws://127.0.0.1:8123/api/websocket")):
+  for key in ("SUPERVISOR_TOKEN","HASSIO_TOKEN"):
+   out[label+"_"+key]=await probe(url,os.environ.get(key))
  print("JNS_MATTER_CORE_WS_PREFLIGHT="+json.dumps(out,sort_keys=True))
 asyncio.run(main())
-'''
+
 def ssh(argv,timeout=36):
  try:p=subprocess.run(["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes","-o","ConnectTimeout=5",
  "nodea",shlex.join(argv)],capture_output=True,text=True,timeout=timeout)
