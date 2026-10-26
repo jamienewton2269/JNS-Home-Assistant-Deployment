@@ -47,6 +47,7 @@ if names:
     "restart_policy":(host.get("RestartPolicy") or {}).get("Name"),
     "has_compose_labels":any(k.startswith("com.docker.compose") for k in labels),
     "has_supervisor_labels":any("hassio" in k or "supervisor" in k for k in labels),
+    "safe_supervisor_label_keys":sorted(k for k in labels if (k.startswith("io.hassio.") or k.startswith("io.homeassistant.")))[:15],
     "container_image_category":"matter",
     "created_present":bool(x.get("Created")),
     "mount_count":len(x.get("Mounts") or []),
@@ -82,6 +83,19 @@ if z["status"]=="ok":
   if l.startswith("JNS_SAFE_MATTER_REGISTRY="):
    try:out["registries"]=json.loads(l.split("=",1)[1])
    except ValueError:pass
+addon=guest(["ha","addons","list","--raw-json"])
+out["addon_inventory_status"]=addon["status"]
+if addon["status"]=="ok":
+ try:
+  root=json.loads("".join(addon["lines"]))
+  rows=root.get("data",{}).get("addons",[]) if isinstance(root.get("data"),dict) else root.get("addons",[])
+  out["addon_count"]=len(rows)
+  out["matter_addons"]=[{"slug":a.get("slug"),"state":a.get("state"),
+                       "boot":a.get("boot"),"version":a.get("version")}
+                       for a in rows if isinstance(a,dict) and
+                       "matter" in str(a.get("slug","")).lower()]
+ except (ValueError,TypeError,AttributeError):
+  out["addon_inventory_parse"]="unavailable"
 z=guest(["ha","core","info","--raw-json"])
 out["ha_core_info_status"]=z["status"]
 if z["status"]=="ok":
