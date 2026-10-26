@@ -82,7 +82,7 @@ print("JNS_RESOURCE_COUNTS="+json.dumps({
  "entries_esphome":cnt(entries,"domain","esphome"),
  "matter_entities":cnt(entities,"platform","matter"),
  "esphome_entities":cnt(entities,"platform","esphome"),
- "matter_device_registrations":sum(any(str(c.get("domain",""))=="matter" for c in x.get("identifiers",[]) if isinstance(c,dict)) for x in devices),
+ "matter_device_registrations":sum(any(isinstance(c,(list,tuple)) and len(c)>=1 and c[0]=="matter" for c in x.get("identifiers",[])) for x in devices),
  "config_entry_total":len(entries),"entity_total":len(entities),"device_total":len(devices)
 },sort_keys=True))
 '''
