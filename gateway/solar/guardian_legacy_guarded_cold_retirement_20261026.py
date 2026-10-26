@@ -124,5 +124,5 @@ if __name__=="__main__":
  import os
  if os.uname().nodename.split(".")[0]!="nodec":raise SystemExit("must run Node C runner")
  stage("nodeb")
- stage("nodea")
- print("JNS_GUARDIAN_AB_COLD_RETIREMENT_COMPLETE=yes",flush=True)
+ print("JNS_GUARDIAN_NODEB_COLD_RETIREMENT_COMPLETE=yes",flush=True)
+ print("JNS_GUARDIAN_NODEA_AND_NODEC_NOT_MODIFIED=yes",flush=True)
