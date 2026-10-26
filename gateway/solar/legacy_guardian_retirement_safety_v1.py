@@ -35,7 +35,7 @@ for name in names:
 sections={"systemd":"/etc/systemd/system","automation":"/opt/natural-automation"}
 for label,dirname in sections.items():
  base=Path(dirname)
- count=0; matched=[]
+ count=0; matched=[]; automation_files=[]
  if base.is_dir():
   for p in base.rglob("*"):
    try:
@@ -45,9 +45,18 @@ for label,dirname in sections.items():
     if re.search(r"\b(?:consul|guardian|lunar)\b",value,re.I):
      count+=1
      if label=="systemd" and re.fullmatch(r"[a-zA-Z0-9_.@-]+",p.name):matched.append(p.name)
+     if label=="automation":
+      relative=str(p.relative_to(base))
+      if re.fullmatch(r"[A-Za-z0-9_./-]{1,160}",relative):
+       automation_files.append({"path":relative,
+         "guardian":bool(re.search(r"guardian",value,re.I)),
+         "consul":bool(re.search(r"consul",value,re.I)),
+         "lunar":bool(re.search(r"lunar",value,re.I)),
+         "active_code":p.suffix in (".py",".service",".sh")})
    except (OSError,PermissionError):continue
  d[label+"_legacy_reference_file_count"]=count
  if label=="systemd":d["legacy_systemd_file_names"]=sorted(set(matched))[:70]
+ if label=="automation":d["legacy_automation_files"]=automation_files[:35]
 # No HA entity, secret, network target or sensitive command emitted.
 print("JNS_GUARDIAN_SAFE="+json.dumps(d,sort_keys=True))
 '''
