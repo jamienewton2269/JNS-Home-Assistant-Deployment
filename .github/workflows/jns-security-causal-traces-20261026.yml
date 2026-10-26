@@ -1,0 +1,21 @@
+name: JNS Security Doorbell and Lighting Causal Traces
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-security-causal-traces-20261026.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  trace:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read only event timelines, trigger conditions, KC868 native API and relay states
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/doorbell/incident_20261026_causal_traces_readonly.py
+          python3 gateway/doorbell/incident_20261026_causal_traces_readonly.py
