@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/jns-vm906-matter-final-disable-20261026.yml'
+      - 'gateway/solar/vm906_matter_final_disable_cli_20261026.py'
   workflow_dispatch:
 permissions:
   contents: read
