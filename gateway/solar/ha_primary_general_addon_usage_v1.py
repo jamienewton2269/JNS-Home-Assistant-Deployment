@@ -4,7 +4,7 @@ Classifies names locally; never emits raw container names/images, log content,
 configuration, secrets, device IDs, addresses or tokens.
 """
 import json,shlex,subprocess,time,re
-ROLES={902:"nodea",905:"nodeb"}
+ROLES={902:"nodea",905:"nodeb",906:"nodea"}
 TYPES=("core","supervisor","observer","dns","audio","multicast","cli","piper",
        "mqtt","mosquitto","zigbee2mqtt","esphome","mariadb","mysql","postgres",
        "influxdb","go2rtc","frigate","ffmpeg","rtsp","webrtc","camera",
