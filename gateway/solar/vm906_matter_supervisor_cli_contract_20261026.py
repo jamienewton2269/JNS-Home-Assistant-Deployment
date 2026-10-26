@@ -24,6 +24,8 @@ def qga(args):
 result={}
 for name,cmd in [
  ("matter_info",["ha","addons","info","core_matter_server","--raw-json"]),
+ ("addons_help",["ha","addons","--help"]),
+ ("addons_set_help",["ha","addons","set","--help"]),
  ("addons_options_help",["ha","addons","options","--help"]),
  ("addons_stop_help",["ha","addons","stop","--help"])]:
  x=qga(cmd)
@@ -40,5 +42,5 @@ for name,cmd in [
  else:
   result[name+"_boot_option"]=bool(re.search(r"--boot\b",x["out"]+x["err"]))
   result[name+"_usage"]=[l.strip()[:190] for l in (x["out"]+x["err"]).splitlines()
-       if "Usage:" in l or "--boot" in l or "manual" in l][:7]
+       if any(tag in l.lower() for tag in ("usage:","--boot","manual","set ","start ","stop ","options ","--options","--watchdog","--startup","flag","auto"))][:22]
 print("JNS_MATTER_SUPERVISOR_CONTRACT="+json.dumps(result,sort_keys=True),flush=True)
