@@ -1,0 +1,21 @@
+name: JNS VM906 Matter Disable Autostart Only
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-matter-manual-boot-only.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  manual:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Disable Matter Server auto boot without touching HA Core or integrations
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/vm906_matter_manual_boot_only_20261026.py
+          python3 gateway/solar/vm906_matter_manual_boot_only_20261026.py
