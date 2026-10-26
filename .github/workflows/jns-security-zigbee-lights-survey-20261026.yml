@@ -1,0 +1,21 @@
+name: JNS Exterior Security Zigbee Devices Read Only
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-security-zigbee-lights-survey-20261026.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect three exterior security Zigbee devices without switching them
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/doorbell/incident_20261026_z2m_security_devices_readonly.py
+          python3 gateway/doorbell/incident_20261026_z2m_security_devices_readonly.py
