@@ -32,7 +32,7 @@ HA-General VM905, despite its much larger automation workload, runs in just 1 Gi
 
 HA-Primary has no default recorder DB file, and moving its database would achieve nothing on current evidence. It has ~1403 registered entities but only a small Core RAM footprint; entity registry count alone does not imply a memory leak.
 
-The familiar Docker `addon_core_*` prefix was initially grouped incorrectly as Core; the refined audit classifies actual `homeassistant` once, and three other live containers on VM905 are only ~92 MiB total. Neither HA902 nor HA905 shows a dedicated MariaDB, Mosquitto or Zigbee2MQTT container through the known-role classification. Some unclassified add-ons need naming review before any removal.
+The familiar Docker `addon_core_*` prefix was initially grouped incorrectly as Core; the refined audit classifies actual `homeassistant` once, and three other live containers on VM905 are only ~92 MiB total. Neither HA902 nor HA905 shows a dedicated MariaDB, Mosquitto or Zigbee2MQTT container through the known-role classification. The previously unclassified add-ons have now been identified as Piper, Samba and SSH, with individual memory measurements below.
 
 ## Service separation decision register
 
@@ -48,6 +48,25 @@ The familiar Docker `addon_core_*` prefix was initially grouped incorrectly as C
 | **ESPHome compile/build** | **Good candidate if found on VM906** | Bursty builder load can be moved without moving the alarm itself, but it is NOT yet proven installed | Prefer existing available management services or one backed-up LXC on Node C; alarms and live device connectivity must not depend on compiler uptime |
 | **Logging/diagnostics** | **Use existing CT services, no new duplicate** | JNS logger containers and Steward already exist; sprawl risk | Consolidate established logger/Steward pathways; verify namespace, retention and NFS backup |
 | **Plant Manager analytics / long-term SQL** | **Optional future isolated database** | Could justify MariaDB/Postgres if workloads/queries outgrow SQLite, independent of HA Recorder | One backed-up always-on ZFS-based LXC with distinct DB/users and automatic verified SQL dumps. No need for one LXC per HA instance. |
+
+### Confirmed non-core services and actual memory
+
+[Sanitised service classification](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40336820968) and [individual live memory check](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40337072916) identify the formerly unclassified Docker services:
+
+| HA instance | Service | Docker memory at sample |
+|---|---|---:|
+| HA-Primary VM902 | SSH management | **7.5 MiB** |
+| HA-General VM905 | **Piper TTS** | **51.1 MiB** |
+| HA-General VM905 | **Samba shares** | **30.4 MiB** |
+| HA-General VM905 | SSH management | **3.1 MiB** |
+
+These are independent instantaneous samples and need not total exactly to the first Docker-stat aggregate. **None represents a hundreds-of-MiB always-on service that obviously merits a new LXC solely for RAM.**
+
+**Precise decisions:**
+- Piper can run on an external LAN-hosted [Wyoming Protocol server](https://www.home-assistant.io/integrations/wyoming/), leaving HA-General automations and voice responses intact. But the measured idle footprint is only ~51 MiB. Prefer relocating to the **existing** production audio environment (VM214) **only if** the target has voice model storage, adequate CPU/latency and no conflicting Piper instance. Otherwise defer until Node A capacity is upgraded. Test existing bedtime TTS phrase, volume, 750 ms delay, MPD output, and HA restarts in a staged fallback sequence.
+- Samba consumes ~30 MiB. It could potentially be removed if a checked Samba-share access audit confirms no live client, file deployment, recordings or backup workflow depends on it. Keep SSH until an authorised remote management replacement is tested.
+- HA-Primary's ~7.5 MiB SSH service should not be targeted for RAM savings; it provides recovery access.
+- Do NOT remove Piper or SSH automatically. No changes in HA runtime have been applied.
 
 ### Reasons to avoid immediately moving HA Recorder into a MariaDB LXC
 
