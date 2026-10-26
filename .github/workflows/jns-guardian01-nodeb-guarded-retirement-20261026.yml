@@ -1,0 +1,24 @@
+name: JNS Guardian01 Node B Guarded Cold Retirement
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-guardian01-nodeb-guarded-retirement-20261026.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-guardian01-cold-retire
+  cancel-in-progress: false
+jobs:
+  retire:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preserve legacy configs, disable old timers, cold-stop CT115 with production health rollback
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/guardian_legacy_guarded_cold_retirement_20261026.py
+          python3 gateway/solar/guardian_legacy_guarded_cold_retirement_20261026.py
