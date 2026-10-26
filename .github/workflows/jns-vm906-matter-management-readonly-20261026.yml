@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/jns-vm906-matter-management-readonly-20261026.yml'
+      - 'gateway/solar/vm906_matter_management_readonly_20261026.py'
   workflow_dispatch:
 permissions:
   contents: read
