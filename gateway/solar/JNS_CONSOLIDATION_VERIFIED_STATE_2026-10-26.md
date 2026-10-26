@@ -81,3 +81,49 @@ integrations, dashboards, automations and credentials unchanged.**
 
 Node B must not be powered off solely on this report while HA-General
 and other live Node B services remain active.
+
+## Follow-up architectural correction — 2026-10-26
+
+The production architecture now explicitly has only three HA roles:
+- VM902 HA-Primary: lightweight presence/control/dashboard
+- VM905 HA-General: lighting/heating/fans/bedtime/normal automations
+- VM906 HA-Security: alarm, doorbell and security ESPHome device integration
+
+Guardian/Consul/Lunar CT115/116/117 originated with the **retired HA900/HA901
+monolithic active/hot standby** architecture. They are *not* quorum members
+of a Proxmox cluster, and should not be silently relabelled as required
+for the three-role HA design. They are **retirement candidates, not
+yet disabled**. The live read-only Guardian dependency audit found:
+- Node A CT116: 49.3 MiB observed RAM; configured max 256 MiB;
+  active Consul and Lunar.
+- Node B CT115: 56.8 MiB observed RAM; configured max 256 MiB;
+  Consul stuck activating, active Lunar.
+- Host unit references on A and B: jns-cluster-proxy.service,
+  jns-ha-guardian-probe.service/.timer,
+  lunar-discovery-export.service/.timer.
+- 0 established TCP connections to typical Consul ports from either host
+  at one sample. This does **not** prove all external consumers absent.
+- Node C CT117 still needs a privileged dependency audit; preserve it.
+- No containers, timers, Guardian jobs or configurations were disabled.
+
+[Guardian dependency audit](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40354985992)
+
+VM9906 haos18-golden on Node C was originally created 2026-10-15 from
+a full clone of HA-Security VM906 and converted to a Proxmox template,
+as reported in the prior deployment discussion. The template copied
+its guest configuration/identity/credentials and **no sanitation proof
+is recorded**. Do NOT clone into production until a sanitised replacement
+is verified. The old 2026-10-23 inventory phrase 'clean baseline' is not
+sufficient sanitation evidence. Retain the source offline.
+
+VM991 ha-tools-esphome was created 2026-10-05 as an on-demand ESPHome
+Device Builder HAOS 18.3 VM, originally 2 vCPU, 3072 MiB RAM and 32 GiB
+disk, onboot disabled. Previous deployment report states ESPHome
+Device Builder 2026.9.1 installed, zero commissioned devices and Matter
+Server removed. User now reports a 512 MiB RAM figure; confirm the
+present Proxmox Hardware memory **versus balloon minimum** before
+starting or resizing it. Current guest contents remain unverified by
+the ordinary Node C runner, whose privileged access is deliberately
+restricted. Keep the workshop stopped in standby until needed.
+
+Preserve all Home Assistant databases and recorder history unchanged.
