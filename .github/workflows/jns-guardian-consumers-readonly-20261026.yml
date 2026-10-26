@@ -1,0 +1,21 @@
+name: JNS Guardian Legacy Consumers Read Only 2026-10-26
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-guardian-consumers-readonly-20261026.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  assess:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Identify host unit Guardian dependencies without changing services
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/legacy_guardian_consumers_readonly_20261026.py
+          python3 gateway/solar/legacy_guardian_consumers_readonly_20261026.py
