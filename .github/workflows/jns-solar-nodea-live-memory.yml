@@ -1,0 +1,22 @@
+name: JNS Solar Node A Live Memory Breakdown
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-solar-nodea-live-memory.yml'
+      - 'gateway/solar/nodea_memory_usage_live_20261026.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect Node A memory and guest resident usage without changes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/nodea_memory_usage_live_20261026.py
+          python3 gateway/solar/nodea_memory_usage_live_20261026.py
