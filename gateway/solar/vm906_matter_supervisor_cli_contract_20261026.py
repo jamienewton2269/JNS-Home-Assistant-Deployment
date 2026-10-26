@@ -36,7 +36,7 @@ for name,cmd in [
    d=v.get("data",v)
    if isinstance(d,dict):
     result["matter_info"]={k:d.get(k) for k in ("slug","name","boot","state","version",
-       "startup","protected","watchdog","update_available") if k in d}
+       "startup","protected","watchdog","system_managed","system_managed_config_entry","update_available") if k in d}
     result["info_has_data_wrapper"]="data" in v
   except (ValueError,TypeError):result["matter_info_parse"]="failed"
  else:
