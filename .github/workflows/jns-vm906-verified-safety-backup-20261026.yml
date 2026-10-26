@@ -1,0 +1,25 @@
+name: JNS VM906 Guarded Native Safety Backup
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-verified-safety-backup-20261026.yml'
+      - 'gateway/solar/vm906_safety_backup_before_agent_20261026.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-vm906-verified-native-safety-backup
+  cancel-in-progress: false
+jobs:
+  backup:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - name: Backup active HA-Security VM906 to native Proxmox archive and verify off-host
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/vm906_safety_backup_before_agent_20261026.py
+          python3 gateway/solar/vm906_safety_backup_before_agent_20261026.py
