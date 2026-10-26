@@ -103,6 +103,19 @@ if H=="nodea":
  if p and p.returncode==0:
   O["vm906_zfs_snapshot_count"]=sum(bool(re.match(r"^vmdata/vm-906-disk-[0-9]+@",l)) for l in p.stdout.splitlines())
   O["vm906_zfs_snapshot_recent"]=any("20261026" in l for l in p.stdout.splitlines() if "vm-906-disk" in l)
+ p=run(["zfs","list","-H","-o","name,used,refer,volsize","-t","volume"],13)
+ if p and p.returncode==0:
+  O["vm906_zvols"]=[]
+  for l in p.stdout.splitlines():
+   v=l.split()
+   if len(v)>=4 and re.fullmatch(r"vmdata/vm-906-disk-[0-9]+",v[0]):
+    O["vm906_zvols"].append({"disk":v[0].rsplit("-",1)[-1],"used":v[1],"referenced":v[2],"volsize":v[3]})
+ p=run(["df","-Pk","/var/lib/jns-solar"],9)
+ if p and p.returncode==0:
+  try:O["host_archive_dir_free_gib"]=round(int(p.stdout.splitlines()[-1].split()[3])/1048576,1)
+  except (ValueError,IndexError):pass
+ p=run(["zfs","get","-H","-o","value","mountpoint","vmdata"],10)
+ if p and p.returncode==0:O["vmdata_dataset_has_mountpoint"]=p.stdout.strip() not in ("none","legacy","-")
  p=run(["pvesm","status"],12)
  if p and p.returncode==0:
   O["backup_storages_status"]={z[0]:z[2] for l in p.stdout.splitlines()[1:] if len(z:=l.split())>=3 and z[0] in ("NAS","WD-BACKUP","nfs-ct")}
@@ -110,6 +123,10 @@ if H=="nodea":
  if p and p.returncode==0:
   O["port_8006_listening"]=any(re.search(r":8006\b",l) for l in p.stdout.splitlines())
 else:
+ p=run(["zfs","list","-H","-o","available","vmdata"],9)
+ if p and p.returncode==0:O["nodeb_vmdata_available"]=p.stdout.strip()[:40]
+ p=run(["qm","status","906"],9)
+ O["nodeb_vm906_existing_status"]=p.stdout.strip() if p and p.returncode==0 else "absent"
  # Check backups without returning file path or sensitive artifact contents.
  base=Path("/mnt/pve/NAS/dump")
  archives=[]
