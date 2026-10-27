@@ -21,21 +21,28 @@ def field(text,k):
 def running():
  p=run(["qm","status","905"],15)
  return bool(p and p.returncode==0 and p.stdout.strip()=="status: running")
-def mem_total():
- p=run(["qm","guest","exec","905","--","cat","/proc/meminfo"],15)
+def agent_cmd(args):
+ p=run(["qm","guest","exec","905","--",*args],15)
  if not p or p.returncode:return None
  try:j=json.loads(p.stdout)
  except ValueError:return None
- if not j.get("exited") or j.get("exitcode")!=0:return None
+ for _ in range(20):
+  if j.get("exited"):return j
+  if not j.get("pid"):return None
+  time.sleep(.4)
+  p=run(["qm","guest","exec-status","905",str(j["pid"])],13)
+  if not p or p.returncode:return None
+  try:j=json.loads(p.stdout)
+  except ValueError:return None
+ return None
+def mem_total():
+ j=agent_cmd(["cat","/proc/meminfo"])
+ if not j or j.get("exitcode")!=0:return None
  m=re.search(r"(?m)^MemTotal:\s*(\d+)\s+kB",str(j.get("out-data","")))
  return round(int(m.group(1))/1024,1) if m else None
 def docker_ok():
- p=run(["qm","guest","exec","905","--","docker","ps",
-        "--format","{{.Names}}"],17)
- if not p or p.returncode:return False
- try:j=json.loads(p.stdout)
- except ValueError:return False
- return bool(j.get("exited") and j.get("exitcode")==0 and
+ j=agent_cmd(["docker","ps","--format","{{.Names}}"])
+ return bool(j and j.get("exitcode")==0 and
              "homeassistant" in str(j.get("out-data","")))
 if os.geteuid()!=0 or os.uname().nodename.split(".")[0]!="nodeb":fail("wrong_host_or_user")
 c=run(["qm","config","905"])
