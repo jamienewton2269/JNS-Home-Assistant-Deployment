@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Guarded selective HA906->HA905 passive helper import, with config check and rollback.
-Only input_boolean/input_number/input_select/input_text from staged packages.
+Only input_boolean/input_select/input_text from staged packages. Conflicting input_number is deferred.
 No security automations, scripts, ESPHome or alarm_controller are imported here.
 No HA restarts, ownership changes, guest power actions, network writes or secrets in CI.
 """
@@ -11,7 +11,7 @@ import base64,hashlib,json,os,pathlib,re,sys
 from collections import Counter
 stage=pathlib.Path("/var/lib/jns-solar/consolidation/ha-security-906-20261027-v1")
 mf=stage/"manifest.json"
-allowed=("input_boolean","input_number","input_select","input_text")
+allowed=("input_boolean","input_select","input_text")
 if os.geteuid()!=0 or os.uname().nodename.split(".")[0]!="nodeb":raise SystemExit(72)
 safety=pathlib.Path("/mnt/pve/NAS/dump/jns-ha-general-consolidation-20261027-v1/MANIFEST.json")
 if not safety.is_file() or safety.is_symlink():raise SystemExit(70)
@@ -87,7 +87,7 @@ try:data=base64.b64decode(sys.argv[1],validate=True)
 except (ValueError,TypeError):fail("invalid_payload")
 if len(data)>180000 or not data:fail("size_invalid")
 text=data.decode("utf-8")
-expected=("input_boolean","input_number","input_select","input_text")
+expected=("input_boolean","input_select","input_text")
 sections=re.findall(r"(?m)^([a-z][a-z0-9_]*)\s*:",text)
 if sorted(sections)!=sorted(expected):fail("unexpected_top_level_sections")
 if path.exists() or path.is_symlink():fail("target_exists")
