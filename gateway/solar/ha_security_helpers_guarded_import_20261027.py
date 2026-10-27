@@ -34,14 +34,20 @@ for info in m.get("files",[]):
  for n,marker in enumerate(markers):
   key=marker.group(1)
   if key not in allowed:continue
-  begin=marker.start()
   end=markers[n+1].start() if n+1<len(markers) else len(t)
-  if key in sections:raise SystemExit(77)
-  sections[key]=t[begin:end].rstrip()+"\n"
+  fragment=t[marker.end():end]
+  if fragment.strip() and not fragment.startswith("\n"):raise SystemExit(77)
+  sections.setdefault(key,[]).append(fragment)
 if not all(k in sections for k in allowed):raise SystemExit(78)
 body="# JNS Security passive helper definitions only; no automations or alarm ownership.\n"
 body+="# Generated from verified, isolated VM906 staging; do not hand-edit.\n\n"
-for key in allowed:body+=sections[key]+"\n"
+for key in allowed:
+ definitions=set()
+ for fragment in sections[key]:
+  for child in re.findall(r"(?m)^  ([a-zA-Z][a-zA-Z0-9_]*)\s*:",fragment):
+   if child in definitions:raise SystemExit(77)
+   definitions.add(child)
+ body+=key+":"+"".join(x if x.endswith("\n") else x+"\n" for x in sections[key])+"\n"
 if len(body)>180000:raise SystemExit(79)
 print("JNS_PRIVATE_HELPER_PAYLOAD="+base64.b64encode(body.encode()).decode())
 '''
