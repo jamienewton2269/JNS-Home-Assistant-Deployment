@@ -1,0 +1,21 @@
+name: JNS HA Three-Role Memory Attribution Readonly
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-memory-attribution-readonly-20261027.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Collect read-only Docker, Core cgroup/process, integration and guest RAM measurements
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha_memory_attribution_readonly_20261027.py
+          python3 gateway/solar/ha_memory_attribution_readonly_20261027.py
