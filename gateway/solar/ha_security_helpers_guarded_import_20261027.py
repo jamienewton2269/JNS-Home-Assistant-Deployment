@@ -13,6 +13,12 @@ stage=pathlib.Path("/var/lib/jns-solar/consolidation/ha-security-906-20261027-v1
 mf=stage/"manifest.json"
 allowed=("input_boolean","input_number","input_select","input_text")
 if os.geteuid()!=0 or os.uname().nodename.split(".")[0]!="nodeb":raise SystemExit(72)
+safety=pathlib.Path("/mnt/pve/NAS/dump/jns-ha-general-consolidation-20261027-v1/MANIFEST.json")
+if not safety.is_file() or safety.is_symlink():raise SystemExit(70)
+try:
+ recent=json.loads(safety.read_text())
+ if recent.get("vm")!=905 or recent.get("source_host")!="nodeb" or not recent.get("zstd_test_passed"):raise SystemExit(71)
+except (OSError,ValueError):raise SystemExit(71)
 if not mf.is_file() or mf.is_symlink():raise SystemExit(73)
 m=json.loads(mf.read_text())
 if m.get("source_vm")!=906 or m.get("target_vm")!=905 or not m.get("stage_inert"):raise SystemExit(74)
