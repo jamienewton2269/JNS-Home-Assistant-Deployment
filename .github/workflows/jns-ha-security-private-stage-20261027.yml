@@ -1,0 +1,26 @@
+name: JNS HA-Security Inert Private Migration Stage 2026-10-27
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-security-private-stage-20261027.yml'
+      - 'gateway/solar/ha_security_private_stage_20261027.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-security-inert-source-stage
+  cancel-in-progress: false
+jobs:
+  stage:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate private staging script
+        run: python3 -m py_compile gateway/solar/ha_security_private_stage_20261027.py
+      - name: Read VM906 configuration and stage inert source files on Node B host only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 gateway/solar/ha_security_private_stage_20261027.py
