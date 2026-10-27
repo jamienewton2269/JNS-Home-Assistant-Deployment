@@ -1,0 +1,25 @@
+name: JNS HA Consolidation Merge Read-Only Preflight 2026-10-27
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-consolidation-merge-preflight-20261027.yml'
+      - 'gateway/solar/ha_consolidation_merge_preflight_20261027.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-consolidation-preflight
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate preflight script syntax
+        shell: bash
+        run: python3 -m py_compile gateway/solar/ha_consolidation_merge_preflight_20261027.py
+      - name: Compare three HA roles without making changes
+        shell: bash
+        run: python3 gateway/solar/ha_consolidation_merge_preflight_20261027.py
