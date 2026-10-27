@@ -84,6 +84,30 @@ with mf.open("x") as f:json.dump(meta,f,sort_keys=True,indent=2);f.write("\n")
 os.chmod(mf,0o600)
 print("JNS_VM902_STAGED_METADATA="+json.dumps(meta,sort_keys=True),flush=True)
 '''
+EXISTING=r'''
+import json,hashlib,os,re,subprocess,sys
+from pathlib import Path
+p=Path("/var/lib/jns-solar/ha-p0-primary-lite-902/jns-vm902-consolidation-20261027-v1")
+if os.geteuid()!=0 or os.uname().nodename.split(".")[0]!="nodea":raise SystemExit(71)
+if not p.is_dir() or p.is_symlink():raise SystemExit(72)
+m=json.loads((p/"MANIFEST.json").read_text())
+name=m.get("name","")
+if not re.fullmatch(r"vzdump-qemu-902-[0-9_-]+\.vma\.zst",name):raise SystemExit(73)
+a=p/name;c=p/"vm902-proxmox.conf"
+if not a.is_file() or a.is_symlink() or not c.is_file() or c.is_symlink():raise SystemExit(74)
+def sha(f):
+ h=hashlib.sha256()
+ with f.open("rb") as inp:
+  for chunk in iter(lambda:inp.read(4*1024*1024),b""):h.update(chunk)
+ return h.hexdigest()
+if not 1048576<a.stat().st_size<35*1024**3:raise SystemExit(75)
+if sha(a)!=m.get("sha256") or sha(c)!=m.get("config_sha256"):raise SystemExit(76)
+z=subprocess.run(["zstd","-q","-t",str(a)],capture_output=True,timeout=900)
+if z.returncode:raise SystemExit(77)
+vm=subprocess.run(["qm","status","902"],capture_output=True,text=True)
+if vm.returncode or vm.stdout.strip()!="status: running":raise SystemExit(78)
+print("JNS_VM902_STAGED_METADATA="+json.dumps(m,sort_keys=True))
+'''
 B=r'''
 import os,re,subprocess,json,sys
 from pathlib import Path
@@ -100,7 +124,7 @@ print("JNS_VM902_NAS_TARGET_READY=yes")
 '''
 def main():
  if os.uname().nodename.split(".")[0]!="nodec":fail("must_run_nodec_runner")
- stage=remote("nodea",A,2400)
+ stage=remote("nodea",EXISTING,1200)
  marks=[s for s in stage.splitlines() if s.startswith("JNS_VM902_STAGED_METADATA=")]
  if len(marks)!=1:fail("missing_validated_stage_manifest")
  try:meta=json.loads(marks[0].split("=",1)[1])
