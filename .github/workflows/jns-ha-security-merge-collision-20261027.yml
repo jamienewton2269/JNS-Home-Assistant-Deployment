@@ -1,0 +1,20 @@
+name: JNS HA-Security Private Merge Collision Readonly 2026-10-27
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-security-merge-collision-20261027.yml'
+      - 'gateway/solar/ha_security_merge_collision_readonly_20261027.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate collision audit code
+        run: python3 -m py_compile gateway/solar/ha_security_merge_collision_readonly_20261027.py
+      - name: Compare HA-Security package definitions with HA-General (no changes)
+        run: python3 gateway/solar/ha_security_merge_collision_readonly_20261027.py
