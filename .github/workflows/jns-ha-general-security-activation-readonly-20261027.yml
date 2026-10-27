@@ -19,3 +19,5 @@ jobs:
           set -Eeuo pipefail
           python3 -m py_compile gateway/solar/ha_general_security_activation_readonly_20261027.py
           python3 gateway/solar/ha_general_security_activation_readonly_20261027.py
+
+# Recheck after guarded Core-restart command reported an error; inspection only.
