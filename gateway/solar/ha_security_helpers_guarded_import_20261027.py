@@ -134,7 +134,7 @@ def main():
  src=base64.b64encode(SOURCE.encode()).decode()
  r=ssh("nodeb",["python3","-c","exec(__import__('base64').b64decode('"+src+"'))"],timeout=40)
  if not r or r.returncode:
-  print("JNS_HELPER_IMPORT_BLOCKED=staging_unavailable");return 1
+  print("JNS_HELPER_IMPORT_BLOCKED=staging_unavailable_rc_"+str(r.returncode if r else "timeout"));return 1
  lines=[x.split("=",1)[1] for x in r.stdout.splitlines() if x.startswith("JNS_PRIVATE_HELPER_PAYLOAD=")]
  if len(lines)!=1:
   print("JNS_HELPER_IMPORT_BLOCKED=invalid_stage_output");return 1
