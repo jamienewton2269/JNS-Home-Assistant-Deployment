@@ -1,0 +1,18 @@
+name: JNS VM902 Existing Backup Stage Readonly
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm902-stage-readonly-20261027.yml'
+      - 'gateway/solar/vm902_backup_stage_readonly_20261027.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m py_compile gateway/solar/vm902_backup_stage_readonly_20261027.py
+      - run: python3 gateway/solar/vm902_backup_stage_readonly_20261027.py
