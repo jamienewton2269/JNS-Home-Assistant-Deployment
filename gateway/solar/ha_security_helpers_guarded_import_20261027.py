@@ -175,6 +175,9 @@ def main():
  result=guest(["docker","exec","homeassistant","python3","-c",
   "exec(__import__('base64').b64decode('"+b64+"'))",lines[0]],timeout=100)
  if not result or result.get("exitcode")!=0:
+  for line in str((result or {}).get("out-data","")).splitlines():
+   if line.startswith("JNS_HELPER_IMPORT_BLOCKED="):
+    print(line,flush=True)
   print("JNS_HELPER_IMPORT_BLOCKED=target_writer_or_collision_gate");return 1
  if "JNS_HELPER_IMPORT_STAGED=" not in str(result.get("out-data","")):
   print("JNS_HELPER_IMPORT_BLOCKED=target_confirmation_missing");return 1
