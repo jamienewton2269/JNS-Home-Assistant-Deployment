@@ -2,7 +2,7 @@
 """JNS VM902 pre-merge full safety backup, OFF-HOST verified. No guest restart.
 
 Node C unprivileged runner orchestrates two pre-authorised SSH transports.
-A: Proxmox snapshot backup in private staging (HA-Security stays running).
+A: Proxmox snapshot backup in private staging (HA-Primary stays running).
 B: copy verified native VMA zstd and original Proxmox config to NAS.
 Fail closed, never delete source, never disclose source guest secrets/log.
 """
