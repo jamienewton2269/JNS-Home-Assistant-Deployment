@@ -1,0 +1,31 @@
+name: JNS VM905 Guarded Proxmox Reboot Activate 2GiB 2026-10-27
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm905-activate-2gb-20261027.yml'
+      - 'gateway/solar/vm905_guarded_reboot_apply_ram_20261027.py'
+      - 'gateway/solar/requests/vm905-activate-2gb-20261027.request'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-vm905-guarded-reboot
+  cancel-in-progress: false
+jobs:
+  memory-apply:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate guarded Proxmox reboot source
+        run: python3 -m py_compile gateway/solar/vm905_guarded_reboot_apply_ram_20261027.py
+      - name: Only perform reboot with explicit gate request
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ ! -f gateway/solar/requests/vm905-activate-2gb-20261027.request ]]; then
+            echo 'JNS_VM905_REBOOT_NOT_REQUESTED=yes'
+            exit 0
+          fi
+          python3 gateway/solar/vm905_guarded_reboot_apply_ram_20261027.py
