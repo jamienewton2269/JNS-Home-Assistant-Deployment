@@ -1,3 +1,5 @@
 JNS HA-Primary VM902 guarded pre-merge backup requested 2026-10-27.
 Proxmox snapshot and independent off-host checksum verification only.
 No VM restarts, config imports, shutdowns, guest promotion or cluster changes.
+
+Retry requested following GitHub queued-run cancellation. One guarded execution; no VM power changes.
