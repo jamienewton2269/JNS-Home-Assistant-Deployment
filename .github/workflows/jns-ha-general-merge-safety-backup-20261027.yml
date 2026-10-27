@@ -1,0 +1,25 @@
+name: JNS HA-General Guarded Consolidation Safety Backup 2026-10-27
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-general-merge-safety-backup-20261027.yml'
+      - 'gateway/solar/ha_general_merge_safety_backup_20261027.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-general-consolidation-safety-backup
+  cancel-in-progress: false
+jobs:
+  backup:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate guarded backup code
+        shell: bash
+        run: python3 -m py_compile gateway/solar/ha_general_merge_safety_backup_20261027.py
+      - name: Create online native Proxmox VM905 archive and validate integrity
+        shell: bash
+        run: python3 gateway/solar/ha_general_merge_safety_backup_20261027.py
