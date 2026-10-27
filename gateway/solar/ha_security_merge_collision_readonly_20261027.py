@@ -46,7 +46,7 @@ def sig(s):
  return hmac.new(salt,s.encode(),hashlib.sha256).hexdigest()
 def analyze(items):
  types=("input_boolean","input_number","input_select","input_text","timer",
-        "counter","group","automation","script","template","alarm_control_panel")
+        "counter","group","script")
  out={"defined":{},"automation_ids":set(),"script_keys":set(),
       "package_names":set(),"main_alarm_present":False,"main_alarm_manual":False,
       "yaml_items":0}
