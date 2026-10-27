@@ -41,19 +41,33 @@ for info in m.get("files",[]):
 if not all(k in sections for k in allowed):raise SystemExit(78)
 body="# JNS Security passive helper definitions only; no automations or alarm ownership.\n"
 body+="# Generated from verified, isolated VM906 staging; do not hand-edit.\n\n"
-dup_by_type={}
+exact_duplicates={}
+conflicting_duplicates={}
 for key in allowed:
- definitions=set();duplicates=0
+ entries={}
+ order=[]
+ exact_count=0;conflict_count=0
  for fragment in sections[key]:
-  for child in re.findall(r"(?m)^  ([a-zA-Z][a-zA-Z0-9_]*)\s*:",fragment):
-   if child in definitions:duplicates+=1
-   definitions.add(child)
- if duplicates:dup_by_type[key]=duplicates
-if dup_by_type:
- print("JNS_HELPER_SOURCE_DUPLICATES_COUNT_ONLY="+json.dumps(dup_by_type,sort_keys=True))
+  markers=list(re.finditer(r"(?m)^  ([a-zA-Z][a-zA-Z0-9_]*)\s*:",fragment))
+  if not markers:raise SystemExit(81)
+  for n,marker in enumerate(markers):
+   child=marker.group(1)
+   end=markers[n+1].start() if n+1<len(markers) else len(fragment)
+   definition=fragment[marker.start():end].strip()
+   if child in entries:
+    if entries[child]==definition:exact_count+=1
+    else:conflict_count+=1
+   else:
+    entries[child]=definition
+    order.append(child)
+ if exact_count:exact_duplicates[key]=exact_count
+ if conflict_count:conflicting_duplicates[key]=conflict_count
+ body+=key+":\n"+"\n".join(entries[child] for child in order)+"\n\n"
+if exact_duplicates:
+ print("JNS_HELPER_IDENTICAL_DUPLICATES_DEDUPED="+json.dumps(exact_duplicates,sort_keys=True))
+if conflicting_duplicates:
+ print("JNS_HELPER_CONFLICTING_DUPLICATES_COUNT_ONLY="+json.dumps(conflicting_duplicates,sort_keys=True))
  raise SystemExit(77)
-for key in allowed:
- body+=key+":"+"".join(x if x.endswith("\n") else x+"\n" for x in sections[key])+"\n"
 if len(body)>180000:raise SystemExit(79)
 print("JNS_PRIVATE_HELPER_PAYLOAD="+base64.b64encode(body.encode()).decode())
 '''
@@ -147,7 +161,7 @@ def main():
  r=ssh("nodeb",["python3","-c","exec(__import__('base64').b64decode('"+src+"'))"],timeout=40)
  if not r or r.returncode:
   for line in (r.stdout if r else "").splitlines():
-   if line.startswith("JNS_HELPER_SOURCE_DUPLICATES_COUNT_ONLY="):print(line,flush=True)
+   if line.startswith(("JNS_HELPER_SOURCE_DUPLICATES_COUNT_ONLY=","JNS_HELPER_IDENTICAL_DUPLICATES_DEDUPED=","JNS_HELPER_CONFLICTING_DUPLICATES_COUNT_ONLY=")):print(line,flush=True)
   print("JNS_HELPER_IMPORT_BLOCKED=staging_unavailable_rc_"+str(r.returncode if r else "timeout"));return 1
  lines=[x.split("=",1)[1] for x in r.stdout.splitlines() if x.startswith("JNS_PRIVATE_HELPER_PAYLOAD=")]
  if len(lines)!=1:
