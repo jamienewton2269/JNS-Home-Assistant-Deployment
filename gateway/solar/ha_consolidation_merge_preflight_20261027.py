@@ -48,14 +48,20 @@ key_domains=("mobile_app","esphome","mqtt","remote_homeassistant","matter",
              "lyric","jns_heating_zones","hassio","apple_tv","samsungtv")
 counts=Counter()
 hashes=set()
+platform_counts=Counter()
+owner_by_hash={}
 for x in entities:
  if not isinstance(x,dict):continue
  entity=x.get("entity_id")
  if isinstance(entity,str):
   domain=entity.split(".",1)[0]
   counts[domain]+=1
+  platform=str(x.get("platform", ""))
+  platform_counts[platform]+=1
   hv=hash_id(entity)
-  if hv:hashes.add(hv)
+  if hv:
+   hashes.add(hv)
+   owner_by_hash[hv]=platform
 def present(name):
  p=root/name
  return p.is_file() and not p.is_symlink()
@@ -93,7 +99,10 @@ out={"read_only":True,"registry_entities":len(entities),"registry_devices":len(d
      "esphome":dir_count("esphome"),
      "sqlite_mib":sized("home-assistant_v2.db"),
      "sqlite_wal_mib":sized("home-assistant_v2.db-wal"),
-     "_entity_hashes":list(hashes)}
+     "entity_platform_families":{k:platform_counts[k] for k in
+         ("remote_homeassistant","mqtt","esphome","mobile_app","template",
+          "automation","script","group","hassio","matter","onvif") if platform_counts[k]},
+     "_entity_hashes":list(hashes),"_entity_owner_by_hash":owner_by_hash}
 print("JNS_PRIVATE_AUDIT="+json.dumps(out,sort_keys=True))
 """
 def run(argv, timeout=25):
@@ -142,9 +151,10 @@ def guest(host,vm,salt):
   out["audit"]="unexpected_payload"
   return out
  hashes=set(payload.pop("_entity_hashes",[]))
+ owners=payload.pop("_entity_owner_by_hash",{})
  out["audit"]="ok"
  out["summary"]=payload
- return out,hashes
+ return out,hashes,owners
 def host_memory(node):
  raw=ssh(node,["free","-m"],18)
  if not raw:return {"status":"unavailable"}
@@ -159,12 +169,14 @@ def main():
  salt=secrets.token_hex(24)
  summary={}
  hashes={}
+ ownership={}
  for role,host,vm in ROLES:
   res=guest(host,vm,salt)
-  if isinstance(res,tuple):status,hashed=res
-  else:status,hashed=res,set()
+  if isinstance(res,tuple):status,hashed,owners=res
+  else:status,hashed,owners=res,set(),{}
   summary[role]=status
   hashes[role]=hashed
+  ownership[role]=owners
   print("JNS_ROLE="+json.dumps({"role":role,**status},sort_keys=True),flush=True)
  for host in ("nodea","nodeb"):
   print("JNS_HOST_MEMORY="+json.dumps({"host":host,**host_memory(host)},sort_keys=True),flush=True)
@@ -174,6 +186,14 @@ def main():
    overlaps[r+"_vs_ha-general"]=len(hashes[r]&hashes["ha-general"])
   overlaps["primary_vs_security"]=len(hashes["ha-primary"]&hashes["ha-security"])
   print("JNS_ENTITY_COLLISIONS_COUNTS_ONLY="+json.dumps(overlaps,sort_keys=True),flush=True)
+  for source in ("ha-primary","ha-security"):
+   shared=hashes[source]&hashes["ha-general"]
+   mirror_src=sum(ownership[source].get(h)=="remote_homeassistant" for h in shared)
+   mirror_general=sum(ownership["ha-general"].get(h)=="remote_homeassistant" for h in shared)
+   print("JNS_COLLISION_OWNERSHIP="+json.dumps({"source":source,
+        "overlaps":len(shared),"mirrored_in_source":mirror_src,
+        "mirrored_in_general":mirror_general,
+        "other_source_platforms":len(shared)-mirror_src},sort_keys=True),flush=True)
   print("JNS_PREFLIGHT_COMPLETE=YES",flush=True)
  else:
   print("JNS_PREFLIGHT_COMPLETE=NO",flush=True)
