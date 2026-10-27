@@ -1,0 +1,3 @@
+JNS approved consolidation stage: raise HA-General VM905 max RAM to 2048 MiB and disable ballooning.
+Native qm set guarded by current VM configuration, recent verified backup, runtime memory headroom and VM-running checks.
+No guest shutdown, restart, duplicate integration ownership, HA merge, or cluster operation authorised in this request.
