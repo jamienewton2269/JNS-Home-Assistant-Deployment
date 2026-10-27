@@ -80,6 +80,45 @@ def sized(name):
  p=root/name
  try:return round(p.stat().st_size/1048576,2) if p.is_file() and not p.is_symlink() else None
  except OSError:return None
+def layout():
+ allowed=("alarm_control_panel","automation","script","template","mqtt",
+          "input_boolean","input_select","input_number","input_text",
+          "sensor","binary_sensor","switch","light","camera","esphome",
+          "notify","homeassistant","recorder","frontend","lovelace",
+          "group","rest","utility_meter","timer","counter","scene")
+ out={"main_sections":{},"package_sections":{},"package_yaml_count":0,
+      "packages_include_reference":False,"yaml_automations":yaml_markers("automations.yaml")}
+ cfg=root/"configuration.yaml"
+ try:
+  content=cfg.read_text(errors="replace") if cfg.is_file() and not cfg.is_symlink() else ""
+ except OSError:content=""
+ out["packages_include_reference"]=bool(re.search(r"(?m)^\s*packages\s*:\s*!include_dir_",content))
+ out["homeassistant_section_present"]=bool(re.search(r"(?m)^homeassistant\s*:",content))
+ for key in allowed:
+  if re.search(r"(?m)^"+re.escape(key)+r"\s*:",content):
+   out["main_sections"][key]=1
+ p=root/"packages"
+ if p.is_dir() and not p.is_symlink():
+  sections=Counter()
+  for f in p.rglob("*.yaml"):
+   if f.is_symlink() or not f.is_file():continue
+   out["package_yaml_count"]+=1
+   if out["package_yaml_count"]>100:break
+   try:body=f.read_text(errors="replace")
+   except OSError:continue
+   for k in allowed:
+    if re.search(r"(?m)^"+re.escape(k)+r"\s*:",body):sections[k]+=1
+  out["package_sections"]=dict(sorted(sections.items()))
+ return out
+def guest_meminfo():
+ try:
+  source=pathlib.Path("/proc/meminfo").read_text()
+ except OSError:return {}
+ out={}
+ for k in ("MemTotal","MemAvailable","SwapFree","SwapTotal"):
+  m=re.search(r"(?m)^"+k+r":\s*(\d+) kB",source)
+  if m:out[k+"_mib"]=round(int(m.group(1))/1024,1)
+ return out
 out={"read_only":True,"registry_entities":len(entities),"registry_devices":len(devices),
      "config_entries":len(entries),"enabled_entries":sum(enabled.values()),
      "integration_domains":{x:domains[x] for x in key_domains if domains[x]},
@@ -99,6 +138,8 @@ out={"read_only":True,"registry_entities":len(entities),"registry_devices":len(d
      "esphome":dir_count("esphome"),
      "sqlite_mib":sized("home-assistant_v2.db"),
      "sqlite_wal_mib":sized("home-assistant_v2.db-wal"),
+     "migration_yaml_layout":layout(),
+     "guest_meminfo":guest_meminfo(),
      "entity_platform_families":{k:platform_counts[k] for k in
          ("remote_homeassistant","mqtt","esphome","mobile_app","template",
           "automation","script","group","hassio","matter","onvif") if platform_counts[k]},
