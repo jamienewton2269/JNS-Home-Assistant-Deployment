@@ -1,0 +1,35 @@
+name: JNS HA-General 2GiB Memory Guarded Stage 2026-10-27
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm905-consolidation-ram-20261027.yml'
+      - 'gateway/solar/vm905_consolidation_memory_guarded_20261027.py'
+      - 'gateway/solar/requests/vm905-memory-20261027.request'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-general-vm905-ram-guarded
+  cancel-in-progress: false
+jobs:
+  memory:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and inspect VM905 and safety archive
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/vm905_consolidation_memory_guarded_20261027.py
+          python3 gateway/solar/vm905_consolidation_memory_guarded_20261027.py --inspect
+      - name: Apply only with signed-off request file present
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ ! -f gateway/solar/requests/vm905-memory-20261027.request ]]; then
+            echo JNS_RAM_APPLY_NOT_REQUESTED=yes
+            exit 0
+          fi
+          python3 gateway/solar/vm905_consolidation_memory_guarded_20261027.py --apply
