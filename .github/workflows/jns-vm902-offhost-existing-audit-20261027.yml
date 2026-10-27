@@ -1,0 +1,21 @@
+name: JNS VM902 Offhost Archive Readonly Verify
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm902-offhost-existing-audit-20261027.yml'
+      - 'gateway/solar/vm902_offhost_existing_audit_20261027.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify existing backup integrity without any modification
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/vm902_offhost_existing_audit_20261027.py
+          python3 gateway/solar/vm902_offhost_existing_audit_20261027.py
