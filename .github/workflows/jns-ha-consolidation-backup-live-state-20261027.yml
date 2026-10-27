@@ -1,0 +1,22 @@
+name: JNS HA Consolidation Backup Live Status Readonly 2026-10-27
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-consolidation-backup-live-state-20261027.yml'
+      - 'gateway/solar/ha_consolidation_backup_live_state_20261027.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check backup progress and VM902 readiness with no writes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha_consolidation_backup_live_state_20261027.py
+          python3 gateway/solar/ha_consolidation_backup_live_state_20261027.py
