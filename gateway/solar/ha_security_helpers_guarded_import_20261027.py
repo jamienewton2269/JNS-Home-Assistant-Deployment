@@ -46,6 +46,11 @@ def fail(s):
  print("JNS_HELPER_IMPORT_BLOCKED="+s)
  raise SystemExit(79)
 if len(sys.argv)!=2:fail("invalid_args")
+try:
+ mem=pathlib.Path("/proc/meminfo").read_text()
+ m=re.search(r"(?m)^MemTotal:\s*(\d+)\s+kB",mem)
+ if not m or int(m.group(1))<1800*1024:fail("guest_ram_not_yet_2gb")
+except OSError:fail("guest_meminfo_unavailable")
 try:data=base64.b64decode(sys.argv[1],validate=True)
 except (ValueError,TypeError):fail("invalid_payload")
 if len(data)>180000 or not data:fail("size_invalid")
