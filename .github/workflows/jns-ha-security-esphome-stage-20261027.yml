@@ -1,0 +1,20 @@
+name: JNS HA-Security ESPHome Enrolment Inert Stage 2026-10-27
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-security-esphome-stage-20261027.yml'
+      - 'gateway/solar/ha_security_esphome_private_stage_20261027.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  stage:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate inert ESPHome source-export code
+        run: python3 -m py_compile gateway/solar/ha_security_esphome_private_stage_20261027.py
+      - name: Store encrypted-in-transit ESPHome metadata only on private Node B host
+        run: python3 gateway/solar/ha_security_esphome_private_stage_20261027.py
