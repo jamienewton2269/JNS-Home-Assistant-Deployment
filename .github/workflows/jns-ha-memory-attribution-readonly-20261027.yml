@@ -19,3 +19,5 @@ jobs:
           set -Eeuo pipefail
           python3 -m py_compile gateway/solar/ha_memory_attribution_readonly_20261027.py
           python3 gateway/solar/ha_memory_attribution_readonly_20261027.py
+
+# Verification rerun 2026-10-27 evening: post HA-Security integration and app reductions.
