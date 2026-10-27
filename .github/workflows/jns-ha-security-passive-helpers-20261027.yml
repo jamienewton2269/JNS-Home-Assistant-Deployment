@@ -1,0 +1,31 @@
+name: JNS HA-Security Passive Helpers Guarded Import 2026-10-27
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-security-passive-helpers-20261027.yml'
+      - 'gateway/solar/ha_security_helpers_guarded_import_20261027.py'
+      - 'gateway/solar/requests/ha-security-passive-helpers-20261027.request'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-security-passive-helpers-import
+  cancel-in-progress: false
+jobs:
+  import:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check safe package-import code
+        run: python3 -m py_compile gateway/solar/ha_security_helpers_guarded_import_20261027.py
+      - name: Gate helper-only source import and automated config validation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ ! -f gateway/solar/requests/ha-security-passive-helpers-20261027.request ]]; then
+            echo 'JNS_HELPER_IMPORT_NOT_REQUESTED=yes'
+            exit 0
+          fi
+          python3 gateway/solar/ha_security_helpers_guarded_import_20261027.py
