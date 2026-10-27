@@ -69,8 +69,8 @@ memory=re.search(r"^memory:\s*(\d+)\s*$",cfg,re.M)
 balloon=re.search(r"^balloon:\s*(\d+)\s*$",cfg,re.M)
 if not memory or not balloon:die("current_vm_memory_incomplete")
 oldmem=int(memory.group(1));oldballoon=int(balloon.group(1))
-if (oldmem,oldballoon)==(2048,0):
- print("JNS_VM905_MEMORY_ALREADY_CONFIGURED=yes",flush=True)
+if oldmem>=2048:
+ print("JNS_VM905_MEMORY_ALREADY_AT_LEAST_2G=yes",flush=True)
 elif (oldmem,oldballoon)!=(1024,768):
  die("unexpected_existing_memory_settings")
 if re.search(r"^pending:",cfg,re.M):die("preexisting_pending_config")
@@ -83,13 +83,13 @@ g=run(["qm","agent","905","ping"],25)
 if not g or g.returncode:die("guest_agent_unresponsive_before_change")
 if backup_905()<1024*1024 or backup_902()<1024*1024:die("archive_invalid_size")
 print("JNS_VM905_MEMORY_PRECONDITIONS_PASSED=yes",flush=True)
-if (oldmem,oldballoon)!=(2048,0):
+if oldmem<2048:
  change=run(["qm","set","905","--memory","2048","--balloon","0"],45)
  if not change or change.returncode:die("qm_set_rejected_check_private_proxmox_log")
 after=parse_config()
 m=re.search(r"^memory:\s*(\d+)\s*$",after,re.M)
 b=re.search(r"^balloon:\s*(\d+)\s*$",after,re.M)
-if not m or int(m.group(1))!=2048 or not b or int(b.group(1))!=0:
+if not m or int(m.group(1))<2048 or not b or (oldmem<2048 and int(b.group(1))!=0):
  die("new_config_does_not_match_requested")
 q=run(["qm","status","905"])
 if not q or q.returncode or q.stdout.strip()!="status: running":die("vm905_not_running_after_change")
@@ -101,10 +101,10 @@ try:
  j=json.loads(now.stdout) if now and now.returncode==0 else {}
  if isinstance(j.get("maxmem"),(int,float)):runtime_mib=round(j["maxmem"]/1048576)
 except ValueError:pass
-out={"configured_max_mib":2048,"ballooning_disabled":True,
+out={"configured_max_mib":int(m.group(1)),"ballooning_disabled":int(b.group(1))==0,
      "guest_running":True,"guest_agent_responded":agent_ok,
      "runtime_max_mib":runtime_mib,
-     "runtime_increase_confirmed":bool(runtime_mib and runtime_mib>=2048),
+     "runtime_at_least_2gb":bool(runtime_mib and runtime_mib>=2048),
      "guest_rebooted":False,"backup_gates_verified":True,
      "host_mem_available_before_mib":available}
 print("JNS_VM905_MEMORY_RESULT="+json.dumps(out,sort_keys=True),flush=True)
