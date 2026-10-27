@@ -1,0 +1,29 @@
+name: JNS HA-General 2GiB Guarded Memory Configuration
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-general-memory-guarded-20261027.yml'
+      - 'gateway/solar/ha_general_memory_guarded_20261027.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-general-memory-guarded
+  cancel-in-progress: false
+jobs:
+  change:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate safe memory operation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha_general_memory_guarded_20261027.py
+      - name: Revalidate both off-host backups and configure VM905 maximum memory without reboot
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 gateway/solar/ha_general_memory_guarded_20261027.py
