@@ -1,0 +1,23 @@
+name: JNS HA-General Passive Security Helpers Guarded Activation
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-general-security-helpers-activate-20261027.yml'
+      - 'gateway/solar/ha_general_security_helpers_activate_guarded_20261027.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-general-guarded-configuration-restart
+  cancel-in-progress: false
+jobs:
+  activate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate security passive helper activation gate
+        run: python3 -m py_compile gateway/solar/ha_general_security_helpers_activate_guarded_20261027.py
+      - name: Verify safeguards and activate staged passive helpers with a Core restart only if needed
+        run: python3 gateway/solar/ha_general_security_helpers_activate_guarded_20261027.py
