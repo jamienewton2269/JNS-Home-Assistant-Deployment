@@ -1,0 +1,23 @@
+name: JNS HA-General Mobile App Integration Guarded Enablement
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-general-mobile-app-guarded-20261027.yml'
+      - 'gateway/solar/ha_general_mobile_app_guarded_20261027.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-general-mobile-app-config
+  cancel-in-progress: false
+jobs:
+  enable:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate guarded Mobile App configuration script
+        run: python3 -m py_compile gateway/solar/ha_general_mobile_app_guarded_20261027.py
+      - name: Back up original configuration, enable Mobile App and verify Core
+        run: python3 gateway/solar/ha_general_mobile_app_guarded_20261027.py
