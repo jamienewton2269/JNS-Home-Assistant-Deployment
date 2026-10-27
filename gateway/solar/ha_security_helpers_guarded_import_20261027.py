@@ -53,7 +53,7 @@ for key in allowed:
   for n,marker in enumerate(markers):
    child=marker.group(1)
    end=markers[n+1].start() if n+1<len(markers) else len(fragment)
-   definition=fragment[marker.start():end].strip()
+   definition=fragment[marker.start():end].rstrip()
    if child in entries:
     if entries[child]==definition:exact_count+=1
     else:conflict_count+=1
