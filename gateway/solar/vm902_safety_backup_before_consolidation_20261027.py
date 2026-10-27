@@ -18,7 +18,10 @@ def remote(host,src,timeout=75):
  command=SSH+[host,shlex.join(["python3","-u","-c","exec(__import__('base64').b64decode('"+enc+"'))"])]
  try:r=subprocess.run(command,capture_output=True,text=True,timeout=timeout)
  except (OSError,subprocess.TimeoutExpired):fail(host+"_transport_timeout")
- if r.returncode:fail(host+"_remote_error_"+str(r.returncode))
+ if r.returncode:
+  markers=[x.strip() for x in r.stdout.splitlines() if x.startswith("PRIVATE_STAGE_BLOCKED=")]
+  for mark in markers[:1]: print("JNS_VM902_PRIVATE_GATE="+mark.split("=",1)[1][:72],flush=True)
+  fail(host+"_remote_error_"+str(r.returncode))
  return r.stdout
 A=r'''
 import os,subprocess,json,re,hashlib,time,sys
