@@ -94,6 +94,8 @@ def layout():
  except OSError:content=""
  out["packages_include_reference"]=bool(re.search(r"(?m)^\s*packages\s*:\s*!include_dir_",content))
  out["homeassistant_section_present"]=bool(re.search(r"(?m)^homeassistant\s*:",content))
+ out["default_config_declared"]=bool(re.search(r"(?m)^default_config\s*:",content))
+ out["mobile_app_explicitly_declared"]=bool(re.search(r"(?m)^mobile_app\s*:",content))
  for key in allowed:
   if re.search(r"(?m)^"+re.escape(key)+r"\s*:",content):
    out["main_sections"][key]=1
