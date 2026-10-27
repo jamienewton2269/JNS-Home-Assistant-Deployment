@@ -1,0 +1,21 @@
+name: JNS HA-General Post-Activation Readonly Smoke
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-general-post-activation-smoke-20261027.yml'
+      - 'gateway/solar/ha_general_post_activation_smoke_20261027.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify running HA-General, service containers, mobile integration and native helpers
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha_general_post_activation_smoke_20261027.py
+          python3 gateway/solar/ha_general_post_activation_smoke_20261027.py
