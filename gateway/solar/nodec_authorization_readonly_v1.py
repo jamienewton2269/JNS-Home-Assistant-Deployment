@@ -9,7 +9,8 @@ except (OSError,subprocess.TimeoutExpired):
  s="";except_bad=True;p=None
 names=("ALL","jns-gateway-exec","/usr/bin/install","/usr/bin/python3",
  "/usr/bin/bash","/bin/bash","/usr/bin/systemctl","/bin/systemctl",
- "/usr/sbin/pct","/usr/bin/rsync","/usr/bin/cp","/usr/bin/mv",
+ "/usr/sbin/pct","/usr/sbin/qm","/usr/bin/pvesh","/usr/bin/pvecm",
+ "/usr/bin/rsync","/usr/bin/cp","/usr/bin/mv",
  "/usr/bin/tar","/usr/local/sbin/")
 out={"status":"ok" if p is not None and p.returncode==0 else "unavailable",
      "declared_matching_command_categories":[],
