@@ -54,8 +54,6 @@ def safe(path,root):
     root=Path(root).resolve(strict=True)
     path=Path(path)
     require(path.is_relative_to(root),"path outside HA config")
-    for parent in (root,*list(path.relative_to(root).parents)[::-1]):
-        pass
     cur=root
     for part in path.relative_to(root).parts:
         cur=cur/part
@@ -172,7 +170,7 @@ def stage(root,candidate):
         raise
 
 def get_stage(root,stage_id):
-    require(stage_id.startswith(STAGE_PREFIX) and len(stage_id)==29 and
+    require(stage_id.startswith(STAGE_PREFIX) and len(stage_id)==30 and
             all(c in "0123456789abcdef" for c in stage_id[-8:]),"invalid stage id")
     root,comp,storage=paths(root)
     dest=root/ROOT_BACKUPS/stage_id
