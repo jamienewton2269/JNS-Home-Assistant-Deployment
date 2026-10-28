@@ -29,7 +29,7 @@ jobs:
             echo "-- server $server --"
             for name in sharp-printer.home.arpa sharp.home.arpa sharp-mfp.home.arpa sharp-mx.home.arpa; do
               if command -v dig >/dev/null 2>&1; then
-                result="$(dig +short +time=2 +tries=1 @"$server" "$name" A 2>/dev/null | head -3)"
+                result="$(dig +short +time=2 +tries=1 @"$server" "$name" A 2>/dev/null | head -3 || true)"
                 if [ -n "$result" ]; then printf '%s A %s\n' "$name" "$result"; fi
               else
                 timeout 3 nslookup "$name" "$server" 2>&1 | grep -E 'Name:|Address:' | tail -3 || true
