@@ -1,0 +1,16 @@
+name: JNS HA905 Docker Build Error Readonly
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-docker-build-error-readonly-20261028.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m py_compile gateway/solar/ha905_api_app_install_failure_readonly_20261028.py
+      - run: python3 gateway/solar/ha905_api_app_install_failure_readonly_20261028.py
