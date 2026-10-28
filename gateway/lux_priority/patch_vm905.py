@@ -50,10 +50,10 @@ def make_automation(raw):
  v=steps[0]['variables']
  require(all(x in v for x in ['e','priority','start_lux','dimmable','level']),'Existing Lux dimmer logic unexpected')
  choices=steps[1]['then'][0]['choose']
- require(len(choices)==6,'Lux choice branch count changed')
+ require(len(choices)==5,'Lux choice branch count changed')
  require(choices[0]['sequence'][0].get('action')=='homeassistant.turn_off','OFF branch not as audited')
  require(choices[0]['sequence'][1].get('action')=='input_text.set_value','OFF reason marker changed')
- require(choices[5]['sequence'][0].get('action')=='homeassistant.turn_on','Relay ON branch changed')
+ require(choices[4]['sequence'][0].get('action')=='homeassistant.turn_on','Relay ON branch changed')
  # Keep the existing manual-off and bedtime guards around the entire repeat.
  labels=controls.get('all_eligible','')
  require('lighting_lux_controlled' in labels and 'commissioned' in labels,'Existing commissioning protections missing')
@@ -83,7 +83,7 @@ def make_automation(raw):
  # Announce automatic OFF before transmitting to guard against MQTT feedback
  # getting captured as a user manual-OFF.
  choices[0]['sequence'][0],choices[0]['sequence'][1]=choices[0]['sequence'][1],choices[0]['sequence'][0]
- choices[5]['conditions'][0]['value_template']=("{{ not priority|bool and decision_lux|float < start_lux|float"
+ choices[4]['conditions'][0]['value_template']=("{{ not priority|bool and decision_lux|float < start_lux|float"
                                                   " and not dimmable }}")
  # Additional entity/rank/spacing state changes take effect immediately.
  trig=next(x for x in a['triggers'] if x.get('trigger')=='state' and isinstance(x.get('entity_id'),list))
