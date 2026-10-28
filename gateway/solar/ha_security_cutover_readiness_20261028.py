@@ -106,6 +106,32 @@ def main():
  v=ssh("nodeb",["python3","-c","exec(__import__('base64').b64decode('"+b+"'))"],27)
  lines=[x for x in (v or "").splitlines() if x.startswith("JNS_SECURITY_STAGE_READONLY=")]
  if len(lines)==1:print(lines[0],flush=True)
+ # Security handover may be in its approved, timed maintenance interval.
+ # Read-only freshness check: verify the Node A failsafe instead of treating
+ # deliberately stopped VM906 as an unexpected source-controller failure.
+ timer=ssh("nodea",["systemctl","is-active","jns-ha906-recovery-20261028.timer"],17)
+ timer_active=bool(timer and timer.strip()=="active")
+ target_config=ssh("nodeb",["qm","config","905"],17) or ""
+ native_src='''import json,pathlib
+p=pathlib.Path("/config/packages/jns_ha_security_native_cutover_20261028_v2.yaml")
+s=p.read_text() if p.is_file() and not p.is_symlink() else ""
+print("JNS_NATIVE_CUTOVER_AUDIT="+json.dumps({"package_present":bool(s),"manual_alarm_present":"alarm_control_panel:" in s,"disabled_automations_declared":s.count("initial_state: false"),"esphome_entry_known":False},sort_keys=True))
+'''
+ payload=base64.b64encode(native_src.encode()).decode()
+ check=guest("nodeb",905,["docker","exec","homeassistant","python3","-c","exec(__import__('base64').b64decode('"+payload+"'))"])
+ marker=[x.split("=",1)[1] for x in str((check or {}).get("out-data","")).splitlines() if x.startswith("JNS_NATIVE_CUTOVER_AUDIT=")]
+ try: native=json.loads(marker[0]) if len(marker)==1 else None
+ except ValueError:native=None
+ source=summaries.get("security",{})
+ general=summaries.get("general",{})
+ primary=summaries.get("primary",{})
+ source_offline=not source.get("running") and ssh("nodea",["qm","status","906"],17)=="status: stopped\\n"
+ gates={"vm905_running":bool(general.get("running")),"vm902_running":bool(primary.get("running")),
+        "vm906_running":bool(source.get("running")),"vm906_isolated":source_offline,
+        "vm906_recovery_timer_active":timer_active,"native_alarm_v2":native,
+        "vm905_name_guard":bool(re.search(r"(?m)^name: ha-s2-general$",target_config))}
+ print("JNS_SECURITY_POSTCUTOVER_READONLY="+json.dumps(gates,sort_keys=True),flush=True)
  print("JNS_HA_CUTOVER_READ_ONLY=yes",flush=True)
- return 0 if all(v.get("running") and isinstance(v.get("core"),dict) for v in summaries.values()) else 1
+ security_safe=bool(source.get("running") and isinstance(source.get("core"),dict)) or bool(source_offline and timer_active and isinstance(native,dict) and native.get("package_present") and native.get("disabled_automations_declared")==6)
+ return 0 if (general.get("running") and isinstance(general.get("core"),dict) and primary.get("running") and isinstance(primary.get("core"),dict) and security_safe) else 1
 if __name__=="__main__":raise SystemExit(main())
