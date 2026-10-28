@@ -1,2 +1,3 @@
 mode=read-only
 scope=vm905-current-lux-controller-dashboard-and-labels
+retry=2-fixed-label-registry
