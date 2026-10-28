@@ -1,0 +1,59 @@
+name: JNS Verify Restored Security Controller Before HA905 Handback
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-urgent-verify-vm906-restored-20261028.yml'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify security source, registered ESPHome owner and fenced target
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import subprocess,shlex,json,base64,os,time
+          ssh=["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes","-o","ConnectTimeout=6"]
+          def run(n,args,timeout=25):
+              return subprocess.run(ssh+[n,shlex.join(args)],capture_output=True,text=True,timeout=timeout)
+          a=run("nodea",["qm","status","906"])
+          b=run("nodeb",["qm","status","905"])
+          assert a.returncode==0 and a.stdout.strip()=="status: running"
+          assert b.returncode==0 and b.stdout.strip()=="status: paused"
+          p=run("nodea",["qm","guest","exec","906","--","ha","core","info"],35)
+          assert p.returncode==0
+          x=json.loads(p.stdout)
+          if not x.get("exited"):
+              for _ in range(20):
+                  time.sleep(1)
+                  p=run("nodea",["qm","guest","exec-status","906",str(x["pid"])])
+                  x=json.loads(p.stdout)
+                  if x.get("exited"):break
+          assert x.get("exitcode")==0,"HA906 Core unavailable"
+          script='''import pathlib,json
+          p=pathlib.Path("/config/.storage/core.config_entries")
+          a=json.loads(p.read_text())["data"]["entries"]
+          n=sum(x.get("domain")=="esphome" and not x.get("disabled_by") for x in a if isinstance(x,dict))
+          print("JNS_906_ESP_ACTIVE="+str(n))
+          '''
+          script="\n".join(line[10:] if line.startswith("          ") else line for line in script.splitlines())
+          data=base64.b64encode(script.encode()).decode()
+          q=run("nodea",["qm","guest","exec","906","--","docker","exec","homeassistant","python3","-c",
+             "exec(__import__('base64').b64decode("+repr(data)+"))"],35)
+          assert q.returncode==0
+          x=json.loads(q.stdout)
+          if not x.get("exited"):
+              for _ in range(20):
+                  time.sleep(1)
+                  q=run("nodea",["qm","guest","exec-status","906",str(x["pid"])])
+                  x=json.loads(q.stdout)
+                  if x.get("exited"):break
+          assert x.get("exitcode")==0 and "JNS_906_ESP_ACTIVE=1" in str(x.get("out-data",""))
+          print("JNS_906_RESTORED_CORE_ESPHOME=healthy_1_active_entry")
+          print("JNS_905_TARGET=paused_fenced")
+          PY
