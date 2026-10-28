@@ -1,0 +1,25 @@
+name: JNS HA Security Cutover Readiness Readonly 2026-10-28
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-security-cutover-readiness-20261028.yml'
+      - 'gateway/solar/ha_security_cutover_readiness_20261028.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-security-readonly-cutover
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only mobile and native-security readiness via Proxmox guest agent
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha_security_cutover_readiness_20261028.py
+          python3 gateway/solar/ha_security_cutover_readiness_20261028.py
