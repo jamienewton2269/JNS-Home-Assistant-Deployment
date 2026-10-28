@@ -1,0 +1,204 @@
+# JNS_LUX_PRIORITY_LADDER_V1
+# Dynamic per-light ordinal stages, user-adjustable order and inclusion.
+# Scoped to known existing Lux lights; two additional lights are opt-in only.
+# Real lux/weather/sun fallback, Bedtime and manual-off remain in existing controller.
+input_boolean:
+  jns_lux_ladder_initialized:
+    name: Lux ladder initialized
+    icon: mdi:check-decagram
+  jns_lux_include_hall:
+    name: "Lux Priority - Hallway Centre enabled"
+    icon: mdi:lightbulb-auto
+  jns_lux_include_front:
+    name: "Lux Priority - Hallway Front Door enabled"
+    icon: mdi:lightbulb-auto
+  jns_lux_include_worktop:
+    name: "Lux Priority - Kitchen Worktop enabled"
+    icon: mdi:lightbulb-auto
+  jns_lux_include_snug:
+    name: "Lux Priority - Snug Corner enabled"
+    icon: mdi:lightbulb-auto
+  jns_lux_include_radiator:
+    name: "Lux Priority - Kitchen Radiator enabled"
+    icon: mdi:lightbulb-auto
+  jns_lux_include_tripod:
+    name: "Lux Priority - Tree House Tripod enabled"
+    icon: mdi:lightbulb-auto
+  jns_lux_include_living:
+    name: "Lux Priority - Living Room Pendant enabled"
+    icon: mdi:lightbulb-auto
+  jns_lux_include_sofa:
+    name: "Lux Priority - Snug Sofa LED enabled"
+    icon: mdi:lightbulb-auto
+
+input_number:
+  jns_lux_ladder_stage_gap:
+    name: Lux Lighting - Gap between consecutive lights
+    min: 100
+    max: 750
+    step: 50
+    mode: slider
+    unit_of_measurement: lx
+    icon: mdi:stairs-up
+  jns_lux_rank_hall:
+    name: "Lux Priority - Hallway Centre position"
+    min: 1
+    max: 8
+    step: 1
+    mode: slider
+    icon: mdi:sort-numeric-ascending
+  jns_lux_rank_front:
+    name: "Lux Priority - Hallway Front Door position"
+    min: 1
+    max: 8
+    step: 1
+    mode: slider
+    icon: mdi:sort-numeric-ascending
+  jns_lux_rank_worktop:
+    name: "Lux Priority - Kitchen Worktop position"
+    min: 1
+    max: 8
+    step: 1
+    mode: slider
+    icon: mdi:sort-numeric-ascending
+  jns_lux_rank_snug:
+    name: "Lux Priority - Snug Corner position"
+    min: 1
+    max: 8
+    step: 1
+    mode: slider
+    icon: mdi:sort-numeric-ascending
+  jns_lux_rank_radiator:
+    name: "Lux Priority - Kitchen Radiator position"
+    min: 1
+    max: 8
+    step: 1
+    mode: slider
+    icon: mdi:sort-numeric-ascending
+  jns_lux_rank_tripod:
+    name: "Lux Priority - Tree House Tripod position"
+    min: 1
+    max: 8
+    step: 1
+    mode: slider
+    icon: mdi:sort-numeric-ascending
+  jns_lux_rank_living:
+    name: "Lux Priority - Living Room Pendant position"
+    min: 1
+    max: 8
+    step: 1
+    mode: slider
+    icon: mdi:sort-numeric-ascending
+  jns_lux_rank_sofa:
+    name: "Lux Priority - Snug Sofa LED position"
+    min: 1
+    max: 8
+    step: 1
+    mode: slider
+    icon: mdi:sort-numeric-ascending
+
+template:
+  - binary_sensor:
+      - name: JNS Lux Priority Bright Stable
+        unique_id: jns_lux_priority_bright_stable
+        icon: mdi:weather-sunny-alert
+        delay_on: "00:20:00"
+        delay_off: "00:00:00"
+        state: >-
+          {% set n = namespace(count=0) %}
+          {% if is_state('input_boolean.jns_lux_include_hall', 'on') %}{% set n.count=n.count+1 %}{% endif %}
+          {% if is_state('input_boolean.jns_lux_include_front', 'on') %}{% set n.count=n.count+1 %}{% endif %}
+          {% if is_state('input_boolean.jns_lux_include_worktop', 'on') %}{% set n.count=n.count+1 %}{% endif %}
+          {% if is_state('input_boolean.jns_lux_include_snug', 'on') %}{% set n.count=n.count+1 %}{% endif %}
+          {% if is_state('input_boolean.jns_lux_include_radiator', 'on') %}{% set n.count=n.count+1 %}{% endif %}
+          {% if is_state('input_boolean.jns_lux_include_tripod', 'on') %}{% set n.count=n.count+1 %}{% endif %}
+          {% if is_state('input_boolean.jns_lux_include_living', 'on') %}{% set n.count=n.count+1 %}{% endif %}
+          {% if is_state('input_boolean.jns_lux_include_sofa', 'on') %}{% set n.count=n.count+1 %}{% endif %}
+          {% set base = states('input_number.general_outdoor_lighting_on_lux') | float(2500) %}
+          {% set early = states('input_number.general_lux_priority_boost') | float(1000) %}
+          {% set step = states('input_number.jns_lux_ladder_stage_gap') | float(350) %}
+          {% set hysteresis = states('input_number.general_lighting_lux_hysteresis') | float(400) %}
+          {% set effective = states('sensor.jns_lighting_effective_lux') %}
+          {% set last = [100, base + early - ([n.count-1,0]|max)*step] | max %}
+          {{ is_state('input_boolean.jns_lux_ladder_initialized','on')
+             and n.count > 0 and not is_state('binary_sensor.outdoor_raining','on')
+             and is_number(effective) and effective | float >= last + hysteresis }}
+
+automation:
+  - id: jns_lux_ladder_bootstrap_v1
+    alias: JNS Lux - Initialize priority ladder only once
+    mode: single
+    triggers:
+      - trigger: homeassistant
+        event: start
+    conditions:
+      - condition: state
+        entity_id: input_boolean.jns_lux_ladder_initialized
+        state: "off"
+    actions:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.jns_lux_include_hall
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.jns_lux_include_front
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.jns_lux_include_worktop
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.jns_lux_include_snug
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.jns_lux_include_radiator
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.jns_lux_include_tripod
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.jns_lux_rank_hall
+        data:
+          value: 1
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.jns_lux_rank_front
+        data:
+          value: 2
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.jns_lux_rank_worktop
+        data:
+          value: 3
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.jns_lux_rank_snug
+        data:
+          value: 4
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.jns_lux_rank_radiator
+        data:
+          value: 5
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.jns_lux_rank_tripod
+        data:
+          value: 6
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.jns_lux_rank_living
+        data:
+          value: 7
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.jns_lux_rank_sofa
+        data:
+          value: 8
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.jns_lux_ladder_stage_gap
+        data:
+          value: 350
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.jns_lux_ladder_initialized
