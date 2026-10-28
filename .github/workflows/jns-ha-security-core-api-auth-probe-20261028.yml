@@ -1,4 +1,5 @@
 name: JNS Security Core API Authentication Route Readonly
+# After 40771120553 HTTPError, inspect only status codes in existing containers.
 on:
   push:
     branches: [main]
