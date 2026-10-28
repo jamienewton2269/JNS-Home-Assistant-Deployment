@@ -1,2 +1,3 @@
 check=alarm-state-heating-controller
 mode=read-only
+check=daytime-setpoint-readback
