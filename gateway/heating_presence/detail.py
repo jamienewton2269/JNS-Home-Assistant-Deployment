@@ -8,12 +8,12 @@ import pathlib,re,json,yaml,sqlite3,datetime
 R=pathlib.Path('/config')
 out={}
 out['yaml_dashboard_locations']=[]
-config=yaml.safe_load((R/'configuration.yaml').read_text())
-lovelace=config.get('lovelace') if isinstance(config,dict) else None
-out['lovelace_config']=lovelace
+raw_config=(R/'configuration.yaml').read_text()
+out['lovelace_config_lines']=[{'line':i+1,'text':x[:210]} for i,x in enumerate(raw_config.splitlines()) if re.search(r'lovelace:|dashboards:|mode:|filename:|testing.yaml|general.yaml',x)][:25]
 for p in [R/'dashboards/general.yaml',R/'dashboards/testing.yaml']:
  raw=p.read_text()
- v=yaml.safe_load(raw)
+ try:v=yaml.safe_load(raw)
+ except Exception as e:out.setdefault('dashboard_errors',[]).append(type(e).__name__);v={}
  views=v.get('views',[]) if isinstance(v,dict) else []
  panel=[]
  for view in views:
@@ -42,6 +42,14 @@ if p.exists():
   out['recorder_alarm_history']=[{'id':a,'state':b,'time_utc':datetime.datetime.fromtimestamp(t,datetime.timezone.utc).isoformat() if t else None} for a,b,t in rows]
   conn.close()
  except Exception as e:out['recorder_error']=type(e).__name__
+base=R/'custom_components/jns_heating_zones'
+out['heating_engine_files']=[str(p.relative_to(R)) for p in base.rglob('*.py')][:45] if base.is_dir() else []
+for f in list(base.glob('*.py')) if base.is_dir() else []:
+ try:lines=f.read_text().splitlines()
+ except:continue
+ rx=re.compile(r'climate\.set_temperature|async_call|preheat|prediction|predictive|setpoint|target_temp|schedule|lead_time|forecast|comfort|morning|learn',re.I)
+ hits=[{'line':i+1,'text':x[:170]} for i,x in enumerate(lines) if rx.search(x)]
+ if hits:out.setdefault('heating_engine_refs',{})[str(f.relative_to(R))]=hits[:70]
 print('JNS_ALARM_DASH_DETAIL',json.dumps(out,default=str))
 '''
 def guest(args):
