@@ -1,0 +1,61 @@
+name: JNS Sharp Printer DNS and DHCP Read Only
+on:
+  push:
+    branches: [diagnostics/sharp-printer-dns-20261028]
+    paths:
+      - .github/workflows/jns-sharp-printer-dns-readonly-20261028.yml
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - name: Read only hostname, DHCP leases and DNS evidence
+        shell: bash
+        run: |
+          set -u
+          echo "=== SHARP PRINTER DNS/DHCP READ-ONLY INSPECTION ==="
+          date -u -Is
+          echo "=== Node C local JNS dynamic DNS and lease source files ==="
+          for d in /mnt/jns-dns-master/jns-dns/dynamic-dns /mnt/jns-dns-master/jns-dns/leases /mnt/jns-dns-master/jns-dns/config /mnt/jns-dns-master/jns-dns; do
+            if [ -d "$d" ]; then
+              find "$d" -maxdepth 2 -type f \( -name '*.tsv' -o -name '*lease*' -o -name '*hosts*' -o -name '*.csv' \) -size -10M -print0 2>/dev/null |
+                xargs -0 -r grep -inEi 'sharp|printer|(^|[^a-z])(mx|bp)[-_]?[0-9]{3,4}' 2>/dev/null | head -60 || true
+            fi
+          done
+          echo "=== DNS candidate names against onsite DNS replicas ==="
+          for server in 10.10.110.247 10.10.110.248 10.10.10.247 10.10.10.248; do
+            echo "-- server $server --"
+            for name in sharp-printer.home.arpa sharp.home.arpa sharp-mfp.home.arpa sharp-mx.home.arpa; do
+              if command -v dig >/dev/null 2>&1; then
+                result="$(dig +short +time=2 +tries=1 @"$server" "$name" A 2>/dev/null | head -3)"
+                if [ -n "$result" ]; then printf '%s A %s\n' "$name" "$result"; fi
+              else
+                timeout 3 nslookup "$name" "$server" 2>&1 | grep -E 'Name:|Address:' | tail -3 || true
+              fi
+            done
+          done
+          echo "=== DHCP and DNS container lease/config matches on Node A and B ==="
+          for host in nodea nodeb; do
+            echo "--- Host $host ---"
+            ssh -o BatchMode=yes -o ConnectTimeout=7 -o StrictHostKeyChecking=accept-new "$host" 'bash -s' <<'REMOTE' || echo "Host read-only probe unavailable"
+          for ct in 247 248 249; do
+            if pct status "$ct" 2>/dev/null | grep -q running; then
+              echo "Container CT$ct"
+              pct exec "$ct" -- sh -c '
+                for f in /var/lib/misc/dnsmasq.leases /var/lib/dnsmasq/dnsmasq.leases /run/dnsmasq/dnsmasq.leases /etc/hosts /etc/dnsmasq.conf /etc/jns-ct247/dnsmasq.conf; do
+                  if [ -r "$f" ]; then
+                    grep -inEi "sharp|printer|(^|[^a-z])(mx|bp)[-_]?[0-9]{3,4}" "$f" 2>/dev/null | head -20 | sed "s|^|$f:|"
+                  fi
+                done
+                if [ -d /mnt ]; then
+                  find /mnt -maxdepth 5 -type f \( -name "*lease*" -o -name "*.tsv" -o -name "*hosts*" \) -size -10M -print0 2>/dev/null |
+                    xargs -0 -r grep -inEi "sharp|printer|(^|[^a-z])(mx|bp)[-_]?[0-9]{3,4}" 2>/dev/null | head -30 || true
+                fi
+              ' || true
+            fi
+          done
+          REMOTE
+          done
+          echo "=== READ-ONLY INSPECTION COMPLETE ==="
