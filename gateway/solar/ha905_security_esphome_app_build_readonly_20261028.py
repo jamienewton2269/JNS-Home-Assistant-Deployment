@@ -35,7 +35,7 @@ try:
  o["available"]=data.get("available") if isinstance(data,dict) else None
  o["state"]=data.get("state") if isinstance(data,dict) else None
  o["version_present"]=bool(data.get("version")) if isinstance(data,dict) else False
- o["version_expected"]=bool(isinstance(data,dict) and data.get("version")=="0.1.0")
+ o["version_expected"]=bool(isinstance(data,dict) and data.get("version")=="0.1.1")
  o["image_reference_present"]=bool(data.get("image")) if isinstance(data,dict) else False
  o["state_indicates_installed"]=bool(isinstance(data,dict) and data.get("version") and data.get("state") in ("stopped","started","running"))
 
