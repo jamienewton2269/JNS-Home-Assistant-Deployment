@@ -94,7 +94,7 @@ seq=a[0]['actions']
 assert seq[0]=={'action':'climate.set_temperature','target':{'entity_id':'climate.thermostat_thermostat'},'data':{'temperature':18},'continue_on_error':True}
 assert seq[1]=={'action':'script.jns_bedtime_shutdown'}
 registry=json.loads(pathlib.Path('/config/.storage/core.entity_registry').read_text())['data']['entities']
-assert any(x.get('entity_id')=='automation.jns_bedtime_dashboard_or_hallway_activation' and not x.get('disabled_by') for x in registry)
+assert any(x.get('platform')=='automation' and not x.get('disabled_by') and (x.get('unique_id')=='jns_bedtime_trigger_on_mode' or x.get('entity_id')=='automation.jns_bedtime_dashboard_or_hallway_activation') for x in registry)
 print('JNS_HEAT18_POST_RESTART_VERIFIED',json.dumps({'thermostat_target':18,'bedtime_automation_present':True,'script_preserved':True,'file_sha256':hashlib.sha256(p.read_bytes()).hexdigest()}))
 '''
 HTTP=r'''
