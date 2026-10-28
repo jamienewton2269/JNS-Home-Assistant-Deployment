@@ -1,0 +1,59 @@
+name: JNS Independent Two HA Post-Rollback Health Verification
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-post-rollback-two-ha-health-20261028.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only verify HA906 owner and HA905 non-owner Core health
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import subprocess,shlex,json,time,base64
+          ssh=["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes","-o","ConnectTimeout=6"]
+          def run(n,a,timeout=26):
+           return subprocess.run(ssh+[n,shlex.join(a)],capture_output=True,text=True,timeout=timeout)
+          def run_qga(node,vm,argv):
+           p=run(node,["qm","guest","exec",str(vm),"--",*argv],32)
+           if p.returncode:return False,None
+           try:j=json.loads(p.stdout)
+           except (ValueError,TypeError):return False,None
+           for _ in range(25):
+            if j.get("exited"):return j.get("exitcode")==0,j
+            time.sleep(.8)
+            p=run(node,["qm","guest","exec-status",str(vm),str(j["pid"])],25)
+            if p.returncode:return False,None
+            j=json.loads(p.stdout)
+           return False,None
+          s=run("nodea",["qm","status","906"])
+          t=run("nodeb",["qm","status","905"])
+          assert s.returncode==0 and s.stdout.strip()=="status: running"
+          assert t.returncode==0 and t.stdout.strip()=="status: running"
+          for node,vm in (("nodea",906),("nodeb",905)):
+           ok,j=run_qga(node,vm,["ha","core","info"])
+           assert ok,"HA Core not responding: "+str(vm)
+          SCRIPT='''import pathlib,json
+          p=pathlib.Path("/config/.storage/core.config_entries")
+          a=json.loads(p.read_text()).get("data",{}).get("entries",[])
+          print("JNS_SAFE_ESPHOME_COUNT="+str(sum(x.get("domain")=="esphome" and not x.get("disabled_by") for x in a if isinstance(x,dict))))
+          '''
+          SCRIPT="\n".join(x[10:] if x.startswith("          ") else x for x in SCRIPT.splitlines())
+          code=base64.b64encode(SCRIPT.encode()).decode()
+          for node,vm,n in (("nodea",906,1),("nodeb",905,0)):
+           ok,j=run_qga(node,vm,["docker","exec","homeassistant","python3","-c",
+             "exec(__import__('base64').b64decode("+repr(code)+"))"])
+           assert ok and "JNS_SAFE_ESPHOME_COUNT="+str(n) in str(j.get("out-data",""))
+          timer=run("nodea",["systemctl","is-active","jns-ha906-recovery-20261028.timer"])
+          assert timer.returncode!=0 or timer.stdout.strip()!="active"
+          print("JNS_POST_ROLLBACK_HEALTH="+json.dumps({"source_vm906":"running_core_ok_1_security_integration",
+            "target_vm905":"running_core_ok_0_security_integrations",
+            "nodea_recovery_timer_active":False},sort_keys=True))
+          PY
