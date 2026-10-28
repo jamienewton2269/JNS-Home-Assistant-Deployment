@@ -1,7 +1,7 @@
 name: "JNS HA905 Core Auth Readonly Diagnostic"
-version: "0.1.0"
+version: "0.1.1"
 slug: "jns_ha905_core_auth_readonly"
-description: "One-shot status-only Supervisor/Core API authentication probe; no flow writes"
+description: "One-shot GET plus schema-invalid POST auth test; no configuration flow can start"
 arch:
   - amd64
 startup: once
