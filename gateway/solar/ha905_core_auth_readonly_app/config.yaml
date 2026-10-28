@@ -1,0 +1,22 @@
+name: "JNS HA905 Core Auth Readonly Diagnostic"
+version: "0.1.0"
+slug: "jns_ha905_core_auth_readonly"
+description: "One-shot status-only Supervisor/Core API authentication probe; no flow writes"
+arch:
+  - amd64
+startup: once
+boot: manual_only
+stage: experimental
+init: false
+homeassistant_api: true
+hassio_api: false
+hassio_role: default
+auth_api: false
+docker_api: false
+host_network: false
+full_access: false
+stdin: false
+tmpfs: true
+ports: {}
+options: {}
+schema: {}
