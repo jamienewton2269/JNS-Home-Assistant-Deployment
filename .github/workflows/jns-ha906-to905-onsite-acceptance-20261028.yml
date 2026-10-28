@@ -1,0 +1,28 @@
+name: JNS HA905 Security Physical Check Acceptance
+on:
+  workflow_dispatch:
+    inputs:
+      onsite_physical_security_checks_passed:
+        description: "I personally verified HA905 alarm, doorbell, tamper, safe outputs and dashboard; accept exclusive ownership"
+        required: true
+        type: boolean
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-security-single-owner-cutover
+  cancel-in-progress: false
+jobs:
+  accept:
+    if: inputs.onsite_physical_security_checks_passed == true
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    env:
+      JNS_ONSITE_PHYSICAL_SECURITY_CHECKS_PASSED: ${{ inputs.onsite_physical_security_checks_passed }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify physical acceptance, retire administrator app and disarm rollback
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha906_to_905_accept_operator_20261028.py
+          python3 gateway/solar/ha906_to_905_accept_operator_20261028.py
