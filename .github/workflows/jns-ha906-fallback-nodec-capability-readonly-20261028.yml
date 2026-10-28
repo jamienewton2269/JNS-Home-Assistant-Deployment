@@ -1,0 +1,37 @@
+name: JNS Security Fallback Gateway Execution Capability Readonly
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha906-fallback-nodec-capability-readonly-20261028.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only Node C and Node B recovery execution capabilities
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import subprocess,json,os
+          def run(args,timeout=18):
+              try:return subprocess.run(args,capture_output=True,text=True,timeout=timeout)
+              except (OSError,subprocess.TimeoutExpired):return None
+          ssh=["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes","-o","ConnectTimeout=5"]
+          a=run(["systemctl","--version"],10)
+          b=run(ssh+["nodeb","ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=5 nodea hostname"],20)
+          c=run(["systemctl","is-system-running"],12)
+          d=run(ssh+["nodeb","test -f /mnt/pve/NAS/dump/jns-vm906-agent-recovery-20261026-v1/MANIFEST.json"],17)
+          e=run(["sudo","-n","true"],10)
+          print("JNS_RECOVERY_GATEWAY_CAPABILITY="+json.dumps({
+             "nodec_uid":os.geteuid(),"systemd_exists":bool(a and a.returncode==0),
+             "systemd_state_known":bool(c),"nodeb_to_nodea_ssh":bool(b and b.returncode==0 and "nodea" in b.stdout),
+             "nodeb_backup_manifest_present":bool(d and d.returncode==0),
+             "nodec_passwordless_sudo":bool(e and e.returncode==0)
+          },sort_keys=True))
+          PY
