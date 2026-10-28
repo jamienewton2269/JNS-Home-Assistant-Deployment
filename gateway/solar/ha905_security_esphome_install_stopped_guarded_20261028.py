@@ -164,6 +164,17 @@ def main():
     for line in (r.stdout if r else "").splitlines():
         if line.startswith("JNS_SECURITY_APP_PREP_"):print(line,flush=True)
     if not r or r.returncode:
+        if r:
+            print("JNS_SECURITY_APP_PREP_REMOTE_EXIT="+str(r.returncode),flush=True)
+            error=r.stderr or ""
+            diagnosis=("python_syntax" if "SyntaxError:" in error else
+                       "python_name" if "NameError:" in error else
+                       "python_import" if "ImportError:" in error else
+                       "python_indentation" if "IndentationError:" in error else
+                       "ssh_auth" if "Permission denied" in error else
+                       "ssh_transport" if "Connection refused" in error or "Host key verification failed" in error else
+                       "remote_unclassified")
+            print("JNS_SECURITY_APP_PREP_DIAGNOSTIC="+diagnosis,flush=True)
         print("JNS_SECURITY_APP_PREP_BLOCKED=installation_or_validation_incomplete");return 1
     if not vm_ok("nodea",906,"ha-security"):
         print("JNS_SECURITY_APP_PREP_BLOCKED=source_owner_changed");return 1
