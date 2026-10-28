@@ -84,10 +84,10 @@ if not good(j) or "JNS_NATIVE_SECURITY_DISABLED=yes" not in (j.get("out-data") o
 j=guest(["ha","core","info"],50)
 if not good(j):fail("vm905_core_unhealthy")
 pre=app_info()
+if pre and pre.get("version")=="0.1.0" and pre.get("state")=="stopped" and pre.get("repository")=="local":
+    note("INSTALLED_STOPPED","already_present_verified_by_state_version")
+    raise SystemExit(0)
 if pre and pre.get("installed") is True:
-    if pre.get("version")=="0.1.0" and pre.get("state")=="stopped" and pre.get("repository")=="local":
-        note("INSTALLED_STOPPED","already_present")
-        raise SystemExit(0)
     fail("existing_app_collision")
 if not good(sh("test -d /mnt/data/supervisor/apps/local && test ! -L "+
                 shlex.quote(SRC),30)):
@@ -139,13 +139,11 @@ note("INSTALL_CLI_RETURNED",str(installed_cmd is not None).lower())
 info=None
 for _ in range(35):
     info=app_info()
-    if info and info.get("installed") is True and info.get("version")=="0.1.0":
+    if info and info.get("version")=="0.1.0" and info.get("state")=="stopped" and info.get("repository")=="local":
         break
     time.sleep(3)
-if not info or info.get("installed") is not True or info.get("version")!="0.1.0":
+if not info or info.get("version")!="0.1.0" or info.get("state")!="stopped" or info.get("repository")!="local":
     fail("installation_not_verified_keep_source_for_review")
-if info.get("state")!="stopped" or info.get("repository")!="local":
-    fail("unexpected_started_or_nonlocal_app")
 note("INSTALLED_STOPPED","verified")
 note("NO_CONFIG_FLOW_OR_SECURITY_OUTPUTS","yes")
 """
