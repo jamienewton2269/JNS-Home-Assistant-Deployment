@@ -1,0 +1,28 @@
+name: JNS Heating v0.3.6 Root Policy Offline Tests
+on:
+  push:
+    branches:
+      - 'dev/heating-thermal-learning-v035-20261024'
+    paths:
+      - '.github/workflows/jns-heating-v036-root-offline-tests.yml'
+      - 'gateway/heating/v0.3.5/v036_*.py'
+      - 'gateway/heating/v0.3.5/test_v036_*.py'
+permissions:
+  contents: read
+concurrency:
+  group: heating-v036-offline-policy
+  cancel-in-progress: true
+jobs:
+  offline-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python syntax only - no production access or secrets
+        run: |
+          python3 -m py_compile gateway/heating/v0.3.5/v036_release_policy.py
+          python3 -m py_compile gateway/heating/v0.3.5/v036_root_operator.py
+          python3 -m py_compile gateway/heating/v0.3.5/v036_local_approval.py
+      - name: Offline release safety regression suite
+        run: |
+          python3 -m unittest discover -v -s gateway/heating/v0.3.5 -p 'test_v036_*.py'
