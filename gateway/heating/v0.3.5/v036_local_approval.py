@@ -55,7 +55,7 @@ def main():
     job={"job_id":job_id,"job_type":JOB_TYPE,"stage_id":STAGE}
     permit={"job_id":job_id,"operation":OPERATION,"stage_id":STAGE,
             "candidate_sha256":CANDIDATE["thermal.py"],
-            "heating_outage_approved":True,
+            "heating_outage_approved":True,"consolidation_quiet_approved":True,
             "expires_utc":(now+timedelta(minutes=8)).isoformat()}
     approve(job,permit,now)
     private_create(DEST/"job.json",job)
