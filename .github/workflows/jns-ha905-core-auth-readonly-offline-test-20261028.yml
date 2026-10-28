@@ -1,5 +1,5 @@
 name: JNS HA905 Core Auth Readonly Diagnostic Offline Tests
-# v0.1.2 regression after Python expected-value correction; offline only.
+# v0.1.2 final offline: verify no-device-details marker true and blank flow cleanup.
 on:
   push:
     branches: [main]
