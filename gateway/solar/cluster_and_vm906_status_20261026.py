@@ -53,6 +53,12 @@ if host=="nodea":
  out["ha_security_recovery_timer_active"]=bool(p and p.returncode==0 and p.stdout.strip()=="active")
  p=run(["systemctl","is-failed","jns-ha906-recovery-20261028.service"])
  out["ha_security_recovery_service_failed"]=bool(p and p.stdout.strip()=="failed")
+ p=run(["free","-m"])
+ if p:
+  row=[x for x in p.stdout.splitlines() if x.startswith("Mem:")]
+  if row:
+   b=row[0].split()
+   if len(b)>6:out["available_memory_mib"]=int(b[6])
 if host=="nodeb":
  p=run(["qm","status","905"])
  out["ha_general_vm905_running"]=bool(p and p.returncode==0 and p.stdout.strip()=="status: running")
@@ -125,12 +131,14 @@ print("NODEC="+json.dumps(c,sort_keys=True))
 print("NODE_A_B_GUEST_VMID_COLLISIONS="+json.dumps(ab))
 print("NODEA_LOCAL_VMID_COLLISIONS="+json.dumps(sorted(cross_types_a)))
 print("NODEB_LOCAL_VMID_COLLISIONS="+json.dumps(sorted(cross_types_b)))
-print("NODE_A_C_GUEST_VMID_COLLISIONS="+json.dumps(sorted(ids(a)&ids(c))))
-print("NODE_B_C_GUEST_VMID_COLLISIONS="+json.dumps(sorted(ids(b)&ids(c))))
+nodec_inventory_known="vm_ids" in c and "ct_ids" in c
+print("NODE_A_C_GUEST_VMID_COLLISIONS="+json.dumps(sorted(ids(a)&ids(c)) if nodec_inventory_known else "unknown_nodec_inventory_unreadable"))
+print("NODE_B_C_GUEST_VMID_COLLISIONS="+json.dumps(sorted(ids(b)&ids(c)) if nodec_inventory_known else "unknown_nodec_inventory_unreadable"))
 print("JNS_CLUSTER_MIGRATION_GATES="+json.dumps({
  "nodea_standalone":a.get("reachable")==True and a.get("corosync_conf_present")==False,
  "nodeb_standalone":b.get("reachable")==True and b.get("corosync_conf_present")==False,
  "nodec_runner":c.get("host")=="nodec",
+ "nodec_guest_inventory_verified":nodec_inventory_known,
  "nodea_ha_primary_running":a.get("ha_primary_vm902_running"),
  "nodea_security_running":a.get("ha_security_vm906_running"),
  "nodea_security_recovery_timer_active":a.get("ha_security_recovery_timer_active"),
@@ -138,8 +146,8 @@ print("JNS_CLUSTER_MIGRATION_GATES="+json.dumps({
  "nodeb_essential_lxcs_running":all(b.get("ct"+str(n)+"_"+role+"_running")==True for n,role in
   ((212,"mqtt"),(214,"zigbee2mqtt"),(216,"time"),(248,"dns_dhcp"))),
  "a_b_guest_id_collisions":len(ab),
- "a_c_guest_id_collisions":len(ids(a)&ids(c)),
- "b_c_guest_id_collisions":len(ids(b)&ids(c)),
+ "a_c_guest_id_collisions":len(ids(a)&ids(c)) if nodec_inventory_known else None,
+ "b_c_guest_id_collisions":len(ids(b)&ids(c)) if nodec_inventory_known else None,
  "cluster_changes_permitted":False
 },sort_keys=True))
 print("JNS_CLUSTER_AND_VM906_READONLY_COMPLETE")
