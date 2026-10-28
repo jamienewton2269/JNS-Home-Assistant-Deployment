@@ -54,13 +54,13 @@ def cli(*args):
   out["result"]="non_json"
  return out
 p="/mnt/data/supervisor/apps/local/jns_ha905_security_handover"
-script='''import os,json,pathlib
+script="""import os,json,pathlib
 root=pathlib.Path("/mnt/data/supervisor/apps/local/jns_ha905_security_handover")
 share=pathlib.Path("/mnt/data/supervisor/share/jns-security-handover-20261028/enrolment.json")
 print("JNS_GUEST_FLAGS="+json.dumps({"source_directory":root.is_dir() and not root.is_symlink(),
 "source_files":[(root/f).is_file() for f in ("config.yaml","Dockerfile","run.sh","flow.py")],
 "secret_stage_present":share.exists() or share.is_symlink()}))
-'''
+"""
 g=qga(["python3","-c",script],45)
 flags={}
 if g and g.get("exitcode")==0:
