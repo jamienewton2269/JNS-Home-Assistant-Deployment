@@ -70,6 +70,24 @@ class RootOperatorTest(unittest.TestCase):
             with self.assertRaisesRegex(O.Blocked,"not proven"):
                 O.restart_and_verify("old-stamp")
 
+    def test_root_operator_preflight_does_not_activate_or_restart(self):
+        from unittest.mock import MagicMock
+        with patch.object(O,"gate") as gate, \
+             patch.object(O,"on_nodeb",return_value="status: running"), \
+             patch.object(O,"inspect_stage") as inspect, \
+             patch.object(O,"authenticated",return_value={"states":{}}), \
+             patch.object(O,"live_heating") as heating, \
+             patch.object(O,"config_check") as check, \
+             patch.object(O,"restart_and_verify") as restart, \
+             patch.object(O,"host_restore") as restore:
+            O.preflight()
+        gate.assert_called_once()
+        inspect.assert_called_once()
+        heating.assert_called_once()
+        check.assert_called_once()
+        restart.assert_not_called()
+        restore.assert_not_called()
+
     def test_install_requires_root_owned_fixed_location_and_read_only_policy(self):
         src=(HERE/"v036_root_operator.py").read_text()
         self.assertIn('root@"+HOST',src)
