@@ -1,0 +1,18 @@
+name: JNS HA905 Security ESPHome One-Shot Flow Offline Tests
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-security-esphome-flow-offline-tests.yml'
+      - 'gateway/solar/ha905_security_esphome_handover_app/**'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m py_compile gateway/solar/ha905_security_esphome_handover_app/flow.py gateway/solar/ha905_security_esphome_handover_app/test_flow.py
+      - run: python3 gateway/solar/ha905_security_esphome_handover_app/test_flow.py -v
+      - run: echo JNS_SECURE_ENROLMENT_SOURCE_TEST_ONLY=yes
