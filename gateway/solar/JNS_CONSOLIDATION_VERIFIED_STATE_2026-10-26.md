@@ -316,3 +316,7 @@ repo-controlled retirement code:
 `gateway/solar/nodec_golden_vm9906_guarded_retire_20261028.py`.
 No unsupported privilege escalation was used by the GitHub runner; deletion
 was performed locally by the authorised privileged operator.
+
+### Post-removal Node C storage measurement — 2026-10-28
+
+User-supplied Node C `pvesm status` shows `local-lvm` used 27,129,546 KiB, available 12,458,293 KiB, utilisation 68.53%. Pre-removal Steward inventory (2026-10-28 03:35 UTC) showed used 32,414,523 KiB, available 7,173,316 KiB, utilisation 81.88%. **Verified saving: 5,284,977 KiB = 5.04 GiB**, a 13.35 percentage-point reduction in thin-pool utilisation after VM9906 golden template removal. This is actual pool-space recovery, not nominal virtual disk capacity.
