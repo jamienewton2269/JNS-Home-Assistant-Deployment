@@ -58,4 +58,42 @@ jobs:
           done
           REMOTE
           done
+          echo "=== Node C registered dynamic DNS files (names, row counts, candidate names) ==="
+          for dir in /mnt/jns-dns-master/jns-dns/dynamic-dns /mnt/jns-dns-master/jns-dns/leases /mnt/jns-dns-master/jns-dns; do
+            if [ -d "$dir" ]; then
+              find "$dir" -maxdepth 2 -type f \( -name '*.tsv' -o -name '*lease*' \) -size -10M -print 2>/dev/null | head -50 |
+                while IFS= read -r file; do
+                  echo "SOURCE=$file ROWS=$(wc -l < "$file")"
+                  grep -Ei 'sharp|print|mfp|copier|(^|[^a-z])(mx|bp|ar)[-_a-z0-9]{2,}' "$file" 2>/dev/null | head -30 || true
+                  if [[ "$file" == *.tsv ]]; then
+                    head -n 8 "$file" | cut -c 1-170
+                  fi
+                done
+            fi
+          done
+          echo "=== Actual DHCP lease state, service, and hostnames on Nodes A and B ==="
+          for host in nodea nodeb; do
+            echo "=== $host ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=7 -o StrictHostKeyChecking=accept-new "$host" 'bash -s' <<'REMOTE2' || true
+          for ct in 247 248 249; do
+            if pct status "$ct" 2>/dev/null | grep -q running; then
+              echo "--- CT$ct ---"
+              pct exec "$ct" -- sh -c '
+                for unit in dnsmasq jns-ct247 AdGuardHome jns-dns; do printf "%s: " "$unit"; systemctl is-active "$unit" 2>/dev/null || true; done
+                grep -hEi "^(dhcp-leasefile|dhcp-range|dhcp-script|domain)=" /etc/dnsmasq.conf /etc/dnsmasq.d/*.conf /etc/jns-ct247/dnsmasq.conf 2>/dev/null | head -20 || true
+                for file in /var/lib/misc/dnsmasq.leases /var/lib/dnsmasq/dnsmasq.leases /run/dnsmasq/dnsmasq.leases; do
+                  if [ -r "$file" ]; then
+                    echo "LEASE_SOURCE=$file ROWS=$(wc -l < "$file")"
+                    awk "NF>=4 {print \$3,\$4}" "$file" | head -120
+                  fi
+                done
+                find /mnt -maxdepth 6 -type f -name "*.leases" -size -10M 2>/dev/null | head -12 | while read file; do
+                  echo "LEASE_SOURCE=$file ROWS=$(wc -l < "$file")"
+                  awk "NF>=4 {print \$3,\$4}" "$file" | head -120
+                done
+              ' || true
+            fi
+          done
+          REMOTE2
+          done
           echo "=== READ-ONLY INSPECTION COMPLETE ==="
