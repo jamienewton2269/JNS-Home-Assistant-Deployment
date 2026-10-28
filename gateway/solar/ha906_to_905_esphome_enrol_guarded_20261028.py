@@ -88,6 +88,38 @@ def info():
   k=json.loads(j.get("out-data") or "{}")
   return k.get("data",{}) if k.get("result")=="ok" else {}
  except (ValueError,TypeError):return {}
+# Only fixed, reviewed diagnostic codes leave the gateway. Supervisor may
+# add timestamps, prefixes, CRLF or ANSI formatting around app log lines.
+# Never forward a raw log line, URL, host, token, free-form reason, or PSK.
+SAFE_FLOW_CODES={
+ "BLOCKED": frozenset((
+  "private_enrolment_stage_missing","oversize_stage","source_target_identity",
+  "exclusive_owner_confirmation","invalid_staged_record",
+  "invalid_esp_connection_shape","one_shot_already_attempted",
+  "supervisor_token_absent","legacy_password_unavailable","unexpected_step",
+  "repeated_flow_step","flow_step_limit","unsupported_flow_step",
+  "invalid_flow_response","invalid_flow_identifier","missing_flow_id")),
+ "FLOW_EXCEPTION_CLASS": frozenset((
+  "ValueError","KeyError","TimeoutError","URLError","HTTPError",
+  "JSONDecodeError")),
+ "FLOW_ERROR_CODE": frozenset((
+  "invalid_psk","invalid_auth","cannot_connect","unknown",
+  "timeout","already_configured","invalid_key","no_devices_found")),
+ "ABORT_REASON": frozenset((
+  "already_configured","already_in_progress","already_exists",
+  "cannot_connect","unknown")),
+}
+FLOW_DIAG_MARKER=re.compile(
+ r"(?<![A-Za-z0-9_])JNS_ESP_HANDOVER_(BLOCKED|FLOW_EXCEPTION_CLASS|FLOW_ERROR_CODE|ABORT_REASON)="
+ r"([A-Za-z0-9_,-]{1,70})(?=\r?\n|[\s\x1b]|$)")
+def classify_safe_flow_logs(logs):
+ if not isinstance(logs,str):return None
+ result=None
+ for match in FLOW_DIAG_MARKER.finditer(logs):
+  category,code=match.groups()
+  safe=code if code in SAFE_FLOW_CODES[category] else "unknown_code_redacted"
+  result=category.lower()+":"+safe
+ return result
 def app_cleanup():
  # Only remove short-lived copied credentials. Integration's own secure
  # config entry is retained for on-site verification.
@@ -145,13 +177,10 @@ def main():
    j=qga(["ha","apps","logs",SLUG,"--lines","100"],40)
    if j and j.get("exitcode")==0:
     logs=str(j.get("out-data",""))
-    # These are code-owned categories only. Whitelist exact labels AND
-    # value grammar, rejecting anything that might contain device addresses,
-    # free-form errors, credentials, or private API responses.
-    for category in ("BLOCKED","FLOW_EXCEPTION_CLASS","FLOW_ERROR_CODE","ABORT_REASON"):
-     found=re.findall(r"(?m)^JNS_ESP_HANDOVER_"+category+r"=([A-Za-z0-9_,-]{1,70})$",logs)
-     if found:
-      diagnostic=category.lower()+":"+found[-1]
+    # Extract only allowlisted codes, even from timestamp-prefixed lines.
+    # An unknown value is redacted instead of copied from Supervisor logs.
+    found=classify_safe_flow_logs(logs)
+    if found:diagnostic=found
     if "JNS_ESP_HANDOVER_ENTRY_CREATED=yes" in logs and "JNS_ESP_HANDOVER_NATIVE_CONFIG_FLOW_COMPLETE=yes" in logs:
      success=True;break
     if "JNS_ESP_HANDOVER_BLOCKED=" in logs or "JNS_ESP_HANDOVER_FLOW_EXCEPTION_CLASS=" in logs:
