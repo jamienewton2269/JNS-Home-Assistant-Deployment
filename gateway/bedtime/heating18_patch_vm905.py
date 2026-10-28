@@ -45,7 +45,7 @@ def main():
  newact['actions'].insert(0,heat)
  # Splice only existing automation's action list; other YAML text remains byte-identical.
  text=old.decode('utf-8')
- start=re.search(r'(?m)^[ ]{0,2}- id: '+ID+r'[ \t]*
+ start=re.search(r'(?m)^[ ]{0,2}- id: '+ID,text)
  req(start is not None,'Raw bedtime automation block absent')
  nxt=re.search(r'(?m)^[ ]{0,2}- id:',text[start.end():])
  end=start.end()+nxt.start() if nxt else len(text)
