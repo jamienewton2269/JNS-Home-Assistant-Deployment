@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+"""Guarded stop VM906 ONLY after VM905 has validated inert alarm package.
+Schedule time-limited autonomous restoration as a local Node A systemd timer.
+Never shutdown VM905. No device commands. No automatic permanent security
+handover: fallback returns VM906 if cutover completion marker not present.
+"""
+import base64,json,os,re,shlex,subprocess,sys,time
+SSH=["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes","-o","ConnectTimeout=6"]
+CHECK=r'''
+import pathlib,re
+p=pathlib.Path("/config/packages/jns_ha_security_native_cutover_20261028_v2.yaml")
+if not p.is_file() or p.is_symlink():raise SystemExit(75)
+txt=p.read_text()
+if txt.count("initial_state: false")!=6 or not re.search(r"(?m)^alarm_control_panel:",txt):
+ raise SystemExit(76)
+print("JNS_VM905_NATIVE_PACKAGE_READY=yes")
+'''
+STOP=r'''
+import os,re,subprocess,sys
+from pathlib import Path
+def fail(s):
+ print("JNS_VM906_STOP_BLOCKED="+s,flush=True)
+ raise SystemExit(71)
+if os.geteuid()!=0 or os.uname().nodename.split(".")[0]!="nodea":fail("wrong_host")
+def run(args,timeout=75):
+ try:return subprocess.run(args,capture_output=True,text=True,timeout=timeout)
+ except (OSError,subprocess.TimeoutExpired):return None
+q=run(["qm","status","906"],12); c=run(["qm","config","906"],12)
+if not q or q.returncode or q.stdout.strip()!="status: running":fail("source_not_running")
+if not c or c.returncode or not re.search(r"^name:\s*ha-security\s*$",c.stdout,re.M):fail("source_vm_identity")
+if re.search(r"^lock:",c.stdout,re.M):fail("vm906_locked")
+root=Path("/var/lib/jns-solar/consolidation")
+root.mkdir(parents=True,exist_ok=True,mode=0o700)
+marker=root/"vm906-handover-complete-20261028"
+if marker.exists() or marker.is_symlink():fail("handover_marker_preexists")
+unit="jns-ha906-recovery-20261028"
+timer=run(["systemd-run","--unit",unit,"--on-active=45m","--timer-property=AccuracySec=15s",
+           "/bin/bash","-c",
+           "if ! test -e /var/lib/jns-solar/consolidation/vm906-handover-complete-20261028; then /usr/sbin/qm start 906; fi"],22)
+if not timer or timer.returncode:fail("automatic_recovery_timer_unavailable")
+active=run(["systemctl","is-active",unit+".timer"],16)
+if not active or active.returncode or active.stdout.strip()!="active":fail("recovery_timer_not_active")
+print("JNS_VM906_FALLBACK_SCHEDULED=45_minutes",flush=True)
+stop=run(["qm","shutdown","906","--timeout","80"],100)
+q=run(["qm","status","906"],15)
+if not q or q.returncode or q.stdout.strip()!="status: stopped":
+ fail("graceful_shutdown_unverified")
+print("JNS_VM906_STOP_VERIFIED="+
+      '{"vm":906,"state":"stopped","automatic_recovery_after_minutes":45,"current_primary_unchanged":true}',flush=True)
+'''
+def ssh(host,args,timeout=38):
+ try:p=subprocess.run(SSH+[host,shlex.join(args)],capture_output=True,text=True,timeout=timeout)
+ except (OSError,subprocess.TimeoutExpired):return None
+ return p.stdout if p.returncode==0 else None
+def guest(args):
+ r=ssh("nodeb",["qm","guest","exec","905","--",*args],40)
+ if not r:return None
+ try:j=json.loads(r)
+ except ValueError:return None
+ for _ in range(110):
+  if j.get("exited"):return j
+  if not j.get("pid"):break
+  time.sleep(.7)
+  r=ssh("nodeb",["qm","guest","exec-status","905",str(j["pid"])],20)
+  if not r:break
+  try:j=json.loads(r)
+  except ValueError:break
+ return None
+def main():
+ if os.uname().nodename.split(".")[0]!="nodec":
+  print("JNS_VM906_STOP_BLOCKED=runner_identity");return 1
+ for host,vm,name in (("nodea",906,"ha-security"),("nodeb",905,"ha-s2-general")):
+  state=ssh(host,["qm","status",str(vm)])
+  cfg=ssh(host,["qm","config",str(vm)]) or ""
+  if not state or state.strip()!="status: running" or not re.search("^name: "+name+"$",cfg,re.M):
+   print("JNS_VM906_STOP_BLOCKED=source_or_target_state_unexpected");return 1
+ tag=base64.b64encode(CHECK.encode()).decode()
+ j=guest(["docker","exec","homeassistant","python3","-c",
+      "exec(__import__('base64').b64decode('"+tag+"'))"])
+ if not j or j.get("exitcode")!=0 or "JNS_VM905_NATIVE_PACKAGE_READY=yes" not in str(j.get("out-data","")):
+  print("JNS_VM906_STOP_BLOCKED=native_alarm_package_not_staged");return 1
+ chk=guest(["ha","core","check"])
+ if not chk or chk.get("exitcode")!=0:
+  print("JNS_VM906_STOP_BLOCKED=ha_general_core_check_not_clean");return 1
+ print("JNS_VM906_STOP_PREFLIGHT=passed",flush=True)
+ b=base64.b64encode(STOP.encode()).decode()
+ try:p=subprocess.run(SSH+["nodea",shlex.join(["python3","-u","-c",
+           "exec(__import__('base64').b64decode('"+b+"'))"])],
+           capture_output=True,text=True,timeout=145)
+ except (OSError,subprocess.TimeoutExpired):
+  print("JNS_VM906_STOP_BLOCKED=nodea_transport_or_timeout");return 1
+ for line in p.stdout.splitlines():
+  if line.startswith(("JNS_VM906_STOP_BLOCKED=","JNS_VM906_FALLBACK_SCHEDULED=","JNS_VM906_STOP_VERIFIED=")):
+   print(line,flush=True)
+ return 0 if p.returncode==0 and "JNS_VM906_STOP_VERIFIED=" in p.stdout else 1
+if __name__=="__main__":sys.exit(main())
