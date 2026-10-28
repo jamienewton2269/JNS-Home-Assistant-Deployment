@@ -1,0 +1,40 @@
+name: JNS Recover HA-General After Failed Onsite Run 40771120553
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-service-restore-after-40771120553-20261028.yml'
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-security-single-owner-cutover
+  cancel-in-progress: false
+jobs:
+  safely_restore_general:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Offline syntax and exclusive recovery scenario tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha906_emergency_restore_ha905_services_20261028.py
+          python3 gateway/solar/test_ha906_nodec_auto_failback_20261028.py -v
+      - name: Fail closed unless source running, target paused and timers armed
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea qm status 906)" = "status: running"
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodeb qm status 905)" = "status: paused"
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea systemctl is-active jns-ha906-recovery-20261028.timer)" = "active"
+          test -f "$HOME/.local/share/jns-security-failback-20261028/state.json"
+          test ! -e "$HOME/.local/share/jns-security-failback-20261028/handback-attempted-40771120553"
+          echo JNS_407711_HAND_BACK_GATE=exclusive_state_verified
+      - name: Remove temporary app with source stopped and resume both non-competing VMs
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          touch "$HOME/.local/share/jns-security-failback-20261028/handback-attempted-40771120553"
+          python3 gateway/solar/ha906_emergency_restore_ha905_services_20261028.py
