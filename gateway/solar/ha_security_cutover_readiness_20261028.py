@@ -125,7 +125,7 @@ print("JNS_NATIVE_CUTOVER_AUDIT="+json.dumps({"package_present":bool(s),"manual_
  source=summaries.get("security",{})
  general=summaries.get("general",{})
  primary=summaries.get("primary",{})
- source_offline=not source.get("running") and ssh("nodea",["qm","status","906"],17)=="status: stopped\\n"
+ source_offline=not source.get("running") and (ssh("nodea",["qm","status","906"],17) or "").strip()=="status: stopped"
  gates={"vm905_running":bool(general.get("running")),"vm902_running":bool(primary.get("running")),
         "vm906_running":bool(source.get("running")),"vm906_isolated":source_offline,
         "vm906_recovery_timer_active":timer_active,"native_alarm_v2":native,
