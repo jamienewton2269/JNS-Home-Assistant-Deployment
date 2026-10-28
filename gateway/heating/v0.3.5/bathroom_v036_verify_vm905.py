@@ -11,6 +11,9 @@ inner=(
  "exec(compile(base64.b64decode("+repr(base64.b64encode(CODE).decode())+
  "),'<fixed-v036-check>','exec'),ns)\n"
  "out=ns['verify']('/config',"+repr(STAGE)+")\n"
+ "stage=ns['get_stage']('/config',"+repr(STAGE)+")[4]\n"
+ "out['candidate_sha256']=stage['candidate']\n"
+ "out['original_sha256']=stage['original']\n"
  "print('JNS_BATHROOM_V036_INTEGRITY '+json.dumps(out,sort_keys=True))\n"
 )
 cmd="exec(__import__('base64').b64decode('"+base64.b64encode(inner.encode()).decode()+"'))"
