@@ -1,5 +1,5 @@
 name: JNS HA905 Core Auth Readonly Diagnostic Offline Tests
-# Validate v0.1.1 fixed schema-invalid POST: no valid handler, no alarm changes.
+# v0.1.2: blank ESPHome form start and immediate DELETE, without device credentials.
 on:
   push:
     branches: [main]
