@@ -1,0 +1,23 @@
+name: JNS HA905 Python Base One-Time Core API Readonly Verification
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-python-base-readonly-api-live-20261028.yml'
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-one-time-api-probe
+  cancel-in-progress: false
+jobs:
+  probe:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate final approved source
+        run: |
+          python3 -m py_compile gateway/solar/ha905_api_bridge_python_base_install_once_guarded_20261028.py
+          python3 gateway/solar/ha905_core_api_bridge_app/test_probe.py -v
+      - name: Guarded install, one fixed GET probe, and verified removal
+        run: python3 gateway/solar/ha905_api_bridge_python_base_install_once_guarded_20261028.py
