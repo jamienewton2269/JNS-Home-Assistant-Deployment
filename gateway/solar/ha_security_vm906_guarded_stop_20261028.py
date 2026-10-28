@@ -81,6 +81,21 @@ def main():
       "exec(__import__('base64').b64decode('"+tag+"'))"])
  if not j or j.get("exitcode")!=0 or "JNS_VM905_NATIVE_PACKAGE_READY=yes" not in str(j.get("out-data","")):
   print("JNS_VM906_STOP_BLOCKED=native_alarm_package_not_staged");return 1
+ # Supervisor store metadata does not prove the privileged one-shot app
+ # is INSTALLED. Require membership of the actual installed-app inventory.
+ inv=guest(["ha","apps","list","--no-progress","--raw-json"])
+ try:
+  raw=json.loads(inv.get("out-data") or "{}") if inv and inv.get("exitcode")==0 else {}
+  catalog=raw.get("data",{})
+  apps=(catalog.get("apps",catalog.get("addons")) if isinstance(catalog,dict) else catalog)
+  found=[a for a in apps if isinstance(a,dict) and
+         a.get("slug")=="local_jns_ha905_security_handover" and
+         a.get("installed") is not False] if isinstance(apps,list) else []
+ except (ValueError,TypeError,AttributeError):
+  found=[]
+ if raw.get("result")!="ok" or len(found)!=1:
+  print("JNS_VM906_STOP_BLOCKED=temporary_native_flow_app_not_confirmed_installed");return 1
+ print("JNS_VM905_HANDOVER_APP_INSTALLED_INVENTORY=yes",flush=True)
  chk=guest(["ha","core","check"])
  if not chk or chk.get("exitcode")!=0:
   print("JNS_VM906_STOP_BLOCKED=ha_general_core_check_not_clean");return 1
