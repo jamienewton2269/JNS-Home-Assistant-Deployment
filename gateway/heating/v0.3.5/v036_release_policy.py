@@ -63,13 +63,15 @@ def approve(job,permit,now=None):
             "immutable job ID malformed")
     require(job["job_type"]==JOB_TYPE and job["stage_id"]==STAGE,"wrong job/stage")
     require(isinstance(permit,dict) and set(permit)=={
-      "job_id","operation","stage_id","candidate_sha256","expires_utc","heating_outage_approved"},
+      "job_id","operation","stage_id","candidate_sha256","expires_utc","heating_outage_approved","consolidation_quiet_approved"},
       "local root permit schema mismatch")
     require(permit["job_id"]==job["job_id"] and permit["stage_id"]==STAGE,
             "permit not tied to immutable job")
     require(permit["operation"]==OPERATION and
             permit["candidate_sha256"]==CANDIDATE["thermal.py"] and
-            permit["heating_outage_approved"] is True,"maintenance permit not authorised")
+            permit["heating_outage_approved"] is True and
+            permit["consolidation_quiet_approved"] is True,
+            "maintenance or consolidation quiet-window permit not authorised")
     try:
         expiry=datetime.fromisoformat(permit["expires_utc"].replace("Z","+00:00"))
         require(expiry.tzinfo is not None,"permit timezone missing")
