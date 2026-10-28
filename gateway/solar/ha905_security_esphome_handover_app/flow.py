@@ -20,6 +20,10 @@ FLOW_PATH = "config/config_entries/flow"
 SECRET = pathlib.Path("/share/jns-security-handover-20261028/enrolment.json")
 MARKER = pathlib.Path("/data/jns-one-flow-started-20261028")
 METHODS = frozenset(("GET", "POST", "DELETE"))
+# Config-entry flows in HA Core 2026.9.4 use 26-character Crockford ULIDs,
+# whereas legacy generic flows used 32-character hexadecimal UUIDs.
+# Accept only these two canonical, path-safe identifiers, not arbitrary strings.
+FLOW_ID_RE = re.compile(r"(?:[0-9A-HJKMNP-TV-Z]{26}|[0-9a-fA-F]{32})")
 
 def note(k,v):
     print("JNS_ESP_HANDOVER_" + k + "=" + str(v),flush=True)
@@ -31,8 +35,9 @@ def stop(reason):
 def request(method,path,token,payload=None,opener=urllib.request.urlopen):
     if method not in METHODS:
         raise ValueError("unapproved_method")
-    if not (path == FLOW_PATH or re.fullmatch(
-            r"config/config_entries/flow/[0-9a-fA-F]{32}",path)):
+    if not (path == FLOW_PATH or (
+            path.startswith(FLOW_PATH + "/") and
+            FLOW_ID_RE.fullmatch(path[len(FLOW_PATH) + 1:]))):
         raise ValueError("unapproved_endpoint")
     if not token:
         raise ValueError("missing_supervisor_token")
@@ -97,7 +102,7 @@ def run_flow(credentials,token,api=request):
             if stage!="form":
                 stop("unsupported_flow_step")
             flow_id=response.get("flow_id",flow_id)
-            if not isinstance(flow_id,str) or not re.fullmatch(r"[0-9a-fA-F]{32}",flow_id):
+            if not isinstance(flow_id,str) or not FLOW_ID_RE.fullmatch(flow_id):
                 stop("invalid_flow_identifier")
             errors=response.get("errors") or {}
             if errors:
