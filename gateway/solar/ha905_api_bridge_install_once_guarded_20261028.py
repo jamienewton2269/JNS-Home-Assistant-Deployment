@@ -197,7 +197,9 @@ finally:
     cleanup=bool(isinstance(o,dict) and not o.get("installed"))
    except (ValueError,TypeError):cleanup=False
   else:cleanup=True
- else:cleanup=True
+ else:
+  # Installation was not confirmed: retain source for Supervisor inspection.
+  cleanup=False
  if cleanup:
   g=script("rm -f "+TARGET+"/config.yaml "+TARGET+"/Dockerfile "+TARGET+"/probe.py "+TARGET+"/run.sh && rmdir "+TARGET+" && ha store reload >/dev/null 2>&1",120)
   cleanup=cleanup and success(g)
