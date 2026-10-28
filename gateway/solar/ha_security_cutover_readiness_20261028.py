@@ -93,6 +93,8 @@ def main():
   is_running=bool(stat and stat.strip()=="status: running")
   out={"role":role,"host":host,"vm":vm,"running":is_running}
   if is_running:
+   core_status=guest(host,vm,["ha","core","info"])
+   out["ha_core_info_responding"]=bool(core_status and core_status.get("exitcode")==0)
    b=base64.b64encode(INNER.encode()).decode()
    j=guest(host,vm,["docker","exec","homeassistant","python3","-c","exec(__import__('base64').b64decode('"+b+"'))"])
    if j:
