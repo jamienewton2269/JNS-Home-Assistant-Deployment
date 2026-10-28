@@ -1,0 +1,21 @@
+name: JNS Node C HA-Golden VM9906 Preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-nodec-golden-vm9906-preflight.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect stopped identity, dependent clones and existing deletion permissions
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/nodec_golden_vm9906_preflight_20261028.py
+          python3 gateway/solar/nodec_golden_vm9906_preflight_20261028.py
