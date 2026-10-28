@@ -1,5 +1,6 @@
 name: JNS HA906 Node C Exclusive Failback Inert Stage
 # Prepare inert recovery for next manual cutover; does not arm countdown or stop VMs.
+# ULID-compatible app v0.1.1 preflight passed 40759905822.
 on:
   push:
     branches: [main]
