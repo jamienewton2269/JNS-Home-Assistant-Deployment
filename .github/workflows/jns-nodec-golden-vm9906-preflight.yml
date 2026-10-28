@@ -18,4 +18,5 @@ jobs:
         run: |
           set -Eeuo pipefail
           python3 -m py_compile gateway/solar/nodec_golden_vm9906_preflight_20261028.py
+          python3 -m py_compile gateway/solar/nodec_golden_vm9906_guarded_retire_20261028.py
           python3 gateway/solar/nodec_golden_vm9906_preflight_20261028.py
