@@ -118,10 +118,11 @@ def main():
  secret_prepared=False
  try:
   priv=base64.b64encode(PRIVHOST.encode()).decode()
+  # Cleanup also runs when the remote copy has an ambiguous outcome.
+  secret_prepared=True
   run=ssh("nodeb",["python3","-u","-c","exec(__import__('base64').b64decode("+repr(priv)+"))"],140)
   if not run or run.returncode or "JNS_ENROL_PRIVATE_STAGE=verified_no_secret_output" not in run.stdout:
    print("JNS_ENROL_BLOCKED=private_key_transfer_failed");return 1
-  secret_prepared=True
   print("JNS_ENROL_PRIVATE_STAGE=verified",flush=True)
   if node_status("nodea",906)!="status: stopped":
    print("JNS_ENROL_BLOCKED=source_owner_changed");return 1
