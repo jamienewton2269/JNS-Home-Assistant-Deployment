@@ -22,7 +22,7 @@ SLUG = "local_jns_ha905_security_handover"
 SSH = ["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
        "-o", "ConnectTimeout=6"]
 REMOTE = r"""
-import base64,hashlib,json,os,pathlib,subprocess,time
+import base64,hashlib,json,os,pathlib,shlex,subprocess,time
 if os.geteuid()!=0 or os.uname().nodename.split(".")[0]!="nodeb":
     raise SystemExit(70)
 SRC="/mnt/data/supervisor/apps/local/jns_ha905_security_handover"
