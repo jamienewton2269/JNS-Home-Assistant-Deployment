@@ -9,91 +9,32 @@ permissions:
 jobs:
   inspect:
     runs-on: [self-hosted, linux, x64, nodec]
-    timeout-minutes: 6
+    timeout-minutes: 4
     steps:
-      - name: Read only hostname, DHCP leases and DNS evidence
+      - name: Extract actual registered DHCP leases from active JNS DNS service
         shell: bash
         run: |
           set -u
-          echo "=== SHARP PRINTER DNS/DHCP READ-ONLY INSPECTION ==="
-          date -u -Is
-          echo "=== Node C local JNS dynamic DNS and lease source files ==="
-          for d in /mnt/jns-dns-master/jns-dns/dynamic-dns /mnt/jns-dns-master/jns-dns/leases /mnt/jns-dns-master/jns-dns/config /mnt/jns-dns-master/jns-dns; do
-            if [ -d "$d" ]; then
-              find "$d" -maxdepth 2 -type f \( -name '*.tsv' -o -name '*lease*' -o -name '*hosts*' -o -name '*.csv' \) -size -10M -print0 2>/dev/null |
-                xargs -0 -r grep -inEi 'sharp|printer|(^|[^a-z])(mx|bp)[-_]?[0-9]{3,4}' 2>/dev/null | head -60 || true
+          echo "=== LIVE JNS DHCP LEASE DATA $(date -u -Is) ==="
+          for node in nodea nodeb; do
+            echo "=== NODE $node ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=6 -o StrictHostKeyChecking=accept-new "$node" 'bash -s' <<'REMOTE' || true
+          ct=247
+          [ "$(hostname)" = nodeb ] && ct=248
+          pct exec "$ct" -- sh -c '
+            echo "=== $(hostname) CT DHCP LEASE FILE ==="
+            f=/var/lib/jnsdns/leases
+            if [ -r "$f" ]; then
+              echo "LEASE_ROW_COUNT=$(wc -l < "$f")"
+              awk "NF>=4 {print \$3,\$4,\$2}" "$f" | head -250
+              echo "=== SHARP RELATED LEASES ==="
+              grep -inEi "sharp|print|copier|mfp|mx-|bp-|ar-" "$f" || true
+            else
+              echo "DHCP LEASE FILE UNREADABLE"
             fi
-          done
-          echo "=== DNS candidate names against onsite DNS replicas ==="
-          for server in 10.10.110.247 10.10.110.248 10.10.10.247 10.10.10.248; do
-            echo "-- server $server --"
-            for name in sharp-printer.home.arpa sharp.home.arpa sharp-mfp.home.arpa sharp-mx.home.arpa; do
-              if command -v dig >/dev/null 2>&1; then
-                result="$(dig +short +time=2 +tries=1 @"$server" "$name" A 2>/dev/null | head -3 || true)"
-                if [ -n "$result" ]; then printf '%s A %s\n' "$name" "$result"; fi
-              else
-                timeout 3 nslookup "$name" "$server" 2>&1 | grep -E 'Name:|Address:' | tail -3 || true
-              fi
-            done
-          done
-          echo "=== DHCP and DNS container lease/config matches on Node A and B ==="
-          for host in nodea nodeb; do
-            echo "--- Host $host ---"
-            ssh -o BatchMode=yes -o ConnectTimeout=7 -o StrictHostKeyChecking=accept-new "$host" 'bash -s' <<'REMOTE' || echo "Host read-only probe unavailable"
-          for ct in 247 248 249; do
-            if pct status "$ct" 2>/dev/null | grep -q running; then
-              echo "Container CT$ct"
-              pct exec "$ct" -- sh -c '
-                for f in /var/lib/misc/dnsmasq.leases /var/lib/dnsmasq/dnsmasq.leases /run/dnsmasq/dnsmasq.leases /etc/hosts /etc/dnsmasq.conf /etc/jns-ct247/dnsmasq.conf; do
-                  if [ -r "$f" ]; then
-                    grep -inEi "sharp|printer|(^|[^a-z])(mx|bp)[-_]?[0-9]{3,4}" "$f" 2>/dev/null | head -20 | sed "s|^|$f:|"
-                  fi
-                done
-                if [ -d /mnt ]; then
-                  find /mnt -maxdepth 5 -type f \( -name "*lease*" -o -name "*.tsv" -o -name "*hosts*" \) -size -10M -print0 2>/dev/null |
-                    xargs -0 -r grep -inEi "sharp|printer|(^|[^a-z])(mx|bp)[-_]?[0-9]{3,4}" 2>/dev/null | head -30 || true
-                fi
-              ' || true
-            fi
-          done
+            echo "=== SHARP RELATED JNS DNS CONFIG DATA ==="
+            grep -RihnEi "sharp|print|copier|mfp|mx-|bp-|ar-" /etc/jnsdns /etc/dnsmasq.d /var/lib/jnsdns 2>/dev/null | head -35 || true
+          ' || true
           REMOTE
           done
-          echo "=== Node C registered dynamic DNS files (names, row counts, candidate names) ==="
-          for dir in /mnt/jns-dns-master/jns-dns/dynamic-dns /mnt/jns-dns-master/jns-dns/leases /mnt/jns-dns-master/jns-dns; do
-            if [ -d "$dir" ]; then
-              find "$dir" -maxdepth 2 -type f \( -name '*.tsv' -o -name '*lease*' \) -size -10M -print 2>/dev/null | head -50 |
-                while IFS= read -r file; do
-                  echo "SOURCE=$file ROWS=$(wc -l < "$file")"
-                  grep -Ei 'sharp|print|mfp|copier|(^|[^a-z])(mx|bp|ar)[-_a-z0-9]{2,}' "$file" 2>/dev/null | head -30 || true
-                  if [[ "$file" == *.tsv ]]; then
-                    head -n 8 "$file" | cut -c 1-170
-                  fi
-                done
-            fi
-          done
-          echo "=== Actual DHCP lease state, service, and hostnames on Nodes A and B ==="
-          for host in nodea nodeb; do
-            echo "=== $host ==="
-            ssh -o BatchMode=yes -o ConnectTimeout=7 -o StrictHostKeyChecking=accept-new "$host" 'bash -s' <<'REMOTE2' || true
-          for ct in 247 248 249; do
-            if pct status "$ct" 2>/dev/null | grep -q running; then
-              echo "--- CT$ct ---"
-              pct exec "$ct" -- sh -c '
-                for unit in dnsmasq jns-ct247 AdGuardHome jns-dns; do printf "%s: " "$unit"; systemctl is-active "$unit" 2>/dev/null || true; done
-                grep -hEi "^(dhcp-leasefile|dhcp-range|dhcp-script|domain)=" /etc/dnsmasq.conf /etc/dnsmasq.d/*.conf /etc/jns-ct247/dnsmasq.conf 2>/dev/null | head -20 || true
-                for file in /var/lib/misc/dnsmasq.leases /var/lib/dnsmasq/dnsmasq.leases /run/dnsmasq/dnsmasq.leases; do
-                  if [ -r "$file" ]; then
-                    echo "LEASE_SOURCE=$file ROWS=$(wc -l < "$file")"
-                    awk "NF>=4 {print \$3,\$4}" "$file" | head -120
-                  fi
-                done
-                find /mnt -maxdepth 6 -type f -name "*.leases" -size -10M 2>/dev/null | head -12 | while read file; do
-                  echo "LEASE_SOURCE=$file ROWS=$(wc -l < "$file")"
-                  awk "NF>=4 {print \$3,\$4}" "$file" | head -120
-                done
-              ' || true
-            fi
-          done
-          REMOTE2
-          done
-          echo "=== READ-ONLY INSPECTION COMPLETE ==="
+          echo "=== END READ ONLY ==="
