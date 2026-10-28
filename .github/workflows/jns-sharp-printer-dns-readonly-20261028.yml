@@ -1,4 +1,4 @@
-name: JNS Sharp Printer Reachability and Lease Diagnostic Read Only
+name: JNS Sharp Printer DHCP Registration Read Only
 on:
   push:
     branches: [diagnostics/sharp-printer-dns-20261028]
@@ -10,46 +10,42 @@ jobs:
     runs-on: [self-hosted, linux, x64, nodec]
     timeout-minutes: 5
     steps:
-      - name: Read-only Sharp lease freshness, route, neighbour and printer services
+      - name: Inspect DHCP registration, server logs and L2 evidence
         shell: bash
         run: |
           set -u
-          target=10.10.101.198
-          mac=bc:b1:81:ee:ca:60
-          echo "=== NODE C SHARP DIAGNOSTIC $(date -u -Is) ==="
-          echo "=== Node C route ==="
-          ip -4 route get "$target" || true
-          echo "=== Node C ICMP ping ==="
-          ping -n -c 2 -W 1 "$target" 2>&1 | tail -6 || true
-          echo "=== Node C neighbour ==="
-          ip -4 neigh show to "$target" || true
-          echo "=== Node C TCP printer services ==="
-          for port in 80 443 515 631 9100; do
-            if timeout 2 bash -c 'exec 3<>/dev/tcp/$1/$2' _ "$target" "$port" 2>/dev/null; then echo "PORT $port OPEN"; else echo "PORT $port NO_CONNECT"; fi
+          echo "=== PRINTER DHCP REGISTRATION AUDIT $(date -u -Is) ==="
+          echo "=== Node C L2 observations ==="
+          ip neigh show | grep -iE 'bc:b1:81:ee:ca:60|10\.10\.101\.198' || true
+          bridge fdb show 2>/dev/null | grep -i 'bc:b1:81:ee:ca:60' || true
+          echo "=== DNS master registrations ==="
+          for dir in /mnt/jns-dns-master/jns-dns /mnt/jns-dns-master; do
+            [ -d "$dir" ] || continue
+            find "$dir" -maxdepth 4 -type f -size -8M \( -name '*.tsv' -o -name '*.csv' -o -name '*hosts*' -o -name '*lease*' -o -name '*.conf' \) -print0 2>/dev/null |
+              xargs -0 -r grep -inEi 'bc:b1:81:ee:ca:60|jns-eeca60|10\.10\.101\.198' 2>/dev/null | head -50 || true
           done
+          echo "=== Proxmox hosts and DHCP/DNS servers ==="
           for host in nodea nodeb; do
-            echo "=== PROXMOX $host ==="
-            ssh -o BatchMode=yes -o ConnectTimeout=6 -o StrictHostKeyChecking=accept-new "$host" 'bash -s' <<'REMOTE' || true
-          target=10.10.101.198
-          mac=bc:b1:81:ee:ca:60
-          echo "--- host $(hostname) routing, ICMP and neighbour ---"
-          ip -4 route get "$target" || true
-          ping -n -c 2 -W 1 "$target" 2>&1 | tail -6 || true
-          ip -4 neigh show to "$target" || true
+            echo "--- $host ---"
+            ssh -o BatchMode=yes -o ConnectTimeout=7 -o StrictHostKeyChecking=accept-new "$host" 'bash -s' <<'REMOTE' || true
+          echo "NODE $(hostname) $(date -u -Is)"
+          echo "=== host neighbour and FDB ==="
+          ip neigh show | grep -iE "bc:b1:81:ee:ca:60|10\.10\.101\.198" || true
+          bridge fdb show 2>/dev/null | grep -i "bc:b1:81:ee:ca:60" || true
           ct=247
           [ "$(hostname)" = nodeb ] && ct=248
-          echo "--- CT$ct raw DHCP lease (single device) and live service ---"
           pct exec "$ct" -- sh -c '
-            echo "UTC_NOW=$(date -u -Is) EPOCH_NOW=$(date +%s)"
-            systemctl is-active jns-dns || true
-            grep -Fi "bc:b1:81:ee:ca:60" /var/lib/jnsdns/leases 2>/dev/null || true
-            echo "=== CT IP and route ==="
-            ip -4 route get 10.10.101.198 || true
-            echo "=== CT ping ==="
-            ping -n -c 2 -W 1 10.10.101.198 2>&1 | tail -6 || true
-            echo "=== CT neighbour ==="
-            ip -4 neigh show to 10.10.101.198 || true
+            echo "=== CT DHCP active service ==="
+            systemctl show -p MainPID -p ActiveState jns-dns 2>/dev/null || true
+            echo "=== DHCP leases: all matched records ==="
+            grep -iE "bc:b1:81:ee:ca:60|jns-eeca60|10\.10\.101\.198" /var/lib/jnsdns/leases 2>/dev/null || true
+            echo "=== configuration containing mapping ==="
+            grep -RinEi "bc:b1:81:ee:ca:60|jns-eeca60|10\.10\.101\.198" /etc/jnsdns /etc/dnsmasq.conf /etc/dnsmasq.d /etc/hosts /var/lib/jnsdns 2>/dev/null | head -40 || true
+            echo "=== recent DHCP logs for target ==="
+            journalctl -u jns-dns --since "7 days ago" --no-pager 2>/dev/null | grep -iE "bc:b1:81:ee:ca:60|jns-eeca60|10\.10\.101\.198" | tail -25 || true
+            echo "=== recent DHCP events available ==="
+            journalctl -u jns-dns --since "2 hours ago" --no-pager 2>/dev/null | grep -iE "DHCP(DISCOVER|OFFER|REQUEST|ACK|NAK)|dhcp" | tail -12 || true
           ' || true
           REMOTE
           done
-          echo "=== DIAGNOSTIC COMPLETE (NO CHANGES) ==="
+          echo "=== AUDIT COMPLETED, NO NETWORK CHANGES ==="
