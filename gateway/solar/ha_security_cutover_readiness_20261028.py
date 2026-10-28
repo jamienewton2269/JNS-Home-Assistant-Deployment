@@ -154,7 +154,22 @@ print("JNS_NATIVE_CUTOVER_AUDIT="+json.dumps(out,sort_keys=True))
         "vm906_recovery_timer_active":timer_active,"native_alarm_v2":native,
         "vm905_name_guard":bool(re.search(r"(?m)^name: ha-s2-general$",target_config))}
  print("JNS_SECURITY_POSTCUTOVER_READONLY="+json.dumps(gates,sort_keys=True),flush=True)
+ app_query=guest("nodeb",905,["ha","apps","info","local_jns_ha905_core_api_probe","--no-progress","--raw-json"])
+ app_uninstalled=False
+ if app_query:
+  try:
+   r=json.loads(str(app_query.get("out-data","")))
+   d=r.get("data",{}) if isinstance(r,dict) else {}
+   app_uninstalled=bool(isinstance(r,dict) and (
+       r.get("result")=="error" or
+       (r.get("result")=="ok" and isinstance(d,dict) and d.get("installed") is False)))
+  except (TypeError,ValueError):pass
+ p=guest("nodeb",905,["sh","-c","test ! -e /mnt/data/supervisor/apps/local/jns_ha905_core_api_probe && test ! -L /mnt/data/supervisor/apps/local/jns_ha905_core_api_probe"])
+ source_clean=p is not None
+ print("JNS_HA905_TEMP_API_APP_CLEANUP_READONLY="+json.dumps({
+   "app_uninstalled":app_uninstalled,"temporary_source_absent":source_clean,
+   "no_security_controller_changes":True},sort_keys=True),flush=True)
  print("JNS_HA_CUTOVER_READ_ONLY=yes",flush=True)
  security_safe=bool(source.get("running") and isinstance(source.get("core"),dict)) or bool(source_offline and timer_active and isinstance(native,dict) and native.get("package_present") and native.get("disabled_automations_declared")==6)
- return 0 if (general.get("running") and isinstance(general.get("core"),dict) and primary.get("running") and isinstance(primary.get("core"),dict) and security_safe) else 1
+ return 0 if (general.get("running") and isinstance(general.get("core"),dict) and primary.get("running") and isinstance(primary.get("core"),dict) and security_safe and app_uninstalled and source_clean) else 1
 if __name__=="__main__":raise SystemExit(main())
