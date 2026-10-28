@@ -1,0 +1,17 @@
+name: JNS Lux Ladder Postboot Error Audit
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/lux_priority/error-audit.request']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/lux_priority/error_audit.py
+          python3 gateway/lux_priority/error_audit.py
