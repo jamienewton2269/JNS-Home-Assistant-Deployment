@@ -127,18 +127,38 @@ def main():
   if node_status("nodea",906)!="status: stopped":
    print("JNS_ENROL_BLOCKED=source_owner_changed");return 1
   # The first start is the ONE native integration config-flow attempt.
-  qga(["ha","apps","start",SLUG,"--no-progress","--raw-json"],110)
+  started=qga(["ha","apps","start",SLUG,"--no-progress","--raw-json"],110)
+  # Only a fixed result label is safe to log; never emit Supervisor response
+  # bodies, app raw log lines, tokens, device hosts or staged credentials.
+  if started:
+   try:
+    reply=json.loads(started.get("out-data") or "{}")
+    outcome=reply.get("result","unknown")
+    print("JNS_ENROL_APP_START_RESULT="+(outcome if outcome in ("ok","error") else "unexpected"),flush=True)
+   except (TypeError,ValueError):
+    print("JNS_ENROL_APP_START_RESULT=invalid_json",flush=True)
+  else:
+   print("JNS_ENROL_APP_START_RESULT=command_unverified",flush=True)
   success=False
+  diagnostic=None
   for i in range(35):
    j=qga(["ha","apps","logs",SLUG,"--lines","100"],40)
-   if j:
+   if j and j.get("exitcode")==0:
     logs=str(j.get("out-data",""))
+    # These are code-owned categories only. Whitelist exact labels AND
+    # value grammar, rejecting anything that might contain device addresses,
+    # free-form errors, credentials, or private API responses.
+    for category in ("BLOCKED","FLOW_EXCEPTION_CLASS","FLOW_ERROR_CODE","ABORT_REASON"):
+     found=re.findall(r"(?m)^JNS_ESP_HANDOVER_"+category+r"=([A-Za-z0-9_,-]{1,70})$",logs)
+     if found:
+      diagnostic=category.lower()+":"+found[-1]
     if "JNS_ESP_HANDOVER_ENTRY_CREATED=yes" in logs and "JNS_ESP_HANDOVER_NATIVE_CONFIG_FLOW_COMPLETE=yes" in logs:
      success=True;break
     if "JNS_ESP_HANDOVER_BLOCKED=" in logs or "JNS_ESP_HANDOVER_FLOW_EXCEPTION_CLASS=" in logs:
      break
    time.sleep(2)
   if not success:
+   print("JNS_ENROL_FLOW_DIAGNOSTIC="+(diagnostic or "logs_missing_or_unclassified"),flush=True)
    print("JNS_ENROL_BLOCKED=native_flow_not_proven");return 1
   reg=base64.b64encode(STATE_SCRIPT.encode()).decode()
   for i in range(30):
