@@ -42,6 +42,10 @@ jobs:
              "version":value.get("version") if isinstance(value,dict) else None,
              "slug":value.get("slug") if isinstance(value,dict) else None,
              "repository_local":value.get("repository")=="local" if isinstance(value,dict) else None})
+            if isinstance(value,dict):
+             addons=value.get("addons",[])
+             o["store_addon_count"]=len(addons) if isinstance(addons,list) else None
+             o["matching_addon_count"]=sum(1 for a in addons if (a.get("slug") if isinstance(a,dict) else a)=="local_jns_ha905_security_handover") if isinstance(addons,list) else None
            except (TypeError,ValueError):o["json"]="absent"
            return o
           print("JNS_HA905_STORE_LOCAL_INFO="+json.dumps(body(a),sort_keys=True))
