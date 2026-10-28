@@ -1,0 +1,84 @@
+name: JNS HA906 Safe Rollback Timer Final Cleanup
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha906-rollback-timer-final-cleanup-20261028.yml'
+permissions:
+  contents: read
+jobs:
+  clean:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify both HA owners and disarm obsolete Node C cron safely
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import os,pathlib,subprocess,json,shlex
+          assert os.uname().nodename.split(".")[0]=="nodec"
+          ssh=["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes","-o","ConnectTimeout=6"]
+          def call(n,argv,timeout=25):
+           return subprocess.run(ssh+[n,shlex.join(argv)],text=True,capture_output=True,timeout=timeout)
+          a=call("nodea",["qm","status","906"])
+          b=call("nodeb",["qm","status","905"])
+          t=call("nodea",["systemctl","is-active","jns-ha906-recovery-20261028.timer"])
+          if a.stdout.strip()!="status: running" or b.stdout.strip()!="status: running" or (t.returncode==0 and t.stdout.strip()=="active"):
+           raise SystemExit("JNS_ROLLBACK_CLEAN_BLOCKED=VM_state_or_nodea_timer")
+          import base64,time
+          script='''import json,pathlib
+          p=pathlib.Path("/config/.storage/core.config_entries")
+          e=json.loads(p.read_text()).get("data",{}).get("entries",[])
+          print("JNS_ACTIVE_ESP="+str(sum(v.get("domain")=="esphome" and not v.get("disabled_by") for v in e if isinstance(v,dict))))
+          '''
+          script="\n".join(s[10:] if s.startswith("          ") else s for s in script.splitlines())
+          encoded=base64.b64encode(script.encode()).decode()
+          for node,vm,expected in (("nodea",906,1),("nodeb",905,0)):
+           v=call(node,["qm","guest","exec",str(vm),"--","docker","exec","homeassistant","python3","-c",
+              "exec(__import__('base64').b64decode("+repr(encoded)+"))"],35)
+           if v.returncode:raise SystemExit("JNS_ROLLBACK_CLEAN_BLOCKED=QGA")
+           j=json.loads(v.stdout)
+           for i in range(20):
+            if j.get("exited"):break
+            time.sleep(.8)
+            v=call(node,["qm","guest","exec-status",str(vm),str(j["pid"])],24)
+            j=json.loads(v.stdout)
+           if j.get("exitcode")!=0 or "JNS_ACTIVE_ESP="+str(expected) not in str(j.get("out-data","")):
+            raise SystemExit("JNS_ROLLBACK_CLEAN_BLOCKED=exclusive_owner")
+          p=subprocess.run(["crontab","-l"],capture_output=True,text=True,timeout=12)
+          if p.returncode!=0:raise SystemExit("JNS_ROLLBACK_CLEAN_BLOCKED=cron_unavailable")
+          key="# jns-security-exclusive-failback-20261028"
+          lines=p.stdout.splitlines()
+          if sum(key in s for s in lines)>1:raise SystemExit("JNS_ROLLBACK_CLEAN_BLOCKED=duplicate_cron")
+          new="\n".join(s for s in lines if key not in s)+"\n"
+          q=subprocess.run(["crontab","-"],input=new,text=True,capture_output=True,timeout=15)
+          if q.returncode:raise SystemExit("JNS_ROLLBACK_CLEAN_BLOCKED=cron_update")
+          p=subprocess.run(["crontab","-l"],capture_output=True,text=True,timeout=12)
+          if p.returncode!=0 or key in p.stdout:raise SystemExit("JNS_ROLLBACK_CLEAN_BLOCKED=cron_verify")
+          home=pathlib.Path.home()/".local/share/jns-security-failback-20261028"
+          src=home/"state.json"
+          archive=home/"state-failed-cutover-archived-20261028.json"
+          if src.exists() and not src.is_symlink():
+           if archive.exists() or archive.is_symlink():raise SystemExit("JNS_ROLLBACK_CLEAN_BLOCKED=archive_existing")
+           obj=json.loads(src.read_text())
+           if obj.get("source_vm")!=906 or obj.get("target_vm")!=905:raise SystemExit("JNS_ROLLBACK_CLEAN_BLOCKED=archive_identity")
+           os.replace(src,archive)
+          # Remove only the one confirmed recovery fencing attestation; no VM operation.
+          remote='''import pathlib,json,os
+          p=pathlib.Path("/var/lib/jns-solar/consolidation/vm905-fenced-for-906-recovery-20261028")
+          if os.geteuid()!=0 or os.uname().nodename.split(".")[0]!="nodea":raise SystemExit(71)
+          if p.is_symlink():raise SystemExit(72)
+          if p.exists():
+           d=json.loads(p.read_text())
+           if d.get("safe_recovery_gate") is not True or d.get("source_vm")!=906 or d.get("target_vm")!=905:raise SystemExit(73)
+           p.unlink()
+          print("JNS_NODEA_FENCE_ATTESTATION=cleared_after_exclusive_restore")
+          '''
+          remote="\n".join(s[10:] if s.startswith("          ") else s for s in remote.splitlines())
+          rr=call("nodea",["python3","-c",remote],32)
+          if rr.returncode or "JNS_NODEA_FENCE_ATTESTATION=cleared" not in rr.stdout:
+           raise SystemExit("JNS_ROLLBACK_CLEAN_BLOCKED=nodea_attestation")
+          print("JNS_ROLLBACK_TIMER_CLEANUP=success_original_source_active_target_no_entry")
+          PY
