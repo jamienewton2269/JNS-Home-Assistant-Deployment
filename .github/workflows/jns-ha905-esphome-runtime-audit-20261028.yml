@@ -1,5 +1,5 @@
 name: JNS HA905 Temporary ESPHome App Runtime Readonly Audit
-# Read-only audit retry after nested helper quoting correction.
+# Post no-secret runtime smoke: inspect Supervisor app terminal state without changing controllers.
 on:
   push:
     branches: [main]
