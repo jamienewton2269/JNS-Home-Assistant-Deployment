@@ -1,0 +1,3 @@
+target=ha-general-905
+mode=read-only
+intent=on-bedtime-set-heating-target-to-18
