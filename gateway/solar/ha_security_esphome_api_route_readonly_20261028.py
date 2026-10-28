@@ -9,6 +9,9 @@ count=0
 auth=false
 flow=false
 python=false
+total=$(docker ps --format "{{.Names}}" | wc -l)
+addon_total=$(docker ps -a --format "{{.Names}}" | grep -c "^addon_" || true)
+ssh_named_total=$(docker ps -a --format "{{.Names}}" | grep -ci "ssh" || true)
 for addon in $(docker ps --format '{{.Names}}' | grep '^addon_.*ssh' || true); do
  count=$((count+1))
  code='if command -v curl >/dev/null && test -n "$SUPERVISOR_TOKEN"; then curl --silent --show-error --max-time 8 -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $SUPERVISOR_TOKEN" http://supervisor/core/api/; else echo no; fi'
@@ -22,7 +25,7 @@ for addon in $(docker ps --format '{{.Names}}' | grep '^addon_.*ssh' || true); d
   break
  fi
 done
-printf 'JNS_SECURITY_CORE_API_ROUTE={"ssh_app_candidates":%s,"supervisor_proxy_authenticated":%s,"config_flow_available":%s,"python3_available":%s}\n' "$count" "$auth" "$flow" "$python"
+printf 'JNS_SECURITY_CORE_API_ROUTE={"ssh_app_candidates":%s,"supervisor_proxy_authenticated":%s,"config_flow_available":%s,"python3_available":%s,"running_containers":%s,"all_addon_containers":%s,"ssh_named_containers":%s}\n' "$count" "$auth" "$flow" "$python" "$total" "$addon_total" "$ssh_named_total"
 '''
 def main():
  if os.uname().nodename.split(".")[0]!="nodec":return 1
