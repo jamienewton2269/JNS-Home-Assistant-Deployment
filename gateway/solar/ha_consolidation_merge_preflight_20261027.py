@@ -121,6 +121,11 @@ def guest_meminfo():
   m=re.search(r"(?m)^"+k+r":\s*(\d+) kB",source)
   if m:out[k+"_mib"]=round(int(m.group(1))/1024,1)
  return out
+dashboard_items=json_data("lovelace_dashboards").get("items",[])
+if not isinstance(dashboard_items,list):dashboard_items=[]
+dashboard_hashes=[hash_id(v.get("url_path")) for v in dashboard_items
+                  if isinstance(v,dict) and isinstance(v.get("url_path"),str)]
+dashboard_hashes=[x for x in dashboard_hashes if x]
 out={"read_only":True,"registry_entities":len(entities),"registry_devices":len(devices),
      "config_entries":len(entries),"enabled_entries":sum(enabled.values()),
      "integration_domains":{x:domains[x] for x in key_domains if domains[x]},
@@ -153,7 +158,8 @@ out={"read_only":True,"registry_entities":len(entities),"registry_devices":len(d
      "entity_platform_families":{k:platform_counts[k] for k in
          ("remote_homeassistant","mqtt","esphome","mobile_app","template",
           "automation","script","group","hassio","matter","onvif") if platform_counts[k]},
-     "_entity_hashes":list(hashes),"_entity_owner_by_hash":owner_by_hash}
+     "_entity_hashes":list(hashes),"_entity_owner_by_hash":owner_by_hash,
+     "_dashboard_hashes":dashboard_hashes}
 print("JNS_PRIVATE_AUDIT="+json.dumps(out,sort_keys=True))
 """
 def run(argv, timeout=25):
@@ -203,9 +209,10 @@ def guest(host,vm,salt):
   return out
  hashes=set(payload.pop("_entity_hashes",[]))
  owners=payload.pop("_entity_owner_by_hash",{})
+ dashboards=set(payload.pop("_dashboard_hashes",[]))
  out["audit"]="ok"
  out["summary"]=payload
- return out,hashes,owners
+ return out,hashes,owners,dashboards
 def host_memory(node):
  raw=ssh(node,["free","-m"],18)
  if not raw:return {"status":"unavailable"}
@@ -221,13 +228,15 @@ def main():
  summary={}
  hashes={}
  ownership={}
+ dashboard_sets={}
  for role,host,vm in ROLES:
   res=guest(host,vm,salt)
-  if isinstance(res,tuple):status,hashed,owners=res
-  else:status,hashed,owners=res,set(),{}
+  if isinstance(res,tuple):status,hashed,owners,dh=res
+  else:status,hashed,owners,dh=res,set(),{},set()
   summary[role]=status
   hashes[role]=hashed
   ownership[role]=owners
+  dashboard_sets[role]=dh
   print("JNS_ROLE="+json.dumps({"role":role,**status},sort_keys=True),flush=True)
  for host in ("nodea","nodeb"):
   print("JNS_HOST_MEMORY="+json.dumps({"host":host,**host_memory(host)},sort_keys=True),flush=True)
@@ -245,6 +254,15 @@ def main():
         "overlaps":len(shared),"mirrored_in_source":mirror_src,
         "mirrored_in_general":mirror_general,
         "other_source_platforms":len(shared)-mirror_src},sort_keys=True),flush=True)
+  for source in ("ha-primary","ha-security"):
+   source_dash=dashboard_sets[source]
+   target_dash=dashboard_sets["ha-general"]
+   print("JNS_LOVELACE_MIGRATION_GAP="+json.dumps({
+     "source":source,"source_custom_url_paths":len(source_dash),
+     "general_custom_url_paths":len(target_dash),
+     "url_path_matches":len(source_dash&target_dash),
+     "source_url_paths_not_on_general":len(source_dash-target_dash)
+   },sort_keys=True),flush=True)
   print("JNS_PREFLIGHT_COMPLETE=YES",flush=True)
  else:
   print("JNS_PREFLIGHT_COMPLETE=NO",flush=True)
