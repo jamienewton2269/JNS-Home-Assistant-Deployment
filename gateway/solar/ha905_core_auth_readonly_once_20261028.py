@@ -130,7 +130,7 @@ def read_probe():
    for line in lines[-1:]:
     try:
      r=json.loads(line)
-     if r.get("invalid_flow_post_sent") is not True or r.get("no_device_details_sent") is not False or r.get("used_security_output") is not False or r.get("logged_token") is not False:
+     if r.get("invalid_flow_post_sent") is not True or r.get("no_device_details_sent") is not True or r.get("used_security_output") is not False or r.get("logged_token") is not False:
       continue
      statuses=r.get("statuses")
      if not isinstance(statuses,dict) or set(statuses)!={"supervisor_info","core_root","core_config","rejected_flow_post","esphome_blank_flow_start","esphome_blank_flow_cancel","esphome_blank_form"}:continue
