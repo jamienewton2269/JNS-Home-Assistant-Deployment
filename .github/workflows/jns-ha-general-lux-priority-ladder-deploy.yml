@@ -1,0 +1,21 @@
+name: JNS HA-General Lux Priority Ladder Deploy
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/lux_priority/deploy.request']
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-lux-priority-deploy
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install priority ladder with backups, full HA config check, guarded restart and runtime verification
+        run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/lux_priority/patch_vm905.py gateway/lux_priority/deploy.py
+          python3 gateway/lux_priority/deploy.py
