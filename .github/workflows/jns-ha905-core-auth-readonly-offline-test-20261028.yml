@@ -1,5 +1,5 @@
 name: JNS HA905 Core Auth Readonly Diagnostic Offline Tests
-# v0.1.2 regression rerun after intentional-flow deletion test correction; still offline only.
+# v0.1.2 regression after Python expected-value correction; offline only.
 on:
   push:
     branches: [main]
