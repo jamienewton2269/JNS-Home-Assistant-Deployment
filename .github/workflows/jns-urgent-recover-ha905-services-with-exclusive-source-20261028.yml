@@ -1,0 +1,41 @@
+name: JNS EMERGENCY Restore HA905 Services With Exclusive Security Owner
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-urgent-recover-ha905-services-with-exclusive-source-20261028.yml'
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-security-single-owner-cutover
+  cancel-in-progress: false
+jobs:
+  recover_ha905:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Source script syntax and failback scenario tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha906_emergency_restore_ha905_services_20261028.py
+          python3 -m py_compile gateway/solar/ha906_nodec_auto_failback_20261028.py
+          python3 gateway/solar/test_ha906_nodec_auto_failback_20261028.py -v
+      - name: Confirm single-use, onsite-authorised emergency state before security interruption
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea qm status 906)" = "status: running"
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodeb qm status 905)" = "status: paused"
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea systemctl is-active jns-ha906-recovery-20261028.timer)" = "active"
+          test -f "$HOME/.local/share/jns-security-failback-20261028/state.json"
+          test ! -e "$HOME/.local/share/jns-security-failback-20261028/handback-attempted"
+          echo JNS_HAND_BACK_EXCLUSIVE_GATE=verified
+      - name: Resume VM905 only with VM906 stopped; scrub transient flow and restore VM906
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          touch "$HOME/.local/share/jns-security-failback-20261028/handback-attempted"
+          python3 gateway/solar/ha906_emergency_restore_ha905_services_20261028.py
