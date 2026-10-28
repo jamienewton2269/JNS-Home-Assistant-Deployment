@@ -1,4 +1,5 @@
 name: JNS HA905 ESPHome App Safe Reset After No-Secret Smoke
+# Replace stopped cached v0.1.0 with catalog-confirmed v0.1.1; no VM changes.
 on:
   push:
     branches: [main]
