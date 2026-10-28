@@ -1,0 +1,21 @@
+name: JNS HA-General Predictive Heating and Learned Bedtime Deploy
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/heating_presence/deploy.request']
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-heating-presence-deploy
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Guarded HA905 schedule and dashboard install, configuration validation, and activation
+        run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/heating_presence/patch_vm905.py gateway/heating_presence/deploy.py
+          python3 gateway/heating_presence/deploy.py
