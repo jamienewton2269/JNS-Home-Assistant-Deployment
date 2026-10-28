@@ -28,7 +28,8 @@ jobs:
           src=Path("gateway/solar/ha906_nodec_auto_failback_20261028.py").read_text()
           assert "if not STATE.is_file()" in src
           assert 'if mode=="--cron" and time.time()<state["deadline"]' in src
-          assert 'if count is None or count>0:' in src
+          assert '["qm","suspend","905"]' in src
+          assert "an in-progress config flow could otherwise" in src
           assert '["qm","suspend","905"]' in src
           assert "target_fence_not_verified" in src
           assert '["qm","start","906"]' in src
