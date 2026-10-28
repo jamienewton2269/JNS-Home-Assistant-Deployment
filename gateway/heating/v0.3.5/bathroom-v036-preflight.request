@@ -1,3 +1,4 @@
 target=ha-general.home.arpa
 vm=905
 intent=read-only-0.3.6-prerequisite-check
+# Re-run 2026-10-28 read-only live prerequisite audit after security migration changes; no activation
