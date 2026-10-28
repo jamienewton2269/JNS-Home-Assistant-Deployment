@@ -41,7 +41,8 @@ ORIGINAL=("coordinator.py","sensor.py","thermal.py","manifest.json")
 NEW_ONLY=("bathroom_reference.py","bathroom_runtime.py")
 ROOT_BACKUPS=".jns_heating_backups"
 STAGE_PREFIX="v036-"
-MAX_BYTES=120_000
+MAX_BYTES=16*1024*1024
+MAX_CANDIDATE_BYTES=120_000
 
 class Blocked(RuntimeError):pass
 
@@ -113,7 +114,7 @@ def candidate_manifest(source):
 def candidate_map(raw):
     require(isinstance(raw,dict) and set(raw)==set(REPLACE),"candidate file names not allowlisted")
     require(all(isinstance(k,str) and isinstance(v,bytes) and
-                0<len(v)<=MAX_BYTES for k,v in raw.items()),"invalid candidate bytes")
+                0<len(v)<=MAX_CANDIDATE_BYTES for k,v in raw.items()),"invalid candidate bytes")
     for name in REPLACE:
         if name.endswith(".py"):compile(raw[name],name,"exec")
     m=json.loads(raw["manifest.json"])
