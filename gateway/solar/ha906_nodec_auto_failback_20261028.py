@@ -162,13 +162,13 @@ def restore():
         if not healthy(p) or status("nodeb",905)!="suspended":
             note("BLOCKED","target_fence_not_verified");return 1
         note("TARGET_FENCE","vm905_suspended_failback")
-    elif b not in ("stopped","suspended"):
+    elif b not in ("stopped","suspended","paused"):
         note("BLOCKED","target_not_isolated");return 1
     # Fencing must remain true at the moment of source promotion.
     b=status("nodeb",905)
     if b=="running" and active_target_count()!=0:
         note("BLOCKED","target_active_after_fence");return 1
-    if b not in ("running","stopped","suspended"):
+    if b not in ("running","stopped","suspended","paused"):
         note("BLOCKED","target_status_unavailable");return 1
     if nodea_done():return 0
     # Authorize the separate Node A 45-minute timer only AFTER Node C
