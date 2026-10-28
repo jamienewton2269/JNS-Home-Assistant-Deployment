@@ -10,7 +10,7 @@ JOB={"job_id":"20261028T120000Z-heating-v036-a1b2c3","job_type":P.JOB_TYPE,"stag
 PERMIT={"job_id":JOB["job_id"],"operation":P.OPERATION,"stage_id":P.STAGE,
         "candidate_sha256":P.CANDIDATE["thermal.py"],
         "expires_utc":(NOW+timedelta(minutes=8)).isoformat(),
-        "heating_outage_approved":True}
+        "heating_outage_approved":True,"consolidation_quiet_approved":True}
 STAGE={"stage_id":P.STAGE,"state":"staged","version":"0.3.6",
        "candidate":P.CANDIDATE.copy(),"original":P.ORIGINAL.copy(),
        "legacy_store_preserved":True,"core_restarted":False}
@@ -43,7 +43,7 @@ class PolicyTests(unittest.TestCase):
     def test_signed_local_single_job_approval(self):
         self.assertTrue(P.approve(JOB,PERMIT,NOW))
         for mod in ({"job_id":"wrong"},{"heating_outage_approved":False},
-                    {"candidate_sha256":"0"*64},{"expires_utc":(NOW+timedelta(minutes=11)).isoformat()},
+                    {"candidate_sha256":"0"*64},{"consolidation_quiet_approved":False},{"expires_utc":(NOW+timedelta(minutes=11)).isoformat()},
                     {"expires_utc":(NOW-timedelta(seconds=1)).isoformat()}):
             with self.subTest(mod=mod),self.assertRaises(P.Denied):
                 P.approve(JOB,{**PERMIT,**mod},NOW)
