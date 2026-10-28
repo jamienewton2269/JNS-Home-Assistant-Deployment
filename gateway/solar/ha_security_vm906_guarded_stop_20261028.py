@@ -54,12 +54,18 @@ def ssh(host,args,timeout=38):
  try:p=subprocess.run(SSH+[host,shlex.join(args)],capture_output=True,text=True,timeout=timeout)
  except (OSError,subprocess.TimeoutExpired):return None
  return p.stdout if p.returncode==0 else None
-def guest(args):
- r=ssh("nodeb",["qm","guest","exec","905","--",*args],40)
+def guest(args,long_core_check=False):
+ # HAOS Core validation takes around 30s and can exceed the default QGA
+ # execution deadline. The long-running check MUST carry its own explicit
+ # guest-exec timeout, with a longer SSH envelope and polling budget.
+ cmd=["qm","guest","exec","905"]
+ if long_core_check:cmd+=["--timeout","180"]
+ cmd+=["--",*args]
+ r=ssh("nodeb",cmd,210 if long_core_check else 40)
  if not r:return None
  try:j=json.loads(r)
  except ValueError:return None
- for _ in range(110):
+ for _ in range(280 if long_core_check else 110):
   if j.get("exited"):return j
   if not j.get("pid"):break
   time.sleep(.7)
@@ -71,6 +77,8 @@ def guest(args):
 def main():
  if os.uname().nodename.split(".")[0]!="nodec":
   print("JNS_VM906_STOP_BLOCKED=runner_identity");return 1
+ if len(sys.argv)>2 or (len(sys.argv)==2 and sys.argv[1]!="--preflight"):
+  print("JNS_VM906_STOP_BLOCKED=unsupported_argument");return 1
  for host,vm,name in (("nodea",906,"ha-security"),("nodeb",905,"ha-s2-general")):
   state=ssh(host,["qm","status",str(vm)])
   cfg=ssh(host,["qm","config",str(vm)]) or ""
@@ -97,10 +105,17 @@ def main():
  if raw.get("result")!="ok" or len(found)!=1:
   print("JNS_VM906_STOP_BLOCKED=temporary_native_flow_app_not_confirmed_installed");return 1
  print("JNS_VM905_HANDOVER_APP_INSTALLED_INVENTORY=yes",flush=True)
- chk=guest(["ha","core","check"])
- if not chk or chk.get("exitcode")!=0:
-  print("JNS_VM906_STOP_BLOCKED=ha_general_core_check_not_clean");return 1
+ core_started=time.monotonic()
+ chk=guest(["ha","core","check"],long_core_check=True)
+ if not chk:
+  print("JNS_VM906_STOP_BLOCKED=ha_general_core_check_transport_or_timeout");return 1
+ if chk.get("exitcode")!=0:
+  print("JNS_VM906_STOP_BLOCKED=ha_general_core_check_failed_exit_"+str(chk.get("exitcode","unknown")));return 1
+ print("JNS_VM905_CORE_CHECK_VERIFIED=passed_elapsed_seconds_"+str(round(time.monotonic()-core_started,1)),flush=True)
  print("JNS_VM906_STOP_PREFLIGHT=passed",flush=True)
+ if len(sys.argv)==2 and sys.argv[1]=="--preflight":
+  print("JNS_VM906_PREFLIGHT_ONLY=ready_no_vm_changes_no_timer_armed",flush=True)
+  return 0
  # The Node C recovery cron MUST be installed and attested before isolation.
  # Both repository code and staged runner-owned file must be identical.
  import pathlib,hashlib
