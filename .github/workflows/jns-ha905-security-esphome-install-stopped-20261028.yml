@@ -23,7 +23,7 @@ jobs:
           python3 -m py_compile gateway/solar/ha905_security_esphome_install_stopped_guarded_20261028.py
           python3 -m py_compile gateway/solar/ha905_security_esphome_handover_app/flow.py
           python3 gateway/solar/ha905_security_esphome_handover_app/test_flow.py -v
-      - name: Build and install manually started app only, never enrol or stop VM906
+      - name: Retry guarded stopped-app preparation with classified, redacted error reporting
         shell: bash
         run: |
           set -Eeuo pipefail
