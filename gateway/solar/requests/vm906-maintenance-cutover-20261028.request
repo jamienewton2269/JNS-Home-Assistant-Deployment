@@ -1,0 +1,3 @@
+JNS explicitly authorised VM906 controlled shutdown to migrate security control into HA-General during 2026-10-28 maintenance window.
+Requires validated VM905 native alarm package, pre-shutdown HA config check and 45-minute automatic Node A VM906 recovery timer.
+Do not restart VM906 automatically at completion of deployment unless cutover fails or manual recovery requested.
