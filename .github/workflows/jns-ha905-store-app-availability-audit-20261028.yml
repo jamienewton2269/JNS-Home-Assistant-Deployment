@@ -1,0 +1,51 @@
+name: JNS HA905 Store Local ESPHome App Availability Read Only
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-store-app-availability-audit-20261028.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect store-known local app metadata and reload command support
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import subprocess,shlex,json,time
+          s=["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes","-o","ConnectTimeout=6","nodeb"]
+          def qga(args):
+           p=subprocess.run(s+[shlex.join(["qm","guest","exec","905","--",*args])],capture_output=True,text=True,timeout=34)
+           if p.returncode:return None
+           j=json.loads(p.stdout)
+           for _ in range(75):
+            if j.get("exited"):return j
+            time.sleep(.6)
+            p=subprocess.run(s+[shlex.join(["qm","guest","exec-status","905",str(j["pid"])])],capture_output=True,text=True,timeout=25)
+            if p.returncode:return None
+            j=json.loads(p.stdout)
+           return None
+          a=qga(["ha","store","info","local_jns_ha905_security_handover","--raw-json","--no-progress"])
+          b=qga(["ha","store","reload","--help"])
+          def body(v):
+           if not v:return {"qga":"unavailable"}
+           o={"exit":v.get("exitcode")}
+           try:
+            d=json.loads(v.get("out-data") or "{}")
+            value=d.get("data",{})
+            o.update({"result":d.get("result"),"metadata_keys":sorted(value) if isinstance(value,dict) else [],
+             "version":value.get("version") if isinstance(value,dict) else None,
+             "slug":value.get("slug") if isinstance(value,dict) else None,
+             "repository_local":value.get("repository")=="local" if isinstance(value,dict) else None})
+           except (TypeError,ValueError):o["json"]="absent"
+           return o
+          print("JNS_HA905_STORE_LOCAL_INFO="+json.dumps(body(a),sort_keys=True))
+          print("JNS_HA905_STORE_RELOAD_HELP="+json.dumps({"exit":b.get("exitcode") if b else None,
+             "has_reload_usage":bool(b and "reload" in str(b.get("out-data","")).lower()),
+             "error_output":bool(b and b.get("err-data"))},sort_keys=True))
+          PY
