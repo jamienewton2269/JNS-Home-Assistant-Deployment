@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+"""Offline-only permission and redaction tests for the JNS Core auth probe."""
+import importlib.util
+import pathlib
+import urllib.error
+import unittest
+ROOT=pathlib.Path(__file__).parent
+spec=importlib.util.spec_from_file_location("jns_auth_readonly",ROOT/"probe.py")
+mod=importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+class Response:
+ status=200
+ def __enter__(self):return self
+ def __exit__(self,*a):return None
+ def read(self,*a):raise AssertionError("response body read")
+class Tests(unittest.TestCase):
+ def test_three_gets_token_and_zero_response_body_reads(self):
+  calls=[]
+  def opener(req,timeout):
+   calls.append((req.full_url,req.get_method(),req.get_header("Authorization"),timeout))
+   return Response()
+  result=mod.run("FAKE_ONLY",opener)
+  self.assertEqual(result,{"supervisor_info":200,"core_root":200,"core_config":200})
+  self.assertEqual({(x[0],x[1]) for x in calls},{(url,"GET") for name,url in mod.ENDPOINTS})
+  self.assertTrue(all(x[2]=="Bearer FAKE_ONLY" and x[3]<=8 for x in calls))
+ def test_missing_token_never_connects(self):
+  def forbidden(*a,**k):raise AssertionError("network attempted")
+  self.assertEqual(set(mod.run("",forbidden).values()),{"token_absent"})
+ def test_http401_reported_no_fabricated_success(self):
+  def rejected(req,timeout):
+   raise urllib.error.HTTPError(req.full_url,401,"private information",{},None)
+  self.assertEqual(set(mod.run("FAKE",rejected).values()),{401})
+ def test_unsafe_url_never_connects(self):
+  with self.assertRaises(ValueError):
+   mod.classify("http://supervisor/addons/self/start","FAKE")
+ def test_minimal_addon_manifest_and_no_write_methods(self):
+  cfg=(ROOT/"config.yaml").read_text()
+  for word in ("homeassistant_api: true","hassio_api: false","boot: manual_only",
+               "startup: once","full_access: false","host_network: false",
+               "docker_api: false","ports: {}"):
+   self.assertIn(word,cfg)
+  for bad in ("ingress: true","hassio_api: true","privileged:"):
+   self.assertNotIn(bad,cfg)
+  src=(ROOT/"probe.py").read_text()
+  for bad in ("method=\"POST\"","method=\"PUT\"","method=\"DELETE\"",
+              "config/config_entries/flow","/services/","socket.","subprocess"):
+   self.assertNotIn(bad,src)
+  self.assertTrue((ROOT/"run.sh").read_bytes().startswith(b"#!/command/with-contenv bashio\n"))
+ def test_only_expected_fixed_endpoints(self):
+  self.assertEqual(tuple(name for name,_ in mod.ENDPOINTS),("supervisor_info","core_root","core_config"))
+if __name__=="__main__":unittest.main(verbosity=2)
