@@ -1,0 +1,69 @@
+name: JNS HA905 Supervisor Local Store v011 Catalog Refresh
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-supervisor-local-store-refresh-v011-20261028.yml'
+permissions:
+  contents: read
+jobs:
+  refresh:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refresh HA905 local store with long QGA timeout; never start addon
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import base64,json,os,re,shlex,subprocess,time
+          assert os.uname().nodename.split(".")[0]=="nodec"
+          SSH=["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes","-o","ConnectTimeout=6"]
+          def cmd(host,args,timeout=32):
+           return subprocess.run(SSH+[host,shlex.join(args)],capture_output=True,text=True,timeout=timeout)
+          for host,vm in (("nodea",906),("nodeb",905)):
+           a=cmd(host,["qm","status",str(vm)])
+           assert a.returncode==0 and a.stdout.strip()=="status: running"
+          timer=cmd("nodea",["systemctl","is-active","jns-ha906-recovery-20261028.timer"])
+          assert not (timer.returncode==0 and timer.stdout.strip()=="active")
+          def guest(args,long=False):
+           p=cmd("nodeb",["qm","guest","exec","905"]+
+                 (["--timeout","180"] if long else [])+["--",*args],215 if long else 40)
+           if p.returncode:return None
+           obj=json.loads(p.stdout)
+           for i in range(190 if long else 65):
+            if obj.get("exited"):return obj
+            time.sleep(.7)
+            p=cmd("nodeb",["qm","guest","exec-status","905",str(obj["pid"])],28)
+            if p.returncode:return None
+            obj=json.loads(p.stdout)
+           return None
+          info=guest(["ha","apps","info","local_jns_ha905_security_handover","--no-progress","--raw-json"])
+          assert info and info.get("exitcode")==0
+          data=json.loads(info.get("out-data") or "{}")
+          app=data.get("data",{})
+          assert data.get("result")=="ok" and app.get("repository")=="local"
+          assert app.get("state")=="stopped" and app.get("version")=="0.1.0"
+          print("JNS_STORE_REFRESH_PREFLIGHT=old_app_stopped_source_owner_running",flush=True)
+          result=guest(["ha","store","reload","--no-progress"],long=True)
+          if not result or result.get("exitcode")!=0:
+           print("JNS_STORE_REFRESH_RESULT=command_unverified")
+           raise SystemExit(1)
+          try:
+           body=json.loads(result.get("out-data") or "{}")
+           ok=body.get("result")=="ok"
+          except (ValueError,TypeError):ok=False
+          print("JNS_STORE_REFRESH_RESULT="+("ok" if ok else "unconfirmed"),flush=True)
+          if not ok:raise SystemExit(1)
+          check=guest(["ha","store","info","local_jns_ha905_security_handover","--no-progress","--raw-json"])
+          if not check or check.get("exitcode")!=0:raise SystemExit(1)
+          raw=json.loads(check.get("out-data") or "{}")
+          addons=raw.get("data",{}).get("addons",[])
+          rows=[x for x in addons if isinstance(x,dict) and x.get("slug")=="local_jns_ha905_security_handover"]
+          print("JNS_STORE_REFRESH_MATCHES="+str(len(rows)),flush=True)
+          print("JNS_STORE_REFRESH_VERSION_LATEST="+str(rows[0].get("version_latest") if len(rows)==1 else "unknown"),flush=True)
+          for host,vm in (("nodea",906),("nodeb",905)):
+           a=cmd(host,["qm","status",str(vm)])
+           assert a.returncode==0 and a.stdout.strip()=="status: running"
+          PY
