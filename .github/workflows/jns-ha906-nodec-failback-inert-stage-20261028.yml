@@ -1,0 +1,37 @@
+name: JNS HA906 Node C Exclusive Failback Inert Stage
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha906-nodec-failback-inert-stage-20261028.yml'
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Static tests of exclusive failback
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha906_nodec_auto_failback_20261028.py
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path("gateway/solar/ha906_nodec_auto_failback_20261028.py").read_text()
+          assert "if not STATE.is_file()" in src
+          assert 'if mode=="--cron" and time.time()<state["deadline"]' in src
+          assert 'if count is None or count>0:' in src
+          assert '["qm","suspend","905"]' in src
+          assert "target_fence_not_verified" in src
+          assert '["qm","start","906"]' in src
+          print("JNS_FAILBACK_OFFLINE_SAFETY=passed")
+          PY
+      - name: Stage and independently verify inert Node C cron fallback
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 gateway/solar/ha906_nodec_auto_failback_20261028.py --check
+          python3 gateway/solar/ha906_nodec_auto_failback_20261028.py --install-inert
+          python3 gateway/solar/ha906_nodec_auto_failback_20261028.py --check
