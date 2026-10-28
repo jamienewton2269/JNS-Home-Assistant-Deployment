@@ -143,17 +143,32 @@ try:
   ok,_=guest_fixed("ha store reload >/dev/null 2>&1",130)
  if not ok:fail("store_reload_failed")
  status("STORE","refreshed")
- ok,_=guest_fixed("ha apps install "+SLUG+" --no-progress >/dev/null 2>&1",360)
- if not ok:
-  # CLI --no-progress may only be a global flag; retry only if not installed.
-  g=script("ha apps info "+SLUG+" --raw-json",35)
-  if not success(g):fail("install_not_registered")
+ install_ok,install_data=guest_fixed("ha apps install "+SLUG+" --no-progress --raw-json",360)
+ install_result="unknown"
+ if install_data:
   try:
-   info=json.loads(g.get("out-data") or "{}")
-   obj=info.get("data",info) if isinstance(info,dict) else {}
-   if not isinstance(obj,dict) or not obj.get("installed"):fail("install_not_confirmed")
-  except (ValueError,TypeError):fail("install_info_invalid")
- installed=True
+   install_reply=json.loads(install_data)
+   install_result=install_reply.get("result","unknown") if isinstance(install_reply,dict) else "invalid"
+  except (ValueError,TypeError):install_result="invalid"
+ status("INSTALL_API_RESULT",install_result)
+ # A successful CLI process exit is not proof of a successful Supervisor build.
+ # The default install API waits for the build: never issue a duplicate install request.
+ if not install_ok or install_result!="ok":
+  fail("supervisor_install_failed_source_preserved")
+ deadline=time.monotonic()+70
+ while time.monotonic()<deadline:
+  g=script("ha apps info "+SLUG+" --no-progress --raw-json",30)
+  if g:
+   try:
+    info=json.loads(g.get("out-data") or "{}")
+    obj=info.get("data",{}) if isinstance(info,dict) else {}
+    if (isinstance(info,dict) and info.get("result")=="ok" 
+        and isinstance(obj,dict) and obj.get("version") and obj.get("state")):
+     installed=True
+     break
+   except (ValueError,TypeError):pass
+  time.sleep(4)
+ if not installed:fail("install_not_confirmed_source_preserved")
  status("INSTALL","registered")
  # Verify the app hasn't unexpectedly started before the single explicit start.
  g=script("ha apps info "+SLUG+" --raw-json",35)
