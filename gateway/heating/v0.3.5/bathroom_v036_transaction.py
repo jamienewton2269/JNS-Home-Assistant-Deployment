@@ -150,8 +150,12 @@ def stage(root,candidate):
     dest=backup/stage_id
     dest.mkdir(mode=0o700)
     try:
-        before=dest/"original"; after=dest/"candidate"
-        before.mkdir(mode=0o700);after.mkdir(mode=0o700)
+        before=dest/"original"; after=dest/"candidate"; saved=dest/"legacy_store"
+        before.mkdir(mode=0o700);after.mkdir(mode=0o700);saved.mkdir(mode=0o700)
+        for name,meta in history.items():
+            blob=read(storage/name,root)
+            require(digest(blob)==meta["sha256"],"legacy learning data changed during snapshot")
+            atomic(saved/name,blob,root,mode=0o600)
         for name in ORIGINAL:
             atomic(before/name,read(comp/name,root),root,mode=0o600)
         for name in REPLACE:atomic(after/name,raw[name],root,mode=0o600)
@@ -178,12 +182,18 @@ def get_stage(root,stage_id):
     state=json.loads(read(dest/"state.json",root))
     require(state["stage_id"]==stage_id and state["version"]==NEW_VERSION,
             "stage metadata mismatch")
-    for part in ("original","candidate"):
+    for part in ("original","candidate","legacy_store"):
         require((dest/part).is_dir(),"private stage incomplete")
     for label,names in (("original",ORIGINAL),("candidate",REPLACE)):
         for f in names:
             require(digest(read(dest/label/f,root))==state[label][f],
                     "stage digest mismatch: "+f)
+    for name,meta in state["history"].items():
+        require(name.startswith("jns_heating_zone_") and
+                all(char.isalnum() or char in "_-" for char in name),
+                "invalid stored learning backup name")
+        require(digest(read(dest/"legacy_store"/name,root))==meta["sha256"],
+                "saved learning store snapshot changed")
     for f in PROTECTED:
         require(digest(read(comp/f,root))==state["protected"][f],
                 "protected integration file modified: "+f)
