@@ -1,4 +1,5 @@
 name: JNS HA905 ESPHome Temporary App Install Stopped Inventory-Proven
+# Attempt direct install from already verified local store catalogue.
 on:
   push:
     branches: [main]
