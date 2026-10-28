@@ -25,4 +25,4 @@ jobs:
           python3 -m py_compile gateway/heating/v0.3.5/v036_local_approval.py
       - name: Offline release safety regression suite
         run: |
-          python3 -m unittest discover -v -s gateway/heating/v0.3.5 -p 'test_v036_*.py'
+          python3 -m unittest discover -v -s gateway/heating/v0.3.5 -p 'test_*.py'
