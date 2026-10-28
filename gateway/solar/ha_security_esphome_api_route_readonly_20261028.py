@@ -12,7 +12,7 @@ python=false
 total=$(docker ps --format "{{.Names}}" | wc -l)
 addon_total=$(docker ps -a --format "{{.Names}}" | grep -c "^addon_" || true)
 ssh_named_total=$(docker ps -a --format "{{.Names}}" | grep -ci "ssh" || true)
-for addon in $(docker ps --format '{{.Names}}' | grep '^addon_.*ssh' || true); do
+for addon in $(docker ps --format '{{.Names}}' | grep -i 'ssh' || true); do
  count=$((count+1))
  code='if command -v curl >/dev/null && test -n "$SUPERVISOR_TOKEN"; then curl --silent --show-error --max-time 8 -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $SUPERVISOR_TOKEN" http://supervisor/core/api/; else echo no; fi'
  status=$(docker exec "$addon" /bin/sh -c "$code" 2>/dev/null || true)
