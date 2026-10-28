@@ -31,12 +31,12 @@ out["vm905_definition_present"]=bool(p and p.returncode==0)
 out["vm905_state"]=q.stdout.strip().removeprefix("status: ") if q and q.returncode==0 else "unavailable"
 if p and p.returncode==0:
  cfg=p.stdout
- out["vm905_memory_mib"]=int(re.search(r"(?m)^memory:\\s*(\\d+)$",cfg).group(1)) if re.search(r"(?m)^memory:\\s*(\\d+)$",cfg) else None
- out["vm905_balloon_disabled"]=bool(re.search(r"(?m)^balloon:\\s*0$",cfg))
- out["vm905_onboot_disabled"]=bool(re.search(r"(?m)^onboot:\\s*0$",cfg))
- out["vm905_disk_definitions"]=len(re.findall(r"(?m)^(?:scsi|virtio|sata|ide|efidisk)\\d+:",cfg))
- out["vm905_storage_ids"]=sorted(set(re.findall(r"(?m)^(?:scsi|virtio|sata|ide|efidisk)\\d+:\\s*([A-Za-z0-9_-]+):",cfg)))
- out["vm905_ha_general_role"]=bool(re.search(r"(?m)^name:\\s*ha-s2-general$",cfg))
+ out["vm905_memory_mib"]=int(re.search(r"(?m)^memory:\s*(\d+)$",cfg).group(1)) if re.search(r"(?m)^memory:\s*(\d+)$",cfg) else None
+ out["vm905_balloon_disabled"]=bool(re.search(r"(?m)^balloon:\s*0$",cfg))
+ out["vm905_onboot_disabled"]=bool(re.search(r"(?m)^onboot:\s*0$",cfg))
+ out["vm905_disk_definitions"]=len(re.findall(r"(?m)^(?:scsi|virtio|sata|ide|efidisk)\d+:",cfg))
+ out["vm905_storage_ids"]=sorted(set(re.findall(r"(?m)^(?:scsi|virtio|sata|ide|efidisk)\d+:\s*([A-Za-z0-9_-]+):",cfg)))
+ out["vm905_ha_general_role"]=bool(re.search(r"(?m)^name:\s*ha-s2-general$",cfg))
 z=run(["zfs","list","-Hp","-o","available","vmdata"])
 if z and z.returncode==0:
  try:out["vmdata_available_gib"]=round(int(z.stdout.strip())/1073741824,1)
