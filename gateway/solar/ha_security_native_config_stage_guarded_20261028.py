@@ -43,6 +43,12 @@ body+="automation:\n"
 for fragment in automations:
  fragment=fragment.rstrip()
  lines=fragment.splitlines()
+ # YAML permits indentless sequences under an individual mapping key; when
+ # merging two such sequences, normalise them to a two-space list indent.
+ id_indents=[len(x)-len(x.lstrip(" ")) for x in lines if re.match(r"^\s*-\s+id\s*:",x)]
+ if not id_indents:raise SystemExit(79)
+ if min(id_indents)==0:
+  lines=[("  "+x if x.strip() else x) for x in lines]
  for line in lines:
   m=re.match(r"^(\s*)-\s+id\s*:",line)
   if m:
@@ -69,9 +75,9 @@ import base64,json,os,pathlib,re,sys
 from pathlib import Path
 import yaml
 root=Path("/config")
-dest=root/"packages/jns_ha_security_native_cutover_20261028.yaml"
+dest=root/"packages/jns_ha_security_native_cutover_20261028_v2.yaml"
 secrets=root/"secrets.yaml"
-backup=root/".jns_migration_backups/security_20261028_secrets_original.yaml"
+backup=root/".jns_migration_backups/security_20261028_v2_secrets_original.yaml"
 def fail(code):
  print("JNS_NATIVE_SECURITY_STAGE_BLOCKED="+code)
  raise SystemExit(71)
@@ -86,7 +92,7 @@ if not isinstance(src,str) or len(src)>210000 or not isinstance(ref,str) or not 
 if not re.fullmatch(r"[A-Za-z0-9_.-]{2,90}",ref):fail("secret_name_invalid")
 if src.count("initial_state: false")!=6:fail("expected_six_disabled_automations")
 if len(re.findall(r"(?m)^\s*-\s*id\s*:",src))!=6:fail("automation_count_invalid")
-target_key="jns_security_906_manual_alarm_code_20261028"
+target_key="jns_security_906_manual_alarm_code_20261028_v2"
 if target_key in secrets.read_text():fail("target_secret_key_collision")
 try:
  existing=yaml.safe_load(secrets.read_text()) or {}
@@ -118,9 +124,9 @@ print("JNS_NATIVE_SECURITY_STAGED="+json.dumps({"manual_alarm_definitions":1,
 ROLLBACK=r'''
 import os,pathlib
 root=pathlib.Path("/config")
-p=root/"packages/jns_ha_security_native_cutover_20261028.yaml"
+p=root/"packages/jns_ha_security_native_cutover_20261028_v2.yaml"
 s=root/"secrets.yaml"
-b=root/".jns_migration_backups/security_20261028_secrets_original.yaml"
+b=root/".jns_migration_backups/security_20261028_v2_secrets_original.yaml"
 if not p.is_file() or p.is_symlink() or not b.is_file() or b.is_symlink():raise SystemExit(70)
 p.unlink()
 tmp=s.with_name("secrets.yaml.jns-restore-tmp")
