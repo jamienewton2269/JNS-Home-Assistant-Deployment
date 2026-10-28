@@ -1,7 +1,7 @@
 name: "JNS HA905 Core Auth Readonly Diagnostic"
-version: "0.1.1"
+version: "0.1.2"
 slug: "jns_ha905_core_auth_readonly"
-description: "One-shot GET plus schema-invalid POST auth test; no configuration flow can start"
+description: "Single-use ESPHome blank flow form creation and immediate cancellation, no device credentials"
 arch:
   - amd64
 startup: once
