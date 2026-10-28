@@ -1,4 +1,5 @@
 name: JNS HA905 ESPHome ULID Compatibility Offline Verification
+# Post HTTPError 40771120553: validate safe HTTP status/phase diagnostics; no addon install.
 on:
   push:
     branches: [main]
