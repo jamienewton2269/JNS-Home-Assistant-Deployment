@@ -1,4 +1,4 @@
-name: JNS Sharp Printer DNS and DHCP Read Only
+name: JNS Sharp Printer DNS and TCP Port Verification Read Only
 on:
   push:
     branches: [diagnostics/sharp-printer-dns-20261028]
@@ -9,32 +9,31 @@ permissions:
 jobs:
   inspect:
     runs-on: [self-hosted, linux, x64, nodec]
-    timeout-minutes: 4
+    timeout-minutes: 3
     steps:
-      - name: Extract actual registered DHCP leases from active JNS DNS service
+      - name: Verify actual Sharp FQDN DNS A/PTR on both replicas and RAW 9100
         shell: bash
         run: |
           set -u
-          echo "=== LIVE JNS DHCP LEASE DATA $(date -u -Is) ==="
-          for node in nodea nodeb; do
-            echo "=== NODE $node ==="
-            ssh -o BatchMode=yes -o ConnectTimeout=6 -o StrictHostKeyChecking=accept-new "$node" 'bash -s' <<'REMOTE' || true
-          ct=247
-          [ "$(hostname)" = nodeb ] && ct=248
-          pct exec "$ct" -- sh -c '
-            echo "=== $(hostname) CT DHCP LEASE FILE ==="
-            f=/var/lib/jnsdns/leases
-            if [ -r "$f" ]; then
-              echo "LEASE_ROW_COUNT=$(wc -l < "$f")"
-              awk "NF>=4 {print \$3,\$4,\$2}" "$f" | head -250
-              echo "=== SHARP RELATED LEASES ==="
-              grep -inEi "sharp|print|copier|mfp|mx-|bp-|ar-" "$f" || true
-            else
-              echo "DHCP LEASE FILE UNREADABLE"
-            fi
-            echo "=== SHARP RELATED JNS DNS CONFIG DATA ==="
-            grep -RihnEi "sharp|print|copier|mfp|mx-|bp-|ar-" /etc/jnsdns /etc/dnsmasq.d /var/lib/jnsdns 2>/dev/null | head -35 || true
-          ' || true
-          REMOTE
+          echo "=== Sharp printer DNS and TCP verification $(date -u -Is) ==="
+          echo "=== DNS forward and PTR ==="
+          for server in 10.10.110.247 10.10.110.248; do
+            echo "--- DNS $server ---"
+            dig @"$server" jns-eeca60.home.arpa A +short +time=2 +tries=1 || true
+            dig @"$server" -x 10.10.101.198 +short +time=2 +tries=1 || true
           done
+          echo "=== Node C resolver ==="
+          getent ahostsv4 jns-eeca60.home.arpa | head -3 || true
+          echo "=== RAW TCP printing port ==="
+          if timeout 4 bash -c 'exec 3<>/dev/tcp/10.10.101.198/9100' 2>/dev/null; then
+            echo "TCP_9100=OPEN"
+          else
+            echo "TCP_9100=NOT_REACHABLE"
+          fi
+          echo "=== Web interface TCP port ==="
+          if timeout 4 bash -c 'exec 3<>/dev/tcp/10.10.101.198/80' 2>/dev/null; then
+            echo "TCP_80=OPEN"
+          else
+            echo "TCP_80=NOT_REACHABLE"
+          fi
           echo "=== END READ ONLY ==="
