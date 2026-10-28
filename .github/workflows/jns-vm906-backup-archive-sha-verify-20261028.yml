@@ -1,0 +1,45 @@
+name: JNS VM906 Original Restore Archive Independent Hash Verification
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-backup-archive-sha-verify-20261028.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Independently validate original VM906 archive checksum, no VM operations
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64,subprocess,shlex,sys
+          source='''import pathlib,json,hashlib,os,re
+          p=pathlib.Path("/mnt/pve/NAS/dump/jns-vm906-agent-recovery-20261026-v1")
+          if os.uname().nodename.split(".")[0]!="nodeb":raise SystemExit(70)
+          f=p/"MANIFEST.json"
+          if not f.is_file() or f.is_symlink():raise SystemExit(71)
+          m=json.loads(f.read_text())
+          filename=m.get("name"); sha=m.get("sha256"); size=m.get("size")
+          if not isinstance(filename,str) or not re.fullmatch(r"vzdump-qemu-906-[0-9_-]+\\.vma\\.zst",filename):raise SystemExit(72)
+          if not isinstance(sha,str) or not re.fullmatch("[0-9a-f]{64}",sha):raise SystemExit(73)
+          v=p/filename
+          if not v.is_file() or v.is_symlink() or v.stat().st_size!=size:raise SystemExit(74)
+          h=hashlib.sha256()
+          with v.open("rb") as reader:
+           for b in iter(lambda:reader.read(4*1024*1024),b""):h.update(b)
+          if h.hexdigest()!=sha:raise SystemExit(75)
+          print("JNS_VM906_ORIGINAL_ARCHIVE_REVALIDATED=sha256_match_and_size_verified",flush=True)
+          '''
+          source="\n".join(line[10:] if line.startswith("          ") else line for line in source.splitlines())
+          command="python3 -c "+shlex.quote(source)
+          p=subprocess.run(["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes","-o","ConnectTimeout=6",
+                            "nodeb",command],capture_output=True,text=True,timeout=650)
+          for line in p.stdout.splitlines():
+            if line.startswith("JNS_VM906_ORIGINAL_ARCHIVE_REVALIDATED="):print(line,flush=True)
+          if p.returncode:print("JNS_VM906_ORIGINAL_ARCHIVE_REVALIDATED=failed_private_review_required")
+          sys.exit(0 if p.returncode==0 else 1)
+          PY
