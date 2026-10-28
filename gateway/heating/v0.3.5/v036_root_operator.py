@@ -44,6 +44,11 @@ def gate():
     require(os.geteuid()==0,"local root operation mandatory")
     require(Path(__file__).resolve()==INSTALL/"v036_root_operator.py",
             "never execute release from a repository checkout")
+    require(INSTALL.is_dir() and not INSTALL.is_symlink(),
+            "root-owned installation directory missing")
+    root_mode=INSTALL.stat()
+    require(root_mode.st_uid==0 and stat.S_IMODE(root_mode.st_mode)==0o700,
+            "installed code directory must be root-owned 0700")
     for name in ("v036_root_operator.py","v036_release_policy.py",
                  "bathroom_v036_transaction.py"):
         protected_file(INSTALL/name)
@@ -206,8 +211,12 @@ def host_restore():
 
 def activate():
     gate()
-    with LOCK.open("a+") as lk:
-        require(lk.fileno()>=0 and lk.stat if False else True,"lock open failure")
+    # O_NOFOLLOW prevents a symlinked lock path from redirecting root writes.
+    fd=os.open(LOCK,os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600)
+    with os.fdopen(fd,"a+") as lk:
+        lk_stat=os.fstat(lk.fileno())
+        require(lk_stat.st_uid==0 and stat.S_IMODE(lk_stat.st_mode)==0o600,
+                "root-owned exclusive maintenance lock unavailable")
         fcntl.flock(lk,fcntl.LOCK_EX|fcntl.LOCK_NB)
         require(on_nodeb(["qm","status",VM])=="status: running","VM905 moved or stopped")
         inspect_stage()
