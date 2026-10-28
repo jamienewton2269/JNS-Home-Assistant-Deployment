@@ -21,6 +21,7 @@ jobs:
           python3 gateway/solar/test_ha906_nodec_auto_failback_20261028.py -v
           python3 -m py_compile gateway/solar/ha906_to_905_esphome_enrol_guarded_20261028.py
           python3 -m py_compile gateway/solar/ha906_to_905_exclusive_cutover_operator_20261028.py
+          python3 -m py_compile gateway/solar/ha906_to_905_accept_operator_20261028.py
           python3 gateway/solar/ha905_security_esphome_handover_app/test_flow.py -v
           python3 - <<'PY'
           from pathlib import Path
