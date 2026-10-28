@@ -60,23 +60,68 @@ def target_integrations():
  lines=[line.split("=",1)[1] for line in str(j.get("out-data","")).splitlines() if line.startswith("JNS_TARGET_ESPHOME=")]
  try:return json.loads(lines[0]) if len(lines)==1 else None
  except (ValueError,TypeError):return None
+def app_action(action,timeout):
+ j=qga(["ha","apps",action,SLUG,"--no-progress","--raw-json"],timeout)
+ ok=bool(j and j.get("exitcode")==0)
+ note("APP_"+action.upper()+"_EXIT",("success" if ok else "failed_or_unknown"))
+ if j:
+  try:
+   z=json.loads(j.get("out-data") or "{}")
+   note("APP_"+action.upper()+"_RESULT",str(z.get("result","none"))[:40])
+  except (ValueError,TypeError):pass
+ return ok
+def installed_app_inventory():
+ j=qga(["ha","apps","list","--no-progress","--raw-json"],60)
+ if not j or j.get("exitcode")!=0:return None
+ try:
+  data=json.loads(j.get("out-data") or "{}")
+  if data.get("result")!="ok":return None
+  apps=data.get("data",{}).get("apps")
+  if not isinstance(apps,list):return None
+  return any(isinstance(x,dict) and
+   (x.get("slug")==SLUG or x.get("name")=="JNS HA905 Security Handover") for x in apps)
+ except (ValueError,TypeError,AttributeError):return None
 def clean_temp_app():
- # Stop if present; never start or run it again.
+ # Stop first; wait until Supervisor reports stopped; uninstall only then.
  b=appinfo()
+ note("APP_INITIAL_STATE",str(b.get("state","unknown"))[:40])
  if b and b.get("repository")!="local":
   note("BLOCKED","temporary_app_unexpected_repository");return False
  if b:
-  qga(["ha","apps","stop",SLUG,"--no-progress","--raw-json"],100)
-  qga(["ha","apps","uninstall",SLUG,"--no-progress","--raw-json"],140)
-  b=appinfo()
-  if b and b.get("state") not in ("stopped","stopping"):
-   note("BLOCKED","flow_app_still_present_active");return False
+  app_action("stop",110)
+  for i in range(18):
+   b=appinfo()
+   st=b.get("state")
+   if st in ("stopped","error","unknown") or not b:break
+   time.sleep(2)
+  note("APP_AFTER_STOP_STATE",str(b.get("state","not_listed"))[:40])
+  # Never allow any remaining running process before uninstall.
+  if b and b.get("state") in ("started","running","stopping"):
+   note("BLOCKED","flow_app_still_running");return False
   if b:
-   # Refuse to promote source while admin flow app remains installed even
-   # if stopped, because another actor could restart it.
-   note("BLOCKED","transient_app_uninstall_unverified");return False
- note("TEMP_ENROL_APP","absent_or_uninstalled")
- return True
+   app_action("uninstall",170)
+  for i in range(15):
+   present=installed_app_inventory()
+   b=appinfo()
+   if present is False or (b.get("installed") is False):
+    note("APP_UNINSTALL_INVENTORY","confirmed_absent")
+    return True
+   if not b and present is None:
+    # Info absent alone is insufficient when the inventory is unknown.
+    time.sleep(2)
+    continue
+   time.sleep(2)
+  note("APP_UNINSTALL_FINAL_STATE",str(b.get("state","unknown"))[:40])
+  note("APP_UNINSTALL_INSTALLED_FIELD",str(b.get("installed","unknown"))[:20])
+  note("APP_UNINSTALL_INVENTORY_STATE",str(present)[:20])
+  note("BLOCKED","temporary_app_uninstall_not_proven")
+  return False
+ present=installed_app_inventory()
+ if present is False:
+  note("TEMP_ENROL_APP","verified_absent")
+  return True
+ note("BLOCKED","temporary_app_absence_not_proven")
+ return False
 def rollback():
  try:p=subprocess.run(["python3",str(FALLBACK),"--restore"],capture_output=True,text=True,timeout=255)
  except (OSError,subprocess.TimeoutExpired):p=None
