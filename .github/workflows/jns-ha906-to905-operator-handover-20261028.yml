@@ -1,0 +1,42 @@
+name: JNS HA906 to HA905 On-site Exclusive Security Handover
+on:
+  workflow_dispatch:
+    inputs:
+      onsite_operator_confirmed:
+        description: "I am physically onsite, monitoring the alarm and ready for physical tests"
+        required: true
+        type: boolean
+      emergency_vm905_suspend_approved:
+        description: "If handover fails and ESPHome remains active, allow ONLY VM905 suspension before VM906 restart"
+        required: true
+        type: boolean
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-security-single-owner-cutover
+  cancel-in-progress: false
+jobs:
+  migrate:
+    if: inputs.onsite_operator_confirmed == true && inputs.emergency_vm905_suspend_approved == true
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 18
+    env:
+      JNS_ONSITE_OPERATOR_CONFIRMED: ${{ inputs.onsite_operator_confirmed }}
+      JNS_EMERGENCY_VM905_SUSPEND_APPROVED: ${{ inputs.emergency_vm905_suspend_approved }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax and exclusive failback unit tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha906_nodec_auto_failback_20261028.py
+          python3 -m py_compile gateway/solar/ha_security_vm906_guarded_stop_20261028.py
+          python3 -m py_compile gateway/solar/ha906_to_905_esphome_enrol_guarded_20261028.py
+          python3 -m py_compile gateway/solar/ha906_to_905_exclusive_cutover_operator_20261028.py
+          python3 gateway/solar/test_ha906_nodec_auto_failback_20261028.py -v
+          python3 gateway/solar/ha905_security_esphome_handover_app/test_flow.py -v
+      - name: Exclusive stop, native alarm load, ESPHome config-flow; auto failback on any error
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 gateway/solar/ha906_to_905_exclusive_cutover_operator_20261028.py
