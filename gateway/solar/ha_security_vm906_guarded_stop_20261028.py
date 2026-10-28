@@ -32,11 +32,13 @@ if re.search(r"^lock:",c.stdout,re.M):fail("vm906_locked")
 root=Path("/var/lib/jns-solar/consolidation")
 root.mkdir(parents=True,exist_ok=True,mode=0o700)
 marker=root/"vm906-handover-complete-20261028"
+fenced=root/"vm905-fenced-for-906-recovery-20261028"
 if marker.exists() or marker.is_symlink():fail("handover_marker_preexists")
+if fenced.exists() or fenced.is_symlink():fail("stale_fencing_attestation")
 unit="jns-ha906-recovery-20261028"
 timer=run(["systemd-run","--unit",unit,"--on-active=45m","--timer-property=AccuracySec=15s",
            "/bin/bash","-c",
-           "if ! test -e /var/lib/jns-solar/consolidation/vm906-handover-complete-20261028; then /usr/sbin/qm start 906; fi"],22)
+           "if ! test -e /var/lib/jns-solar/consolidation/vm906-handover-complete-20261028 && test -f /var/lib/jns-solar/consolidation/vm905-fenced-for-906-recovery-20261028; then /usr/sbin/qm start 906; else /usr/bin/logger -t jns-906-failback 'SOURCE RESTORE BLOCKED: target fencing not attested; avoid duplicate security controllers'; fi"],22)
 if not timer or timer.returncode:fail("automatic_recovery_timer_unavailable")
 active=run(["systemctl","is-active",unit+".timer"],16)
 if not active or active.returncode or active.stdout.strip()!="active":fail("recovery_timer_not_active")
@@ -83,6 +85,18 @@ def main():
  if not chk or chk.get("exitcode")!=0:
   print("JNS_VM906_STOP_BLOCKED=ha_general_core_check_not_clean");return 1
  print("JNS_VM906_STOP_PREFLIGHT=passed",flush=True)
+ # The Node C recovery cron MUST be installed and attested before isolation.
+ # Both repository code and staged runner-owned file must be identical.
+ import pathlib,hashlib
+ local=pathlib.Path(__file__).parent/"ha906_nodec_auto_failback_20261028.py"
+ staged=pathlib.Path.home()/".local/share/jns-security-failback-20261028/auto_failback.py"
+ if not local.is_file() or not staged.is_file() or local.read_bytes()!=staged.read_bytes():
+  print("JNS_VM906_STOP_BLOCKED=nodec_failback_source_not_staged_exactly");return 1
+ try:arm=subprocess.run(["python3",str(staged),"--arm"],capture_output=True,text=True,timeout=95)
+ except (OSError,subprocess.TimeoutExpired):arm=None
+ if not arm or arm.returncode or "JNS_HA906_SAFE_AUTO_FAILBACK_ARMED=" not in arm.stdout:
+  print("JNS_VM906_STOP_BLOCKED=nodec_fallback_not_armed");return 1
+ print("JNS_VM906_FAILBACK_INTERLOCK=NodeC_35m_and_NodeA_fence_gated_45m",flush=True)
  b=base64.b64encode(STOP.encode()).decode()
  try:p=subprocess.run(SSH+["nodea",shlex.join(["python3","-u","-c",
            "exec(__import__('base64').b64decode('"+b+"'))"])],
