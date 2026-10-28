@@ -1,4 +1,5 @@
 name: JNS Independent Two HA Post-Rollback Health Verification
+# Read-only verification after 40771120553 HTTPError and recovery 40771831872.
 # Verify after 40746917289 recovery; no VM power or security output commands.
 on:
   push:
