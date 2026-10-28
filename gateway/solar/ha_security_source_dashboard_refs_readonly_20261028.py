@@ -32,11 +32,14 @@ IgnoreHATags.add_multi_constructor("!",lambda loader,suffix,node:None)
 candidates=set()
 unique_ids=set()
 yaml_definitions=0
+number_defs={}
 for f in [root/"configuration.yaml",*sorted((root/"packages").glob("*.yaml"))]:
  if not f.is_file() or f.is_symlink():continue
  try:data=yaml.load(f.read_text(errors="replace"),Loader=IgnoreHATags)
  except (yaml.YAMLError,OSError):continue
  if not isinstance(data,dict):continue
+ block=data.get("input_number",{})
+ if isinstance(block,dict):number_defs.update({k:v for k,v in block.items() if isinstance(k,str)})
  t=data.get("template",[])
  if isinstance(t,dict):t=[t]
  if not isinstance(t,list):continue
@@ -54,7 +57,8 @@ for f in [root/"configuration.yaml",*sorted((root/"packages").glob("*.yaml"))]:
 result={"registry":registry,"recorder_ids":recorded,
         "template_slug_candidates":sorted(candidates),
         "template_unique_ids":sorted(unique_ids),
-        "template_definitions":yaml_definitions}
+        "template_definitions":yaml_definitions,
+        "input_number_definitions":number_defs}
 print("JNS_PRIVATE_SOURCE_SECURITY_IDS="+base64.b64encode(zlib.compress(json.dumps(result).encode(),9)).decode())
 '''
 DASHBOARD=r'''
@@ -140,6 +144,11 @@ def main():
   "vm905_name_slug_candidates":len(target["template_slug_candidates"]),
   "source_target_template_slug_overlap":len(set(sec["template_slug_candidates"])&set(target["template_slug_candidates"])),
   "source_target_template_unique_id_overlap":len(set(sec["template_unique_ids"])&set(target["template_unique_ids"])),
+  "vm906_yaml_input_numbers":len(sec["input_number_definitions"]),
+  "vm905_yaml_input_numbers":len(target["input_number_definitions"]),
+  "source_input_number_key_collisions":len(set(sec["input_number_definitions"])&set(target["input_number_definitions"])),
+  "source_input_number_key_collisions_with_different_definitions":sum(sec["input_number_definitions"][k]!=target["input_number_definitions"][k] for k in set(sec["input_number_definitions"])&set(target["input_number_definitions"])),
+  "source_input_number_keys_not_defined_on_vm905":len(set(sec["input_number_definitions"])-set(target["input_number_definitions"])),
   "dashboard_refs_matching_vm906_template_name_slugs":len(names&set(sec["template_slug_candidates"])),
   "dashboard_refs_matching_vm905_template_name_slugs":len(names&set(target["template_slug_candidates"])),
   "state_metadata_not_live_control_proof":True,
