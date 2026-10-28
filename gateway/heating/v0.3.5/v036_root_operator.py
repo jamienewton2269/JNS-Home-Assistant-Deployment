@@ -210,7 +210,7 @@ def host_restore():
             "JNS_V036_ORIGINAL_FILES_RESTORED","host fallback not proved")
 
 def activate():
-    gate()
+    job=gate()
     # O_NOFOLLOW prevents a symlinked lock path from redirecting root writes.
     fd=os.open(LOCK,os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600)
     with os.fdopen(fd,"a+") as lk:
@@ -224,7 +224,8 @@ def activate():
         config_check()
         # Consume the matching one-use root-local permit immediately before
         # irreversible Core-interruption steps. Never write token/permit to GitHub.
-        require((APPROVAL/"approval.json").exists(),"permit consumed elsewhere")
+        # Revalidate expiry after all potentially slow read-only checks.
+        approve(job,json.loads(protected_file(APPROVAL/"approval.json")))
         (APPROVAL/"approval.json").unlink()
         changed=False
         try:
