@@ -50,19 +50,20 @@ jobs:
           if not result or result.get("exitcode")!=0:
            print("JNS_STORE_REFRESH_RESULT=command_unverified")
            raise SystemExit(1)
-          try:
-           body=json.loads(result.get("out-data") or "{}")
-           ok=body.get("result")=="ok"
-          except (ValueError,TypeError):ok=False
-          print("JNS_STORE_REFRESH_RESULT="+("ok" if ok else "unconfirmed"),flush=True)
-          if not ok:raise SystemExit(1)
+          # Some HA CLI builds return plain text after success instead of
+          # a JSON envelope. Exit code 0 plus fresh store metadata is proof.
+          print("JNS_STORE_REFRESH_RESULT=cli_exit_zero",flush=True)
           check=guest(["ha","store","info","local_jns_ha905_security_handover","--no-progress","--raw-json"])
           if not check or check.get("exitcode")!=0:raise SystemExit(1)
           raw=json.loads(check.get("out-data") or "{}")
           addons=raw.get("data",{}).get("addons",[])
           rows=[x for x in addons if isinstance(x,dict) and x.get("slug")=="local_jns_ha905_security_handover"]
           print("JNS_STORE_REFRESH_MATCHES="+str(len(rows)),flush=True)
-          print("JNS_STORE_REFRESH_VERSION_LATEST="+str(rows[0].get("version_latest") if len(rows)==1 else "unknown"),flush=True)
+          version=str(rows[0].get("version_latest") or rows[0].get("version") or "unknown") if len(rows)==1 else "unknown"
+          print("JNS_STORE_REFRESH_VERSION_LATEST="+version,flush=True)
+          if version!="0.1.1":
+           print("JNS_STORE_REFRESH_BLOCKED=local_catalog_still_old")
+           raise SystemExit(1)
           for host,vm in (("nodea",906),("nodeb",905)):
            a=cmd(host,["qm","status",str(vm)])
            assert a.returncode==0 and a.stdout.strip()=="status: running"
