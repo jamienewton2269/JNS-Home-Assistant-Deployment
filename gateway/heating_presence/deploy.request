@@ -1,0 +1,8 @@
+approved=2026-10-28
+vmid=905
+target=climate.thermostat_thermostat
+intent=21C-by-10AM-with-predictive-preheat
+night=learn-bedtime-and-setback-to-18C
+away=dashboard-configurable-minimum
+safety=verified-alarm-or-no-action
+mode=guarded-transactional
