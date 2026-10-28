@@ -1,0 +1,34 @@
+name: JNS HA905 Core Auth Readonly Diagnostic Offline Tests
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-core-auth-readonly-offline-test-20261028.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Static compile GET-only diagnostic app and guarded launcher
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha905_core_auth_readonly_app/probe.py
+          python3 -m py_compile gateway/solar/ha905_core_auth_readonly_app/test_probe.py
+          python3 -m py_compile gateway/solar/ha905_core_auth_readonly_once_20261028.py
+          python3 -m py_compile gateway/solar/test_ha905_core_auth_readonly_once_20261028.py
+      - name: Test fixed GET-only endpoints, token privacy, cleanup rejection
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 gateway/solar/ha905_core_auth_readonly_app/test_probe.py -v
+          python3 gateway/solar/test_ha905_core_auth_readonly_once_20261028.py -v
+      - name: Confirm no automatic app installation occurs in this workflow
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          echo JNS_AUTH_DIAGNOSTIC_OFFLINE_TEST=passed_no_VM_changes
