@@ -1,0 +1,48 @@
+name: JNS HA905 ULID Fixed ESPHome App 0.1.1 Install Stopped Only
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-esphome-ulid-v011-install-stopped-20261028.yml'
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-security-preparation-only
+  cancel-in-progress: false
+jobs:
+  stage:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate guarded upgrade and current 2026.9 config-flow simulator
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha905_security_esphome_install_stopped_guarded_20261028.py
+          python3 -m py_compile gateway/solar/ha_security_vm906_guarded_stop_20261028.py
+          python3 -m py_compile gateway/solar/ha906_to_905_esphome_enrol_guarded_20261028.py
+          python3 gateway/solar/ha905_security_esphome_handover_app/test_flow.py -v
+          python3 gateway/solar/test_ha906_enrol_log_diagnostic_20261028.py -v
+      - name: Confirm original security owner and HA-General available
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = "nodec"
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea qm status 906)" = "status: running"
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodeb qm status 905)" = "status: running"
+          timer="$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea systemctl is-active jns-ha906-recovery-20261028.timer || true)"
+          test "$timer" != "active"
+          echo JNS_ULID_STAGE_INITIAL=both_running_no_timer
+      - name: Upgrade hash-pinned source and install 0.1.1 strictly STOPPED
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 gateway/solar/ha905_security_esphome_install_stopped_guarded_20261028.py
+      - name: Verify original security owner still controls the alarm
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea qm status 906)" = "status: running"
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodeb qm status 905)" = "status: running"
+          echo JNS_ULID_V011_INSTALL_SAFE=app_installed_stopped_security_vm906_uninterrupted
