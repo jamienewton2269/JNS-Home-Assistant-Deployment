@@ -176,7 +176,8 @@ try:
  try:
   info=json.loads(g.get("out-data") or "{}")
   obj=info.get("data",info) if isinstance(info,dict) else {}
-  if not isinstance(obj,dict) or not obj.get("installed"):fail("post_install_not_installed")
+  if (not isinstance(info,dict) or info.get("result")!="ok" 
+      or not isinstance(obj,dict) or not obj.get("version")):fail("post_install_not_installed")
   if str(obj.get("state","")).lower() in ("started","running"):fail("unexpected_autostart")
  except (ValueError,TypeError):fail("post_install_invalid_json")
  start_requested=True
