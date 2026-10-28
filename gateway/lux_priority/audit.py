@@ -11,7 +11,7 @@ autom=yaml.safe_load(a.read_bytes())
 lux=[x for x in autom if str(x.get('id'))=="1791918795028"]
 assert len(lux)==1,"shared Lux automation missing or duplicate"
 reg=json.loads((R/'.storage/core.entity_registry').read_text())['data']['entities']
-labelreg=json.loads((R/'.storage/core.label_registry').read_text()).get('data',{}).get('labels',[])) if (R/'.storage/core.label_registry').exists() else []
+labelreg=json.loads((R/'.storage/core.label_registry').read_text()).get('data',{}).get('labels',[]) if (R/'.storage/core.label_registry').exists() else []
 light=[{'id':e.get('entity_id'),'area':e.get('area_id'),'labels':e.get('labels'),'disabled':e.get('disabled_by'),'name':e.get('name') or e.get('original_name')} for e in reg if str(e.get('entity_id','')).startswith(('light.','switch.')) and not e.get('disabled_by')]
 d=yaml.safe_load(dash.read_bytes())
 views={v.get('path'):v for v in d.get('views',[]) if v.get('path') in ('lighting-settings','evening-lighting','controls')}
