@@ -5,3 +5,4 @@ entity=climate.thermostat_thermostat
 trigger=input_boolean.general_bedtime_mode-off-to-on
 target_celsius=18
 mode=transactional
+attempt=2-yaml-indentless-list
