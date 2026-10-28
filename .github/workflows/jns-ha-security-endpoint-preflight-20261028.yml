@@ -1,0 +1,21 @@
+name: JNS HA Security Handover Endpoint Preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-security-endpoint-preflight-20261028.yml'
+      - 'gateway/solar/ha_security_cutover_endpoint_preflight_20261028.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check source secret and target secure Core API readiness
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha_security_cutover_endpoint_preflight_20261028.py
+          python3 gateway/solar/ha_security_cutover_endpoint_preflight_20261028.py
