@@ -1,0 +1,26 @@
+name: JNS VM906 Stop Guard Static Validation Only
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm906-stop-guard-static-check-20261028.yml'
+permissions:
+  contents: read
+jobs:
+  lint:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate stop cannot run before verified installed-app inventory
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha_security_vm906_guarded_stop_20261028.py
+          python3 - <<'PY'
+          import pathlib
+          source=pathlib.Path("gateway/solar/ha_security_vm906_guarded_stop_20261028.py").read_text()
+          assert source.index("JNS_VM906_STOP_BLOCKED=temporary_native_flow_app_not_confirmed_installed")<source.index("JNS_VM906_STOP_PREFLIGHT=passed")
+          assert source.index("JNS_VM906_STOP_PREFLIGHT=passed")<source.index("JNS_VM906_FAILBACK_INTERLOCK=")
+          print("JNS_VM906_STOP_GUARD_STATIC=passed_only")
+          PY
