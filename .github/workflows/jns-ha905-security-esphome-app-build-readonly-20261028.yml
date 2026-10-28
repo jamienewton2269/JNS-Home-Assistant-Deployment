@@ -1,0 +1,21 @@
+name: JNS HA905 ESPHome Temporary App Build State Read-Only
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-security-esphome-app-build-readonly-20261028.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect only exact temporary app and redacted Supervisor error classes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha905_security_esphome_app_build_readonly_20261028.py
+          python3 gateway/solar/ha905_security_esphome_app_build_readonly_20261028.py
