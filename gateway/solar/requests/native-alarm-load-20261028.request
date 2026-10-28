@@ -1,0 +1,1 @@
+Authorised security migration window: VM906 isolated with local 45-minute fallback timer; load previously validated native alarm package in VM905. No physical outputs, security automations remain initial_state false; verify Core restart before any ESPHome ownership transition.
