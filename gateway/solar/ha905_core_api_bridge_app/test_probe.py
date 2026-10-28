@@ -69,7 +69,12 @@ class ProbeTest(unittest.TestCase):
     def test_image_contains_only_local_probe(self):
         dockerfile=(ROOT/"Dockerfile").read_text()
         self.assertIn("COPY probe.py /opt/jns/probe.py", dockerfile)
-        self.assertIn('CMD ["python3", "/opt/jns/probe.py"]', dockerfile)
+        self.assertIn('CMD ["/run.sh"]', dockerfile)
+        self.assertIn('COPY run.sh /run.sh', dockerfile)
+        self.assertIn('ghcr.io/home-assistant/base:3.24', dockerfile)
+        start=(ROOT/"run.sh").read_bytes()
+        self.assertTrue(start.startswith(b"#!/command/with-contenv bashio\n"))
+        self.assertNotIn(b"\r", start)
         self.assertNotIn("EXPOSE", dockerfile)
 
 
