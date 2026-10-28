@@ -14,7 +14,7 @@ GUEST_ROOT="/mnt/data/supervisor/apps/local"
 FOLDER=GUEST_ROOT+"/"+NAME
 SSH=["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes","-o","ConnectTimeout=6"]
 TOKEN_FIELDS={"token_present","read_only","posted_config_flow","used_security_output","logged_token"}
-ALLOWED_STATUSES={200,201,204,400,401,403,404,405,429,500,502,503,504,"other_status","token_absent","transport_unavailable"}
+ALLOWED_STATUSES={200,201,204,400,401,403,404,405,422,429,500,502,503,504,"other_status","token_absent","transport_unavailable"}
 def note(label,value):
  print("JNS_CORE_AUTH_ONCE_"+label+"="+str(value),flush=True)
 def shell(node,args,timeout=40):
@@ -206,7 +206,13 @@ def main():
  if not done or not safe_owners() or not registry_zero():
   note("BLOCKED","post_probe_cleanup_or_ownership");return 1
  if result is None:return 1
- note("RESULT","GET_only_probe_complete_both_VMs_unchanged")
+ # A malformed request must never be accepted. 400/422 confirms that
+ # schema validation rejected the intentionally missing handler; 401/403
+ # establishes authorization rejection. Other codes are diagnostic failures.
+ if result.get("rejected_flow_post") not in (400,401,403,404,405,422):
+  note("BLOCKED","schema_invalid_post_unexpected_status")
+  return 1
+ note("RESULT","negative_post_probe_complete_both_VMs_unchanged")
  return 0
 if __name__=="__main__":
  try:sys.exit(main())
