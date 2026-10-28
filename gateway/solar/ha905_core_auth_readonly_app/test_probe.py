@@ -18,22 +18,37 @@ class Tests(unittest.TestCase):
   calls=[]
   def opener(req,timeout):
    calls.append((req.full_url,req.get_method(),req.get_header("Authorization"),timeout,req.data))
-   if req.get_method()=="POST":
+   if req.get_method()=="POST" and b"jns_diagnostic_missing_required_handler" in req.data:
     raise urllib.error.HTTPError(req.full_url,400,"schema requires handler",{},None)
+   if req.get_method()=="POST" and req.data==b'{"handler":"esphome"}':
+    class FormResponse(Response):
+     def read(self,*args):
+      return b'{"type":"form","step_id":"user","flow_id":"01AN4Z07BY79KA1307SR9X4MV3","errors":{}}'
+    return FormResponse()
+   if req.get_method()=="DELETE":return Response()
    return Response()
   result=mod.run("FAKE_ONLY",opener)
-  self.assertEqual(result,{"supervisor_info":200,"core_root":200,"core_config":200,"rejected_flow_post":400})
+  self.assertEqual(result,{"supervisor_info":200,"core_root":200,"core_config":200,
+      "rejected_flow_post":400,"esphome_blank_flow_start":200,
+      "esphome_blank_flow_cancel":200,"esphome_blank_form":True})
   self.assertEqual({(x[0],x[1]) for x in calls if x[1]=="GET"},{(url,"GET") for name,url in mod.ENDPOINTS})
-  self.assertEqual(sum(x[1]=="POST" for x in calls),1)
+  self.assertEqual(sum(x[1]=="POST" for x in calls),2)
+  self.assertEqual(sum(x[1]=="DELETE" for x in calls),1)
   self.assertTrue(all(x[2]=="Bearer FAKE_ONLY" and x[3]<=8 for x in calls))
   self.assertNotIn(b'"handler"',next(x[4] for x in calls if x[1]=="POST"))
+  self.assertTrue(all(b"host" not in (x[4] or b"") and b"noise_psk" not in (x[4] or b"") for x in calls))
  def test_missing_token_never_connects(self):
   def forbidden(*a,**k):raise AssertionError("network attempted")
   self.assertEqual(set(mod.run("",forbidden).values()),{"token_absent"})
  def test_http401_reported_no_fabricated_success(self):
   def rejected(req,timeout):
    raise urllib.error.HTTPError(req.full_url,401,"private information",{},None)
-  self.assertEqual(set(mod.run("FAKE",rejected).values()),{401})
+  out=mod.run("FAKE",rejected)
+  self.assertEqual(out["core_root"],401)
+  self.assertEqual(out["rejected_flow_post"],401)
+  self.assertEqual(out["esphome_blank_flow_start"],401)
+  self.assertEqual(out["esphome_blank_flow_cancel"],"not_attempted")
+  self.assertIs(out["esphome_blank_form"],False)
  def test_unsafe_url_never_connects(self):
   with self.assertRaises(ValueError):
    mod.classify("http://supervisor/addons/self/start","FAKE")
@@ -46,7 +61,7 @@ class Tests(unittest.TestCase):
   for bad in ("ingress: true","hassio_api: true","privileged:"):
    self.assertNotIn(bad,cfg)
   src=(ROOT/"probe.py").read_text()
-  self.assertEqual(src.count('method="POST"'),1)
+  self.assertEqual(src.count('method="POST"'),2)
   self.assertIn('url="http://supervisor/core/api/config/config_entries/flow"',src)
   self.assertIn("jns_diagnostic_missing_required_handler",src)
   for bad in ("method=\"PUT\"","method=\"DELETE\"","/services/","socket.","subprocess"):
