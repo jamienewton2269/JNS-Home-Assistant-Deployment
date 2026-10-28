@@ -19,7 +19,16 @@ try:
   mark=getattr(e,"problem_mark",None)
   result={"parse_ok":False,"error_type":e.__class__.__name__,
           "error_line":mark.line+1 if mark else None,
-          "error_column":mark.column+1 if mark else None}
+          "error_column":mark.column+1 if mark else None,
+          "parser_problem":str(getattr(e,"problem",""))[:90],
+          "parser_context":str(getattr(e,"context",""))[:90]}
+  if mark:
+   def shape(line):
+    x=line.lstrip(" ");
+    return {"indent":len(line)-len(x),"list":x.startswith("- "),"colon":":" in x,
+            "section_key":x.split(":",1)[0] if len(line)-len(x)==0 and ":" in x else None}
+   lines=raw.splitlines()
+   result["line_shapes"]=[{"line":n+1,**shape(lines[n])} for n in range(max(0,mark.line-6),min(len(lines),mark.line+4))]
  print("JNS_SECURITY_YAML_PARSE_RESULT="+json.dumps(result,sort_keys=True))
 except Exception as e:
  print("JNS_SECURITY_YAML_PARSE_RESULT="+json.dumps({"parse_ok":False,"error_type":e.__class__.__name__}))
