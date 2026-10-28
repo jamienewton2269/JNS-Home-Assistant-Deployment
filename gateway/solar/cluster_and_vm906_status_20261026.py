@@ -31,6 +31,8 @@ out["vm905_definition_present"]=bool(p and p.returncode==0)
 out["vm905_state"]=q.stdout.strip().removeprefix("status: ") if q and q.returncode==0 else "unavailable"
 if p and p.returncode==0:
  cfg=p.stdout
+ out["vm905_config_nonempty"]=bool(cfg.strip())
+ out["vm905_config_field_keys"]=sorted(set(k for k in re.findall(r"(?m)^([a-z][a-z0-9_]*):",cfg) if k in ("name","memory","balloon","onboot","scsi0","efidisk0","agent","cores","net0")))
  out["vm905_memory_mib"]=int(re.search(r"(?m)^memory:\s*(\d+)$",cfg).group(1)) if re.search(r"(?m)^memory:\s*(\d+)$",cfg) else None
  out["vm905_balloon_disabled"]=bool(re.search(r"(?m)^balloon:\s*0$",cfg))
  out["vm905_onboot_disabled"]=bool(re.search(r"(?m)^onboot:\s*0$",cfg))
