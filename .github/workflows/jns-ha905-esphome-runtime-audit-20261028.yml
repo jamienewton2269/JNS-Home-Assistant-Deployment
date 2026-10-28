@@ -1,4 +1,5 @@
 name: JNS HA905 Temporary ESPHome App Runtime Readonly Audit
+# Post v0.1.1 install attempt: inspect actual installed state/version only.
 # Post no-secret runtime smoke: inspect Supervisor app terminal state without changing controllers.
 on:
   push:
