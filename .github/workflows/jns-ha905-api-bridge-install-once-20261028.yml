@@ -1,0 +1,26 @@
+name: JNS HA905 One-Time Authorised Core API Probe
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-api-bridge-install-once-20261028.yml'
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-one-time-api-probe
+  cancel-in-progress: false
+jobs:
+  probe:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate exact reviewed app and guarded probe code
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha905_api_bridge_install_once_guarded_20261028.py
+          python3 gateway/solar/ha905_core_api_bridge_app/test_probe.py -v
+      - name: Install one-shot app, request two read-only GETs, remove app
+        shell: bash
+        run: python3 gateway/solar/ha905_api_bridge_install_once_guarded_20261028.py
