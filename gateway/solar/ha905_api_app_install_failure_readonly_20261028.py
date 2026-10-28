@@ -52,6 +52,14 @@ rc,raw=run("ha","supervisor","logs","--lines","200",timeout=45)
 lines=raw.splitlines()
 selected=[x.lower() for x in lines if SLUG in x or "dockerfile is missing" in x.lower()]
 o["supervisor_references_app"]=len(selected)
+# Keep only build-line classifications; never publish whole Supervisor logs.
+build_lines=[x.strip() for x in lines if re.search(r"(?i)(^|\\s)(error:|failed to solve|executor failed|apk add|RUN apk|pull access denied|COPY failed|network unreachable|certificate verify|exit code:|load metadata|failed to fetch)",x)]
+def clean(message):
+ message=re.sub(r"(?i)(bearer\\s+|token[=:]\\s*|password[=:]\\s*)\\S+","[REDACTED]",message)
+ message=re.sub(r"https?://\\S+","[URL]",message)
+ return message.strip()[:280]
+o["build_error_lines_filtered"]=[clean(x) for x in build_lines[-10:]]
+
 o["supervisor_app_error_excerpt"]=[
  re.sub(r"(?i)(bearer\\s+|token[=:]\\s*|password[=:]\\s*)\\S+",
         "[REDACTED]",x.split(SLUG,1)[-1]).strip()[:750]
