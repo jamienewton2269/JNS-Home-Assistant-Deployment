@@ -69,6 +69,17 @@ def app_installed():
                     sum(a.get("slug")==SLUG and a.get("installed") is not False
                         for a in apps if isinstance(a,dict))==1)
     except (ValueError,TypeError,AttributeError):return False
+def store_catalog_has_local_app():
+    x=guest(["ha","store","info",SLUG,"--no-progress","--raw-json"],75)
+    if not good(x):return False
+    try:
+        reply=json.loads(x.get("out-data") or "{}")
+        data=reply.get("data",{})
+        apps=data.get("addons") if isinstance(data,dict) else None
+        return bool(reply.get("result")=="ok" and isinstance(apps,list) and
+                    sum((a.get("slug") if isinstance(a,dict) else a)==SLUG
+                        for a in apps)==1)
+    except (ValueError,TypeError,AttributeError):return False
 def source_active():
     p=cmd(["qm","status","905"],15)
     return bool(p and p.returncode==0 and p.stdout.strip()=="status: running")
@@ -141,8 +152,11 @@ reload_result=guest(["ha","store","reload","--no-progress"],150)
 if not good(reload_result):
     reload_result=guest(["ha","store","reload"],150)
 if not good(reload_result):
-    fail("supervisor_store_reload_failed_source_preserved")
-note("STORE","refreshed")
+    if not store_catalog_has_local_app():
+        fail("supervisor_store_reload_failed_and_local_addon_not_catalogued")
+    note("STORE","already_indexed_reload_unavailable")
+else:
+    note("STORE","refreshed")
 # Installing does not start this boot:manual_only, startup:once app.
 # Supervisor CLI can return ambiguous success; state is the actual proof.
 installed_cmd=guest(["ha","apps","install",SLUG,"--no-progress","--raw-json"],400)
