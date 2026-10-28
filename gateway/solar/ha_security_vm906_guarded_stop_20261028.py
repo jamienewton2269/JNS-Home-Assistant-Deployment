@@ -113,9 +113,6 @@ def main():
   print("JNS_VM906_STOP_BLOCKED=ha_general_core_check_failed_exit_"+str(chk.get("exitcode","unknown")));return 1
  print("JNS_VM905_CORE_CHECK_VERIFIED=passed_elapsed_seconds_"+str(round(time.monotonic()-core_started,1)),flush=True)
  print("JNS_VM906_STOP_PREFLIGHT=passed",flush=True)
- if len(sys.argv)==2 and sys.argv[1]=="--preflight":
-  print("JNS_VM906_PREFLIGHT_ONLY=ready_no_vm_changes_no_timer_armed",flush=True)
-  return 0
  # The Node C recovery cron MUST be installed and attested before isolation.
  # Both repository code and staged runner-owned file must be identical.
  import pathlib,hashlib
@@ -123,6 +120,9 @@ def main():
  staged=pathlib.Path.home()/".local/share/jns-security-failback-20261028/auto_failback.py"
  if not local.is_file() or not staged.is_file() or local.read_bytes()!=staged.read_bytes():
   print("JNS_VM906_STOP_BLOCKED=nodec_failback_source_not_staged_exactly");return 1
+ if len(sys.argv)==2 and sys.argv[1]=="--preflight":
+  print("JNS_VM906_PREFLIGHT_ONLY=ready_no_vm_changes_no_timer_armed",flush=True)
+  return 0
  try:arm=subprocess.run(["python3",str(staged),"--arm"],capture_output=True,text=True,timeout=95)
  except (OSError,subprocess.TimeoutExpired):arm=None
  if not arm or arm.returncode or "JNS_HA906_SAFE_AUTO_FAILBACK_ARMED=" not in arm.stdout:
