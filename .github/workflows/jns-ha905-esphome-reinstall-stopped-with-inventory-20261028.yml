@@ -1,0 +1,37 @@
+name: JNS HA905 ESPHome Temporary App Install Stopped Inventory-Proven
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-esphome-reinstall-stopped-with-inventory-20261028.yml'
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-security-preparation-only
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert both controllers in original, safe state
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea qm status 906)" = "status: running"
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodeb qm status 905)" = "status: running"
+          python3 -m py_compile gateway/solar/ha905_security_esphome_install_stopped_guarded_20261028.py
+          python3 gateway/solar/ha905_security_esphome_handover_app/test_flow.py -v
+      - name: Install local app STOPPED; require actual Supervisor inventory membership
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 gateway/solar/ha905_security_esphome_install_stopped_guarded_20261028.py
+      - name: Verify original security owner remains running
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea qm status 906)" = "status: running"
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodeb qm status 905)" = "status: running"
+          echo JNS_SECURITY_APP_REINSTALL_SAFE=source_unchanged_target_running_app_stopped
