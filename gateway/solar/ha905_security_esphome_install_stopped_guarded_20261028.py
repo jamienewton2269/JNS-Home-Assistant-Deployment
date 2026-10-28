@@ -106,7 +106,7 @@ if not good(j) or "JNS_NATIVE_SECURITY_DISABLED=yes" not in (j.get("out-data") o
 j=guest(["ha","core","info"],50)
 if not good(j):fail("vm905_core_unhealthy")
 pre=app_info()
-if pre and pre.get("version")=="0.1.1" and pre.get("state")=="stopped" and pre.get("repository")=="local" and app_installed():
+if pre and pre.get("version")=="0.1.2" and pre.get("state")=="stopped" and pre.get("repository")=="local" and app_installed():
     note("INSTALLED_STOPPED","already_present_verified_by_state_version")
     raise SystemExit(0)
 if pre and pre.get("installed") is True:
@@ -160,8 +160,8 @@ if retained:
         except (TypeError,ValueError,AttributeError):safe=False
         if not safe:fail("old_app_still_installed_or_inventory_unknown")
         share="/mnt/data/supervisor/share"
-        stage=share+"/jns-security-app-v011-stage-20261028"
-        backup=share+"/jns-security-app-v010-source-backup-20261028"
+        stage=share+"/jns-security-app-v012-stage-20261028"
+        backup=share+"/jns-security-app-v011-source-backup-20261028"
         secret=share+"/jns-security-handover-20261028/enrolment.json"
         if not good(sh("test ! -e "+shlex.quote(secret)+
                " && test ! -L "+shlex.quote(secret)+
@@ -186,7 +186,7 @@ if retained:
                  " || { mv "+shlex.quote(backup)+" "+shlex.quote(SRC)+"; exit 1; }; }")
         if not good(sh(command,60)):fail("source_switch_failed_original_preserved_or_fenced")
         if not current_is(new_hashes):fail("source_switch_new_hash_not_verified")
-        note("SOURCE_UPGRADE","pinned_v010_backed_up_v011_hash_verified")
+        note("SOURCE_UPGRADE","pinned_v011_backed_up_v012_hash_verified")
 for name,raw in files.items():
     path=shlex.quote(SRC+"/"+name)
     if not retained:
@@ -225,10 +225,10 @@ if installed_cmd:
 info=None
 for _ in range(35):
     info=app_info()
-    if info and info.get("version")=="0.1.1" and info.get("state")=="stopped" and info.get("repository")=="local":
+    if info and info.get("version")=="0.1.2" and info.get("state")=="stopped" and info.get("repository")=="local":
         break
     time.sleep(3)
-if not info or info.get("version")!="0.1.1" or info.get("state")!="stopped" or info.get("repository")!="local" or not app_installed():
+if not info or info.get("version")!="0.1.2" or info.get("state")!="stopped" or info.get("repository")!="local" or not app_installed():
     note("INSTALL_IN_INSTALLED_INVENTORY",str(app_installed()).lower())
     fail("installation_not_verified_keep_source_for_review")
 note("INSTALL_IN_INSTALLED_INVENTORY","true")
@@ -263,7 +263,7 @@ def main():
     baseline={}
     for name in FILES:
         old=subprocess.run(["git","show",
-            "b37181c265190c1ed125a32ea02efa7d8abf6b6e:gateway/solar/ha905_security_esphome_handover_app/"+name],
+            "dee3f90c4db1d173c48b3fa327f506766d5d0cc2:gateway/solar/ha905_security_esphome_handover_app/"+name],
             cwd=ROOT.parents[2],capture_output=True,timeout=25)
         if old.returncode:
             print("JNS_SECURITY_APP_PREP_BLOCKED=pinned_source_unavailable");return 1
