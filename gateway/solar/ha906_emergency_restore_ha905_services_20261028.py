@@ -143,5 +143,10 @@ def main():
   return 0
  finally:
   if not successful and source_was_stopped:
+   # If the source came up but a subsequent check became uncertain, never
+   # leave two running controllers while another native flow might appear.
+   if state("nodea",906)=="status: running" and state("nodeb",905)=="status: running":
+    p=ssh("nodeb",["qm","suspend","905"],135)
+    note("POST_RESTART_FENCE",("verified" if state("nodeb",905)=="status: paused" else "NOT_VERIFIED"))
    rollback()
 if __name__=="__main__":sys.exit(main())
