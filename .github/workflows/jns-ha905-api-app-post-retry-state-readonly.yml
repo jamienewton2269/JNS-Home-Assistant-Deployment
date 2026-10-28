@@ -1,0 +1,16 @@
+name: JNS HA905 Post-Retry App State Readonly
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-api-app-post-retry-state-readonly.yml'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m py_compile gateway/solar/ha905_api_app_install_failure_readonly_20261028.py
+      - run: python3 gateway/solar/ha905_api_app_install_failure_readonly_20261028.py
