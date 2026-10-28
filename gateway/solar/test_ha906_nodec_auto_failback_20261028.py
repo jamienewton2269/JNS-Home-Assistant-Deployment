@@ -36,6 +36,12 @@ class FailureRollbackTests(unittest.TestCase):
              patch.object(f,"ssh",fake_ssh):
             rc=f.restore()
         return rc,calls,x
+    def test_proxmox_paused_target_allows_exclusive_restore(self):
+        rc,calls,x=self.scenario(source="stopped",target="paused",count=None)
+        self.assertEqual(rc,0)
+        self.assertEqual(x["target"],"paused")
+        self.assertFalse(any(a[:3]==["qm","suspend","905"] for _,a in calls))
+        self.assertTrue(any(a[:3]==["qm","start","906"] for _,a in calls))
     def test_no_recovery_if_source_running(self):
         rc,calls,x=self.scenario(source="running")
         self.assertEqual(rc,0);self.assertEqual(calls,[])
