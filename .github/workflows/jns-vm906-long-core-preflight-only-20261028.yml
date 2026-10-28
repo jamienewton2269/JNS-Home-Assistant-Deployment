@@ -1,4 +1,5 @@
 name: JNS VM906 Cutover Full Preflight Readonly Long Core Check
+# Validate freshly installed ULID-compatible 0.1.1 app; no VM power changes.
 on:
   push:
     branches: [main]
