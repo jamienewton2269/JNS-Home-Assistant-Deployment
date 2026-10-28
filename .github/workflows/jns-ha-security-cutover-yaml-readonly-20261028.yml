@@ -1,0 +1,21 @@
+name: JNS HA Security YAML Cutover Structure Readonly
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-security-cutover-yaml-readonly-20261028.yml'
+      - 'gateway/solar/ha_security_cutover_yaml_analysis_20261028.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check private staging structure without revealing YAML
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha_security_cutover_yaml_analysis_20261028.py
+          python3 gateway/solar/ha_security_cutover_yaml_analysis_20261028.py
