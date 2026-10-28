@@ -52,6 +52,10 @@ rc,raw=run("ha","supervisor","logs","--lines","200",timeout=45)
 lines=raw.splitlines()
 selected=[x.lower() for x in lines if SLUG in x or "dockerfile is missing" in x.lower()]
 o["supervisor_references_app"]=len(selected)
+o["supervisor_app_error_excerpt"]=[
+ re.sub(r"(?i)(bearer\\s+|token[=:]\\s*|password[=:]\\s*)\\S+",
+        "[REDACTED]",x.split(SLUG,1)[-1]).strip()[:230]
+ for x in selected[-8:] if ("error" in x or "fail" in x or "invalid" in x)]
 o["error_classes"]={
  "dockerfile_missing":any("dockerfile" in x and "missing" in x for x in selected),
  "build_failed":any("build" in x and ("error" in x or "failed" in x) for x in selected),
