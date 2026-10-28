@@ -1,3 +1,4 @@
 audit=alarm-heating-dashboard
 vm=905
 mode=read-only
+check=post-security-migration-alarm
