@@ -1,0 +1,28 @@
+name: JNS HA905 Core API Probe Inert Private Host Stage
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-core-api-bridge-private-inert-stage-20261028.yml'
+      - 'gateway/solar/ha905_api_bridge_private_stage_20261028.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-inert-core-api-bridge-stage
+  cancel-in-progress: false
+jobs:
+  stage:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax check staging script and dormant app
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha905_api_bridge_private_stage_20261028.py
+          python3 -m py_compile gateway/solar/ha905_core_api_bridge_app/probe.py
+      - name: Stage reviewed app source privately outside HAOS
+        shell: bash
+        run: python3 gateway/solar/ha905_api_bridge_private_stage_20261028.py
