@@ -94,8 +94,19 @@ g=script('test -d /mnt/data/supervisor && command -v base64 >/dev/null && comman
 if not success(g):fail("guest_prerequisites")
 g=script('test ! -e '+TARGET+' && test ! -L '+TARGET,25)
 if not success(g):fail("app_folder_collision")
-g=script('ha apps info '+SLUG+' --raw-json >/dev/null 2>&1',30)
-if success(g):fail("installed_slug_collision")
+g=script("ha apps info "+SLUG+" --raw-json",30)
+if not g:fail("app_info_unavailable")
+try:
+ info=json.loads(g.get("out-data") or "{}")
+ if not isinstance(info,dict):fail("app_info_invalid")
+ if info.get("result")=="ok":
+  entry=info.get("data",{})
+  if not isinstance(entry,dict):fail("app_info_invalid")
+  if entry.get("installed") is True:fail("installed_slug_collision")
+ elif info.get("result")!="error":
+  fail("app_info_unknown_response")
+except (ValueError,TypeError):
+ fail("app_info_unparseable")
 status("PRECHECK","passed")
 once=pathlib.Path("/var/lib/jns-solar/consolidation/ha905-core-api-bridge-probe-20261028-v1/one-test-attempted.json")
 if once.exists() or once.is_symlink():fail("one_time_test_already_attempted")
