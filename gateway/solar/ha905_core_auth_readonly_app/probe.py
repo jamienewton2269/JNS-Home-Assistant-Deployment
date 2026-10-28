@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Read-only HA905 Core API proxy test from a dedicated authorized app.
+"""Guarded HA905 Core proxy diagnostics from a dedicated one-shot app.
 
-Exactly three fixed GET URLs; never print token, request body or response.
-No configs, registry, POSTs, websockets, outputs or security integration calls.
+Three GETs, one schema-invalid POST, one blank ESPHome flow POST and DELETE.
+Never submit device address/key, configure a flow, change security outputs,
+or print authentication tokens, raw response bodies or flow identifiers.
 """
 import json
 import os
