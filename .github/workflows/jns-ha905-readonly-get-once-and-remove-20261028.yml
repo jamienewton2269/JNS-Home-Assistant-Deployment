@@ -1,0 +1,23 @@
+name: JNS HA905 Readonly Core GET Once And Remove
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-readonly-get-once-and-remove-20261028.yml'
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-one-time-api-probe
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate one-shot script
+        run: python3 -m py_compile gateway/solar/ha905_api_probe_start_once_uninstall_20261028.py
+      - name: Verify approved fixed GET API probe offline
+        run: python3 gateway/solar/ha905_core_api_bridge_app/test_probe.py -v
+      - name: Run one read-only Core API probe and remove temporary app
+        run: python3 gateway/solar/ha905_api_probe_start_once_uninstall_20261028.py
