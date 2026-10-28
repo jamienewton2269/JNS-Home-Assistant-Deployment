@@ -1,12 +1,12 @@
 name: JNS HA-Security VM906 Guarded Maintenance Cutover Stop
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/jns-ha-security-vm906-guarded-stop-20261028.yml'
-      - 'gateway/solar/ha_security_vm906_guarded_stop_20261028.py'
-      - 'gateway/solar/requests/vm906-maintenance-cutover-20261028.request'
+  # NEVER stop the active alarm controller as a side effect of a Git push.
   workflow_dispatch:
+    inputs:
+      onsite_operator_confirmed:
+        description: "On-site operator present for security outage and physical checks"
+        required: true
+        type: boolean
 permissions:
   contents: read
 concurrency:
@@ -19,7 +19,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 -m py_compile gateway/solar/ha_security_vm906_guarded_stop_20261028.py
-      - name: Stop VM906 only after explicit cutover request
+      - name: Stop VM906 only after fresh on-site confirmation and explicit cutover request
+        if: inputs.onsite_operator_confirmed == true
         shell: bash
         run: |
           set -Eeuo pipefail
