@@ -107,6 +107,18 @@ class Transaction36Test(unittest.TestCase):
         T.rollback(self.root,stage["stage_id"],approved=True)
         self.assertEqual(len(json.loads(p.read_text())["data"]["samples"]),2)
 
+    def test_bounded_large_learning_store_is_backed_up(self):
+        p=self.storage/"jns_heating_zone_synthetic"
+        rows=[{"at":"2026-10-26T12:00:00+00:00","indoor":20,
+              "outdoor":10,"duty":0,"valid":True} for _ in range(2016)]
+        blob=json.dumps({"version":1,"data":{"samples":rows}}).encode()
+        self.assertGreater(len(blob),120_000)
+        p.write_bytes(blob)
+        stage=T.stage(self.root,self.candidate)
+        backup=(self.root/T.ROOT_BACKUPS/stage["stage_id"]/"legacy_store"/p.name)
+        self.assertEqual(backup.read_bytes(),blob)
+        self.assertEqual(T.verify(self.root,stage["stage_id"])["state"],"staged")
+
     def test_invalid_candidate_rejected(self):
         m=dict(self.candidate)
         m["manifest.json"]=self.manifest
