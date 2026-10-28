@@ -20,7 +20,7 @@ class Tests(unittest.TestCase):
    buf=io.StringIO()
    with contextlib.redirect_stdout(buf):
     result=app.read_probe()
-   self.assertEqual(result,{"supervisor_info":200,"core_root":401,"core_config":403,"rejected_flow_post":400,"esphome_blank_flow_start":200,"esphome_blank_flow_cancel":200,"esphome_blank_form":true})
+   self.assertEqual(result,{"supervisor_info":200,"core_root":401,"core_config":403,"rejected_flow_post":400,"esphome_blank_flow_start":200,"esphome_blank_flow_cancel":200,"esphome_blank_form":True})
    self.assertNotIn(private,buf.getvalue())
    self.assertNotIn("Bearer",buf.getvalue())
   finally:app.guest=before
