@@ -84,6 +84,7 @@ def main():
  # Supervisor store metadata does not prove the privileged one-shot app
  # is INSTALLED. Require membership of the actual installed-app inventory.
  inv=guest(["ha","apps","list","--no-progress","--raw-json"])
+ raw={}
  try:
   raw=json.loads(inv.get("out-data") or "{}") if inv and inv.get("exitcode")==0 else {}
   catalog=raw.get("data",{})
