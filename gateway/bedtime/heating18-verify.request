@@ -1,0 +1,4 @@
+mode=read-only
+node=nodeb
+vmid=905
+purpose=confirm-bedtime-heating18-live-after-core-restart
