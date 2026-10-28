@@ -1,3 +1,4 @@
 mode=dry-run
 controller=shared-lux
 vm=905
+check=final-runtime-variable-order
