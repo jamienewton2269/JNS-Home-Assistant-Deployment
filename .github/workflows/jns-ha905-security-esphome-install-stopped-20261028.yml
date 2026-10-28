@@ -1,0 +1,30 @@
+name: JNS HA905 Security ESPHome Prepare-Only App Install
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-security-esphome-install-stopped-20261028.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-security-single-owner-cutover
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Offline syntax and native ESPHome config-flow regression tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha905_security_esphome_install_stopped_guarded_20261028.py
+          python3 -m py_compile gateway/solar/ha905_security_esphome_handover_app/flow.py
+          python3 gateway/solar/ha905_security_esphome_handover_app/test_flow.py -v
+      - name: Build and install manually started app only, never enrol or stop VM906
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 gateway/solar/ha905_security_esphome_install_stopped_guarded_20261028.py
