@@ -1,0 +1,19 @@
+name: JNS HA905 Core Check Diagnose Without Changing Controller
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-core-check-diagnostic-20261028.yml'
+permissions:
+  contents: read
+jobs:
+  read:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Classify the Home Assistant Core preflight rejection
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha905_core_check_failure_readonly_20261028.py
+          python3 gateway/solar/ha905_core_check_failure_readonly_20261028.py
