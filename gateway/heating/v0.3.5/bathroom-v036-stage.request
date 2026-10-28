@@ -1,0 +1,5 @@
+target=VM905
+mode=private-backup-only
+release=0.3.6
+no_integration_source_replacement=true
+no_core_restart=true
