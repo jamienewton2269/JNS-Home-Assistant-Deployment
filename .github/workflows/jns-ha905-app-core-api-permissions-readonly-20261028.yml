@@ -1,0 +1,23 @@
+name: JNS HA905 Existing App Core API Permissions Readonly
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-app-core-api-permissions-readonly-20261028.yml'
+      - 'gateway/solar/ha905_app_api_permissions_readonly_20261028.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-app-api-permissions-audit
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate existing app permission audit
+        run: python3 -m py_compile gateway/solar/ha905_app_api_permissions_readonly_20261028.py
+      - name: Read-only inventoried grant summary (no token use)
+        run: python3 gateway/solar/ha905_app_api_permissions_readonly_20261028.py
