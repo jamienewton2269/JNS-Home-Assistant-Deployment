@@ -1,0 +1,41 @@
+name: JNS URGENT Recover Exclusive VM906 From Fenced VM905
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-urgent-vm906-exclusive-recovery-20261028.yml'
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-security-single-owner-cutover
+  cancel-in-progress: false
+jobs:
+  recover:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test Proxmox paused guest recognition before guarded recovery
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha906_nodec_auto_failback_20261028.py
+          python3 gateway/solar/test_ha906_nodec_auto_failback_20261028.py -v
+      - name: Verify EXACT recovery state; refuse everything else
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea qm status 906)" = "status: stopped"
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodeb qm status 905)" = "status: paused"
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea systemctl is-active jns-ha906-recovery-20261028.timer)" = "active"
+          test -s "$HOME/.local/share/jns-security-failback-20261028/state.json"
+          echo JNS_EMERGENCY_EXCLUSIVE_RECOVERY_GATE=paused_target_stopped_source_timer_armed
+      - name: Restore only VM906 after attesting paused VM905
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 gateway/solar/ha906_nodec_auto_failback_20261028.py --restore
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea qm status 906)" = "status: running"
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodeb qm status 905)" = "status: paused"
+          echo JNS_EMERGENCY_EXCLUSIVE_RECOVERY_CONFIRMED=VM906_running_VM905_paused
