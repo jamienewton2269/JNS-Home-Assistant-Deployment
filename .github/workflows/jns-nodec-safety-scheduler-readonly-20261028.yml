@@ -1,0 +1,34 @@
+name: JNS Node C Security Failback Scheduler Readonly
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-nodec-safety-scheduler-readonly-20261028.yml'
+permissions:
+  contents: read
+jobs:
+  read:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test unattended user-level scheduler availability without changing it
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import shutil,subprocess,json,os
+          def active(s):
+              try:
+                  p=subprocess.run(["systemctl","is-active",s],capture_output=True,text=True,timeout=8)
+                  return p.returncode==0 and p.stdout.strip()=="active"
+              except Exception:return False
+          print("JNS_NODEC_SAFE_SCHEDULER="+json.dumps({
+           "uid":os.geteuid(),
+           "at_available":bool(shutil.which("at")),
+           "atd_active":active("atd"),
+           "crontab_available":bool(shutil.which("crontab")),
+           "cron_active":active("cron"),
+           "systemd_run_user_available":bool(shutil.which("systemd-run")),
+           "nodec_gateway_wrapper":bool(shutil.which("jns-gateway-exec"))
+          },sort_keys=True))
+          PY
