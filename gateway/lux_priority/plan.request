@@ -1,0 +1,3 @@
+mode=dry-run
+controller=shared-lux
+vm=905
