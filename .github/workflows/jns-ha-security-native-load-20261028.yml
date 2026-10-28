@@ -1,0 +1,30 @@
+name: JNS HA-General Native Security Alarm Load After Isolation
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-security-native-load-20261028.yml'
+      - 'gateway/solar/ha_security_native_load_after_stop_20261028.py'
+      - 'gateway/solar/requests/native-alarm-load-20261028.request'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-security-single-owner-cutover
+  cancel-in-progress: false
+jobs:
+  activate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 11
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m py_compile gateway/solar/ha_security_native_load_after_stop_20261028.py
+      - name: Load native alarm only if VM906 is stopped and rollback timer active
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ ! -f gateway/solar/requests/native-alarm-load-20261028.request ]]; then
+            echo 'JNS_NATIVE_SECURITY_LOAD_NOT_REQUESTED=yes'
+            exit 0
+          fi
+          python3 gateway/solar/ha_security_native_load_after_stop_20261028.py
