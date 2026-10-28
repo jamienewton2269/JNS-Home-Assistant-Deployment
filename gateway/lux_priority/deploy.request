@@ -1,0 +1,6 @@
+approved=2026-10-28
+vmid=905
+controller=1791918795028
+priority=hall-first-last-off
+safety=preserve-manual-off-bedtime-pir
+mode=transactional
