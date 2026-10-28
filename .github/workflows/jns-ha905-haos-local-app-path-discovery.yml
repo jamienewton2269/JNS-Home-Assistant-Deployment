@@ -1,0 +1,18 @@
+name: JNS HA905 HAOS Local App Path Discovery Readonly
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-haos-local-app-path-discovery.yml'
+      - 'gateway/solar/ha905_haos_local_app_path_discovery_readonly_20261028.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m py_compile gateway/solar/ha905_haos_local_app_path_discovery_readonly_20261028.py
+      - run: python3 gateway/solar/ha905_haos_local_app_path_discovery_readonly_20261028.py
