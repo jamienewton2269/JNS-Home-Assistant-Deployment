@@ -89,9 +89,14 @@ if pre and pre.get("installed") is True:
         note("INSTALLED_STOPPED","already_present")
         raise SystemExit(0)
     fail("existing_app_collision")
-if not good(sh("test -d /mnt/data/supervisor/apps/local && test ! -e "+
-                shlex.quote(SRC)+" && test ! -L "+shlex.quote(SRC),30)):
-    fail("local_source_collision_or_layout")
+if not good(sh("test -d /mnt/data/supervisor/apps/local && test ! -L "+
+                shlex.quote(SRC),30)):
+    fail("supervisor_layout_or_source_symlink")
+retained=good(sh("test -d "+shlex.quote(SRC)+" && test ! -L "+
+                 shlex.quote(SRC),30))
+if not retained and not good(sh("test ! -e "+shlex.quote(SRC)+" && test ! -L "+
+                                shlex.quote(SRC),30)):
+    fail("local_source_collision")
 obj=json.loads(sys.stdin.buffer.read(100000))
 if obj.get("target_vm")!=905 or set(obj.get("files",{}))!=set(FILENAMES):
     fail("wrong_payload")
@@ -104,17 +109,27 @@ if b"homeassistant_api: true" not in files["config.yaml"] or b"boot: manual_only
     fail("unsafe_manifest")
 if b"ghcr.io/home-assistant/base-python:3.14-alpine3.24" not in files["Dockerfile"]:
     fail("unreviewed_base_image")
-if not good(sh("mkdir "+shlex.quote(SRC),30)):fail("source_directory_creation")
-# Never remove source during an unconfirmed or pending Supervisor build.
+if not retained and not good(sh("mkdir "+shlex.quote(SRC),30)):
+    fail("source_directory_creation")
+# Retained source can be reused only after validating EVERY exact original byte.
+# Never overwrite or delete source during an unconfirmed Supervisor build.
+if retained:
+    expected=" ".join(FILENAMES)
+    check="test \"$(ls -1 "+shlex.quote(SRC)+" | sort | tr '\\n' ' ')\" = "+shlex.quote(" ".join(sorted(FILENAMES))+" ")
+    if not good(sh(check,30)):fail("retained_source_extra_or_missing_files")
 for name,raw in files.items():
     path=shlex.quote(SRC+"/"+name)
-    b64=base64.b64encode(raw).decode("ascii")
-    statement="printf '%s' "+shlex.quote(b64)+" | base64 -d > "+path
-    if not good(sh(statement,40)):fail("source_copy_failed_preserved")
+    if not retained:
+        b64=base64.b64encode(raw).decode("ascii")
+        statement="printf '%s' "+shlex.quote(b64)+" | base64 -d > "+path
+        if not good(sh(statement,40)):fail("source_copy_failed_preserved")
     verify="test \"$(sha256sum "+path+" | cut -d' ' -f1)\" = "+shlex.quote(hashlib.sha256(raw).hexdigest())
     if not good(sh(verify,30)):fail("source_hash_failed_preserved")
-note("SOURCE","hash_verified")
-if not good(guest(["ha","store","reload","--no-progress"],150)):
+note("SOURCE","retained_hash_verified" if retained else "hash_verified")
+reload_result=guest(["ha","store","reload","--no-progress"],150)
+if not good(reload_result):
+    reload_result=guest(["ha","store","reload"],150)
+if not good(reload_result):
     fail("supervisor_store_reload_failed_source_preserved")
 note("STORE","refreshed")
 # Installing does not start this boot:manual_only, startup:once app.
