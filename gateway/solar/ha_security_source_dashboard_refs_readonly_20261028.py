@@ -24,7 +24,37 @@ if database.is_file() and not database.is_symlink():
    "SELECT entity_id FROM states_meta WHERE entity_id LIKE 'binary_sensor.%'")]
   conn.close()
  except (sqlite3.Error,OSError):recorded=[]
-result={"registry":registry,"recorder_ids":recorded}
+# Candidate names from source and target templates; never log identities.
+import yaml
+from homeassistant.util import slugify
+class IgnoreHATags(yaml.SafeLoader):pass
+IgnoreHATags.add_multi_constructor("!",lambda loader,suffix,node:None)
+candidates=set()
+unique_ids=set()
+yaml_definitions=0
+for f in [root/"configuration.yaml",*sorted((root/"packages").glob("*.yaml"))]:
+ if not f.is_file() or f.is_symlink():continue
+ try:data=yaml.load(f.read_text(errors="replace"),Loader=IgnoreHATags)
+ except (yaml.YAMLError,OSError):continue
+ if not isinstance(data,dict):continue
+ t=data.get("template",[])
+ if isinstance(t,dict):t=[t]
+ if not isinstance(t,list):continue
+ for group in t:
+  if not isinstance(group,dict):continue
+  rows=group.get("binary_sensor",[])
+  if not isinstance(rows,list):continue
+  for row in rows:
+   if not isinstance(row,dict):continue
+   yaml_definitions+=1
+   name=row.get("name")
+   if isinstance(name,str) and name:candidates.add("binary_sensor."+slugify(name))
+   uid=row.get("unique_id")
+   if isinstance(uid,str) and uid:unique_ids.add(uid)
+result={"registry":registry,"recorder_ids":recorded,
+        "template_slug_candidates":sorted(candidates),
+        "template_unique_ids":sorted(unique_ids),
+        "template_definitions":yaml_definitions}
 print("JNS_PRIVATE_SOURCE_SECURITY_IDS="+base64.b64encode(zlib.compress(json.dumps(result).encode(),9)).decode())
 '''
 DASHBOARD=r'''
@@ -58,9 +88,9 @@ def extract(node,args,prefix,timeout=90):
  if len(lines)!=1:return None
  try:return json.loads(zlib.decompress(base64.b64decode(lines[0],validate=True)))
  except (ValueError,zlib.error,TypeError):return None
-def guest():
+def guest(node,vm):
  code=base64.b64encode(VM906.encode()).decode()
- p=ssh("nodea",["qm","guest","exec","906","--","docker","exec",
+ p=ssh(node,["qm","guest","exec",str(vm),"--","docker","exec",
  "homeassistant","python3","-c","exec(__import__('base64').b64decode('"+code+"'))"],40)
  if not p or p.returncode:return None
  try:j=json.loads(p.stdout)
@@ -69,7 +99,7 @@ def guest():
  while not j.get("exited") and time.monotonic()<until:
   if not j.get("pid"):return None
   time.sleep(.5)
-  p=ssh("nodea",["qm","guest","exec-status","906",str(j["pid"])],24)
+  p=ssh(node,["qm","guest","exec-status",str(vm),str(j["pid"])],24)
   if not p or p.returncode:return None
   try:j=json.loads(p.stdout)
   except ValueError:return None
@@ -84,12 +114,13 @@ def main():
  state=ssh("nodea",["qm","status","906"],20)
  if not state or state.returncode or state.stdout.strip()!="status: running":
   print("JNS_SECURITY_SOURCE_AUDIT_BLOCKED=source_offline");return 1
- sec=guest()
+ sec=guest("nodea",906)
+ target=guest("nodeb",905)
  code=base64.b64encode(DASHBOARD.encode()).decode()
  dash=extract("nodeb",["python3","-u","-c",
   "exec(__import__('base64').b64decode('"+code+"'))"],
   "JNS_PRIVATE_DASHBOARD_SECURITY_IDS",40)
- if sec is None or dash is None:
+ if sec is None or target is None or dash is None:
   print("JNS_SECURITY_SOURCE_AUDIT_BLOCKED=private_data_unavailable");return 1
  names=set(dash)
  registry=sec["registry"]
@@ -103,6 +134,14 @@ def main():
   "references_not_in_vm906_registry":len(names-set(registry)),
   "source_vm906_binary_registry_total":len(registry),
   "matched_reference_platforms":dict(sorted(platforms.items())),
+  "vm906_yaml_binary_definitions":sec["template_definitions"],
+  "vm905_yaml_binary_definitions":target["template_definitions"],
+  "vm906_name_slug_candidates":len(sec["template_slug_candidates"]),
+  "vm905_name_slug_candidates":len(target["template_slug_candidates"]),
+  "source_target_template_slug_overlap":len(set(sec["template_slug_candidates"])&set(target["template_slug_candidates"])),
+  "source_target_template_unique_id_overlap":len(set(sec["template_unique_ids"])&set(target["template_unique_ids"])),
+  "dashboard_refs_matching_vm906_template_name_slugs":len(names&set(sec["template_slug_candidates"])),
+  "dashboard_refs_matching_vm905_template_name_slugs":len(names&set(target["template_slug_candidates"])),
   "state_metadata_not_live_control_proof":True,
   "no_source_or_target_changes":True},sort_keys=True),flush=True)
  return 0
