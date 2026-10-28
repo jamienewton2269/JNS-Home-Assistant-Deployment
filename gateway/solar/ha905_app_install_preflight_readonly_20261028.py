@@ -69,9 +69,16 @@ def run(node,argv,timeout=40):
  try:return subprocess.run(SSH+[node,shlex.join(argv)],text=True,capture_output=True,timeout=timeout)
  except (OSError,subprocess.TimeoutExpired):return None
 def guest(host,vm):
- code=base64.b64encode(GUEST.encode()).decode()
- r=run(host,["qm","guest","exec",str(vm),"--","python3","-c",
-  "exec(__import__('base64').b64decode('"+code+"'))"],50)
+ shell=r'''printf 'JNS_HA905_LOCAL_APP_PATH_PREFLIGHT='
+ for p in /addons /mnt/data/supervisor/addons/local /mnt/data/supervisor/local_apps /mnt/data/supervisor/addons; do
+  if test -d "$p"; then printf '%s:dir,' "$p"; else printf '%s:absent,' "$p"; fi
+ done
+ if test -e /addons/local_jns_ha905_core_api_probe; then printf 'slug_collision:yes,'; else printf 'slug_collision:no,'; fi
+ if ha addons --help 2>/dev/null | grep -qw install; then printf 'addon_install_cli:yes,'; else printf 'addon_install_cli:no,'; fi
+ if ha store --help 2>/dev/null | grep -qw reload; then printf 'store_reload_cli:yes,'; else printf 'store_reload_cli:no,'; fi
+ printf '\n'
+ '''
+ r=run(host,["qm","guest","exec",str(vm),"--","sh","-c",shell],50)
  # HAOS host may not have python3, use container fallback below.
  if not r or r.returncode:return None
  try:j=json.loads(r.stdout)
