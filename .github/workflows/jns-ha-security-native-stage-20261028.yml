@@ -1,0 +1,23 @@
+name: JNS HA Security Native Alarm YAML Guarded Stage
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-security-native-stage-20261028.yml'
+      - 'gateway/solar/ha_security_native_config_stage_guarded_20261028.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-security-native-stage
+  cancel-in-progress: false
+jobs:
+  stage:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate HA-Security native stage script
+        run: python3 -m py_compile gateway/solar/ha_security_native_config_stage_guarded_20261028.py
+      - name: Copy alarm and disabled native automations with protected secret and HA configuration check
+        run: python3 gateway/solar/ha_security_native_config_stage_guarded_20261028.py
