@@ -1,0 +1,24 @@
+name: JNS URGENT Security Owner Status Readonly
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-urgent-security-owner-state-20261028.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only immediate source target timer and cron state
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo JNS_URGENT_SOURCE_STATE_BEGIN
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea 'qm status 906; systemctl is-active jns-ha906-recovery-20261028.timer || true'
+          echo JNS_URGENT_TARGET_STATE_BEGIN
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodeb 'qm status 905; qm config 905 | grep -E "^(name|lock):" || true'
+          echo JNS_URGENT_AUTOFAILBACK_CHECK_BEGIN
+          python3 gateway/solar/ha906_nodec_auto_failback_20261028.py --check || true
