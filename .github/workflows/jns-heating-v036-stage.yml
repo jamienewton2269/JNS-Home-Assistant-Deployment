@@ -1,0 +1,26 @@
+name: JNS Heating v0.3.6 Private Backup Stage
+on:
+  push:
+    branches:
+      - 'dev/heating-thermal-learning-v035-20261024'
+    paths:
+      - 'gateway/heating/v0.3.5/bathroom-v036-stage.request'
+permissions:
+  contents: read
+concurrency:
+  group: jns-heating-v036-backup-stage
+  cancel-in-progress: false
+jobs:
+  backup-only:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check all candidate regression and rollback tests
+        run: |
+          set -Eeuo pipefail
+          python3 -m unittest discover -v -s gateway/heating/v0.3.5 -p 'test_*.py'
+      - name: Verify current VM905 source without modifications
+        run: python3 gateway/heating/v0.3.5/bathroom_v036_current_preflight.py
+      - name: Backup and stage candidate on VM905 only (no active source changes)
+        run: python3 gateway/heating/v0.3.5/bathroom_v036_stage_vm905.py
