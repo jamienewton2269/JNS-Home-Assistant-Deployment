@@ -1,0 +1,22 @@
+name: JNS HA905 Core API Installer Retry Lint
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-core-api-installer-retry-lint.yml'
+      - 'gateway/solar/ha905_api_bridge_install_once_guarded_20261028.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lint:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile guarded installer without installing anything
+        run: python3 -m py_compile gateway/solar/ha905_api_bridge_install_once_guarded_20261028.py
+      - name: Validate one-shot app offline
+        run: python3 gateway/solar/ha905_core_api_bridge_app/test_probe.py -v
+      - name: Confirm no target was contacted
+        run: echo JNS_INSTALLER_RETRY_SOURCE_ONLY=yes
