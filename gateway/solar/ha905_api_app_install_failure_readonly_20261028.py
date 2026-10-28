@@ -54,7 +54,7 @@ selected=[x.lower() for x in lines if SLUG in x or "dockerfile is missing" in x.
 o["supervisor_references_app"]=len(selected)
 o["supervisor_app_error_excerpt"]=[
  re.sub(r"(?i)(bearer\\s+|token[=:]\\s*|password[=:]\\s*)\\S+",
-        "[REDACTED]",x.split(SLUG,1)[-1]).strip()[:230]
+        "[REDACTED]",x.split(SLUG,1)[-1]).strip()[:750]
  for x in selected[-8:] if ("error" in x or "fail" in x or "invalid" in x)]
 o["error_classes"]={
  "dockerfile_missing":any("dockerfile" in x and "missing" in x for x in selected),
