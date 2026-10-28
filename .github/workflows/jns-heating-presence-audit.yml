@@ -1,0 +1,17 @@
+name: JNS Heating Alarm Dashboard Readonly Audit
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/heating_presence/audit.request']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/heating_presence/audit.py
+          python3 gateway/heating_presence/audit.py
