@@ -117,7 +117,26 @@ def main():
  native_src='''import json,pathlib
 p=pathlib.Path("/config/packages/jns_ha_security_native_cutover_20261028_v2.yaml")
 s=p.read_text() if p.is_file() and not p.is_symlink() else ""
-print("JNS_NATIVE_CUTOVER_AUDIT="+json.dumps({"package_present":bool(s),"manual_alarm_present":"alarm_control_panel:" in s,"disabled_automations_declared":s.count("initial_state: false"),"esphome_entry_known":False},sort_keys=True))
+out={"package_present":bool(s),"manual_alarm_present":"alarm_control_panel:" in s,
+     "disabled_automations_declared":s.count("initial_state: false")}
+try:
+ import yaml
+ class SafeHA(yaml.SafeLoader):pass
+ SafeHA.add_multi_constructor("!",lambda loader,suffix,node:None)
+ parsed=yaml.load(s,Loader=SafeHA) if s else {}
+ if not isinstance(parsed,dict):parsed={}
+ templ=parsed.get("template",[])
+ groups=templ if isinstance(templ,list) else [templ]
+ out["package_yaml_structure_parsed"]=True
+ out["template_binary_sensor_definitions"]=sum(
+   len(g.get("binary_sensor",[])) if isinstance(g.get("binary_sensor"),list)
+   else (len(g.get("binary_sensor",{})) if isinstance(g.get("binary_sensor"),dict) else 0)
+   for g in groups if isinstance(g,dict))
+ out["package_input_number_definitions"]=len(parsed.get("input_number",{})) if isinstance(parsed.get("input_number"),dict) else 0
+ out["native_automations_in_package"]=len(parsed.get("automation",[])) if isinstance(parsed.get("automation"),list) else 0
+except Exception:
+ out["package_yaml_structure_parsed"]=False
+print("JNS_NATIVE_CUTOVER_AUDIT="+json.dumps(out,sort_keys=True))
 '''
  payload=base64.b64encode(native_src.encode()).decode()
  check=guest("nodeb",905,["docker","exec","homeassistant","python3","-c","exec(__import__('base64').b64decode('"+payload+"'))"])
