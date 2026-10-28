@@ -1,0 +1,27 @@
+name: JNS HA906 Node A Timed Recovery Scheduler Canary
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha906-nodea-timer-canary-readonly-safe-20261028.yml'
+permissions:
+  contents: read
+jobs:
+  canary:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Schedule isolated /bin/true canary (NO VM guest power action)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea \
+            'test "$(hostname -s)" = nodea && qm status 906 | grep -qx "status: running" && \
+             systemd-run --unit=jns-ha906-recovery-canary-20261028 --on-active=3s /bin/true >/dev/null && \
+             systemctl is-active --quiet jns-ha906-recovery-canary-20261028.timer'
+          sleep 7
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea \
+            'test "$(systemctl show -p Result --value jns-ha906-recovery-canary-20261028.service)" = success && \
+             test "$(qm status 906)" = "status: running"'
+          echo JNS_NODEA_TIMED_RECOVERY_CANARY=success_source_uninterrupted
