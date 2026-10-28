@@ -1,4 +1,5 @@
 name: JNS HA905 Core Auth Readonly Diagnostic Offline Tests
+# Validate v0.1.1 fixed schema-invalid POST: no valid handler, no alarm changes.
 on:
   push:
     branches: [main]
