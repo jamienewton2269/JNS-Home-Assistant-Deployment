@@ -1,0 +1,19 @@
+name: JNS HA905 Python Base Probe Offline Lint
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-python-base-probe-lint-20261028.yml'
+      - 'gateway/solar/ha905_api_bridge_python_base_install_once_guarded_20261028.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lint:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m py_compile gateway/solar/ha905_api_bridge_python_base_install_once_guarded_20261028.py
+      - run: python3 gateway/solar/ha905_core_api_bridge_app/test_probe.py -v
+      - run: echo JNS_PYTHON_BASE_PROBE_LINT_ONLY=yes
