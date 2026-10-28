@@ -42,11 +42,11 @@ class FailureRollbackTests(unittest.TestCase):
     def test_no_recovery_after_acceptance(self):
         rc,calls,x=self.scenario(accepted=True)
         self.assertEqual(rc,0);self.assertEqual(calls,[])
-    def test_no_target_integration_maintains_general(self):
+    def test_pending_flow_with_no_registered_entry_still_fences_target(self):
         rc,calls,x=self.scenario(count=0)
         self.assertEqual(rc,0)
-        self.assertEqual(x["target"],"running")
-        self.assertFalse(any("suspend" in args for _,args in calls))
+        self.assertEqual(x["target"],"suspended")
+        self.assertTrue(any(args[:3]==["qm","suspend","905"] for _,args in calls))
         self.assertTrue(any(args[:3]==["qm","start","906"] for _,args in calls))
     def test_integrated_target_suspended_before_source_restart(self):
         rc,calls,x=self.scenario(count=1)
