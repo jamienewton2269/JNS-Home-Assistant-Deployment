@@ -1,4 +1,5 @@
 name: JNS HA906 Node C Exclusive Failback Inert Stage
+# Prepare inert recovery for next manual cutover; does not arm countdown or stop VMs.
 on:
   push:
     branches: [main]
