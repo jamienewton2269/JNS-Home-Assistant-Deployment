@@ -140,6 +140,14 @@ out={"read_only":True,"registry_entities":len(entities),"registry_devices":len(d
      "esphome":dir_count("esphome"),
      "sqlite_mib":sized("home-assistant_v2.db"),
      "sqlite_wal_mib":sized("home-assistant_v2.db-wal"),
+     # Counts only: do not expose Lovelace content, device IDs or tokens.
+     "lovelace_storage_dashboard_count":len(json_data("lovelace_dashboards").get("items",[]))
+       if isinstance(json_data("lovelace_dashboards").get("items",[]),list) else 0,
+     "lovelace_primary_storage_present":present(".storage/lovelace"),
+     "lovelace_yaml_present":present("ui-lovelace.yaml"),
+     "blueprints":dir_count("blueprints"),
+     "tts_cache":dir_count("tts"),
+     "media_dir":dir_count("media"),
      "migration_yaml_layout":layout(),
      "guest_meminfo":guest_meminfo(),
      "entity_platform_families":{k:platform_counts[k] for k in
