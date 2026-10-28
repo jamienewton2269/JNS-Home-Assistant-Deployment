@@ -108,8 +108,10 @@ try:
 except (ValueError,TypeError):
  fail("app_info_unparseable")
 status("PRECHECK","passed")
-once=pathlib.Path("/var/lib/jns-solar/consolidation/ha905-core-api-bridge-probe-20261028-v1/one-test-attempted.json")
-if once.exists() or once.is_symlink():fail("one_time_test_already_attempted")
+previous=pathlib.Path("/var/lib/jns-solar/consolidation/ha905-core-api-bridge-probe-20261028-v1/one-test-attempted.json")
+if not previous.is_file() or previous.is_symlink():fail("prior_attempt_record_not_verified")
+once=pathlib.Path("/var/lib/jns-solar/consolidation/ha905-core-api-bridge-probe-20261028-v1/one-test-attempt-2.json")
+if once.exists() or once.is_symlink():fail("retry_already_attempted")
 with once.open("x") as f:
  json.dump({"VM":905,"authorised_read_only_probe":True,"source_commit":"0518305e69b5fdc18db77e93b026e724dab9fd53","status":"started"},f)
  f.write("\\n")
