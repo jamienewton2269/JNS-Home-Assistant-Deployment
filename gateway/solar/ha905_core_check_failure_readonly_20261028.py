@@ -6,7 +6,7 @@ def ssh(host,args,timeout=32):
  try:return subprocess.run(SSH+[host,shlex.join(args)],capture_output=True,text=True,timeout=timeout)
  except (OSError,subprocess.TimeoutExpired):return None
 def guest(args,limit=250):
- p=ssh("nodeb",["qm","guest","exec","905","--",*args],36)
+ p=ssh("nodeb",["qm","guest","exec","905","--timeout","180","--",*args],215)
  if not p or p.returncode:
   return {"guest_exec_request_failed":True}
  try:j=json.loads(p.stdout)
@@ -48,9 +48,11 @@ def main():
     "source_recovery_timer_active":bool(t and t.returncode==0 and t.stdout.strip()=="active"),
     },sort_keys=True),flush=True)
  if not a or a.stdout.strip()!="status: running":return 3
+ begin=time.monotonic()
  j=guest(["ha","core","check"])
- info={"exitcode":j.get("exitcode"),"out_truncated":j.get("out-truncated"),
-       "err_truncated":j.get("err-truncated"),"envelope_flags":[k for k,v in j.items() if k.endswith("_failed") and v]}
+ info={"exitcode":j.get("exitcode"),"elapsed_seconds":round(time.monotonic()-begin,1),
+       "out_truncated":j.get("out-truncated"),"err_truncated":j.get("err-truncated"),
+       "envelope_flags":[k for k,v in j.items() if (k.startswith("guest_exec_") or k.endswith("_failed")) and v]}
  for kind in ("out-data","err-data"):
   info[kind+"_evidence"]=scrub(j.get(kind,""))
  print("JNS_CORECHECK_CLASSIFIED="+json.dumps(info,sort_keys=True),flush=True)
