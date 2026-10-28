@@ -10,7 +10,9 @@ registry=json.loads((root/'.storage/core.entity_registry').read_text())['data'][
 ids=('alarm_control_panel.home_alarm','alarm_control_panel.house_alarm','sensor.jns_heating_verified_alarm_state',
 'sensor.jns_heating_schedule_decision','sensor.jns_heating_predictive_preheat_minutes',
 'sensor.jns_heating_predictive_cooling_minutes','sensor.jns_heating_learned_bedtime',
-'input_boolean.jns_heating_automatic_override','input_number.jns_heating_away_minimum_temp')
+'input_boolean.jns_heating_automatic_override','input_number.jns_heating_away_minimum_temp',
+'sensor.jns_house_temperature_setpoint','sensor.jns_house_temperature','input_number.jns_heating_bedtime_samples',
+'automation.jns_heating_predictive_home_10am_and_learned_bedtime_setback')
 out={'registered':[{'entity_id':x.get('entity_id'),'disabled':x.get('disabled_by'),'platform':x.get('platform')} for x in registry if x.get('entity_id') in ids]}
 p=root/'packages/jns_ha_security_native_cutover_20261028_v2.yaml'
 if p.exists():
