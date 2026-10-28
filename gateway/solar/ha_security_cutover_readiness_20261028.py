@@ -57,6 +57,8 @@ out={"host":os.uname().nodename.split(".")[0]}
 base=pathlib.Path("/var/lib/jns-solar/consolidation/ha-security-906-20261027-v1")
 out["security_yaml_stage_present"]=(base/"manifest.json").is_file()
 out["esphome_private_stage_present"]=(base/"esphome-enrolment-private.json").is_file()
+out["deferred_input_number_stage_present"]=(base/"deferred-input-number-20261028-v1.yaml").is_file()
+out["security_dashboard_private_stage_present"]=pathlib.Path("/var/lib/jns-solar/consolidation/ha-dashboards-20261028-v1/manifest.json").is_file()
 out["archive_manifests_present"]={
  "905":pathlib.Path("/mnt/pve/NAS/dump/jns-ha-general-consolidation-20261027-v1/MANIFEST.json").is_file(),
  "902":pathlib.Path("/mnt/pve/NAS/dump/jns-vm902-consolidation-20261027-v1/MANIFEST.json").is_file(),
