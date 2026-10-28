@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Offline proof that only native ESPHome config-flow endpoints are touched."""
 import importlib.util
+import contextlib
+import io
+import urllib.error
 import pathlib
 import unittest
 
@@ -88,6 +91,33 @@ class FlowTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             mod.run_flow(CREDS,"TEST",api)
         self.assertEqual(calls,["POST","DELETE"])
+    def test_http_401_at_flow_start_prints_only_safe_code_and_phase(self):
+        def deny(req, timeout):
+            raise urllib.error.HTTPError(req.full_url, 401, "PRIVATE_TOKEN", {}, None)
+        stream=io.StringIO()
+        with contextlib.redirect_stdout(stream):
+            with self.assertRaises(urllib.error.HTTPError):
+                mod.request("POST",mod.FLOW_PATH,"FAKE_SECRET_TOKEN",
+                            {"handler":"esphome"},opener=deny)
+        output=stream.getvalue()
+        self.assertIn("JNS_ESP_HANDOVER_HTTP_PHASE=start",output)
+        self.assertIn("JNS_ESP_HANDOVER_HTTP_STATUS=401",output)
+        self.assertNotIn("FAKE_SECRET_TOKEN",output)
+        self.assertNotIn("PRIVATE_TOKEN",output)
+        self.assertNotIn("supervisor",output)
+
+    def test_http_404_at_flow_step_prints_only_safe_code_and_phase(self):
+        def deny(req, timeout):
+            raise urllib.error.HTTPError(req.full_url, 404, "hidden", {}, None)
+        stream=io.StringIO()
+        with contextlib.redirect_stdout(stream):
+            with self.assertRaises(urllib.error.HTTPError):
+                mod.request("POST",mod.FLOW_PATH+"/"+FID,"FAKE_TOKEN",
+                            {"noise_psk":"FAKE_PSK"},opener=deny)
+        output=stream.getvalue()
+        self.assertIn("JNS_ESP_HANDOVER_HTTP_PHASE=step",output)
+        self.assertIn("JNS_ESP_HANDOVER_HTTP_STATUS=404",output)
+        self.assertNotIn("FAKE_PSK",output)
     def test_unapproved_endpoint_fails(self):
         with self.assertRaises(ValueError):
             mod.request("POST","services/lock/lock", "TEST",{})
