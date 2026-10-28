@@ -7,3 +7,4 @@ target_celsius=18
 mode=transactional
 attempt=2-yaml-indentless-list
 attempt=3-valid-python-automation-selector
+attempt=4-clean-patch
