@@ -1,0 +1,23 @@
+name: JNS HA Security Template Coverage Readonly 2026-10-28
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-security-template-coverage-readonly-20261028.yml'
+      - 'gateway/solar/ha_security_template_coverage_readonly_20261028.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-security-template-coverage
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate private read-only audit script
+        run: python3 -m py_compile gateway/solar/ha_security_template_coverage_readonly_20261028.py
+      - name: Compare dashboard, YAML templates, registry and recorder metadata
+        run: python3 gateway/solar/ha_security_template_coverage_readonly_20261028.py
