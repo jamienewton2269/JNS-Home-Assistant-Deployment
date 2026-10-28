@@ -1,0 +1,249 @@
+# JNS Predictive Home Heating v1.0 — HA-General only
+# Alarm-dependent control fails closed if neither verified alarm entity is available.
+# Reuse learned thermal coefficients from jns_heating_zones; no second thermal learner.
+input_boolean:
+  jns_heating_automatic_override:
+    name: Heating Automatic Override
+    icon: mdi:hand-back-right
+  jns_heating_bedtime_learning_paused:
+    name: Pause Bedtime Learning
+    icon: mdi:brain
+
+input_number:
+  jns_heating_away_minimum_temp:
+    name: House Minimum Away Temperature
+    icon: mdi:home-thermometer-outline
+    min: 15
+    max: 20
+    step: 0.5
+    unit_of_measurement: "°C"
+    mode: slider
+  jns_heating_bedtime_mean_offset:
+    name: Learned Bedtime Minutes After Noon
+    min: 420
+    max: 900
+    step: 1
+    mode: box
+  jns_heating_bedtime_samples:
+    name: Learned Bedtime Samples
+    min: 0
+    max: 90
+    step: 1
+    mode: box
+
+input_datetime:
+  jns_heating_last_bedtime_sample:
+    name: Last Learned Bedtime
+    has_date: true
+    has_time: true
+
+template:
+  - sensor:
+      - name: JNS Heating Learned Bedtime
+        unique_id: jns_heating_learned_bedtime
+        icon: mdi:bed-clock
+        state: >-
+          {% set samples = states('input_number.jns_heating_bedtime_samples') | int(0) %}
+          {% if samples == 0 %}
+            Learning
+          {% else %}
+            {% set minute = (720 + states('input_number.jns_heating_bedtime_mean_offset') | int(420)) % 1440 %}
+            {{ '%02d:%02d' | format(minute // 60, minute % 60) }}
+          {% endif %}
+        attributes:
+          observations: "{{ states('input_number.jns_heating_bedtime_samples') | int(0) }}"
+          ready: "{{ states('input_number.jns_heating_bedtime_samples') | int(0) >= 7 }}"
+      - name: JNS Heating Predictive Preheat Minutes
+        unique_id: jns_heating_predictive_preheat_minutes
+        icon: mdi:fire-clock
+        unit_of_measurement: min
+        state_class: measurement
+        state: >-
+          {% set indoor = states('sensor.jns_house_temperature') | float(none) %}
+          {% set outdoor = states('sensor.thermostat_thermostat_outdoor_temperature') | float(none) %}
+          {% set model = 'sensor.lyric_home_heating_thermal_learning' %}
+          {% set ready = state_attr(model, 'ready') %}
+          {% set k = state_attr(model, 'loss_per_hour') | float(0) %}
+          {% set h = state_attr(model, 'heat_gain_c_per_hour') | float(0) %}
+          {% set b = state_attr(model, 'drift_c_per_hour') | float(0) %}
+          {% if indoor is not none and indoor >= 20.8 %}
+            0
+          {% elif indoor is not none and outdoor is not none and ready in [true, 'True'] and k > 0 and h > 0 %}
+            {% set n = namespace(temp=indoor, eta=360) %}
+            {% for step in range(1, 73) %}
+              {% if n.temp < 20.8 %}
+                {% set n.temp = n.temp + (k * (outdoor - n.temp) + h + b) / 12 %}
+                {% if n.temp >= 20.8 %}{% set n.eta = step * 5 %}{% endif %}
+              {% endif %}
+            {% endfor %}
+            {{ n.eta }}
+          {% else %}
+            120
+          {% endif %}
+        attributes:
+          prediction_model: >-
+            {{ 'Validated JNS thermal learner' if state_attr('sensor.lyric_home_heating_thermal_learning', 'ready') in [true, 'True'] else 'Conservative 120-minute fallback' }}
+          target_time: "10:00"
+      - name: JNS Heating Predictive Cooling Minutes
+        unique_id: jns_heating_predictive_cooling_minutes
+        icon: mdi:weather-night
+        unit_of_measurement: min
+        state_class: measurement
+        state: >-
+          {% set indoor = states('sensor.jns_house_temperature') | float(none) %}
+          {% set outdoor = states('sensor.thermostat_thermostat_outdoor_temperature') | float(none) %}
+          {% set model = 'sensor.lyric_home_heating_thermal_learning' %}
+          {% set ready = state_attr(model, 'ready') %}
+          {% set k = state_attr(model, 'loss_per_hour') | float(0) %}
+          {% set b = state_attr(model, 'drift_c_per_hour') | float(0) %}
+          {% if indoor is not none and indoor <= 18.2 %}
+            0
+          {% elif indoor is not none and outdoor is not none and ready in [true, 'True'] and k > 0 %}
+            {% set n = namespace(temp=indoor, eta=180) %}
+            {% for step in range(1, 37) %}
+              {% if n.temp > 18.2 %}
+                {% set n.temp = n.temp + (k * (outdoor - n.temp) + b) / 12 %}
+                {% if n.temp <= 18.2 %}{% set n.eta = step * 5 %}{% endif %}
+              {% endif %}
+            {% endfor %}
+            {{ n.eta }}
+          {% else %}
+            60
+          {% endif %}
+        attributes:
+          predictive: "{{ state_attr('sensor.lyric_home_heating_thermal_learning', 'ready') in [true, 'True'] }}"
+      - name: JNS Heating Verified Alarm State
+        unique_id: jns_heating_verified_alarm_state
+        icon: mdi:shield-home
+        state: >-
+          {% set a = states('alarm_control_panel.home_alarm') %}
+          {% set b = states('alarm_control_panel.house_alarm') %}
+          {% if a in ['armed_home', 'armed_away', 'disarmed'] %}{{ a }}
+          {% elif b in ['armed_home', 'armed_away', 'disarmed'] %}{{ b }}
+          {% else %}unavailable{% endif %}
+      - name: JNS Heating Schedule Decision
+        unique_id: jns_heating_schedule_decision
+        icon: mdi:calendar-clock
+        state: >-
+          {% if is_state('input_boolean.jns_heating_automatic_override', 'on') %}
+            Manual override
+          {% elif is_state('sensor.jns_heating_verified_alarm_state', 'unavailable') %}
+            Waiting for alarm state
+          {% elif is_state('sensor.jns_heating_verified_alarm_state', 'armed_away') %}
+            Away minimum
+          {% elif is_state('input_boolean.general_bedtime_mode', 'on') and now().hour < 4 %}
+            Bedtime comfort
+          {% else %}
+            Predictive schedule
+          {% endif %}
+
+automation:
+  - id: jns_heating_learn_bedtime_v1
+    alias: JNS Heating - Learn normal bedtime from actual activation
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: input_boolean.general_bedtime_mode
+        from: "off"
+        to: "on"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.jns_heating_bedtime_learning_paused
+        state: "off"
+      - condition: template
+        value_template: >-
+          {{ now().hour >= 19 or now().hour < 3 }}
+      - condition: template
+        value_template: >-
+          {{ as_timestamp(now()) - as_timestamp(states('input_datetime.jns_heating_last_bedtime_sample'), 0) > 43200 }}
+      - condition: template
+        value_template: >-
+          {% set n = states('input_number.jns_heating_bedtime_samples') | int(0) %}
+          {% set m = states('input_number.jns_heating_bedtime_mean_offset') | float(600) %}
+          {% set t = (now().hour * 60 + now().minute - 720 + 1440) % 1440 %}
+          {{ n < 7 or (t - m) | abs < 180 }}
+    actions:
+      - variables:
+          current_offset: "{{ (now().hour * 60 + now().minute - 720 + 1440) % 1440 }}"
+          old_count: "{{ states('input_number.jns_heating_bedtime_samples') | int(0) }}"
+          old_mean: "{{ states('input_number.jns_heating_bedtime_mean_offset') | float(600) }}"
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.jns_heating_bedtime_mean_offset
+        data:
+          value: >-
+            {% if old_count | int(0) == 0 %}
+              {{ current_offset | float }}
+            {% else %}
+              {{ (old_mean | float + ((current_offset | float) - (old_mean | float)) / ([old_count | int(0) + 1, 14] | min)) | round(0) }}
+            {% endif %}
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.jns_heating_bedtime_samples
+        data:
+          value: "{{ [old_count | int(0) + 1, 90] | min }}"
+      - action: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.jns_heating_last_bedtime_sample
+        data:
+          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+
+  - id: jns_heating_alarm_predictive_target_v1
+    alias: JNS Heating - Predictive home 10am and learned bedtime setback
+    mode: restart
+    triggers:
+      - trigger: time_pattern
+        minutes: "/5"
+      - trigger: homeassistant
+        event: start
+      - trigger: state
+        entity_id:
+          - alarm_control_panel.home_alarm
+          - alarm_control_panel.house_alarm
+          - input_boolean.general_bedtime_mode
+          - input_boolean.jns_heating_automatic_override
+          - input_number.jns_heating_away_minimum_temp
+          - input_number.jns_heating_bedtime_samples
+    actions:
+      - variables:
+          alarm: "{{ states('sensor.jns_heating_verified_alarm_state') }}"
+          minutes_now: "{{ now().hour * 60 + now().minute }}"
+          preheat: "{{ states('sensor.jns_heating_predictive_preheat_minutes') | int(120) }}"
+          cooling: "{{ [states('sensor.jns_heating_predictive_cooling_minutes') | int(60), 150] | min }}"
+          bedtime_offset: "{{ states('input_number.jns_heating_bedtime_mean_offset') | int(600) }}"
+          bed_samples: "{{ states('input_number.jns_heating_bedtime_samples') | int(0) }}"
+          house_offset: "{{ (now().hour * 60 + now().minute - 720 + 1440) % 1440 }}"
+      - variables:
+          desired: >-
+            {% if is_state('input_boolean.jns_heating_automatic_override', 'on') %}
+              none
+            {% elif alarm == 'armed_away' %}
+              {{ states('input_number.jns_heating_away_minimum_temp') | float(15) }}
+            {% elif alarm not in ['disarmed', 'armed_home'] %}
+              none
+            {% elif 240 <= minutes_now | int < 600 and (600 - minutes_now | int) <= (preheat | int + 10) %}
+              21
+            {% elif minutes_now | int >= 600 and minutes_now | int < 1140 %}
+              21
+            {% elif minutes_now | int >= 1140 and bed_samples | int >= 7 and bedtime_offset | int - house_offset | int <= cooling | int and bedtime_offset | int - house_offset | int >= 0 %}
+              18
+            {% elif minutes_now | int >= 1140 and bed_samples | int >= 7 and house_offset | int >= bedtime_offset | int %}
+              18
+            {% elif is_state('input_boolean.general_bedtime_mode', 'on') %}
+              18
+            {% elif minutes_now | int >= 1140 %}
+              21
+            {% else %}
+              18
+            {% endif %}
+      - condition: template
+        value_template: >-
+          {{ desired | trim not in ['none', 'unavailable', 'unknown', ''] and
+             is_number(state_attr('climate.thermostat_thermostat', 'temperature')) and
+             (state_attr('climate.thermostat_thermostat', 'temperature') | float - desired | float) | abs >= 0.4 }}
+      - action: climate.set_temperature
+        target:
+          entity_id: climate.thermostat_thermostat
+        data:
+          temperature: "{{ desired | float }}"
+        continue_on_error: true
