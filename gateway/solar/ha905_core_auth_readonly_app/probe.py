@@ -54,6 +54,6 @@ def run(token,opener=urllib.request.urlopen):
 if __name__=="__main__":
  token=os.environ.get("SUPERVISOR_TOKEN","")
  print("JNS_HA905_CORE_AUTH_READONLY="+json.dumps({
-    "token_present":bool(token),"statuses":run(token),"read_only":True,
-    "posted_config_flow":False,"used_security_output":False,
-    "logged_token":False},sort_keys=True),flush=True)
+    "token_present":bool(token),"statuses":run(token),
+    "invalid_flow_post_sent":True,"handler_supplied":False,
+    "used_security_output":False,"logged_token":False},sort_keys=True),flush=True)
