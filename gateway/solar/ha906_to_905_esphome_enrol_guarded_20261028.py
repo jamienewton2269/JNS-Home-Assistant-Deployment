@@ -108,10 +108,23 @@ SAFE_FLOW_CODES={
  "ABORT_REASON": frozenset((
   "already_configured","already_in_progress","already_exists",
   "cannot_connect","unknown")),
+ "HTTP_STATUS": frozenset(("400","401","403","404","405","409","422",
+                            "429","500","502","503","504","other")),
+ "HTTP_PHASE": frozenset(("start","step","poll","cleanup")),
 }
 FLOW_DIAG_MARKER=re.compile(
- r"(?<![A-Za-z0-9_])JNS_ESP_HANDOVER_(BLOCKED|FLOW_EXCEPTION_CLASS|FLOW_ERROR_CODE|ABORT_REASON)="
+ r"(?<![A-Za-z0-9_])JNS_ESP_HANDOVER_(BLOCKED|FLOW_EXCEPTION_CLASS|FLOW_ERROR_CODE|ABORT_REASON|HTTP_STATUS|HTTP_PHASE)="
  r"([A-Za-z0-9_,-]{1,70})(?=\r?\n|[\s\x1b]|$)")
+def classify_safe_http_failure(logs):
+ """Parse only fixed, approved status and phase labels from app output."""
+ if not isinstance(logs,str):return {}
+ out={}
+ for match in FLOW_DIAG_MARKER.finditer(logs):
+  category,code=match.groups()
+  if category in ("HTTP_STATUS","HTTP_PHASE"):
+   out[category.lower()]=(code if code in SAFE_FLOW_CODES[category]
+                          else "unknown_code_redacted")
+ return out
 def classify_safe_flow_logs(logs):
  if not isinstance(logs,str):return None
  result=None
@@ -173,6 +186,7 @@ def main():
    print("JNS_ENROL_APP_START_RESULT=command_unverified",flush=True)
   success=False
   diagnostic=None
+  http_fields={}
   for i in range(35):
    j=qga(["ha","apps","logs",SLUG,"--lines","100"],40)
    if j and j.get("exitcode")==0:
@@ -181,12 +195,16 @@ def main():
     # An unknown value is redacted instead of copied from Supervisor logs.
     found=classify_safe_flow_logs(logs)
     if found:diagnostic=found
+    http_fields.update(classify_safe_http_failure(logs))
     if "JNS_ESP_HANDOVER_ENTRY_CREATED=yes" in logs and "JNS_ESP_HANDOVER_NATIVE_CONFIG_FLOW_COMPLETE=yes" in logs:
      success=True;break
     if "JNS_ESP_HANDOVER_BLOCKED=" in logs or "JNS_ESP_HANDOVER_FLOW_EXCEPTION_CLASS=" in logs:
      break
    time.sleep(2)
   if not success:
+   if http_fields:
+    print("JNS_ENROL_HTTP_STATUS="+http_fields.get("http_status","unknown"),flush=True)
+    print("JNS_ENROL_HTTP_PHASE="+http_fields.get("http_phase","unknown"),flush=True)
    print("JNS_ENROL_FLOW_DIAGNOSTIC="+(diagnostic or "logs_missing_or_unclassified"),flush=True)
    print("JNS_ENROL_BLOCKED=native_flow_not_proven");return 1
   reg=base64.b64encode(STATE_SCRIPT.encode()).decode()
