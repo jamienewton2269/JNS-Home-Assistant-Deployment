@@ -44,13 +44,24 @@ def request(method,path,token,payload=None,opener=urllib.request.urlopen):
     headers = {"Authorization":"Bearer " + token,"Content-Type":"application/json"}
     data = None if payload is None else json.dumps(payload,separators=(",",":")).encode()
     req = urllib.request.Request(BASE + path,data=data,headers=headers,method=method)
-    with opener(req,timeout=23) as response:
-        if response.status not in (200,201):
-            raise ValueError("unexpected_http_status")
-        result = response.read(100000)
-        if not result:
-            return {}
-        return json.loads(result)
+    try:
+        with opener(req,timeout=23) as response:
+            if response.status not in (200,201):
+                raise ValueError("unexpected_http_status")
+            result = response.read(100000)
+            if not result:
+                return {}
+            return json.loads(result)
+    except urllib.error.HTTPError as exc:
+        # Status and fixed phase ONLY. Never display URL, response, credentials,
+        # device address, form data, or HTTP error message.
+        phase = ("start" if method == "POST" and path == FLOW_PATH else
+                 "step" if method == "POST" else
+                 "poll" if method == "GET" else "cleanup")
+        note("HTTP_PHASE", phase)
+        note("HTTP_STATUS", str(exc.code) if exc.code in
+             (400, 401, 403, 404, 405, 409, 422, 429, 500, 502, 503, 504) else "other")
+        raise
 
 def safe_stage():
     if SECRET.is_symlink() or not SECRET.is_file():
