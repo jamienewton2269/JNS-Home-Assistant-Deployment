@@ -12,7 +12,7 @@ class Tests(unittest.TestCase):
   self.assertNotIn("Bearer private",app.ALLOWED_STATUSES)
  def test_status_result_redacts_other_log_text(self):
   private="PRIVATE_NOT_TO_LOG"
-  msg='{"token_present":true,"statuses":{"supervisor_info":200,"core_root":401,"core_config":403,"rejected_flow_post":400},"read_only":true,"posted_config_flow":false,"used_security_output":false,"logged_token":false}'
+  msg='{"token_present":true,"statuses":{"supervisor_info":200,"core_root":401,"core_config":403,"rejected_flow_post":400},"invalid_flow_post_sent":true,"handler_supplied":false,"used_security_output":false,"logged_token":false}'
   logs="INFO other field "+private+"\n2026-10-28 JNS_HA905_CORE_AUTH_READONLY="+msg+"\n"
   before=app.guest
   try:
@@ -32,7 +32,7 @@ class Tests(unittest.TestCase):
    self.assertIsNone(app.read_probe())
   finally:app.guest,app.time.sleep=before,wait
  def test_untrusted_status_rejected(self):
-  msg='{"token_present":true,"statuses":{"supervisor_info":200,"core_root":302,"core_config":200,"rejected_flow_post":400},"read_only":true,"posted_config_flow":false,"used_security_output":false,"logged_token":false}'
+  msg='{"token_present":true,"statuses":{"supervisor_info":200,"core_root":302,"core_config":200,"rejected_flow_post":400},"invalid_flow_post_sent":true,"handler_supplied":false,"used_security_output":false,"logged_token":false}'
   before,wait=app.guest,app.time.sleep
   try:
    app.guest=lambda *a,**k:{"exitcode":0,"out-data":"JNS_HA905_CORE_AUTH_READONLY="+msg}
