@@ -1,0 +1,18 @@
+name: JNS Lux Priority Ladder Dryrun
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/lux_priority/plan.request']
+permissions:
+  contents: read
+jobs:
+  plan:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dry-run priority ladder and dashboard diff without Home Assistant writes
+        run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/lux_priority/patch_vm905.py gateway/lux_priority/plan.py
+          python3 gateway/lux_priority/plan.py
