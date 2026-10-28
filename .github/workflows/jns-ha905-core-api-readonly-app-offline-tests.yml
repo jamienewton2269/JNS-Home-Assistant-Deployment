@@ -1,0 +1,30 @@
+name: JNS HA905 Trusted Core API App Offline Tests
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-core-api-readonly-app-offline-tests.yml'
+      - 'gateway/solar/ha905_core_api_bridge_app/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-core-api-readonly-offline-tests
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate read-only app Python syntax
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha905_core_api_bridge_app/probe.py
+          python3 -m py_compile gateway/solar/ha905_core_api_bridge_app/test_probe.py
+      - name: Run isolated fake-token HTTP tests and minimal-permission policy
+        shell: bash
+        run: python3 gateway/solar/ha905_core_api_bridge_app/test_probe.py -v
+      - name: Confirm no HA installation or production writes
+        run: echo JNS_HA905_API_BRIDGE_SOURCE_TEST_ONLY=yes
