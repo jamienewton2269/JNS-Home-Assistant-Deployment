@@ -79,6 +79,10 @@ def make_automation(raw):
    " and not raining|bool and is_state(e,'on')"
    " and decision_lux|float >= (start_lux|float +"
    " states('input_number.general_lighting_lux_hysteresis')|float(400)) }}")
+ # Evaluate entity -> position -> threshold -> dimming level -> per-light safe-off
+ # in that order; Home Assistant's variables action is evaluated sequentially.
+ v_order=['e','priority','start_lux','dimmable','level','safe_off']
+ steps[0]['variables']={k:v[k] for k in v_order}
  choices[0]['conditions'][0]['value_template']="{{ safe_off|bool }}"
  # Announce automatic OFF before transmitting to guard against MQTT feedback
  # getting captured as a user manual-OFF.
