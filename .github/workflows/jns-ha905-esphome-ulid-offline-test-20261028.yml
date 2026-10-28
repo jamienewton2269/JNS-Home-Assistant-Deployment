@@ -1,0 +1,37 @@
+name: JNS HA905 ESPHome ULID Compatibility Offline Verification
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-esphome-ulid-offline-test-20261028.yml'
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile all modified code without access to security devices
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha905_security_esphome_handover_app/flow.py
+          python3 -m py_compile gateway/solar/ha905_security_esphome_handover_app/test_flow.py
+          python3 -m py_compile gateway/solar/ha906_to_905_esphome_enrol_guarded_20261028.py
+      - name: Simulate HA Core ULID and legacy UUID config flows
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 gateway/solar/ha905_security_esphome_handover_app/test_flow.py -v
+          python3 gateway/solar/test_ha906_enrol_log_diagnostic_20261028.py -v
+      - name: Read-only confirm security remains exclusively on VM906
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = "nodec"
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea qm status 906)" = "status: running"
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodeb qm status 905)" = "status: running"
+          timer="$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea systemctl is-active jns-ha906-recovery-20261028.timer || true)"
+          test "$timer" != active
+          echo JNS_ESPHOME_ULID_OFFLINE=passed_no_controller_change
