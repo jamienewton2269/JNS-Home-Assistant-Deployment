@@ -137,6 +137,11 @@ def snapshot(root,candidate):
         require(isinstance(value.get("samples"),list),"legacy samples unreadable")
         history[name]={"sha256":digest(blob),"samples":len(value["samples"])}
     protected={name:digest(read(comp/name,root)) for name in PROTECTED}
+    expected_bytes=sum(len(read(comp/f,root)) for f in ORIGINAL)
+    expected_bytes+=sum(len(raw[f]) for f in REPLACE)
+    expected_bytes+=sum((storage/n).stat().st_size for n in history)
+    require(shutil.disk_usage(root).free > max(10*1024*1024,3*expected_bytes),
+            "insufficient storage for private backup and staging")
     return root,comp,storage,raw,history,protected
 
 def stage(root,candidate):
