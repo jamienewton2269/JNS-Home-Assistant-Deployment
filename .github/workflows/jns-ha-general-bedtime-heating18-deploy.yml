@@ -1,0 +1,21 @@
+name: JNS HA-General Bedtime Heating 18C Deploy
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/bedtime/heating18-deploy.request']
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-heating-bedtime
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Guarded HA905 bedtime thermostat change, validation and controlled Core activation
+        run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/bedtime/heating18_patch_vm905.py gateway/bedtime/heating18_deploy.py
+          python3 gateway/bedtime/heating18_deploy.py
