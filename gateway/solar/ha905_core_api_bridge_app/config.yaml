@@ -1,0 +1,22 @@
+name: "JNS HA905 Core API Read-Only Bridge"
+version: "0.1.0"
+slug: "jns_ha905_core_api_probe"
+description: "One-shot, manually launched Core API permission check for guarded security consolidation"
+arch:
+  - amd64
+startup: once
+boot: manual_only
+stage: experimental
+init: false
+homeassistant_api: true
+hassio_api: false
+hassio_role: default
+auth_api: false
+docker_api: false
+host_network: false
+full_access: false
+stdin: false
+tmpfs: true
+ports: {}
+options: {}
+schema: {}
