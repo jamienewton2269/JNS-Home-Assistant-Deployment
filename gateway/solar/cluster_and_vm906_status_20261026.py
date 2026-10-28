@@ -47,6 +47,24 @@ if host=="nodea":
  p=run(["qm","config","906"])
  out["ha_security_vm906_onboot"]=bool(p and re.search(r"^onboot:\s+1\s*$",p.stdout,re.M))
  out["ha_security_vm906_autostart_off"]=bool(p and re.search(r"^onboot:\s+0\s*$",p.stdout,re.M))
+ p=run(["qm","status","902"])
+ out["ha_primary_vm902_running"]=bool(p and p.returncode==0 and p.stdout.strip()=="status: running")
+ p=run(["systemctl","is-active","jns-ha906-recovery-20261028.timer"])
+ out["ha_security_recovery_timer_active"]=bool(p and p.returncode==0 and p.stdout.strip()=="active")
+ p=run(["systemctl","is-failed","jns-ha906-recovery-20261028.service"])
+ out["ha_security_recovery_service_failed"]=bool(p and p.stdout.strip()=="failed")
+if host=="nodeb":
+ p=run(["qm","status","905"])
+ out["ha_general_vm905_running"]=bool(p and p.returncode==0 and p.stdout.strip()=="status: running")
+ for ct,kind in ((212,"mqtt"),(214,"zigbee2mqtt"),(216,"time"),(248,"dns_dhcp")):
+  p=run(["pct","status",str(ct)])
+  out["ct"+str(ct)+"_"+kind+"_running"]=bool(p and p.returncode==0 and p.stdout.strip()=="status: running")
+ p=run(["free","-m"])
+ if p:
+  row=[x for x in p.stdout.splitlines() if x.startswith("Mem:")]
+  if row:
+   b=row[0].split()
+   if len(b)>6:out["available_memory_mib"]=int(b[6])
  p=run(["free","-m"])
  if p:
   row=[x for x in p.stdout.splitlines() if x.startswith("Mem:")]
@@ -85,6 +103,12 @@ def nodec():
  if p and p.returncode==0:d["qm906_status"]=p.stdout.strip()[:40]
  d["ha_security_endpoint"]=endpoint()
  d["nfs_staging_present"]=pathlib.Path("/mnt/pve/nfs-ct").is_mount()
+ for kind,command in (("vm",["qm","list"]),("ct",["pct","list"])):
+  p=local(command)
+  if p and p.returncode==0:
+   d[kind+"_ids"]=sorted(set(int(parts[0]) for row in p.stdout.splitlines()[1:]
+     if (parts:=row.strip().split()) and parts[0].isdigit()))
+  else:d[kind+"_inventory_readable"]=False
  return d
 a=remote("nodea",REMOTE)
 b=remote("nodeb",REMOTE)
@@ -101,4 +125,21 @@ print("NODEC="+json.dumps(c,sort_keys=True))
 print("NODE_A_B_GUEST_VMID_COLLISIONS="+json.dumps(ab))
 print("NODEA_LOCAL_VMID_COLLISIONS="+json.dumps(sorted(cross_types_a)))
 print("NODEB_LOCAL_VMID_COLLISIONS="+json.dumps(sorted(cross_types_b)))
+print("NODE_A_C_GUEST_VMID_COLLISIONS="+json.dumps(sorted(ids(a)&ids(c))))
+print("NODE_B_C_GUEST_VMID_COLLISIONS="+json.dumps(sorted(ids(b)&ids(c))))
+print("JNS_CLUSTER_MIGRATION_GATES="+json.dumps({
+ "nodea_standalone":a.get("reachable")==True and a.get("corosync_conf_present")==False,
+ "nodeb_standalone":b.get("reachable")==True and b.get("corosync_conf_present")==False,
+ "nodec_runner":c.get("host")=="nodec",
+ "nodea_ha_primary_running":a.get("ha_primary_vm902_running"),
+ "nodea_security_running":a.get("ha_security_vm906_running"),
+ "nodea_security_recovery_timer_active":a.get("ha_security_recovery_timer_active"),
+ "nodeb_general_running":b.get("ha_general_vm905_running"),
+ "nodeb_essential_lxcs_running":all(b.get("ct"+str(n)+"_"+role+"_running")==True for n,role in
+  ((212,"mqtt"),(214,"zigbee2mqtt"),(216,"time"),(248,"dns_dhcp"))),
+ "a_b_guest_id_collisions":len(ab),
+ "a_c_guest_id_collisions":len(ids(a)&ids(c)),
+ "b_c_guest_id_collisions":len(ids(b)&ids(c)),
+ "cluster_changes_permitted":False
+},sort_keys=True))
 print("JNS_CLUSTER_AND_VM906_READONLY_COMPLETE")
