@@ -210,7 +210,17 @@ def main():
         data=path.read_bytes()
         files[name]={"base64":base64.b64encode(data).decode("ascii"),
                      "sha256":hashlib.sha256(data).hexdigest()}
-    payload=json.dumps({"target_vm":905,"files":files})
+    # The only permitted retained-source upgrade is the byte-exact public
+    # v0.1.0 addon previously deployed. Never trust an arbitrary local source.
+    baseline={}
+    for name in FILES:
+        old=subprocess.run(["git","show",
+            "b37181c265190c1ed125a32ea02efa7d8abf6b6e:gateway/solar/ha905_security_esphome_handover_app/"+name],
+            cwd=ROOT.parents[2],capture_output=True,timeout=25)
+        if old.returncode:
+            print("JNS_SECURITY_APP_PREP_BLOCKED=pinned_source_unavailable");return 1
+        baseline[name]=hashlib.sha256(old.stdout).hexdigest()
+    payload=json.dumps({"target_vm":905,"files":files,"previous_hashes":baseline})
     remote=base64.b64encode(REMOTE.encode()).decode("ascii")
     args=["python3","-u","-c","exec(__import__('base64').b64decode("+repr(remote)+"))"]
     r=ssh("nodeb",args,stdin=payload,timeout=740)
