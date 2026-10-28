@@ -1,0 +1,19 @@
+name: JNS HA905 Temporary ESPHome App Runtime Readonly Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-esphome-runtime-audit-20261028.yml'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Independent Supervisor installed-app inventory; source VM906 stays on
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha905_esphome_runtime_readonly_audit_20261028.py
+          python3 gateway/solar/ha905_esphome_runtime_readonly_audit_20261028.py
