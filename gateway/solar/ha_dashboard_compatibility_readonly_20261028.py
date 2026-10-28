@@ -63,8 +63,14 @@ for item in m.get("missing_dashboards",[]):
  raw=json.dumps(cfg)
  refs=set(pattern.findall(raw))
  all_refs.update(refs)
+ missing=refs-target
+ domain_counts={}
+ for ent in missing:
+  domain=ent.split(".",1)[0]
+  domain_counts[domain]=domain_counts.get(domain,0)+1
  totals.append({"source_vm":item.get("source_vm"),"registered_entity_references":len(refs&target),
-                "references_not_in_vm905_registry":len(refs-target),
+                "references_not_in_vm905_registry":len(missing),
+                "missing_reference_domains":dict(sorted(domain_counts.items())),
                 "unique_custom_card_types":len(set(card.findall(raw)))})
 summary={"staged_dashboard_count":len(totals),"source_dashboard_dependency_counts":totals,
          "distinct_referenced_entities":len(all_refs),
