@@ -48,7 +48,8 @@ def success(j):
 def guest_fixed(cmd,timeout=120):
  j=script(cmd,timeout)
  return success(j),str(j.get("out-data","")) if j else ""
-if not (host_cmd(["qm","status","905"]) or object()).stdout.strip()=="status: running":
+target_state=host_cmd(["qm","status","905"])
+if not target_state or target_state.returncode or target_state.stdout.strip()!="status: running":
  fail("target_offline")
 backup=pathlib.Path("/mnt/pve/NAS/dump/jns-ha-general-consolidation-20261027-v1/MANIFEST.json")
 if not backup.is_file() or backup.is_symlink():fail("backup_manifest_missing")
@@ -175,7 +176,8 @@ finally:
   else:cleanup=True
  else:cleanup=True
  if cleanup:
-  guest_fixed("rm -f "+TARGET+"/config.yaml "+TARGET+"/Dockerfile "+TARGET+"/probe.py "+TARGET+"/run.sh && rmdir "+TARGET+" && ha store reload >/dev/null 2>&1",120)
+  g=script("rm -f "+TARGET+"/config.yaml "+TARGET+"/Dockerfile "+TARGET+"/probe.py "+TARGET+"/run.sh && rmdir "+TARGET+" && ha store reload >/dev/null 2>&1",120)
+  cleanup=cleanup and success(g)
  status("INSTALLED_APP_REMOVED",str(cleanup).lower())
  status("VM906_CONTROL_UNCHANGED","yes")
 if not confirmed or not cleanup:raise SystemExit(81)
