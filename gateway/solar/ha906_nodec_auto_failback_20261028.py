@@ -165,6 +165,22 @@ def restore():
     if b not in ("running","stopped","suspended"):
         note("BLOCKED","target_status_unavailable");return 1
     if nodea_done():return 0
+    # Authorize the separate Node A 45-minute timer only AFTER Node C
+    # independently confirmed no active target ESPHome controller remains.
+    attest=r"""import json,os,pathlib,time
+p=pathlib.Path("/var/lib/jns-solar/consolidation/vm905-fenced-for-906-recovery-20261028")
+if os.geteuid()!=0 or os.uname().nodename.split(".")[0]!="nodea":raise SystemExit(71)
+if p.is_symlink():raise SystemExit(72)
+if not p.exists():
+ with p.open("x") as f:
+  json.dump({"safe_recovery_gate":True,"source_vm":906,"target_vm":905,"verified_at":int(time.time())},f)
+  f.flush();os.fsync(f.fileno())
+ p.chmod(0o600)
+print("JNS_NODEA_RECOVERY_ATTESTED=yes")
+"""
+    proof=ssh("nodea",["python3","-c",attest],35)
+    if not healthy(proof,"JNS_NODEA_RECOVERY_ATTESTED=yes"):
+        note("BLOCKED","nodea_exclusivity_attestation_failed");return 1
     started=ssh("nodea",["qm","start","906"],110)
     if not healthy(started) and status("nodea",906)!="running":
         note("BLOCKED","vm906_start_failed");return 1
