@@ -71,3 +71,5 @@ def main():
  else:print("JNS_SECURITY_YAML_PARSE_RESULT=unavailable")
  print("JNS_NO_PRODUCTION_STATE_CHANGE=yes")
 if __name__=="__main__":main()
+
+# Check indentation-normalised cutover stage v2, 2026-10-28.
