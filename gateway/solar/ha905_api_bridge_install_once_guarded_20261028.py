@@ -205,18 +205,28 @@ finally:
  # No admin-capable installed app must be left behind by this one-shot operation.
  # Existing slug was absent, so only remove our own new install and source.
  if installed:
-  guest_fixed("ha apps stop "+SLUG+" >/dev/null 2>&1 || true",35)
-  guest_fixed("ha apps uninstall "+SLUG+" >/dev/null 2>&1",155)
-  g=script("ha apps info "+SLUG+" --raw-json",25)
-  if success(g):
+  guest_fixed("ha apps stop "+SLUG+" --no-progress --raw-json >/dev/null 2>&1 || true",35)
+  uninstall_ok,uninstall_data=guest_fixed("ha apps uninstall "+SLUG+" --no-progress --raw-json",155)
+  cleanup=False
+  if uninstall_ok:
    try:
-    j=json.loads(g.get("out-data") or "{}")
-    o=j.get("data",j) if isinstance(j,dict) else {}
-    cleanup=bool(isinstance(o,dict) and not o.get("installed"))
-   except (ValueError,TypeError):cleanup=False
-  else:cleanup=True
+    u=json.loads(uninstall_data)
+    uninstall_ok=isinstance(u,dict) and u.get("result")=="ok"
+   except (ValueError,TypeError):uninstall_ok=False
+  if uninstall_ok:
+   deadline=time.monotonic()+85
+   while time.monotonic()<deadline:
+    g=script("ha apps info "+SLUG+" --no-progress --raw-json",30)
+    if g:
+     try:
+      j=json.loads(g.get("out-data") or "{}")
+      if isinstance(j,dict) and j.get("result")=="error":
+       cleanup=True
+       break
+     except (ValueError,TypeError):pass
+    time.sleep(4)
  else:
-  # Installation was not confirmed: retain source for Supervisor inspection.
+  # Source must stay while the Supervisor build has not reached a verified terminal state.
   cleanup=False
  if cleanup:
   g=script("rm -f "+TARGET+"/config.yaml "+TARGET+"/Dockerfile "+TARGET+"/probe.py "+TARGET+"/run.sh && rmdir "+TARGET+" && ha store reload >/dev/null 2>&1",120)
