@@ -76,10 +76,12 @@ def installed_app_inventory():
  try:
   data=json.loads(j.get("out-data") or "{}")
   if data.get("result")!="ok":return None
-  apps=data.get("data",{}).get("apps")
+  section=data.get("data",{})
+  apps=(section.get("apps",section.get("addons")) if isinstance(section,dict) else section)
   if not isinstance(apps,list):return None
   return any(isinstance(x,dict) and
-   (x.get("slug")==SLUG or x.get("name")=="JNS HA905 Security Handover") for x in apps)
+   (x.get("slug")==SLUG or x.get("name")=="JNS HA905 Security Handover")
+   and x.get("installed") is not False for x in apps)
  except (ValueError,TypeError,AttributeError):return None
 def clean_temp_app():
  # Stop first; wait until Supervisor reports stopped; uninstall only then.
