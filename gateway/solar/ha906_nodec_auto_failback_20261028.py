@@ -154,17 +154,14 @@ def restore():
     b=status("nodeb",905)
     if b is None:note("BLOCKED","target_state_unknown");return 1
     if b=="running":
-        count=active_target_count()
-        if count is None or count>0:
-            # Safety over continuity: only VM905 may be suspended, and ONLY
-            # in the actual failure recovery. No other guest is operated upon.
-            p=ssh("nodeb",["qm","suspend","905"],130)
-            if not healthy(p) or status("nodeb",905)!="suspended":
-                note("BLOCKED","target_fence_not_verified");return 1
-            note("TARGET_FENCE","vm905_suspended_failback")
-        elif count==0:
-            note("TARGET_FENCE","vm905_core_live_without_esphome")
-        else:return 1
+        # ALWAYS hard-fence VM905 on emergency rollback, even if no new entry
+        # is in its registry yet: an in-progress config flow could otherwise
+        # create the entry AFTER VM906 restarts. Operator explicitly accepts
+        # temporary VM905 suspension only in this failure branch.
+        p=ssh("nodeb",["qm","suspend","905"],130)
+        if not healthy(p) or status("nodeb",905)!="suspended":
+            note("BLOCKED","target_fence_not_verified");return 1
+        note("TARGET_FENCE","vm905_suspended_failback")
     elif b not in ("stopped","suspended"):
         note("BLOCKED","target_not_isolated");return 1
     # Fencing must remain true at the moment of source promotion.
