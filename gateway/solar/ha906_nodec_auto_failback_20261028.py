@@ -159,7 +159,7 @@ def restore():
         # create the entry AFTER VM906 restarts. Operator explicitly accepts
         # temporary VM905 suspension only in this failure branch.
         p=ssh("nodeb",["qm","suspend","905"],130)
-        if not healthy(p) or status("nodeb",905)!="suspended":
+        if not healthy(p) or status("nodeb",905) not in ("suspended","paused"):
             note("BLOCKED","target_fence_not_verified");return 1
         note("TARGET_FENCE","vm905_suspended_failback")
     elif b not in ("stopped","suspended","paused"):
