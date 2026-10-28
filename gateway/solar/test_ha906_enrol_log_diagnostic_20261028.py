@@ -46,6 +46,35 @@ class SafeLogClassifyTests(unittest.TestCase):
         self.assertEqual(got,"abort_reason:unknown_code_redacted")
         self.assertNotIn("highlySensitive",got)
 
+    def test_http_status_and_phase_are_sanitized(self):
+        logs=("2026-10-28T21:24:23Z [addon] JNS_ESP_HANDOVER_HTTP_PHASE=start\n"
+              "2026-10-28T21:24:23Z [addon] JNS_ESP_HANDOVER_HTTP_STATUS=401\n"
+              "2026-10-28T21:24:23Z JNS_ESP_HANDOVER_FLOW_EXCEPTION_CLASS=HTTPError\n")
+        self.assertEqual(guard.classify_safe_http_failure(logs),
+                         {"http_phase":"start","http_status":"401"})
+        self.assertEqual(guard.classify_safe_flow_logs(logs),
+                         "flow_exception_class:HTTPError")
+
+    def test_unknown_http_status_and_phase_are_redacted(self):
+        logs=("JNS_ESP_HANDOVER_HTTP_STATUS=123456789\n"
+              "JNS_ESP_HANDOVER_HTTP_PHASE=PRIVATE_PASSWORD\n")
+        self.assertEqual(guard.classify_safe_http_failure(logs),
+                         {"http_status":"unknown_code_redacted",
+                          "http_phase":"unknown_code_redacted"})
+
+    def test_no_network_calls_in_http_classifier(self):
+        saved=(guard.ssh,guard.qga)
+        def blocked(*args,**kwargs):
+            raise AssertionError("network side effect")
+        try:
+            guard.ssh=guard.qga=blocked
+            self.assertEqual(guard.classify_safe_http_failure(
+                "INFO JNS_ESP_HANDOVER_HTTP_PHASE=step\n"
+                "INFO JNS_ESP_HANDOVER_HTTP_STATUS=404\n"),
+                {"http_phase":"step","http_status":"404"})
+        finally:
+            guard.ssh,guard.qga=saved
+
     def test_long_secret_and_urls_are_not_extracted(self):
         raw=("JNS_ESP_HANDOVER_FLOW_ERROR_CODE="+"A"*128+"\n"+
              "INFO NoiseKey=PRIVATE_SUPERVISOR_TOKEN host=hidden.home.arpa\n")
