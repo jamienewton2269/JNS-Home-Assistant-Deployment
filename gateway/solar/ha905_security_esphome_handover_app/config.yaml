@@ -1,5 +1,5 @@
 name: "JNS HA905 ESPHome Security One-Time Enrolment"
-version: "0.1.1"
+version: "0.1.2"
 slug: "jns_ha905_security_handover"
 description: "Temporary guarded native ESPHome config-flow client; do not run with source active"
 arch:
