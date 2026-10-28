@@ -17,6 +17,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           python3 -m py_compile gateway/solar/ha906_nodec_auto_failback_20261028.py
+          python3 -m py_compile gateway/solar/ha_security_vm906_guarded_stop_20261028.py
           python3 - <<'PY'
           from pathlib import Path
           src=Path("gateway/solar/ha906_nodec_auto_failback_20261028.py").read_text()
