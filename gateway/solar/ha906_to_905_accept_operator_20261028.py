@@ -70,11 +70,15 @@ def main():
  MARK=r'''import pathlib,os,time,json
 p=pathlib.Path("/var/lib/jns-solar/consolidation/vm906-handover-complete-20261028")
 if os.geteuid()!=0 or os.uname().nodename.split(".")[0]!="nodea":raise SystemExit(70)
-if p.exists() or p.is_symlink():raise SystemExit(71)
-with p.open("x") as f:
- json.dump({"accepted_utc_epoch":int(time.time()),"vm905":905,"retained_fallback_vm906":906},f)
- f.flush();os.fsync(f.fileno())
-p.chmod(0o600)
+if p.is_symlink():raise SystemExit(71)
+if p.exists():
+ obj=json.loads(p.read_text())
+ if obj.get("vm905")!=905 or obj.get("retained_fallback_vm906")!=906:raise SystemExit(72)
+else:
+ with p.open("x") as f:
+  json.dump({"accepted_utc_epoch":int(time.time()),"vm905":905,"retained_fallback_vm906":906},f)
+  f.flush();os.fsync(f.fileno())
+ p.chmod(0o600)
 print("JNS_HANDOVER_ACCEPTANCE_MARKER=written")
 '''
  mark=ssh("nodea",["python3","-c",MARK],45)
@@ -91,8 +95,17 @@ print("JNS_HANDOVER_ACCEPTANCE_MARKER=written")
  removed=False
  for i in range(20):
   k=app_info()
-  if not k or k.get("installed") is False:
+  if k.get("installed") is False:
    removed=True;break
+  # On this Supervisor version, installed is omitted for present apps.
+  # A failed info query must not be confused with confirmed removal.
+  if not k:
+   j=qga(["ha","apps","info",SLUG,"--no-progress","--raw-json"],35)
+   if j and j.get("exitcode")==0:
+    try:
+     reply=json.loads(j.get("out-data") or "{}")
+     if reply.get("result")=="error":removed=True;break
+    except (ValueError,TypeError):pass
   time.sleep(2)
  if removed:
   files=" ".join(shlex.quote(APPDIR+"/"+s) for s in FILES)
@@ -106,7 +119,8 @@ print("JNS_HANDOVER_ACCEPTANCE_MARKER=written")
  # Node A carries the durable acceptance marker.
  try:
   listing=subprocess.run(["crontab","-l"],capture_output=True,text=True,timeout=15)
-  old=listing.stdout if listing.returncode==0 else ""
+  if listing.returncode!=0:raise RuntimeError("cron_inventory_unavailable")
+  old=listing.stdout
   filtered=[row for row in old.splitlines() if "# jns-security-exclusive-failback-20261028" not in row]
   done=subprocess.run(["crontab","-"],input="\n".join(filtered)+"\n",text=True,capture_output=True,timeout=22)
   cron_removed=done.returncode==0
