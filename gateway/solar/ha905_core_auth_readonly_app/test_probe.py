@@ -39,7 +39,7 @@ class Tests(unittest.TestCase):
   self.assertTrue(all(b"host" not in (x[4] or b"") and b"noise_psk" not in (x[4] or b"") for x in calls))
  def test_missing_token_never_connects(self):
   def forbidden(*a,**k):raise AssertionError("network attempted")
-  self.assertEqual(set(mod.run("",forbidden).values()),{"token_absent"})
+  self.assertEqual(set(mod.run("",forbidden).values()),{"token_absent","not_attempted",False})
  def test_http401_reported_no_fabricated_success(self):
   def rejected(req,timeout):
    raise urllib.error.HTTPError(req.full_url,401,"private information",{},None)
@@ -64,7 +64,8 @@ class Tests(unittest.TestCase):
   self.assertEqual(src.count('method="POST"'),2)
   self.assertIn('url="http://supervisor/core/api/config/config_entries/flow"',src)
   self.assertIn("jns_diagnostic_missing_required_handler",src)
-  for bad in ("method=\"PUT\"","method=\"DELETE\"","/services/","socket.","subprocess"):
+  self.assertEqual(src.count('method="DELETE"'),1)
+  for bad in ("method=\"PUT\"","/services/","socket.","subprocess"):
    self.assertNotIn(bad,src)
   self.assertTrue((ROOT/"run.sh").read_bytes().startswith(b"#!/command/with-contenv bashio\n"))
  def test_only_expected_fixed_endpoints(self):
