@@ -106,7 +106,7 @@ if not good(j) or "JNS_NATIVE_SECURITY_DISABLED=yes" not in (j.get("out-data") o
 j=guest(["ha","core","info"],50)
 if not good(j):fail("vm905_core_unhealthy")
 pre=app_info()
-if pre and pre.get("version")=="0.1.0" and pre.get("state")=="stopped" and pre.get("repository")=="local" and app_installed():
+if pre and pre.get("version")=="0.1.1" and pre.get("state")=="stopped" and pre.get("repository")=="local" and app_installed():
     note("INSTALLED_STOPPED","already_present_verified_by_state_version")
     raise SystemExit(0)
 if pre and pre.get("installed") is True:
@@ -177,10 +177,10 @@ if installed_cmd:
 info=None
 for _ in range(35):
     info=app_info()
-    if info and info.get("version")=="0.1.0" and info.get("state")=="stopped" and info.get("repository")=="local":
+    if info and info.get("version")=="0.1.1" and info.get("state")=="stopped" and info.get("repository")=="local":
         break
     time.sleep(3)
-if not info or info.get("version")!="0.1.0" or info.get("state")!="stopped" or info.get("repository")!="local" or not app_installed():
+if not info or info.get("version")!="0.1.1" or info.get("state")!="stopped" or info.get("repository")!="local" or not app_installed():
     note("INSTALL_IN_INSTALLED_INVENTORY",str(app_installed()).lower())
     fail("installation_not_verified_keep_source_for_review")
 note("INSTALL_IN_INSTALLED_INVENTORY","true")
