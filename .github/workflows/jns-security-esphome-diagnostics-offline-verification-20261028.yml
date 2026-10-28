@@ -1,0 +1,43 @@
+name: JNS Security ESPHome Diagnostics Offline Verification
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-security-esphome-diagnostics-offline-verification-20261028.yml'
+permissions:
+  contents: read
+jobs:
+  verify_diagnostics:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Python only (no VM control)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha906_to_905_esphome_enrol_guarded_20261028.py
+          python3 -m py_compile gateway/solar/ha905_security_esphome_handover_app/flow.py
+          python3 -m py_compile gateway/solar/test_ha906_enrol_log_diagnostic_20261028.py
+      - name: Pure parser tests; timestamped logs, redaction and no side effects
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 gateway/solar/test_ha906_enrol_log_diagnostic_20261028.py -v
+      - name: Native ESPHome config-flow simulator (no actual API connection)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 gateway/solar/ha905_security_esphome_handover_app/test_flow.py -v
+      - name: Read-only VM ownership and recovery status
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          source="$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea qm status 906)"
+          target="$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodeb qm status 905)"
+          test "$source" = "status: running"
+          test "$target" = "status: running"
+          timer="$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea systemctl is-active jns-ha906-recovery-20261028.timer || true)"
+          test "$timer" != "active"
+          echo JNS_SECURITY_DIAG_TEST=offline_passed_vm906_running_vm905_running_timer_inactive
