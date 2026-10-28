@@ -1,4 +1,5 @@
 name: JNS HA905 Core Check Diagnose Without Changing Controller
+# 2026-10-28 17h: rerun after 40734056417 blocked at core-check gate; read-only.
 on:
   push:
     branches: [main]
