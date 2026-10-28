@@ -139,6 +139,54 @@ if retained:
     expected=" ".join(FILENAMES)
     check="test \"$(ls -1 "+shlex.quote(SRC)+" | sort | tr '\\n' ' ')\" = "+shlex.quote(" ".join(sorted(FILENAMES))+" ")
     if not good(sh(check,30)):fail("retained_source_extra_or_missing_files")
+    def current_is(hashes):
+        return all(good(sh("test \"$(sha256sum "+
+            shlex.quote(SRC+"/"+name)+" | cut -d' ' -f1)\" = "+
+            shlex.quote(hashes[name]),30)) for name in FILENAMES)
+    new_hashes={name:hashlib.sha256(files[name]).hexdigest() for name in FILENAMES}
+    if not current_is(new_hashes):
+        old=obj.get("previous_hashes",{})
+        if set(old)!=set(FILENAMES) or not current_is(old):
+            fail("retained_source_drift_not_pinned_original")
+        # Supervisor's ACTUAL installed inventory must show no active app.
+        q=guest(["ha","apps","list","--no-progress","--raw-json"],55)
+        try:
+            data=json.loads(q.get("out-data") or "{}") if good(q) else {}
+            section=data.get("data",{})
+            apps=section.get("apps",section.get("addons")) if isinstance(section,dict) else section
+            safe=(data.get("result")=="ok" and isinstance(apps,list)
+                  and not any(a.get("slug")==SLUG and a.get("installed") is not False
+                  for a in apps if isinstance(a,dict)))
+        except (TypeError,ValueError,AttributeError):safe=False
+        if not safe:fail("old_app_still_installed_or_inventory_unknown")
+        share="/mnt/data/supervisor/share"
+        stage=share+"/jns-security-app-v011-stage-20261028"
+        backup=share+"/jns-security-app-v010-source-backup-20261028"
+        secret=share+"/jns-security-handover-20261028/enrolment.json"
+        if not good(sh("test ! -e "+shlex.quote(secret)+
+               " && test ! -L "+shlex.quote(secret)+
+               " && test ! -e "+shlex.quote(stage)+
+               " && test ! -L "+shlex.quote(stage)+
+               " && test ! -e "+shlex.quote(backup)+
+               " && test ! -L "+shlex.quote(backup),40)):
+            fail("upgrade_stage_collision_or_private_secret_present")
+        if not good(sh("mkdir "+shlex.quote(stage),40)):fail("upgrade_stage_create")
+        for name,raw in files.items():
+            dest=shlex.quote(stage+"/"+name)
+            enc=base64.b64encode(raw).decode()
+            if not good(sh("printf '%s' "+shlex.quote(enc)+" | base64 -d > "+dest,45)):
+                fail("upgrade_stage_copy")
+            if not good(sh("test \"$(sha256sum "+dest+" | cut -d' ' -f1)\" = "+
+                          shlex.quote(new_hashes[name]),30)):
+                fail("upgrade_stage_hash_mismatch")
+        # Move old reviewed source OUT of the Supervisor's local catalogue,
+        # preserving all files. On failure, restore the original in place.
+        command=("mv "+shlex.quote(SRC)+" "+shlex.quote(backup)+
+                 " && { mv "+shlex.quote(stage)+" "+shlex.quote(SRC)+
+                 " || { mv "+shlex.quote(backup)+" "+shlex.quote(SRC)+"; exit 1; }; }")
+        if not good(sh(command,60)):fail("source_switch_failed_original_preserved_or_fenced")
+        if not current_is(new_hashes):fail("source_switch_new_hash_not_verified")
+        note("SOURCE_UPGRADE","pinned_v010_backed_up_v011_hash_verified")
 for name,raw in files.items():
     path=shlex.quote(SRC+"/"+name)
     if not retained:
