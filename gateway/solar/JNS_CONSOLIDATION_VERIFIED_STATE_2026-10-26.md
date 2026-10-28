@@ -286,3 +286,33 @@ Supervisor verifies both `boot:manual` and `state:stopped`.
 Do not change SQLite recorder, entity registries, KC868/siren assignments,
 HA-General lighting or MQTT/Zigbee service placement to complete this
 optimisation.
+
+
+## Node C obsolete HA-Golden template retired — 28 October 2026
+
+**Operator-executed and script-verified (per supplied Node C root terminal output):**
+At `2026-10-28T11:04:45.474375+00:00`, root on Node C invoked
+`gateway/solar/nodec_golden_vm9906_guarded_retire_20261028.py --execute`.
+The guard confirmed the exact `haos18-golden` identity of **VM9906**, stopped
+and template states, disabled autostart, precisely two expected disks, **zero
+dependent LVM linked volumes** and **zero references from other VM configs**.
+Post-deletion verification emitted
+`stage=verified_removed`, `removed=true`,
+`template_disks_removed=true` and `other_vms_untouched=true`.
+
+**Scope:** Only the obsolete Node C VM9906 HAOS golden template. This is
+not a deletion or cutover of Node C VM906, VM909, VM991, CT130, CT249 or any
+production Home Assistant machine. VM9906 had been a cloned, unsanitised
+HA-Security image and was not an approved reusable golden template.
+
+**Storage accounting:** The template's two disks were reported removed,
+but **physical local-lvm free-space reclaimed has not yet been quantified**;
+the 32 GiB nominal guest disk is thin-provisioned and must not be reported as
+32 GiB saved. A fresh `pvesm status` before/after comparison or
+`lvs` pool data-percent measurement is needed for actual savings.
+
+**Evidence:** User-supplied root console output from Node C, plus the
+repo-controlled retirement code:
+`gateway/solar/nodec_golden_vm9906_guarded_retire_20261028.py`.
+No unsupported privilege escalation was used by the GitHub runner; deletion
+was performed locally by the authorised privileged operator.
