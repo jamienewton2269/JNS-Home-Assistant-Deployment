@@ -1,0 +1,16 @@
+name: JNS VM906 to VM905 ESPHome Flow Input Guard
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha906-to905-esphome-schema-guard-readonly.yml'
+permissions:
+  contents: read
+jobs:
+  guard:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m py_compile gateway/solar/ha906_to_905_esphome_schema_guard_readonly_20261028.py
+      - run: python3 gateway/solar/ha906_to_905_esphome_schema_guard_readonly_20261028.py
