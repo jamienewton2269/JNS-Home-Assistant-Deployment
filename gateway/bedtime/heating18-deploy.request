@@ -1,0 +1,7 @@
+approved=2026-10-28
+node=nodeb
+vmid=905
+entity=climate.thermostat_thermostat
+trigger=input_boolean.general_bedtime_mode-off-to-on
+target_celsius=18
+mode=transactional
