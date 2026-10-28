@@ -1,0 +1,17 @@
+name: JNS Lux Priority Ladder Live Audit
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/lux_priority/audit.request']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/lux_priority/audit.py
+          python3 gateway/lux_priority/audit.py
