@@ -1,0 +1,18 @@
+name: JNS HA Security Native YAML Parse Readonly
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-security-yaml-parse-readonly-20261028.yml'
+      - 'gateway/solar/ha_security_yaml_parse_readonly_20261028.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m py_compile gateway/solar/ha_security_yaml_parse_readonly_20261028.py
+      - run: python3 gateway/solar/ha_security_yaml_parse_readonly_20261028.py
