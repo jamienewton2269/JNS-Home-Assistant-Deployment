@@ -14,7 +14,7 @@ GUEST_ROOT="/mnt/data/supervisor/apps/local"
 FOLDER=GUEST_ROOT+"/"+NAME
 SSH=["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes","-o","ConnectTimeout=6"]
 TOKEN_FIELDS={"token_present","read_only","posted_config_flow","used_security_output","logged_token"}
-ALLOWED_STATUSES={200,201,204,400,401,403,404,405,422,429,500,502,503,504,"other_status","token_absent","transport_unavailable"}
+ALLOWED_STATUSES={200,201,204,400,401,403,404,405,409,422,429,500,502,503,504,"other_status","token_absent","transport_unavailable","identifier_invalid","not_attempted"}
 def note(label,value):
  print("JNS_CORE_AUTH_ONCE_"+label+"="+str(value),flush=True)
 def shell(node,args,timeout=40):
@@ -81,7 +81,7 @@ def stage_source():
   files[n]=p.read_bytes()
  if b"homeassistant_api: true" not in files["config.yaml"] or b"boot: manual_only" not in files["config.yaml"]:
   raise RuntimeError("manifest_permission_mismatch")
- if b"version: \"0.1.1\"" not in files["config.yaml"]:
+ if b"version: \"0.1.2\"" not in files["config.yaml"]:
   raise RuntimeError("unexpected_app_version")
  if not files["run.sh"].startswith(b"#!/command/with-contenv bashio\n"):
   raise RuntimeError("unexpected_launcher")
@@ -118,10 +118,10 @@ def store_prepare():
   rows=doc.get("data",{}).get("addons",[])
   matches=[x for x in rows if isinstance(x,dict) and x.get("slug")==SLUG]
   if doc.get("result")!="ok" or len(matches)!=1:raise ValueError
-  if str(matches[0].get("version_latest") or matches[0].get("version"))!="0.1.1":raise ValueError
+  if str(matches[0].get("version_latest") or matches[0].get("version"))!="0.1.2":raise ValueError
  except (ValueError,TypeError,AttributeError):
   raise RuntimeError("store_app_version_not_indexed")
- note("STORE","app_v011_indexed")
+ note("STORE","app_v012_indexed")
 def read_probe():
  for i in range(24):
   j=guest(["ha","apps","logs",SLUG,"--lines","70"],36)
@@ -130,11 +130,13 @@ def read_probe():
    for line in lines[-1:]:
     try:
      r=json.loads(line)
-     if r.get("invalid_flow_post_sent") is not True or r.get("handler_supplied") is not False or r.get("used_security_output") is not False or r.get("logged_token") is not False:
+     if r.get("invalid_flow_post_sent") is not True or r.get("no_device_details_sent") is not False or r.get("used_security_output") is not False or r.get("logged_token") is not False:
       continue
      statuses=r.get("statuses")
-     if not isinstance(statuses,dict) or set(statuses)!={"supervisor_info","core_root","core_config","rejected_flow_post"}:continue
-     if any(v not in ALLOWED_STATUSES for v in statuses.values()):continue
+     if not isinstance(statuses,dict) or set(statuses)!={"supervisor_info","core_root","core_config","rejected_flow_post","esphome_blank_flow_start","esphome_blank_flow_cancel","esphome_blank_form"}:continue
+     form=statuses.get("esphome_blank_form")
+     if not isinstance(form,bool):continue
+     if any(v not in ALLOWED_STATUSES for k,v in statuses.items() if k!="esphome_blank_form"):continue
      note("HTTP_RESULT",json.dumps({"token_present":r.get("token_present") is True,"statuses":statuses},sort_keys=True))
      return statuses
     except (ValueError,TypeError):continue
@@ -193,7 +195,7 @@ def main():
   if not good(j):raise RuntimeError("install_command_failure")
   if inventory()!=1:raise RuntimeError("installed_inventory_not_proven")
   v=info()
-  if not v or v.get("repository")!="local" or v.get("version")!="0.1.1" or v.get("state")!="stopped":
+  if not v or v.get("repository")!="local" or v.get("version")!="0.1.2" or v.get("state")!="stopped":
    raise RuntimeError("app_not_stopped_after_install")
   note("INSTALLED","stopped_verified")
   if not safe_owners() or not registry_zero():raise RuntimeError("ownership_changed_before_start")
@@ -212,7 +214,10 @@ def main():
  if result.get("rejected_flow_post") not in (400,401,403,404,405,422):
   note("BLOCKED","schema_invalid_post_unexpected_status")
   return 1
- note("RESULT","negative_post_probe_complete_both_VMs_unchanged")
+ if result.get("esphome_blank_flow_cancel")!=200 or result.get("esphome_blank_form") is not True:
+  note("BLOCKED","blank_esphome_flow_or_cleanup_not_proven")
+  return 1
+ note("RESULT","blank_esphome_form_created_and_cancelled_both_VMs_unchanged")
  return 0
 if __name__=="__main__":
  try:sys.exit(main())
