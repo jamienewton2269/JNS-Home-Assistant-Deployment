@@ -2,3 +2,4 @@ audit=alarm-heating-dashboard
 vm=905
 mode=read-only
 check=post-security-migration-alarm
+check=alarm-post-core-restart-20261028
