@@ -23,6 +23,24 @@ def run(cmd,timeout=12):
  except (OSError,subprocess.TimeoutExpired):return None
 out={"host":host,"reachable":True}
 out["corosync_conf_present"]=pathlib.Path("/etc/pve/corosync.conf").exists()
+# Node A production VM905 placement (and Node B source) checks; do not print
+# network addresses, volume serials or MACs from raw Proxmox configuration.
+p=run(["qm","config","905"])
+q=run(["qm","status","905"])
+out["vm905_definition_present"]=bool(p and p.returncode==0)
+out["vm905_state"]=q.stdout.strip().removeprefix("status: ") if q and q.returncode==0 else "unavailable"
+if p and p.returncode==0:
+ cfg=p.stdout
+ out["vm905_memory_mib"]=int(re.search(r"(?m)^memory:\\s*(\\d+)$",cfg).group(1)) if re.search(r"(?m)^memory:\\s*(\\d+)$",cfg) else None
+ out["vm905_balloon_disabled"]=bool(re.search(r"(?m)^balloon:\\s*0$",cfg))
+ out["vm905_onboot_disabled"]=bool(re.search(r"(?m)^onboot:\\s*0$",cfg))
+ out["vm905_disk_definitions"]=len(re.findall(r"(?m)^(?:scsi|virtio|sata|ide|efidisk)\\d+:",cfg))
+ out["vm905_storage_ids"]=sorted(set(re.findall(r"(?m)^(?:scsi|virtio|sata|ide|efidisk)\\d+:\\s*([A-Za-z0-9_-]+):",cfg)))
+ out["vm905_ha_general_role"]=bool(re.search(r"(?m)^name:\\s*ha-s2-general$",cfg))
+z=run(["zfs","list","-Hp","-o","available","vmdata"])
+if z and z.returncode==0:
+ try:out["vmdata_available_gib"]=round(int(z.stdout.strip())/1073741824,1)
+ except ValueError:pass
 p=run(["pvecm","status"])
 out["pvecm_status_ok"]=bool(p and p.returncode==0)
 if p:
@@ -62,6 +80,8 @@ if host=="nodea":
 if host=="nodeb":
  p=run(["qm","status","905"])
  out["ha_general_vm905_running"]=bool(p and p.returncode==0 and p.stdout.strip()=="status: running")
+ p=run(["qm","status","903"])
+ out["plant_manager_vm903_running"]=bool(p and p.returncode==0 and p.stdout.strip()=="status: running")
  for ct,kind in ((212,"mqtt"),(214,"zigbee2mqtt"),(216,"time"),(248,"dns_dhcp")):
   p=run(["pct","status",str(ct)])
   out["ct"+str(ct)+"_"+kind+"_running"]=bool(p and p.returncode==0 and p.stdout.strip()=="status: running")
@@ -143,6 +163,11 @@ print("JNS_CLUSTER_MIGRATION_GATES="+json.dumps({
  "nodea_security_running":a.get("ha_security_vm906_running"),
  "nodea_security_recovery_timer_active":a.get("ha_security_recovery_timer_active"),
  "nodeb_general_running":b.get("ha_general_vm905_running"),
+ "nodea_vm905_collision_present":a.get("vm905_definition_present"),
+ "nodea_vm905_stopped":a.get("vm905_state")=="stopped",
+ "nodea_vm905_available_storage_gib":a.get("vmdata_available_gib"),
+ "nodeb_vm905_source_storage_gib":b.get("vmdata_available_gib"),
+ "nodeb_plant_vm903_running":b.get("plant_manager_vm903_running"),
  "nodeb_essential_lxcs_running":all(b.get("ct"+str(n)+"_"+role+"_running")==True for n,role in
   ((212,"mqtt"),(214,"zigbee2mqtt"),(216,"time"),(248,"dns_dhcp"))),
  "a_b_guest_id_collisions":len(ab),
