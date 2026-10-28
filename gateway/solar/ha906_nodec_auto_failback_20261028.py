@@ -100,7 +100,16 @@ def install():
     target=BASE/"auto_failback.py"
     if target.is_symlink():return 1
     code=SOURCE.read_bytes()
-    if target.exists() and target.read_bytes()!=code:return 1
+    if target.exists() and target.read_bytes()!=code:
+        # Immutable after the countdown is armed; before that, safely replace
+        # only the runner-owned inert script under the private directory.
+        if STATE.exists() or STATE.is_symlink():return 1
+        temp=BASE/"auto_failback.jns-new"
+        if temp.exists() or temp.is_symlink():return 1
+        with temp.open("xb") as f:
+            f.write(code);f.flush();os.fsync(f.fileno())
+        temp.chmod(0o700)
+        os.replace(temp,target)
     if not target.exists():
         with target.open("xb") as f:
             f.write(code);f.flush();os.fsync(f.fileno())
