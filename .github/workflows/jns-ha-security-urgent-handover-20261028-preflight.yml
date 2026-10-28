@@ -12,10 +12,12 @@ concurrency:
 jobs:
   preflight:
     runs-on: [self-hosted, linux, x64, nodec]
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - name: Read-only live VM902/905/906 HA security state
         run: python3 gateway/solar/ha_security_cutover_readiness_20261028.py
       - name: Read-only source encryption and target endpoint readiness
         run: python3 gateway/solar/ha_security_cutover_endpoint_preflight_20261028.py
+      - name: Independently verify temporary enrolment app remains installed stopped
+        run: python3 gateway/solar/ha905_security_esphome_app_build_readonly_20261028.py
