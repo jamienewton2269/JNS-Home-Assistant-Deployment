@@ -9,6 +9,12 @@ attempt removal. Scrub all CLI/app logs except the fixed probe's status JSON.
 import base64, hashlib, json, os, pathlib, shlex, subprocess, sys
 SOURCE=pathlib.Path(__file__).parent/"ha905_core_api_bridge_app"
 FILES=("config.yaml","Dockerfile","probe.py","run.sh")
+EXPECTED_GIT_BLOBS={
+ "config.yaml":"0c13e6ac232915640da785268412c5de1a8579b1",
+ "Dockerfile":"86de6451b8f5b080f2462725d4da74800170d1ae",
+ "probe.py":"1003c926f3331322bc825ad535e06a9c0f6d1ff4",
+ "run.sh":"9a0a95ffd3f5ae68eaa20972081373cb7bf414a0"}
+
 SHELL=["ssh","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes","-o","ConnectTimeout=6"]
 REMOTE=r'''
 import base64, hashlib, io, json, os, pathlib, re, subprocess, sys, tarfile, time
@@ -91,6 +97,12 @@ if not success(g):fail("app_folder_collision")
 g=script('ha apps info '+SLUG+' --raw-json >/dev/null 2>&1',30)
 if success(g):fail("installed_slug_collision")
 status("PRECHECK","passed")
+once=pathlib.Path("/var/lib/jns-solar/consolidation/ha905-core-api-bridge-probe-20261028-v1/one-test-attempted.json")
+if once.exists() or once.is_symlink():fail("one_time_test_already_attempted")
+with once.open("x") as f:
+ json.dump({"VM":905,"authorised_read_only_probe":True,"source_commit":"0518305e69b5fdc18db77e93b026e724dab9fd53","status":"started"},f)
+ f.write("\\n")
+once.chmod(0o600)
 bundle=io.BytesIO()
 with tarfile.open(fileobj=bundle,mode="w") as tar:
  for name,data in files.items():
@@ -205,6 +217,10 @@ def main():
   if not p.is_file() or p.is_symlink():
    print("JNS_API_ONCE_BLOCKED=untrusted_source");return 1
   b=p.read_bytes()
+  git_blob=subprocess.run(["git","rev-parse","HEAD:gateway/solar/ha905_core_api_bridge_app/"+name],
+      text=True,capture_output=True,timeout=8)
+  if git_blob.returncode or git_blob.stdout.strip()!=EXPECTED_GIT_BLOBS[name]:
+   print("JNS_API_ONCE_BLOCKED=source_revision_changed");return 1
   record[name]={"data":base64.b64encode(b).decode(),"sha256":hashlib.sha256(b).hexdigest()}
  payload=json.dumps({"commit":"0518305e69b5fdc18db77e93b026e724dab9fd53","files":record})
  remote=base64.b64encode(REMOTE.encode()).decode()
