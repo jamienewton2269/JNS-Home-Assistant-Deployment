@@ -1,4 +1,5 @@
 name: JNS HA905 Temporary ESPHome App Runtime Readonly Audit
+# Read-only audit retry after nested helper quoting correction.
 on:
   push:
     branches: [main]
