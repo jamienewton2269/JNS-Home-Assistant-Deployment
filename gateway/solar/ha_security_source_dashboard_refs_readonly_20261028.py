@@ -54,11 +54,31 @@ for f in [root/"configuration.yaml",*sorted((root/"packages").glob("*.yaml"))]:
    if isinstance(name,str) and name:candidates.add("binary_sensor."+slugify(name))
    uid=row.get("unique_id")
    if isinstance(uid,str) and uid:unique_ids.add(uid)
+# YAML key absence is insufficient: test registered and UI-storage helpers.
+storage_ids=set()
+storage_file=root/".storage/input_number"
+if storage_file.is_file() and not storage_file.is_symlink():
+ try:
+  sd=json.loads(storage_file.read_text()).get("data",{})
+  rows=sd.get("items",[]) if isinstance(sd,dict) else []
+  if isinstance(rows,list):
+   for item in rows:
+    if isinstance(item,dict) and isinstance(item.get("id"),str):
+     storage_ids.add(item["id"])
+ except (OSError,ValueError,TypeError):pass
+registered_number_ids=set()
+for item in entries:
+ if isinstance(item,dict):
+  eid=item.get("entity_id")
+  if isinstance(eid,str) and eid.startswith("input_number."):
+   registered_number_ids.add(eid)
 result={"registry":registry,"recorder_ids":recorded,
         "template_slug_candidates":sorted(candidates),
         "template_unique_ids":sorted(unique_ids),
         "template_definitions":yaml_definitions,
-        "input_number_definitions":number_defs}
+        "input_number_definitions":number_defs,
+        "input_number_registry_ids":sorted(registered_number_ids),
+        "input_number_storage_ids":sorted(storage_ids)}
 print("JNS_PRIVATE_SOURCE_SECURITY_IDS="+base64.b64encode(zlib.compress(json.dumps(result).encode(),9)).decode())
 '''
 DASHBOARD=r'''
@@ -149,6 +169,15 @@ def main():
   "source_input_number_key_collisions":len(set(sec["input_number_definitions"])&set(target["input_number_definitions"])),
   "source_input_number_key_collisions_with_different_definitions":sum(sec["input_number_definitions"][k]!=target["input_number_definitions"][k] for k in set(sec["input_number_definitions"])&set(target["input_number_definitions"])),
   "source_input_number_keys_not_defined_on_vm905":len(set(sec["input_number_definitions"])-set(target["input_number_definitions"])),
+  "source_input_number_matching_vm905_registered_entity_ids":sum(
+    "input_number."+k in set(target["input_number_registry_ids"])
+    for k in sec["input_number_definitions"]),
+  "source_input_number_matching_vm905_ui_storage_ids":sum(
+    k in set(target["input_number_storage_ids"])
+    for k in sec["input_number_definitions"]),
+  "source_input_number_registered_on_vm906":sum(
+    "input_number."+k in set(sec["input_number_registry_ids"])
+    for k in sec["input_number_definitions"]),
   "dashboard_refs_matching_vm906_template_name_slugs":len(names&set(sec["template_slug_candidates"])),
   "dashboard_refs_matching_vm905_template_name_slugs":len(names&set(target["template_slug_candidates"])),
   "state_metadata_not_live_control_proof":True,
