@@ -81,7 +81,7 @@ def stage_source():
   files[n]=p.read_bytes()
  if b"homeassistant_api: true" not in files["config.yaml"] or b"boot: manual_only" not in files["config.yaml"]:
   raise RuntimeError("manifest_permission_mismatch")
- if b"version: \"0.1.0\"" not in files["config.yaml"]:
+ if b"version: \"0.1.1\"" not in files["config.yaml"]:
   raise RuntimeError("unexpected_app_version")
  if not files["run.sh"].startswith(b"#!/command/with-contenv bashio\n"):
   raise RuntimeError("unexpected_launcher")
@@ -118,10 +118,10 @@ def store_prepare():
   rows=doc.get("data",{}).get("addons",[])
   matches=[x for x in rows if isinstance(x,dict) and x.get("slug")==SLUG]
   if doc.get("result")!="ok" or len(matches)!=1:raise ValueError
-  if str(matches[0].get("version_latest") or matches[0].get("version"))!="0.1.0":raise ValueError
+  if str(matches[0].get("version_latest") or matches[0].get("version"))!="0.1.1":raise ValueError
  except (ValueError,TypeError,AttributeError):
   raise RuntimeError("store_app_version_not_indexed")
- note("STORE","app_v010_indexed")
+ note("STORE","app_v011_indexed")
 def read_probe():
  for i in range(24):
   j=guest(["ha","apps","logs",SLUG,"--lines","70"],36)
@@ -130,10 +130,10 @@ def read_probe():
    for line in lines[-1:]:
     try:
      r=json.loads(line)
-     if r.get("read_only") is not True or r.get("posted_config_flow") is not False or r.get("used_security_output") is not False or r.get("logged_token") is not False:
+     if r.get("invalid_flow_post_sent") is not True or r.get("handler_supplied") is not False or r.get("used_security_output") is not False or r.get("logged_token") is not False:
       continue
      statuses=r.get("statuses")
-     if not isinstance(statuses,dict) or set(statuses)!={"supervisor_info","core_root","core_config"}:continue
+     if not isinstance(statuses,dict) or set(statuses)!={"supervisor_info","core_root","core_config","rejected_flow_post"}:continue
      if any(v not in ALLOWED_STATUSES for v in statuses.values()):continue
      note("HTTP_RESULT",json.dumps({"token_present":r.get("token_present") is True,"statuses":statuses},sort_keys=True))
      return statuses
@@ -193,7 +193,7 @@ def main():
   if not good(j):raise RuntimeError("install_command_failure")
   if inventory()!=1:raise RuntimeError("installed_inventory_not_proven")
   v=info()
-  if not v or v.get("repository")!="local" or v.get("version")!="0.1.0" or v.get("state")!="stopped":
+  if not v or v.get("repository")!="local" or v.get("version")!="0.1.1" or v.get("state")!="stopped":
    raise RuntimeError("app_not_stopped_after_install")
   note("INSTALLED","stopped_verified")
   if not safe_owners() or not registry_zero():raise RuntimeError("ownership_changed_before_start")
