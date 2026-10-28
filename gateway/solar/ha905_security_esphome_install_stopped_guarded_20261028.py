@@ -58,6 +58,17 @@ def app_info():
         v=json.loads(x.get("out-data") or "{}")
         return v.get("data") if v.get("result")=="ok" and isinstance(v.get("data"),dict) else None
     except (TypeError,ValueError):return None
+def app_installed():
+    x=guest(["ha","apps","list","--no-progress","--raw-json"],50)
+    if not good(x):return False
+    try:
+        resp=json.loads(x.get("out-data") or "{}")
+        data=resp.get("data",{})
+        apps=data.get("apps",data.get("addons")) if isinstance(data,dict) else data
+        return bool(resp.get("result")=="ok" and isinstance(apps,list) and
+                    sum(a.get("slug")==SLUG and a.get("installed") is not False
+                        for a in apps if isinstance(a,dict))==1)
+    except (ValueError,TypeError,AttributeError):return False
 def source_active():
     p=cmd(["qm","status","905"],15)
     return bool(p and p.returncode==0 and p.stdout.strip()=="status: running")
@@ -84,7 +95,7 @@ if not good(j) or "JNS_NATIVE_SECURITY_DISABLED=yes" not in (j.get("out-data") o
 j=guest(["ha","core","info"],50)
 if not good(j):fail("vm905_core_unhealthy")
 pre=app_info()
-if pre and pre.get("version")=="0.1.0" and pre.get("state")=="stopped" and pre.get("repository")=="local":
+if pre and pre.get("version")=="0.1.0" and pre.get("state")=="stopped" and pre.get("repository")=="local" and app_installed():
     note("INSTALLED_STOPPED","already_present_verified_by_state_version")
     raise SystemExit(0)
 if pre and pre.get("installed") is True:
@@ -136,14 +147,29 @@ note("STORE","refreshed")
 # Supervisor CLI can return ambiguous success; state is the actual proof.
 installed_cmd=guest(["ha","apps","install",SLUG,"--no-progress","--raw-json"],400)
 note("INSTALL_CLI_RETURNED",str(installed_cmd is not None).lower())
+if installed_cmd:
+    note("INSTALL_PROCESS_EXIT",installed_cmd.get("exitcode"))
+    try:
+        reply=json.loads(installed_cmd.get("out-data") or "{}")
+        note("INSTALL_SUPERVISOR_RESULT",str(reply.get("result","unknown"))[:30])
+        # Never print API payloads: they may contain private configuration.
+        if reply.get("result")!="ok":
+            raw=str(reply.get("message",""))+" "+str(reply.get("data",""))
+            msg=raw.lower()
+            kind=next((k for k in ("not found","repository","version","build","image","network","supervisor","missing","unsupported","already installed")
+                      if k in msg),"unclassified")
+            note("INSTALL_ERROR_CATEGORY",kind.replace(" ","_"))
+    except (TypeError,ValueError):note("INSTALL_SUPERVISOR_RESULT","non_json")
 info=None
 for _ in range(35):
     info=app_info()
     if info and info.get("version")=="0.1.0" and info.get("state")=="stopped" and info.get("repository")=="local":
         break
     time.sleep(3)
-if not info or info.get("version")!="0.1.0" or info.get("state")!="stopped" or info.get("repository")!="local":
+if not info or info.get("version")!="0.1.0" or info.get("state")!="stopped" or info.get("repository")!="local" or not app_installed():
+    note("INSTALL_IN_INSTALLED_INVENTORY",str(app_installed()).lower())
     fail("installation_not_verified_keep_source_for_review")
+note("INSTALL_IN_INSTALLED_INVENTORY","true")
 note("INSTALLED_STOPPED","verified")
 note("NO_CONFIG_FLOW_OR_SECURITY_OUTPUTS","yes")
 """
