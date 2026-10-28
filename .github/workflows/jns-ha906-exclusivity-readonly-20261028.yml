@@ -1,0 +1,20 @@
+name: JNS VM906 Fallback Exclusivity Capability Readonly
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha906-exclusivity-readonly-20261028.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only source and independent recovery access
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha906_recovery_exclusivity_capabilities_readonly_20261028.py
+          python3 gateway/solar/ha906_recovery_exclusivity_capabilities_readonly_20261028.py
