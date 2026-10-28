@@ -209,6 +209,19 @@ def host_restore():
     require(guest(["/bin/sh","-c","\n".join(parts)],timeout=100)==
             "JNS_V036_ORIGINAL_FILES_RESTORED","host fallback not proved")
 
+def preflight():
+    # Root-local read-only acceptance check; never consumes the permit,
+    # modifies active modules or restarts Core.
+    gate()
+    require(on_nodeb(["qm","status",VM])=="status: running",
+            "VM905 moved or stopped")
+    inspect_stage()
+    live_heating(authenticated()["states"])
+    config_check()
+    print("JNS_HEATING_V036_OPERATOR_PREFLIGHT_SAFE "
+          "stage_integrity=true authenticated_live_idle=true "
+          "rollback_host_backups=true no_source_changes=true",flush=True)
+
 def activate():
     job=gate()
     # O_NOFOLLOW prevents a symlinked lock path from redirecting root writes.
@@ -262,8 +275,10 @@ def activate():
 
 if __name__=="__main__":
     try:
-        require(sys.argv==[sys.argv[0],"--activate"],"fixed --activate only")
-        activate()
+        require(sys.argv in ([sys.argv[0],"--activate"],[sys.argv[0],"--preflight"]),
+                "fixed --preflight or --activate only")
+        if sys.argv[1]=="--preflight":preflight()
+        else:activate()
     except (Blocked,Denied,ValueError,KeyError,TypeError,OSError,
             subprocess.SubprocessError) as err:
         print("JNS_HEATING_V036_ROOT_BLOCKED",type(err).__name__,str(err)[:140],
