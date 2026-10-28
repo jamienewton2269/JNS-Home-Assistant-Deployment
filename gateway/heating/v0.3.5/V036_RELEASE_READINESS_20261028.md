@@ -30,9 +30,12 @@ Original backup SHA-256 values are pinned in `v036_release_policy.py`; the separ
 
 - `v036_release_policy.py`: strict fixed-stage and six-file digest attestation, immutable three-field job, ten-minute local root permit, fail-closed live authenticated heating-safety and protected thermostat target/mode verification, all three advisory entity labels.
 - `test_v036_release_policy.py`: seven regression tests for the above.
+- `v036_root_operator.py`: NEW, dormant **root-local-only** Node C candidate with fixed Node B VM905 identity, protected six-file transaction, authenticated Home Assistant REST state, repeat heat-idle checks, Core process restart proof, independent HAOS host-volume recovery and no setpoint commands. **SOURCE ONLY: NOT INSTALLED, NOT ROOT-REVIEWED, NOT EXPOSED BY THE GATEWAY WRAPPER.**
+- `v036_local_approval.py`: NEW, local interactive root-only eight-minute, one-use job/approval generator requiring explicit heating interruption and quiet consolidation confirmation. Not installed.
+- `test_v036_root_operator.py`: NEW, offline root safety and fallback shell regression tests. These exercise synthetic scenarios; passing them is not proof of production-safe installation or rollback.
 - [Candidate CI run 40676825952](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/40676825952): **75 tests pass**; private historical shadow-backtest and live read-only prerequisite audit pass.
 
-**Important:** Pure release policy is not an installed privileged promotion handler. There is NO approved executable six-file commit/restart/host-rollback handler installed on Node C. Do not reuse the old v0.3.5 handler or treat a branch push as local root approval.
+**Important:** The source-level, root-only v0.3.6 operator is not an installed privileged promotion handler. There is NO approved executable six-file commit/restart/host-rollback handler installed on Node C. Review its installer, exact root ownership, pinned source and end-to-end rollback in an isolated environment before installation. Do not reuse the old v0.3.5 handler or treat a branch push as local root approval.
 
 ## Remaining transactional promotion gates (all mandatory)
 
