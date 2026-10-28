@@ -1,4 +1,5 @@
 name: JNS HA905 ESPHome Temporary App Build State Read-Only
+# Audit after ULID 0.1.1 source fix; neither VM is changed.
 on:
   push:
     branches: [main]
