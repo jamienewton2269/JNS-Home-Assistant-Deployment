@@ -1,0 +1,21 @@
+name: JNS HA General Bedtime Heating 18C Preflight
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/bedtime/heating18-preflight.request']
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-heating-bedtime
+  cancel-in-progress: false
+jobs:
+  preflight:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only inspect bedside thermostat controls
+        run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/bedtime/heating18_preflight.py
+          python3 gateway/bedtime/heating18_preflight.py
