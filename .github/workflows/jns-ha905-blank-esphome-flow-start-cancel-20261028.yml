@@ -1,0 +1,47 @@
+name: JNS HA905 Blank ESPHome Form Start And Cancel 0.1.2
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-blank-esphome-flow-start-cancel-20261028.yml'
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-security-single-owner-cutover
+  cancel-in-progress: false
+jobs:
+  probe:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate blank ESPHome flow start/abort and no-device-credentials offline tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha905_core_auth_readonly_once_20261028.py
+          python3 gateway/solar/ha905_core_auth_readonly_app/test_probe.py -v
+          python3 gateway/solar/test_ha905_core_auth_readonly_once_20261028.py -v
+      - name: Prove VM906 remains the sole owner; no active migration
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea qm status 906)" = "status: running"
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodeb qm status 905)" = "status: running"
+          test ! -e "$HOME/.local/share/jns-security-failback-20261028/state.json"
+          timer="$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea systemctl is-active jns-ha906-recovery-20261028.timer || true)"
+          test "$timer" != "active"
+          echo JNS_AUTH_ONCE_SAFE_GATE=VM906_running_VM905_running_recovery_disarmed
+      - name: Run one blank ESPHome user form and DELETE it; no device submission; uninstall app
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 gateway/solar/ha905_core_auth_readonly_once_20261028.py
+      - name: Verify neither security VM power state changed
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea qm status 906)" = "status: running"
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodeb qm status 905)" = "status: running"
+          echo JNS_AUTH_ONCE_FINAL_VM_STATUS=both_running
