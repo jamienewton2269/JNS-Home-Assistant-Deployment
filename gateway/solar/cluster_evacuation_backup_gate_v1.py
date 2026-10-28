@@ -22,6 +22,14 @@ def list_ids(command):
  return sorted(set(o))
 guest={"vm":list_ids(["qm","list"]),"ct":list_ids(["pct","list"])}
 report={"host":host,"guest_ids":guest,"mounted_archives":{},"backup_counts":{}}
+# Explicit known nested JNS recovery manifests; existence only, not restore validation.
+if host=="nodeb":
+ base=pathlib.Path("/mnt/pve/NAS/dump")
+ report["consolidation_manifests_present"]={
+  "vm902":(base/"jns-vm902-consolidation-20261027-v1/MANIFEST.json").is_file(),
+  "vm905":(base/"jns-ha-general-consolidation-20261027-v1/MANIFEST.json").is_file(),
+  "vm906":(base/"jns-vm906-agent-recovery-20261026-v1/MANIFEST.json").is_file()}
+ report["restore_boot_test_verified_by_this_audit"]=False
 for root in roots:
  mount="/".join(root.split("/")[:4]) if root.startswith("/mnt/pve/") else "/"
  p=run(["findmnt","-rn","-M",mount,"-o","FSTYPE"])
