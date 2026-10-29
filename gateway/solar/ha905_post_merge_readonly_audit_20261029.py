@@ -245,7 +245,7 @@ def main():
         for line in lines:
             upper=line.upper()
             for level in severity:
-                if re.search(r"\\b"+level.upper()+r"\\b",upper):
+                if re.search(r"\b"+level.upper()+r"\b",upper):
                     severity[level]+=1
         out["core_docker_log_tail_error_warning_counts"]={"total":len(lines),
                 "severity_keyword_count":severity,
