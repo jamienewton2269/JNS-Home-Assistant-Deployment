@@ -259,7 +259,7 @@ def main():
         files[name]={"base64":base64.b64encode(data).decode("ascii"),
                      "sha256":hashlib.sha256(data).hexdigest()}
     # The only permitted retained-source upgrade is the byte-exact public
-    # v0.1.0 addon previously deployed. Never trust an arbitrary local source.
+    # v0.1.1 addon previously deployed. Never trust an arbitrary local source.
     baseline={}
     for name in FILES:
         old=subprocess.run(["git","show",
