@@ -62,6 +62,15 @@ try:
 except OSError:cfg_text=''
 packages=root/'packages'
 pkg_files=[p for p in packages.glob('*.yaml') if p.is_file() and not p.is_symlink()] if packages.is_dir() and not packages.is_symlink() else []
+alarm_packages=[p for p in pkg_files if any(k in p.stem.lower() for k in ('security','alarm'))]
+alarm_declared=False
+security_automation_initial_disabled_count=0
+for p in alarm_packages:
+ try:
+  text=p.read_text(errors='replace')
+  alarm_declared=alarm_declared or bool(re.search(r'(?m)^alarm_control_panel\s*:',text))
+  security_automation_initial_disabled_count+=len(re.findall(r'(?m)^\s*initial_state\s*:\s*false\b',text))
+ except OSError:pass
 topic_counts={k:sum(any(w in p.stem.lower() for w in words) for p in pkg_files)
               for k,words in topics.items()}
 storage_helpers=('input_boolean','input_number','input_select','input_text',
@@ -113,7 +122,9 @@ out={'read_only':True,'registry_readable':entries is not None and entities is no
      'entity_domain_counts':{k:by_domain[k] for k in domains if by_domain[k]},
      'disabled_entity_domain_counts':{k:disabled_entities[k] for k in domains if disabled_entities[k]},
      'security_esphome_entities':by_platform['esphome'],
-     'security_manual_alarm_present':by_domain['alarm_control_panel']>0,
+     'alarm_control_panel_registered':by_domain['alarm_control_panel']>0,
+     'alarm_control_panel_declared_in_security_yaml':alarm_declared,
+     'security_yaml_automations_initially_disabled':security_automation_initial_disabled_count,
      'yaml_packages':len(pkg_files),'package_topics_filename_only':topic_counts,
      'ui_helper_storage_presence':helper_files,
      'packages_configured':bool(re.search(r'(?m)^\s*packages\s*:\s*!include_dir_',cfg_text)),
@@ -201,6 +212,34 @@ def main():
         print("JNS_HA905_AUDIT_BLOCKED=summary_not_verified")
         return 1
     out["findings"]=summary
+    # Core syntax verification and bounded Docker log read: both are read-only.
+    # Raw logs may contain private details; categorise in memory and emit counts only.
+    core_check=guest(host,["ha","core","check"],175)
+    out["core_config_validation"]=("passed" if core_check and core_check.get("exitcode")==0
+                                    else "failed_or_unavailable")
+    logs=guest(host,["docker","logs","--tail","120","homeassistant"],75)
+    if logs and logs.get("exitcode")==0:
+        raw=str(logs.get("out-data") or "")+"\n"+str(logs.get("err-data") or "")
+        lines=[s for s in raw.splitlines() if re.search(r"(?i)\\b(error|warning|exception|failed)\\b",s)]
+        topics={"security":("alarm","esphome","doorbell","tamper"),
+                "heating":("heat","climate","thermostat"),
+                "lighting":("light","lux","zigbee"),
+                "network":("mqtt","connection","unavailable"),
+                "camera":("camera","onvif","stream"),
+                "automation":("automation","template"),
+                "mobile":("notify","mobile_app","notification")}
+        counts={k:0 for k in topics}
+        other=0
+        for line in lines:
+            t=line.lower()
+            label=next((k for k,words in topics.items() if any(w in t for w in words)),None)
+            if label:counts[label]+=1
+            else:other+=1
+        out["core_docker_log_tail_error_warning_counts"]={"total":len(lines),
+                "by_topic":{k:v for k,v in counts.items() if v},
+                "other":other,"raw_logs_exposed":False}
+    else:
+        out["core_docker_log_tail_error_warning_counts"]={"available":False}
     print("JNS_HA905_POST_MERGER_READONLY_AUDIT="+json.dumps(out,sort_keys=True),flush=True)
     print("JNS_HA905_PHYSICAL_OUTPUTS_UNCHANGED=yes",flush=True)
     return 0 if out["core_cli_info_ok"] else 1
