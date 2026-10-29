@@ -257,9 +257,34 @@ def main():
             for level in severity:
                 if re.search(r"\b"+level.upper()+r"\b",upper):
                     severity[level]+=1
+        # Group fixed, documented logger families; never print raw logger IDs.
+        allowed_components=frozenset(("automation","template","esphome","mqtt","light",
+            "binary_sensor","sensor","recorder","mobile_app","climate","alarm_control_panel",
+            "script","camera","onvif","tuya","tuya_local","hassio","media_player",
+            "websocket_api","http","frontend","input_boolean","input_number",
+            "input_datetime","input_select","switch","fan","timer","device_tracker"))
+        origin_counts={}
+        for line in lines:
+            m=re.search(r"\[([^\]]{1,110})\]",line)
+            # Accept only Home Assistant module logs, never a user-defined ID.
+            domain="unknown"
+            if m:
+                value=m.group(1)
+                if value.startswith("homeassistant.components."):
+                    parts=value.split(".")
+                    domain=parts[2] if len(parts)>2 and parts[2] in allowed_components else "other_ha_component"
+                elif value.startswith("custom_components."):
+                    domain="custom_component"
+                elif value.startswith("homeassistant."):
+                    domain="homeassistant_core"
+                else:
+                    domain="other_logger"
+            origin_counts[domain]=origin_counts.get(domain,0)+1
         out["core_docker_log_tail_error_warning_counts"]={"total":len(lines),
                 "severity_keyword_count":severity,
                 "allowlisted_error_signatures":{k:v for k,v in signatures.items() if v},
+                "source_component_counts":dict(sorted(origin_counts.items())),
+                "traceback_lines":sum("Traceback" in line for line in raw.splitlines()),
                 "by_topic":{k:v for k,v in counts.items() if v},
                 "other":other,"raw_logs_exposed":False}
     else:
