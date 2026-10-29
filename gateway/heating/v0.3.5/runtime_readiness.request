@@ -1,0 +1,5 @@
+vm=905
+mode=read_only
+requested=2026-10-24
+probe=auth-routing
+confirmed_port=80

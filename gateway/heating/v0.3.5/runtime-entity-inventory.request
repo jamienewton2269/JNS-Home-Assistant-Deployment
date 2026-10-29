@@ -1,0 +1,3 @@
+target=VM905
+operation=read_only_registered_and_active_heating_ids
+repeat=registry-first

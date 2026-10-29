@@ -1,0 +1,4 @@
+ieee=0xa4c13880bb5cffff
+mode=read-only
+include_friendly_name=1
+check_per_device_calibration=true

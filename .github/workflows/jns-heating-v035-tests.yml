@@ -1,0 +1,44 @@
+name: JNS Heating v0.3.5 Candidate Tests
+on:
+  push:
+    branches:
+      - 'dev/heating-thermal-learning-v035-20261024'
+    paths:
+      - 'gateway/heating/v0.3.5/*.py'
+      - 'gateway/heating/v0.3.5/*.sh'
+      - '.github/workflows/jns-heating-v035-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-heating-v035-candidate-tests
+  cancel-in-progress: true
+jobs:
+  unit-tests:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Candidate syntax and safe offline model tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/heating/v0.3.5/thermal.py
+          python3 -m unittest discover -v -s gateway/heating/v0.3.5 -p 'test_*.py'
+          python3 gateway/heating/v0.3.5/install_nodec_gateway.py
+  shadow-backtest:
+    needs: unit-tests
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only comparison on saved VM905 observations
+        run: python3 gateway/heating/v0.3.5/live_backtest.py
+  live-preflight:
+    needs: [unit-tests, shadow-backtest]
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify guarded VM905 installation prerequisites (read only)
+        run: python3 gateway/heating/v0.3.5/live_preflight.py

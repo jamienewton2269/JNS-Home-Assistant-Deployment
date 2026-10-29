@@ -1,0 +1,3 @@
+stage_id=v036-20261028T103734Z-a6babd0e
+operation=read-only-integrity-check
+# Re-attest fixed SHA256 for six files after 2026-10-28 stage (read-only, no production changes)

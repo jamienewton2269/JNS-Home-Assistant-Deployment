@@ -1,0 +1,3 @@
+target=ha-general-vm905
+mode=read-only
+reason=forecast-sensor-resolution

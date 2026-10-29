@@ -1,0 +1,7 @@
+target=VM905
+mode=private-backup-only
+release=0.3.6
+no_integration_source_replacement=true
+no_core_restart=true
+history_backup_max_bytes=16777216
+retry_after_guard_correction=true

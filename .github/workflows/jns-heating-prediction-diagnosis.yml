@@ -1,0 +1,17 @@
+name: JNS Heating Prediction Regression Read-only
+on:
+  push:
+    branches:
+      - 'dev/heating-thermal-learning-v035-20261024'
+    paths:
+      - 'gateway/heating/v0.3.5/prediction-audit.request'
+permissions:
+  contents: read
+jobs:
+  diagnosis:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare live learner and staged model, no writes
+        run: python3 gateway/heating/v0.3.5/diagnose_prediction_gap.py

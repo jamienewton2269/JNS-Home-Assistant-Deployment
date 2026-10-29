@@ -1,0 +1,2 @@
+mode=read-only
+entity=sensor.lyric_home_heating_projected_temperature_in_60_minutes
