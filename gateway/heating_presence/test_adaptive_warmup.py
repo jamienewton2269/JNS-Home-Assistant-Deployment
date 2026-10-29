@@ -55,6 +55,25 @@ class AdaptiveWarmupConfigTests(unittest.TestCase):
         self.assertIn("elapsed_min", observation)
         self.assertIn("minutes_per_degree", observation)
 
+    def test_preheat_fallback_and_measured_lead_render(self):
+        template = self.sensors["JNS Heating Predictive Preheat Minutes"]["state"]
+        env = Environment()
+        def evaluate(indoor, samples, rate):
+            def states(entity):
+                values = {
+                    "sensor.jns_house_temperature": str(indoor),
+                    "sensor.thermostat_thermostat_outdoor_temperature": "8",
+                    "input_number.jns_heating_warmup_observations": str(samples),
+                    "input_number.jns_heating_warmup_minutes_per_degree": str(rate),
+                }
+                return values.get(entity, "unavailable")
+            return int(env.from_string(template).render(states=states, state_attr=lambda *_: None).strip())
+        self.assertEqual(evaluate(19, 0, 30), 120)  # uncalibrated
+        self.assertEqual(evaluate(19, 3, 30), 60)   # 2C * 30min/C
+        self.assertEqual(evaluate(21, 3, 30), 0)    # already comfortable
+        self.assertEqual(evaluate(19, 3, 200), 120) # reject untrusted rate
+        self.assertEqual(evaluate(16, 3, 180), 360) # safe lead bound
+
     def test_templates_parse(self):
         env = Environment()
         for item in self.sensors.values():
