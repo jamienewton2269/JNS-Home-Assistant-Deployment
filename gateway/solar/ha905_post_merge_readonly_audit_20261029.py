@@ -179,6 +179,7 @@ def running_hosts():
 
 def main():
     if "--selftest" in sys.argv:
+        compile(INNER, "ha905_guest_readonly", "exec")
         assert re.search(r"(?m)^name:\s*([^\s]+)","name: ha-general")
         assert len(set(("nodea","nodeb")))==2
         assert "vm906" not in INNER and "qm start" not in INNER and "services/" not in INNER
@@ -200,7 +201,16 @@ def main():
     inner=guest(host,["docker","exec","homeassistant","python3","-c",
                       "exec(__import__('base64').b64decode("+repr(b64)+"))"],120)
     if not inner or inner.get("exitcode")!=0:
+        code=("qga_transport_or_truncation" if inner is None else
+              "guest_python_exit_"+str(inner.get("exitcode","unknown")))
+        if inner:
+            err=str(inner.get("err-data") or "")
+            detail=next((key for key in ("SyntaxError","NameError","TypeError","ValueError",
+                                        "KeyError","OSError","PermissionError","JSONDecodeError")
+                         if key in err), "unclassified")
+            code+="_"+detail
         print("JNS_HA905_AUDIT_BLOCKED=core_registry_read_unavailable")
+        print("JNS_HA905_AUDIT_DIAGNOSTIC="+code)
         print("JNS_HA905_AUDIT_META="+json.dumps(out,sort_keys=True))
         return 1
     rows=[x[len(MARKER):] for x in str(inner.get("out-data") or "").splitlines() if x.startswith(MARKER)]
