@@ -215,8 +215,9 @@ def main():
     # Core syntax verification and bounded Docker log read: both are read-only.
     # Raw logs may contain private details; categorise in memory and emit counts only.
     core_check=guest(host,["ha","core","check"],175)
-    out["core_config_validation"]=("passed" if core_check and core_check.get("exitcode")==0
-                                    else "failed_or_unavailable")
+    out["core_config_validation"]=( "unverified_transport" if core_check is None else
+                                     "passed" if core_check.get("exitcode")==0 else
+                                     "failed_exit_"+str(core_check.get("exitcode","unknown")) )
     logs=guest(host,["docker","logs","--tail","120","homeassistant"],75)
     if logs and logs.get("exitcode")==0:
         raw=str(logs.get("out-data") or "")+"\n"+str(logs.get("err-data") or "")
@@ -235,7 +236,20 @@ def main():
             label=next((k for k,words in topics.items() if any(w in t for w in words)),None)
             if label:counts[label]+=1
             else:other+=1
+        severity={"error":0,"warning":0,"critical":0}
+        signature_names=("TemplateError","UndefinedError","TimeoutError",
+                         "ConnectionError","ConfigEntryNotReady","HomeAssistantError",
+                         "Failed to call service","not found","unavailable",
+                         "already running","already configured","failed to connect")
+        signatures={key:sum(key.lower() in line.lower() for line in lines) for key in signature_names}
+        for line in lines:
+            upper=line.upper()
+            for level in severity:
+                if re.search(r"\\b"+level.upper()+r"\\b",upper):
+                    severity[level]+=1
         out["core_docker_log_tail_error_warning_counts"]={"total":len(lines),
+                "severity_keyword_count":severity,
+                "allowlisted_error_signatures":{k:v for k,v in signatures.items() if v},
                 "by_topic":{k:v for k,v in counts.items() if v},
                 "other":other,"raw_logs_exposed":False}
     else:
