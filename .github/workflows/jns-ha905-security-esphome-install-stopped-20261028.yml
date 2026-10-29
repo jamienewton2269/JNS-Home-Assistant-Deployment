@@ -30,3 +30,34 @@ jobs:
         run: |
           set -Eeuo pipefail
           python3 gateway/solar/ha905_security_esphome_install_stopped_guarded_20261028.py
+      - name: Independently verify exclusive source ownership and disarmed recovery
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          report="$(mktemp)"
+          trap 'rm -f "$report"' EXIT
+          python3 gateway/solar/ha906_nodec_auto_failback_20261028.py --check | tee "$report"
+          python3 - "$report" <<'PY'
+          import json, pathlib, sys
+          lines = pathlib.Path(sys.argv[1]).read_text().splitlines()
+          prefix = "JNS_HA906_SAFE_AUTO_FAILBACK_CHECK="
+          values = [x[len(prefix):] for x in lines if x.startswith(prefix)]
+          if len(values) != 1:
+              raise SystemExit("JNS_PREP_BLOCKED=missing_independent_owner_report")
+          state = json.loads(values[0])
+          expected = {
+              "runner": "nodec",
+              "vm906_source_state": "running",
+              "vm905_target_state": "running",
+              "source_identity": True,
+              "target_identity": True,
+              "current_target_esphome_count": 0,
+              "deadline_armed": False,
+          }
+          if any(state.get(k) != v for k, v in expected.items()):
+              raise SystemExit("JNS_PREP_BLOCKED=owner_or_recovery_gate_failed")
+          print("JNS_PREP_EXCLUSIVE_SOURCE_AND_NO_DEADLINE=verified")
+          PY
+          test "$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes nodea 'systemctl show jns-ha906-recovery-20261028.timer --property=ActiveState --value')" = "inactive"
+          cmp -s gateway/solar/ha906_nodec_auto_failback_20261028.py "$HOME/.local/share/jns-security-failback-20261028/auto_failback.py"
+          echo 'JNS_PREP_NODEA_TIMER_INACTIVE_AND_FAILBACK_SCRIPT_ATTESTED=yes'
