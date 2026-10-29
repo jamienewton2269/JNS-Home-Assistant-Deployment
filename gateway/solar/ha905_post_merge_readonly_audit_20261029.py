@@ -220,7 +220,7 @@ def main():
     logs=guest(host,["docker","logs","--tail","120","homeassistant"],75)
     if logs and logs.get("exitcode")==0:
         raw=str(logs.get("out-data") or "")+"\n"+str(logs.get("err-data") or "")
-        lines=[s for s in raw.splitlines() if re.search(r"(?i)\\b(error|warning|exception|failed)\\b",s)]
+        lines=[s for s in raw.splitlines() if re.search(r"(?i)\b(error|warning|exception|failed)\b",s)]
         topics={"security":("alarm","esphome","doorbell","tamper"),
                 "heating":("heat","climate","thermostat"),
                 "lighting":("light","lux","zigbee"),
