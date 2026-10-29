@@ -5,14 +5,33 @@ on:
     paths:
       - '.github/workflows/jns-ha905-security-esphome-flow-offline-tests.yml'
       - 'gateway/solar/ha905_security_esphome_handover_app/**'
+      - 'gateway/solar/ha906_to_905_esphome_enrol_guarded_20261028.py'
+      - 'gateway/solar/ha_security_vm906_guarded_stop_20261028.py'
+      - 'gateway/solar/ha905_security_esphome_install_stopped_guarded_20261028.py'
+      - 'gateway/solar/test_ha905_security_v012_release_gates_20261029.py'
+      - 'gateway/solar/test_ha906_enrol_log_diagnostic_20261028.py'
+      - 'gateway/solar/test_ha906_nodec_auto_failback_20261028.py'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-security-esphome-flow-offline-tests.yml'
+      - 'gateway/solar/ha905_security_esphome_handover_app/**'
+      - 'gateway/solar/ha906_to_905_esphome_enrol_guarded_20261028.py'
+      - 'gateway/solar/ha_security_vm906_guarded_stop_20261028.py'
+      - 'gateway/solar/ha905_security_esphome_install_stopped_guarded_20261028.py'
+      - 'gateway/solar/test_ha905_security_v012_release_gates_20261029.py'
 permissions:
   contents: read
 jobs:
   test:
     runs-on: [self-hosted, linux, x64, nodec]
-    timeout-minutes: 3
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
       - run: python3 -m py_compile gateway/solar/ha905_security_esphome_handover_app/flow.py gateway/solar/ha905_security_esphome_handover_app/test_flow.py
+      - run: python3 -m py_compile gateway/solar/ha906_to_905_esphome_enrol_guarded_20261028.py gateway/solar/ha_security_vm906_guarded_stop_20261028.py gateway/solar/ha905_security_esphome_install_stopped_guarded_20261028.py gateway/solar/test_ha905_security_v012_release_gates_20261029.py
       - run: python3 gateway/solar/ha905_security_esphome_handover_app/test_flow.py -v
+      - run: python3 gateway/solar/test_ha906_enrol_log_diagnostic_20261028.py -v
+      - run: python3 gateway/solar/test_ha906_nodec_auto_failback_20261028.py -v
+      - run: python3 gateway/solar/test_ha905_security_v012_release_gates_20261029.py -v
       - run: echo JNS_SECURE_ENROLMENT_SOURCE_TEST_ONLY=yes

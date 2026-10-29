@@ -105,20 +105,20 @@ def main():
  if raw.get("result")!="ok" or len(found)!=1:
   print("JNS_VM906_STOP_BLOCKED=temporary_native_flow_app_not_confirmed_installed");return 1
  # Never interrupt the active alarm for a stale one-shot app.
- # HA Core 2026.9 uses 26-character config-flow IDs, supported in v0.1.1.
+ # HA Core 2026.9 uses 26-character config-flow IDs, supported in v0.1.2.
  app=guest(["ha","apps","info","local_jns_ha905_security_handover","--no-progress","--raw-json"])
  try:
   payload=json.loads(app.get("out-data") or "{}") if app and app.get("exitcode")==0 else {}
   info=payload.get("data",{})
   prepared=(payload.get("result")=="ok" and isinstance(info,dict)
-      and info.get("version")=="0.1.1" and info.get("state")=="stopped"
+      and info.get("version")=="0.1.2" and info.get("state")=="stopped"
       and info.get("repository")=="local")
  except (ValueError,TypeError,AttributeError):
   prepared=False
  if not prepared:
-  print("JNS_VM906_STOP_BLOCKED=updated_v011_flow_app_not_installed_stopped");return 1
+  print("JNS_VM906_STOP_BLOCKED=updated_v012_flow_app_not_installed_stopped");return 1
  print("JNS_VM905_HANDOVER_APP_INSTALLED_INVENTORY=yes",flush=True)
- print("JNS_VM905_UPDATED_ULID_APP=verified_v011_installed_stopped",flush=True)
+ print("JNS_VM905_UPDATED_ULID_APP=verified_v012_installed_stopped",flush=True)
  core_started=time.monotonic()
  chk=guest(["ha","core","check"],long_core_check=True)
  if not chk:

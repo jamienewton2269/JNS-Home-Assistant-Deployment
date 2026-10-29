@@ -158,7 +158,7 @@ def main():
  except (OSError,ValueError,TypeError):
   print("JNS_ENROL_BLOCKED=recovery_window_not_valid");return 1
  original=info()
- if not original or original.get("repository")!="local" or original.get("version")!="0.1.1" or original.get("state")!="stopped":
+ if not original or original.get("repository")!="local" or original.get("version")!="0.1.2" or original.get("state")!="stopped":
   print("JNS_ENROL_BLOCKED=expected_stopped_temporary_app_missing");return 1
  secret_prepared=False
  try:
