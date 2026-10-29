@@ -9,7 +9,31 @@ input_boolean:
     name: Pause Bedtime Learning
     icon: mdi:brain
 
+  jns_heating_warmup_tracking:
+    name: JNS Morning Warm-up Measurement Active
+  jns_heating_warmup_heat_seen:
+    name: JNS Morning Warm-up Heat Observed
+
 input_number:
+  jns_heating_warmup_minutes_per_degree:
+    name: Observed Morning Warm-up Minutes per Degree
+    min: 5
+    max: 180
+    step: 0.1
+    mode: box
+  jns_heating_warmup_observations:
+    name: Valid Morning Warm-up Observations
+    min: 0
+    max: 90
+    step: 1
+    mode: box
+  jns_heating_warmup_start_temperature:
+    name: Morning Warm-up Start Temperature
+    min: 15
+    max: 22
+    step: 0.1
+    unit_of_measurement: "°C"
+    mode: box
   jns_heating_away_minimum_temp:
     name: House Minimum Away Temperature
     icon: mdi:home-thermometer-outline
@@ -32,6 +56,10 @@ input_number:
     mode: box
 
 input_datetime:
+  jns_heating_warmup_started:
+    name: Morning Warm-up Measurement Start
+    has_date: true
+    has_time: true
   jns_heating_last_bedtime_sample:
     name: Last Learned Bedtime
     has_date: true
@@ -77,12 +105,22 @@ template:
               {% endif %}
             {% endfor %}
             {{ n.eta }}
+          {% elif indoor is not none and indoor < 20.8 and
+                  states('input_number.jns_heating_warmup_observations') | int(0) >= 3 and
+                  5 <= states('input_number.jns_heating_warmup_minutes_per_degree') | float(0) <= 180 %}
+            {{ [360, [5, ((21 - indoor) * (states('input_number.jns_heating_warmup_minutes_per_degree') | float(0))) | round(0) | int] | max] | min }}
           {% else %}
             120
           {% endif %}
         attributes:
           prediction_model: >-
-            {{ 'Validated JNS thermal learner' if state_attr('sensor.lyric_home_heating_thermal_learning', 'ready') in [true, 'True'] else 'Conservative 120-minute fallback' }}
+            {% if state_attr('sensor.lyric_home_heating_thermal_learning', 'ready') in [true, 'True'] %}
+              Validated JNS thermal learner
+            {% elif states('input_number.jns_heating_warmup_observations') | int(0) >= 3 %}
+              Observed morning warm-up ({{ states('input_number.jns_heating_warmup_observations') | int(0) }} accepted cycles)
+            {% else %}
+              Conservative 120-minute fallback; {{ states('input_number.jns_heating_warmup_observations') | int(0) }}/3 measured cycles
+            {% endif %}
           target_time: "10:00"
       - name: JNS Heating Predictive Cooling Minutes
         unique_id: jns_heating_predictive_cooling_minutes
@@ -241,9 +279,128 @@ automation:
           {{ desired | trim not in ['none', 'unavailable', 'unknown', ''] and
              is_number(state_attr('climate.thermostat_thermostat', 'temperature')) and
              (state_attr('climate.thermostat_thermostat', 'temperature') | float - desired | float) | abs >= 0.4 }}
+      # Observe actual 18-21C morning response, but never use the bathroom
+      # advisory estimate to command the thermostat. The Honeywell remains
+      # the only authoritative room reference.
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: >-
+                  {{ desired | float(0) == 21 and 240 <= minutes_now | int(0) < 600
+                     and alarm in ['disarmed', 'armed_home']
+                     and is_state('input_boolean.jns_heating_warmup_tracking', 'off')
+                     and is_number(states('sensor.jns_house_temperature'))
+                     and 15 <= states('sensor.jns_house_temperature') | float(0) < 20.8
+                     and state_attr('climate.thermostat_thermostat', 'temperature') | float(0) < 20.5 }}
+            sequence:
+              - action: input_number.set_value
+                target:
+                  entity_id: input_number.jns_heating_warmup_start_temperature
+                data:
+                  value: "{{ states('sensor.jns_house_temperature') | float }}"
+              - action: input_datetime.set_datetime
+                target:
+                  entity_id: input_datetime.jns_heating_warmup_started
+                data:
+                  datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.jns_heating_warmup_heat_seen
+              - action: input_boolean.turn_on
+                target:
+                  entity_id: input_boolean.jns_heating_warmup_tracking
       - action: climate.set_temperature
         target:
           entity_id: climate.thermostat_thermostat
         data:
           temperature: "{{ desired | float }}"
         continue_on_error: true
+
+  # Separate timing calibration, NOT a second thermal-physics learner.
+  # Only use completed morning heating cycles; no thermostat commands here.
+  - id: jns_heating_observe_morning_warmup_v1
+    alias: JNS Heating - Learn measured morning warm-up lead time
+    mode: single
+    triggers:
+      - trigger: time_pattern
+        minutes: "/5"
+      - trigger: state
+        entity_id:
+          - sensor.jns_house_temperature
+          - binary_sensor.lyric_home_heating_heating_call
+          - climate.thermostat_thermostat
+    conditions:
+      - condition: state
+        entity_id: input_boolean.jns_heating_warmup_tracking
+        state: "on"
+    actions:
+      - variables:
+          indoor: "{{ states('sensor.jns_house_temperature') | float(-99) }}"
+          start_c: "{{ states('input_number.jns_heating_warmup_start_temperature') | float(-99) }}"
+          elapsed_min: "{{ (as_timestamp(now()) - as_timestamp(states('input_datetime.jns_heating_warmup_started'), as_timestamp(now()))) / 60 }}"
+          alarm: "{{ states('sensor.jns_heating_verified_alarm_state') }}"
+          target_c: "{{ state_attr('climate.thermostat_thermostat', 'temperature') | float(-99) }}"
+      - choose:
+          # Discard interrupted/manual/away/unavailable/multi-day or implausible runs.
+          - conditions:
+              - condition: template
+                value_template: >-
+                  {{ is_state('input_boolean.jns_heating_automatic_override', 'on')
+                     or alarm not in ['disarmed', 'armed_home']
+                     or target_c | float(-99) != 21
+                     or indoor | float(-99) < 15
+                     or start_c | float(-99) < 15
+                     or start_c | float(-99) >= 20.8
+                     or elapsed_min | float(0) < 0
+                     or elapsed_min | float(0) > 360
+                     or now().hour >= 16 }}
+            sequence:
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.jns_heating_warmup_tracking
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.lyric_home_heating_heating_call
+                state: "on"
+            sequence:
+              - action: input_boolean.turn_on
+                target:
+                  entity_id: input_boolean.jns_heating_warmup_heat_seen
+          - conditions:
+              - condition: template
+                value_template: "{{ indoor | float(-99) >= 20.8 }}"
+            sequence:
+              - variables:
+                  minutes_per_degree: >-
+                    {{ (elapsed_min | float(0)) / (21 - start_c | float(0)) }}
+                  prior_n: "{{ states('input_number.jns_heating_warmup_observations') | int(0) }}"
+                  prior_rate: "{{ states('input_number.jns_heating_warmup_minutes_per_degree') | float(0) }}"
+              - choose:
+                  - conditions:
+                      - condition: state
+                        entity_id: input_boolean.jns_heating_warmup_heat_seen
+                        state: "on"
+                      - condition: template
+                        value_template: >-
+                          {{ 10 <= elapsed_min | float(0) <= 360
+                             and 5 <= minutes_per_degree | float(0) <= 180 }}
+                    sequence:
+                      - action: input_number.set_value
+                        target:
+                          entity_id: input_number.jns_heating_warmup_minutes_per_degree
+                        data:
+                          value: >-
+                            {% if prior_n | int(0) == 0 %}
+                              {{ minutes_per_degree | float | round(1) }}
+                            {% else %}
+                              {{ (prior_rate | float + (minutes_per_degree | float - prior_rate | float) /
+                                 ([prior_n | int(0), 6] | min + 1)) | round(1) }}
+                            {% endif %}
+                      - action: input_number.set_value
+                        target:
+                          entity_id: input_number.jns_heating_warmup_observations
+                        data:
+                          value: "{{ [prior_n | int(0) + 1, 90] | min }}"
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.jns_heating_warmup_tracking
