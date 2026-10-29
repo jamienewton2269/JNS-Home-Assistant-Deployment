@@ -1,10 +1,5 @@
 name: JNS HA905 Post-Merger Health Readonly Audit
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - '.github/workflows/jns-ha905-post-merge-health-readonly-20261029.yml'
-      - 'gateway/solar/ha905_post_merge_readonly_audit_20261029.py'
   push:
     branches: [main]
     paths:
