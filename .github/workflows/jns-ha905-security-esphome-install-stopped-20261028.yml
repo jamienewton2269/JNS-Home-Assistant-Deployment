@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/jns-ha905-security-esphome-install-stopped-20261028.yml'
+      - 'gateway/solar/ha905_security_esphome_install_stopped_guarded_20261028.py'
+      - 'gateway/solar/ha_security_vm906_guarded_stop_20261028.py'
   workflow_dispatch:
 permissions:
   contents: read
