@@ -1,0 +1,30 @@
+name: JNS HA905 Post-Merger Health Readonly Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha905-post-merge-health-readonly-20261029.yml'
+      - 'gateway/solar/ha905_post_merge_readonly_audit_20261029.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-post-merge-readonly-audit
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Offline compilation and no-side-effect smoke
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile gateway/solar/ha905_post_merge_readonly_audit_20261029.py
+          python3 gateway/solar/ha905_post_merge_readonly_audit_20261029.py --selftest
+      - name: Report read-only VM905 configuration, registry and log-tail health
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 gateway/solar/ha905_post_merge_readonly_audit_20261029.py
