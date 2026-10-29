@@ -57,7 +57,7 @@ class SecurityV012ReleaseTests(unittest.TestCase):
     def test_physical_acceptance_not_auto_granted(self):
         operator = (ROOT / "ha906_to_905_exclusive_cutover_operator_20261028.py").read_text()
         self.assertIn("awaiting_physical_approval", operator)
-        self.assertNotIn("ha906_to_905_accept_operator_20261028.py\",", operator)
+        self.assertNotIn('ha906_to_905_accept_operator_20261028.py', operator)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
