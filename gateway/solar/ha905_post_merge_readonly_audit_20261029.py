@@ -265,7 +265,7 @@ def main():
             "input_datetime","input_select","switch","fan","timer","device_tracker"))
         origin_counts={}
         for line in lines:
-            m=re.search(r"\\[([^\\]]{1,110})\\]",line)
+            m=re.search(r"\[([^\]]{1,110})\]",line)
             # Accept only Home Assistant module logs, never a user-defined ID.
             domain="unknown"
             if m:
