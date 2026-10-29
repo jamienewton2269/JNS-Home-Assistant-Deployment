@@ -34,7 +34,7 @@ class AdaptiveWarmupConfigTests(unittest.TestCase):
         preheat = self.sensors["JNS Heating Predictive Preheat Minutes"]
         self.assertEqual(preheat["attributes"]["target_time"], "10:00")
         self.assertIn("120", preheat["state"])
-        self.assertIn("learner", preheat["state"])
+        self.assertIn("sensor.lyric_home_heating_thermal_learning", preheat["state"])
         decision = str(self.automations["jns_heating_alarm_predictive_target_v1"])
         self.assertIn("600", decision)  # 10:00
         self.assertIn("21", decision)
