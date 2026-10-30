@@ -1,0 +1,20 @@
+name: JNS HA-General Merged Doorbell Repair
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/doorbell/merged-repair.request']
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-doorbell-repair
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/doorbell/repair_merged_vm905.py
+          python3 gateway/doorbell/repair_merged_vm905.py
