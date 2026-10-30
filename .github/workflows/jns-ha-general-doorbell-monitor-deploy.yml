@@ -1,0 +1,20 @@
+name: JNS HA-General Doorbell Health Monitor Deploy
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/doorbell_monitor/deploy.request']
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-doorbell-monitor
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/doorbell_monitor/deploy.py
+          python3 gateway/doorbell_monitor/deploy.py
