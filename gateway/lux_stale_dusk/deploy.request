@@ -1,0 +1,8 @@
+approved=2026-10-30T16:30Z
+target=ha-general
+vmid=905
+automation_id=1791918795028
+raw_lux=sensor.0xa4c1383917c90309_illuminance
+stale_after_seconds=300
+dusk_window_minutes=120
+policy=stale-or-dusk-never-authorizes-auto-off
