@@ -1,0 +1,69 @@
+# JNS merged HA-General doorbell repair v1
+# Restores local KC868 doorbell chime and MQTT press publishing after HA-Security merger.
+automation:
+  - id: '1792316952337'
+    alias: Doorbell DingDong 7am till 11pm
+    description: >-
+      JNS_DOORBELL_MERGED_VM905_V1. Door Bell Push Button X15 drives the
+      physical Doorbell Sounder Y01 for 3 seconds between 07:00 and 23:00.
+    initial_state: true
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.alarmpanel_kc868_a16_x15
+        from: 'off'
+        to: 'on'
+    conditions:
+      - condition: time
+        after: '06:59:59'
+        before: '23:00:00'
+      - condition: state
+        entity_id: switch.alarmpanel_kc868_a16_y01
+        state: 'off'
+    actions:
+      - action: switch.turn_on
+        target:
+          entity_id: switch.alarmpanel_kc868_a16_y01
+      - delay: '00:00:03'
+      - action: switch.turn_off
+        target:
+          entity_id: switch.alarmpanel_kc868_a16_y01
+    mode: single
+    max_exceeded: silent
+
+  - id: '1792512302559'
+    alias: JNS Security - Publish Doorbell Press
+    description: >-
+      JNS_DOORBELL_MERGED_VM905_V1. Publishes every fresh X15 doorbell press
+      to the existing HA-General exterior security-light consumer.
+    initial_state: true
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.alarmpanel_kc868_a16_x15
+        from: 'off'
+        to: 'on'
+    actions:
+      - action: mqtt.publish
+        data:
+          topic: jns/security/doorbell/press
+          payload: 'pressed'
+          qos: 1
+          retain: false
+    mode: single
+    max_exceeded: silent
+
+  - id: jns_security_doorbell_siren_safety_off_v1
+    alias: JNS Security - Doorbell Sounder Safety Off
+    description: >-
+      JNS_DOORBELL_MERGED_VM905_V1. Secondary safety cutoff for the physical
+      Y01 Doorbell Sounder if it remains on beyond 6 seconds.
+    initial_state: true
+    triggers:
+      - trigger: state
+        entity_id: switch.alarmpanel_kc868_a16_y01
+        to: 'on'
+        for: '00:00:06'
+    actions:
+      - action: switch.turn_off
+        target:
+          entity_id: switch.alarmpanel_kc868_a16_y01
+    mode: single
