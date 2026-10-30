@@ -1,0 +1,6 @@
+approved=2026-10-30T19:52:00Z
+target=ha-general
+vmid=905
+package=jns_doorbell_health_monitor_v1.yaml
+mode=native-home-assistant-monitor
+watch=availability,automation-enabled,press-to-sounder,press-to-lighting
