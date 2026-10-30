@@ -1,0 +1,21 @@
+name: JNS HA-General Lux Stale Sensor Dusk Fix
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/lux_stale_dusk/deploy.request']
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-lux-stale-dusk
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch HA-General Lux controller transactionally
+        run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/lux_stale_dusk/patch_vm905.py gateway/lux_stale_dusk/deploy.py
+          python3 gateway/lux_stale_dusk/deploy.py
