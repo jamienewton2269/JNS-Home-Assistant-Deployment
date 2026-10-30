@@ -11,9 +11,10 @@ TARGET="/config/packages/jns_ha_general_doorbell_merged_v1.yaml"
 def guest(args,timeout=300):
     raw=ssh_host("nodeb",["qm","guest","exec","905","--",*args])
     d=json.loads(raw); deadline=time.monotonic()+timeout
+    pid=d.get("pid")
+    if not d.get("exited") and not isinstance(pid,int):
+        raise RuntimeError("QGA returned no PID; no blind retry")
     while not d.get("exited"):
-        pid=d.get("pid")
-        if not isinstance(pid,int): raise RuntimeError("QGA returned no PID; no blind retry")
         if time.monotonic()>deadline: raise RuntimeError("QGA operation still running pid="+str(pid))
         time.sleep(2)
         d=json.loads(ssh_host("nodeb",["qm","guest","exec-status","905",str(pid)]))
