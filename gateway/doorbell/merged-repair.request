@@ -1,0 +1,7 @@
+approved=2026-10-30T19:43:00Z
+target=ha-general
+vmid=905
+trigger=binary_sensor.alarmpanel_kc868_a16_x15
+sounder=switch.alarmpanel_kc868_a16_y01
+mqtt_topic=jns/security/doorbell/press
+preserve=inside-front-door-security-contact
