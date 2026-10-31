@@ -278,6 +278,11 @@ automation:
               none
             {% elif is_state('input_boolean.jns_heating_manual_setpoint_hold','on') %}
               none
+            {% elif states('input_datetime.jns_heating_last_auto_command_time') in ['unknown','unavailable','']
+                  and is_number(state_attr('climate.thermostat_thermostat','temperature'))
+                  and (state_attr('climate.thermostat_thermostat','temperature') | float) not in [18,21] %}
+              {# First installation: do not reset an existing user target. #}
+              none
             {% elif 240 <= minutes_now | int < 600 and (600 - minutes_now | int) <= (preheat | int + 10) %}
               {{ user_target }}
             {% elif minutes_now | int >= 600 and minutes_now | int < 1140 %}
@@ -329,8 +334,9 @@ automation:
         value_template: >-
           {% set old = trigger.from_state.attributes.get('temperature') if trigger.from_state is not none else none %}
           {% set new = trigger.to_state.attributes.get('temperature') if trigger.to_state is not none else none %}
-          {{ is_number(old) and is_number(new)
-             and 5 <= new | float <= 35 and (new | float - old | float) | abs >= 0.4 }}
+          {{ is_number(new) and 5 <= new | float <= 35
+             and ((is_number(old) and (new | float - old | float) | abs >= 0.4)
+                  or (not is_number(old) and (new | float not in [18,21]))) }}
     actions:
       - variables:
           received: "{{ trigger.to_state.attributes.temperature | float }}"
@@ -345,8 +351,7 @@ automation:
                   and (received | float - auto_target | float) | abs < 0.1) }}
       - condition: template
         value_template: >-
-          {{ alarm in ['armed_away','disarmed','armed_home']
-             and (alarm != 'armed_away' or received | float > away_min | float) }}
+          {{ alarm != 'armed_away' or received | float > away_min | float }}
       - action: input_number.set_value
         target:
           entity_id: input_number.jns_heating_manual_target
