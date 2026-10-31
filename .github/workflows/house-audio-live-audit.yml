@@ -1,0 +1,22 @@
+name: House Audio B live network and backup audit
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/live-audit.request']
+permissions: {contents: read}
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    steps:
+      - run: |
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          echo '=== BACKUP CANDIDATES ==='
+          find /var/lib/vz /mnt/pve/WD-BACKUP -maxdepth 5 \( -iname '*audio*' -o -iname '*westminster*' -o -iname '*119*' -o -iname '*219*' \) 2>/dev/null | head -70
+          echo '=== DNS CONFIG ==='
+          pct exec 248 -- sh -c 'grep -R -n "house-audio-b\|10.10.110.229" /etc/dnsmasq* /var/lib/misc/dnsmasq* 2>/dev/null | head -35' || true
+          echo '=== NETWORK CHECK ==='
+          curl -sS -I --max-time 4 http://10.10.200.85:8000/ | head -8 || true
+          echo '=== AUDIO HOST ==='
+          systemctl is-active bluealsa
+          bluetoothctl info 91:56:5F:5E:55:47 | grep Connected
+          REMOTE
