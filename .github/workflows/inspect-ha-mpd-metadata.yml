@@ -1,0 +1,14 @@
+name: Inspect HA MPD integration safe metadata
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/mpd-metadata.request']
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    steps:
+      - run: |
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          qm guest exec 905 -- /usr/bin/jq -c '.data.entries[] | select(.domain=="mpd") | {entry_id,title,disabled_by,host:.data.host,port:.data.port}' /mnt/data/supervisor/homeassistant/.storage/core.config_entries
+          REMOTE
