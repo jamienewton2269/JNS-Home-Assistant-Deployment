@@ -20,6 +20,21 @@ class HallwayRuntimeTests(unittest.TestCase):
         self.assertIn('status.state!="off"',SOURCE)
         self.assertIn("f-temperature>=1.5",SOURCE)
         self.assertIn("not fire",SOURCE)
+    def test_candidate_coordinator_and_sensors_no_bathroom(self):
+        module=Path(__file__).parent/"candidate"
+        coordinator=(module/"coordinator.py").read_text()
+        sensor=(module/"sensor.py").read_text()
+        ast.parse(coordinator)
+        ast.parse(sensor)
+        self.assertNotIn("BathroomAdvisory",coordinator)
+        self.assertNotIn("bathroom",sensor.lower())
+        self.assertIn("HallwayAdvisory",coordinator)
+        self.assertIn('"hallway": hallway',coordinator)
+        self.assertIn("class HallwayForecast(",sensor)
+        self.assertIn("class HallwayLearning(",sensor)
+        self.assertIn("source_epoch",sensor)
+        self.assertIn("weather_forecast_fresh",sensor)
+
     def test_persisted_samples_only_from_same_epoch(self):
         self.assertIn('saved.get("source_epoch")==EPOCH',SOURCE)
         self.assertIn("weather_forecast_fresh",SOURCE)
