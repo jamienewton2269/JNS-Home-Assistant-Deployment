@@ -1,0 +1,17 @@
+name: Inspect DNS record source for CT221
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/dns-source.request']
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    steps:
+      - run: |
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          echo '=== DNS 248 CONFIG ==='
+          pct exec 248 -- sh -c 'grep -nE "leasefile|dhcp-range|dhcp-hostsfile|hostsdir|addn-hosts|domain|conf-dir" /etc/dnsmasq.conf | head -75; ls -lah /var/lib/jnsdns/leases; grep -RniE "10.10.110.229|10.10.200.85|house-audio-b|bc:24:11:1d:41:dc" /var/lib/jnsdns/leases /etc/dnsmasq.conf 2>/dev/null | head -35' || true
+          echo '=== HAOS JSON UTILITY ==='
+          qm guest exec 905 -- /bin/sh -c 'command -v jq || true'
+          REMOTE
