@@ -1,0 +1,24 @@
+name: Diagnose House Audio dynamic DNS
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/dns-inspect.request']
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - name: Check live DNS authorities and DHCP lease
+        shell: bash
+        run: |
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          echo '=== NODE B RESOLVERS ==='
+          cat /etc/resolv.conf
+          echo '=== DHCP 248 CONTAINER ==='
+          pct exec 248 -- sh -c 'hostname; ps -eo args | grep "[d]nsmasq"; find /var/lib -maxdepth 4 -name "*lease*" 2>/dev/null | head -20; grep -R -n "BC:24:11:1D:41:DC\|10.10.200.85\|house-audio-b" /var/lib/misc /etc/dnsmasq.d 2>/dev/null | head -35' || true
+          echo '=== DNS LOOKUP TO 248 ==='
+          command -v dig >/dev/null && dig house-audio-b.home.arpa A +short || true
+          echo '=== CT221 LEASE ==='
+          pct exec 221 -- sh -c 'hostname -I; ls -l /var/lib/dhcp /run/systemd/netif/leases 2>/dev/null' || true
+          REMOTE
