@@ -1,0 +1,32 @@
+name: JNS Temperature Trends Post-write Read-only Audit
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/heating_hallway/trends_postwrite_audit.request']
+permissions: {contents: read}
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Inspect Testing dashboard safety and status-card writes
+        run: |
+          ssh -o BatchMode=yes root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          qm guest exec 905 --timeout 40 -- docker exec homeassistant python3 -c 'import pathlib,hashlib,json,yaml
+          R=pathlib.Path("/config");p=R/"dashboards/testing.yaml";raw=p.read_bytes()
+          data=yaml.safe_load(raw);v=[x for x in data["views"] if x.get("path")=="temperature-trends"]
+          assert len(v)==1
+          cards=[c for c in v[0]["cards"] if c.get("title")=="Current thermometers and forecast"]
+          assert len(cards)==1
+          ids=[x.get("entity") for x in cards[0].get("entities",[]) if isinstance(x,dict)]
+          prefixes=["sensor.jns_hallway_","sensor.jns_fireplace_","binary_sensor.jns_fireplace_",
+                    "input_number.jns_hallway_"]
+          backups=R/".jns-backups"
+          print("JNS_TRENDS_AFTER_FAILED_RELEASE",json.dumps({
+           "views":len(data["views"]),"sha256":hashlib.sha256(raw).hexdigest(),
+           "new_observer_entries":len([i for i in ids if any(i.startswith(x) for x in prefixes)]),
+           "backups":len(list(backups.glob("hallway-weather-trends-*")))
+          },sort_keys=True))'
+          echo JNS_TRENDS_READONLY_AUDIT_DONE
+          REMOTE
