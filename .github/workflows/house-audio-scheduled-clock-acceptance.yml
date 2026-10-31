@@ -1,0 +1,39 @@
+name: Verify automatic Westminster half-hour chime via Recorder
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/scheduled_clock_acceptance.request']
+permissions: {contents: read}
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Inspect automatic 18:30 trigger and media playback without actuating
+        shell: bash
+        run: |
+          ssh -o BatchMode=yes root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -e
+          qm guest exec 905 --timeout 50 -- docker exec homeassistant python3 -c 'import sqlite3,json,datetime,os
+          p="/config/home-assistant_v2.db"
+          assert os.path.isfile(p),"Recorder database unavailable"
+          c=sqlite3.connect("file:"+p+"?mode=ro",uri=True,timeout=6)
+          cutoff=datetime.datetime(2026,10,31,18,25,tzinfo=datetime.timezone.utc).timestamp()
+          result={}
+          for entity in ("media_player.music_player_daemon","automation.westminster_chimes_half_and_hour"):
+           rows=c.execute("""SELECT s.state,s.last_updated_ts,a.shared_attrs FROM states s
+               JOIN states_meta m ON m.metadata_id=s.metadata_id
+               LEFT JOIN state_attributes a ON a.attributes_id=s.attributes_id
+               WHERE m.entity_id=? AND s.last_updated_ts>=?
+               ORDER BY s.state_id DESC LIMIT 14""",(entity,cutoff)).fetchall()
+           result[entity]=[]
+           for state,ts,attrs in rows:
+            at=datetime.datetime.fromtimestamp(ts,datetime.timezone.utc).isoformat()
+            parsed=json.loads(attrs or "{}")
+            result[entity].append({"state":state,"when":at,
+              "last_triggered":parsed.get("last_triggered"),
+              "media_content_id":str(parsed.get("media_content_id") or "")[:55]})
+          print("JNS_SCHEDULED_CLOCK_1830 "+json.dumps(result,sort_keys=True))
+          c.close()'
+          echo JNS_SCHEDULED_CLOCK_READONLY_AUDIT_COMPLETE
+          REMOTE
