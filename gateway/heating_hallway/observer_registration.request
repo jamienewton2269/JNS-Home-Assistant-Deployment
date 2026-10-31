@@ -1,0 +1,3 @@
+vm=905
+mode=read-only
+scope=post-restart-template-entity-registry-and-forecast-errors
