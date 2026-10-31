@@ -9,13 +9,13 @@ from pathlib import Path
 METRICS = {
     "heart_rate": ("bpm", "measurement", None),
     "resting_heart_rate": ("bpm", "measurement", None),
-    "heart_rate_variability": ("ms", "measurement", None),
+    "hrv": ("ms", "measurement", None),
     "oxygen_saturation": ("%", "measurement", None),
     "respiratory_rate": ("breaths/min", "measurement", None),
-    "daily_steps": ("steps", "total_increasing", None),
-    "daily_distance": ("m", "total_increasing", "distance"),
+    "steps": ("steps", "measurement", None),
+    "daily_distance": ("m", "measurement", "distance"),
     "sleep_duration": ("min", "measurement", "duration"),
-    "total_calories_burned": ("kcal", "total_increasing", None),
+    "total_calories_burned": ("kcal", "measurement", None),
 }
 # A readable state requires the source to exist and be numeric.
 # source's last_updated is NOT a guaranteed original measurement timestamp.
@@ -34,7 +34,8 @@ lines = [
 ]
 for label, prefix in (("a", a.profile_a), ("b", a.profile_b)):
     for suffix, (unit, state_class, devclass) in METRICS.items():
-        source = prefix + "_" + suffix
+        source_suffix = {"hrv": "heart_rate_variability", "steps": "daily_steps"}.get(suffix, suffix)
+        source = prefix + "_" + source_suffix
         name = f"JNS Health Profile {label.upper()} {suffix.replace('_', ' ').title()}"
         uid = f"jns_health_profile_{label}_{suffix}"
         lines += [f"      - name: \"{name}\"", f"        unique_id: {uid}",
