@@ -90,3 +90,41 @@
 
 **Current status:** code and offline tests proposed; exact current entity IDs
 and deployment permissions have not been authenticated. Do not claim live.
+
+
+## Verified live weather + thermometer evidence (31 Oct 2026)
+- [Registry source mapping](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/41225093482):
+  `weather.ha_general` is **Open-Meteo**, `weather.forecast_home` is **Met.no**; both present/enabled.
+  The live v0.3.4 config already targets `weather.ha_general` and
+  `sensor.thermostat_thermostat_outdoor_temperature`.
+  **Do not switch the forecast entity to Met.no simply because a prediction is unavailable.**
+- [Recorder precision check](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/41225380292):
+  Hallway reports 0.1°C observed steps, 17 records in past 24h (15 distinct
+  temperatures), median 3.0 minutes between recorded changes and 34.3-minute
+  largest observed gap. Honeywell indoor has 0.5°C smallest observed step.
+  Hallway history may cover only a recent portion of the day; never infer
+  24h of continuous coverage from a 24h Recorder search window.
+- [Weather API test](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/41224499021)
+  returned 401 through the Supervisor Core API proxy. The
+  [Node C credential probe](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/41224968467)
+  verified `github-runner` cannot access the root-only admin token directly,
+  through sudo or loopback SSH. Preserve this permission boundary. Therefore
+  **Open-Meteo's hourly get_forecasts response remains unverified**, despite
+  the provider entity being registered.
+- Candidate `weather_policy.py` uses the explicit provider, validates
+  forecast timezones, near-term coverage, observed temperature bounds and
+  90-minute cache freshness; outdoor sensor fallback is weather-current only
+  while fresh. The advisory forecast/suppression path stays disabled if any
+  evidence is missing. All of this remains PR-only until audited deployment.
+- Do not change Honeywell physical thermostat control, the 21°C-by-10:00
+  comfort goal, the 18°C bedtime setting or the security/away priority while
+  repairing the weather feed.
+
+## Next release requirement
+A root-approved, **fixed-purpose read-only weather.get_forecasts API probe**
+using the pre-existing protected HA admin credential is needed to validate
+the hourly Open-Meteo response. Do not loosen token permissions, turn a public
+workflow into arbitrary remote execution, or change private credentials to
+get around HTTP 401. After provider verification, complete the isolated
+hallway-only precision learner and guarded Core acceptance. This release
+does not activate the stale bathroom-based module.
