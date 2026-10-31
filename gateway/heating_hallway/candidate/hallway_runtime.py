@@ -12,6 +12,7 @@ from datetime import timedelta
 from math import isfinite
 from homeassistant.helpers.storage import Store
 from .thermal import ZoneLearner
+from .weather_policy import cached_forecast_valid
 
 EPOCH="hallway-precision-v1"
 HALLWAY="sensor.jns_hallway_house_temperature"
@@ -72,8 +73,7 @@ class HallwayAdvisory:
     async def update(self,*,now,outdoor,duty,forecast,forecast_at):
         hallway=self._hallway(now)
         fire=self._fire_influenced(now,hallway) if hallway is not None else True
-        weather_ok=bool(forecast and forecast_at and
-                        timedelta(seconds=0)<=now-forecast_at<=timedelta(minutes=90))
+        weather_ok=cached_forecast_valid(forecast,forecast_at,now)
         quality = (hallway is not None and not fire and outdoor is not None
                    and isfinite(outdoor) and -30<=outdoor<=45
                    and duty is not None and isfinite(duty) and 0<=duty<=1)
