@@ -4,3 +4,5 @@ run=20261031T1720Z
 no-setpoint-changes=true
 retry=2026-10-31T17:35Z
 mode=safe-error-summary
+retry=2026-10-31T17:36Z
+inner-syntax-verified=yes
