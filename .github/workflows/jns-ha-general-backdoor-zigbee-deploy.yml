@@ -1,0 +1,20 @@
+name: JNS HA-General Back Door Zigbee Migration
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/backdoor/deploy.request']
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-backdoor-zigbee
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/backdoor/patch_zigbee_v2.py gateway/backdoor/deploy.py
+          python3 gateway/backdoor/deploy.py
