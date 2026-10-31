@@ -1,0 +1,4 @@
+mode=readonly
+scope=ha905-hallway-fireplace-weather-24h-quality
+run=20261031T1720Z
+no-setpoint-changes=true
