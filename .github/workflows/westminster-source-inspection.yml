@@ -1,0 +1,25 @@
+name: Westminster bounded source inspection
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/source-inspect-2.request']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - name: Inspect limited media locations and integration status
+        shell: bash
+        run: |
+          ssh -o BatchMode=yes root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          echo === CONTAINER ===
+          pct exec 221 -- sh -c 'mpc lsplaylists; hostname -I'
+          echo === AUDIO SEARCH IN HA MEDIA ===
+          qm guest exec 905 -- /bin/sh -c 'for d in /mnt/data/supervisor/homeassistant/media /mnt/data/supervisor/homeassistant/www /mnt/data/media /mnt/data/share; do if test -d "$d"; then echo "$d"; find "$d" -maxdepth 5 -type f \( -iname "*.mp3" -o -iname "*.ogg" -o -iname "*.wav" \) 2>/dev/null | head -50; fi; done'
+          echo === EXISTING INTEGRATION METADATA REDACTED ===
+          qm guest exec 905 -- /bin/sh -c 'python3 -c "import json; p=json.load(open(\x27/mnt/data/supervisor/homeassistant/.storage/core.config_entries\x27)); print([(e.get(\x27entry_id\x27),e.get(\x27title\x27),e.get(\x27disabled_by\x27),e.get(\x27data\x27,{}).get(\x27host\x27),e.get(\x27data\x27,{}).get(\x27port\x27)) for e in p[\x27data\x27][\x27entries\x27] if e.get(\x27domain\x27)==\x27mpd\x27])"'
+          echo === LOCAL DNS ===
+          getent ahostsv4 house-audio-b.home.arpa
+          REMOTE
