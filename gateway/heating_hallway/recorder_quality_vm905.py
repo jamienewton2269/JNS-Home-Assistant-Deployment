@@ -81,7 +81,11 @@ def main():
  while not r.get("exited"):
   if not isinstance(r.get("pid"),int) or time.monotonic()>until:raise RuntimeError("VM905 inspection unverified")
   time.sleep(2);r=json.loads(ssh_host("nodeb",["qm","guest","exec-status","905",str(r["pid"])]))
- if r.get("exitcode")!=0:raise RuntimeError("VM905 inspection rejected")
+ if r.get("exitcode")!=0:
+  # One sanitized exception summary only; never export raw database rows.
+  err=(r.get("err-data") or "").splitlines()
+  tail=(err[-1] if err else "unclassified")[:160]
+  raise RuntimeError("VM905 readonly recorder inspection rejected: "+tail)
  result=(r.get("out-data") or "").strip()
  if not result.startswith("JNS_HALLWAY_INPUT_READONLY "):raise RuntimeError("invalid report")
  print(result,flush=True)
