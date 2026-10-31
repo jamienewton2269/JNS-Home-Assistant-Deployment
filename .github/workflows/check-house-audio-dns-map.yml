@@ -1,0 +1,15 @@
+name: Check stale House Audio DNS mapping
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/dns-map.request']
+permissions: {contents: read}
+jobs:
+  check:
+    runs-on: [self-hosted, linux, x64, nodec]
+    steps:
+      - run: |
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          pct exec 248 -- sh -c 'grep -nEi "house-audio-b|10.10.110.229|10.10.200.85" /var/lib/jnsdns/releases/15/hosts.static /etc/jnsdns/dhcp-peers.hosts /etc/hosts 2>/dev/null || true'
+          qm guest exec 905 -- /bin/sh -c 'jq -c "\u002e.data.entries[] | select(.domain==\"mpd\") | {entry_id,title,disabled_by,host:.data.host,port:.data.port}" /mnt/data/supervisor/homeassistant/.storage/core.config_entries'
+          REMOTE
