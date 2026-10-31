@@ -12,8 +12,10 @@ class HousePackageTests(unittest.TestCase):
     def test_template_schema_and_source_tokens(self):
         self.assertIn("__HALLWAY_TEMP_ENTITY__",RAW)
         self.assertIn("__FIREPLACE_TEMP_ENTITY__",RAW)
+        self.assertIn("__NATIVE_HALLWAY_FORECAST_ENTITY__",RAW)
+        self.assertIn("__NATIVE_HALLWAY_LEARNING_ENTITY__",RAW)
         self.assertEqual(set(PKG["input_boolean"]),{"jns_fireplace_override_enabled"})
-        self.assertEqual(len(PKG["template"][0]["sensor"]),3)
+        self.assertEqual(len(PKG["template"][0]["sensor"]),5)
         self.assertEqual(len(PKG["template"][1]["binary_sensor"]),2)
     def test_jinja_syntax(self):
         env=Environment()
