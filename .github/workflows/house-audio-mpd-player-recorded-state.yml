@@ -1,0 +1,27 @@
+name: HA-General MPD player Recorder state audit
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/mpd_player_recorded_state.request']
+permissions: {contents: read}
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Check recent recorded MPD player states and clock actions
+        shell: bash
+        run: |
+          ssh -o BatchMode=yes root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -e
+          echo JNS_MPD_RECORDER_CHECK_START
+          qm guest exec 905 --timeout 35 -- docker exec homeassistant python3 -c 'import sqlite3,datetime,os,json
+          p="/config/home-assistant_v2.db"; print("db_exists",os.path.isfile(p))
+          if os.path.isfile(p):
+           c=sqlite3.connect("file:"+p+"?mode=ro",uri=True,timeout=4)
+           for entity in ("media_player.music_player_daemon","automation.westminster_chimes_half_and_hour"):
+            rows=c.execute("SELECT s.state,s.last_updated_ts FROM states s JOIN states_meta m ON s.metadata_id=m.metadata_id WHERE m.entity_id=? ORDER BY s.state_id DESC LIMIT 5",(entity,)).fetchall()
+            print("JNS_MPD_RECORDED",json.dumps({"entity":entity,"states":[{"state":a,"at":datetime.datetime.fromtimestamp(b,datetime.timezone.utc).isoformat() if b else None} for a,b in rows]}))
+           c.close()' || true
+          echo JNS_MPD_RECORDER_CHECK_DONE
+          REMOTE
