@@ -42,6 +42,38 @@ template:
         attributes:
           source_entity: "__FIREPLACE_TEMP_ENTITY__"
           placement: fireplace-livingroom
+      - name: JNS Hallway Thermal Forecast 60m
+        unique_id: jns_hallway_thermal_forecast_60m_v1
+        icon: mdi:chart-line
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "°C"
+        availability: >-
+          {{ is_number(states('__NATIVE_HALLWAY_FORECAST_ENTITY__'))
+             and state_attr('__NATIVE_HALLWAY_FORECAST_ENTITY__','validated') == true
+             and state_attr('__NATIVE_HALLWAY_FORECAST_ENTITY__','source_epoch') == 'hallway-precision-v1'
+             and state_attr('__NATIVE_HALLWAY_FORECAST_ENTITY__','weather_forecast_fresh') == true }}
+        state: "{{ states('__NATIVE_HALLWAY_FORECAST_ENTITY__') | float }}"
+        attributes:
+          source_epoch: hallway-precision-v1
+          validated: >-
+            {{ state_attr('__NATIVE_HALLWAY_FORECAST_ENTITY__','validated') == true }}
+          weather_forecast_fresh: >-
+            {{ state_attr('__NATIVE_HALLWAY_FORECAST_ENTITY__','weather_forecast_fresh') == true }}
+      - name: JNS Hallway Thermal Learning
+        unique_id: jns_hallway_thermal_learning_v1
+        icon: mdi:chart-bell-curve-cumulative
+        state: "{{ states('__NATIVE_HALLWAY_LEARNING_ENTITY__') }}"
+        attributes:
+          ready: >-
+            {{ state_attr('__NATIVE_HALLWAY_LEARNING_ENTITY__','ready') == true }}
+          source_epoch: hallway-precision-v1
+          loss_per_hour: >-
+            {{ state_attr('__NATIVE_HALLWAY_LEARNING_ENTITY__','loss_per_hour') | float(0) }}
+          heat_gain_c_per_hour: >-
+            {{ state_attr('__NATIVE_HALLWAY_LEARNING_ENTITY__','heat_gain_c_per_hour') | float(0) }}
+          drift_c_per_hour: >-
+            {{ state_attr('__NATIVE_HALLWAY_LEARNING_ENTITY__','drift_c_per_hour') | float(0) }}
       - name: JNS Honeywell Target Temperature
         unique_id: jns_honeywell_target_temperature_v1
         icon: mdi:thermostat
