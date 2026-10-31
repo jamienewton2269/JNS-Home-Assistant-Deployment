@@ -15,8 +15,7 @@ finished=0
 qga() {
   local raw
   raw="$(qm guest exec "$VM" --timeout 150 -- "$@")"
-  jq -e '(.exited == 1 or .exited == true) and (.exitcode == 0)' <<<"$raw" >/dev/null
-  jq -r '."out-data" // ""' <<<"$raw"
+  printf '%s' "$raw" | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r.get("exited") and r.get("exitcode")==0, "VM905 guest command failed"; print(r.get("out-data") or "", end="")'
 }
 recovery() {
   local rc=$?
