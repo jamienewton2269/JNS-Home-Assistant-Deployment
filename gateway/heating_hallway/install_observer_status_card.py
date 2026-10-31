@@ -55,7 +55,7 @@ print('JNS_TRENDS_INPUTS_PLAN '+json.dumps({
  'before_sha256':h(before),'after_sha256':h(newdata),'views':len(views),
  'new_entities':len(required),'no_thermostat_changes':True},sort_keys=True),flush=True)
 if '--apply' not in sys.argv:sys.exit(0)
-runid=sys.argv[1];assert runid.isdecimal()
+runid=sys.argv[2];assert runid.isdecimal()
 bdir=pathlib.Path('/config/.jns-backups')/('hallway-weather-trends-'+runid)
 bdir.mkdir(mode=0o700,parents=True,exist_ok=False)
 backup=bdir/'testing.yaml';backup.write_bytes(before);backup.chmod(0o600)
