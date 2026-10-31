@@ -47,7 +47,7 @@ jobs:
           test -n "$TEMPLATE" || { echo 'REFUSED: reviewed Debian 13.6 amd64 template missing'; exit 1; }
           AVAILABLE_KB="$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)"
           test "$AVAILABLE_KB" -ge 3145728 || { echo 'REFUSED: need at least 3 GiB host memory available'; exit 1; }
-          if pct list | awk 'NR>1 && $4=="club-manager-dev" {found=1} END{exit !found}'; then
+          if pct list | awk 'NR>1 && $NF=="club-manager-dev" {found=1} END{exit !found}'; then
             echo 'Existing club-manager-dev detected; refusing to create another'
             exit 1
           fi
