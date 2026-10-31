@@ -1,0 +1,21 @@
+name: JNS HA-General Native Temperature Trends Guarded Deploy
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/heating_hallway/native_trends_deploy.request']
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-native-temperature-trends
+  cancel-in-progress: false
+jobs:
+  dashboard:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify source and apply only Testing temperature view
+        run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/heating_hallway/deploy_native_temperature_view_vm905.py
+          python3 gateway/heating_hallway/deploy_native_temperature_view_vm905.py
