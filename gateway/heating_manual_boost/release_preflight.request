@@ -1,0 +1,4 @@
+mode=read-only
+vm=905
+scope=exact-hash Honeywell manual target controlled upgrade
+run=2026-10-31 preflight
