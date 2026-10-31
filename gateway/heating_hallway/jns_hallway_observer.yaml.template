@@ -1,0 +1,132 @@
+# JNS Hallway Precision & Open-Meteo Telemetry v1 — HA-General 905
+# Passive observation. NO climate services, no alarm changes, no heating commands.
+# Private Hallway/Fireplace entity IDs are resolved by the gated VM905 installer.
+template:
+  - sensor:
+      - name: JNS Hallway House Temperature
+        unique_id: jns_hallway_house_temperature_v1
+        icon: mdi:home-thermometer
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "°C"
+        availability: >-
+          {% set s = states['__HALLWAY_TEMP_ENTITY__'] %}
+          {{ s is not none and is_number(s.state)
+             and 0 <= as_timestamp(now()) - as_timestamp(s.last_reported,0) <= 1800
+             and 0 <= s.state | float <= 40 }}
+        state: "{{ states('__HALLWAY_TEMP_ENTITY__') | float }}"
+        attributes:
+          source_epoch: hallway-precision-v1
+          authority: hallway
+          source_entity: "__HALLWAY_TEMP_ENTITY__"
+      - name: JNS Fireplace Temperature
+        unique_id: jns_fireplace_temperature_v1
+        icon: mdi:fireplace
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "°C"
+        availability: >-
+          {% set s = states['__FIREPLACE_TEMP_ENTITY__'] %}
+          {{ s is not none and is_number(s.state)
+             and 0 <= as_timestamp(now()) - as_timestamp(s.last_reported,0) <= 1800
+             and 0 <= s.state | float <= 45 }}
+        state: "{{ states('__FIREPLACE_TEMP_ENTITY__') | float }}"
+        attributes:
+          source_entity: "__FIREPLACE_TEMP_ENTITY__"
+      - name: JNS Honeywell Target Temperature
+        unique_id: jns_honeywell_target_temperature_v1
+        icon: mdi:thermostat
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "°C"
+        availability: "{{ is_number(state_attr('climate.thermostat_thermostat','temperature')) }}"
+        state: "{{ state_attr('climate.thermostat_thermostat','temperature') | float }}"
+  - binary_sensor:
+      - name: JNS Fireplace Heat Detected
+        unique_id: jns_fireplace_heat_detected_v1
+        icon: mdi:fire
+        delay_on: "00:15:00"
+        delay_off: "00:30:00"
+        state: >-
+          {% set f = states('sensor.jns_fireplace_temperature') | float(none) %}
+          {% set h = states('sensor.jns_hallway_house_temperature') | float(none) %}
+          {{ f is not none and h is not none and f >= 23 and (f-h) >= 2.0 }}
+      - name: JNS Fireplace Override Safe
+        unique_id: jns_fireplace_override_safe_v1
+        icon: mdi:shield-check
+        state: "false"
+        attributes:
+          status: shadow-only
+          reason: "No thermostat suppression permitted until independently validated hallway cooling and weather predictions"
+  # Invoke the forecast service using Home Assistant's OWN internal service
+  # context. No external API, no leaked admin token, no guessed result.
+  - triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: time_pattern
+        minutes: "/15"
+    actions:
+      - action: weather.get_forecasts
+        target:
+          entity_id: weather.ha_general
+        data:
+          type: hourly
+        response_variable: weather_response
+    sensor:
+      - name: JNS Hallway Hourly Open Meteo
+        unique_id: jns_hallway_hourly_open_meteo_v1
+        icon: mdi:weather-partly-cloudy
+        state: >-
+          {% set x = weather_response.get('weather.ha_general',{}) if weather_response is mapping else {} %}
+          {% set rows = x.get('forecast',[]) %}
+          {% if rows | count >= 2 and rows[0].datetime is defined and
+                rows[-1].datetime is defined and
+                as_timestamp(rows[-1].datetime,0) >= as_timestamp(now()) + 3600 %}
+            Fresh
+          {% else %}
+            Incomplete
+          {% endif %}
+        attributes:
+          provider: weather.ha_general
+          source: Open-Meteo
+          fetched_at: "{{ now().isoformat() }}"
+          total_hourly_points: >-
+            {{ weather_response.get('weather.ha_general',{}).get('forecast',[]) | count
+               if weather_response is mapping else 0 }}
+          forecast_near_future_c: >-
+            {% set x = weather_response.get('weather.ha_general',{}) if weather_response is mapping else {} %}
+            {% set rows = x.get('forecast',[]) %}
+            {% set n=namespace(best=none,delta=100000000) %}
+            {% for r in rows %}
+              {% set sec = as_timestamp(r.datetime,0) - (as_timestamp(now())+3600) %}
+              {% if sec | abs < n.delta and is_number(r.temperature) %}
+                {% set n.best = r.temperature | float %}
+                {% set n.delta = sec | abs %}
+              {% endif %}
+            {% endfor %}
+            {{ n.best if n.best is not none and n.delta <= 2400 else 'unavailable' }}
+          available_horizon: >-
+            {% set x = weather_response.get('weather.ha_general',{}) if weather_response is mapping else {} %}
+            {% set rows = x.get('forecast',[]) %}
+            {{ rows|count >= 2 and rows[0].datetime is defined and
+               rows[-1].datetime is defined and
+               as_timestamp(rows[0].datetime,0) <= as_timestamp(now())+3900 and
+               as_timestamp(rows[-1].datetime,0) >= as_timestamp(now())+3600 }}
+  - sensor:
+      - name: JNS Hallway Weather Input Status
+        unique_id: jns_hallway_weather_input_status_v1
+        state: >-
+          {% set w=states['sensor.jns_hallway_hourly_open_meteo'] %}
+          {% if w is not none and w.state == 'Fresh' and
+              state_attr(w.entity_id,'available_horizon') == true and
+              is_number(state_attr(w.entity_id,'forecast_near_future_c')) and
+              0 <= as_timestamp(now()) -
+                as_timestamp(state_attr(w.entity_id,'fetched_at'),0) <= 5400 %}
+            Ready
+          {% else %}
+            Unavailable
+          {% endif %}
+        attributes:
+          provider: weather.ha_general
+          freshness_limit_minutes: 90
+          source_epoch: hallway-precision-v1
