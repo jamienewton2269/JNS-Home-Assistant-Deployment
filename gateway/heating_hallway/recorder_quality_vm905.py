@@ -49,11 +49,19 @@ if db.exists():
      f=float(v)
      if math.isfinite(f) and -30<f<70:numeric.append((f,t))
     except (TypeError,ValueError):pass
-   unique=len(set(round(v,2) for v,t in numeric))
+   levels=sorted({round(v,2) for v,t in numeric})
+   unique=len(levels)
+   increments=[round(b-a,3) for a,b in zip(levels,levels[1:]) if b>a]
+   smallest_step=min(increments) if increments else None
+   sample_times=sorted({t for _,t in numeric if t is not None})
+   gaps=[(b-a)/60 for a,b in zip(sample_times,sample_times[1:])]
    latest=min(((now.timestamp()-t) for _,t in numeric if t is not None),default=None)
    report[k]={"samples_24h":len(numeric),"unique_temperatures_24h":unique,
               "last_recorder_age_minutes":None if latest is None else round(latest/60,1),
-              "resolution_0p1_or_better":unique>=3,
+              "smallest_observed_step_c":smallest_step,
+              "resolution_0p1_or_better":smallest_step is not None and smallest_step<=0.11,
+              "median_reporting_gap_minutes":round(sorted(gaps)[len(gaps)//2],1) if gaps else None,
+              "max_reporting_gap_minutes":round(max(gaps),1) if gaps else None,
               "min_max_delta":round(max(v for v,_ in numeric)-min(v for v,_ in numeric),1) if numeric else None}
   except (sqlite3.Error,ValueError):
    report[k]={"history":"not_available"}
