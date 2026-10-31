@@ -1,0 +1,5 @@
+target=house-audio-b.home.arpa
+node=nodeb
+vm=905
+operation=mpd-and-receiver-readonly
+reason=clock-plays-but-audio-player-unavailable
