@@ -1,0 +1,17 @@
+name: Check HA-General MPD entity ownership
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/ha-entity-inspect.request']
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    steps:
+      - run: |
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          echo '=== MPD ENTITY REGISTRY ==='
+          qm guest exec 905 -- /usr/bin/jq -c '.data.entities[] | select(.platform=="mpd") | {entity_id,unique_id,config_entry_id,disabled_by}' /mnt/data/supervisor/homeassistant/.storage/core.entity_registry
+          echo '=== HA CORE CONTROL ==='
+          qm guest exec 905 -- /bin/sh -c 'command -v ha; ha core info | head -15'
+          REMOTE
