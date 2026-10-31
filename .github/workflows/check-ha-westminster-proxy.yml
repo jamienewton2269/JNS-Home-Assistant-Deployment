@@ -1,0 +1,14 @@
+name: Check HA clock state via supervisor proxy
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/supervisor-clock-state.request']
+permissions: {contents: read}
+jobs:
+  check:
+    runs-on: [self-hosted, linux, x64, nodec]
+    steps:
+      - run: |
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          qm guest exec 905 -- docker exec homeassistant python3 -c 'import os,json,urllib.request; u="http://supervisor/core/api/states/media_player.music_player_daemon"; r=urllib.request.Request(u,headers={"Authorization":"Bearer "+os.environ["SUPERVISOR_TOKEN"]}); d=json.load(urllib.request.urlopen(r,timeout=15)); print({"entity_id":d.get("entity_id"),"state":d.get("state"),"source_list":d.get("attributes",{}).get("source_list")})'
+          REMOTE
