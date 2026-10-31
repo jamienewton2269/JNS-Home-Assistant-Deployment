@@ -1,0 +1,22 @@
+name: Westminster HA API preflight
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/ha-api-audit.request']
+permissions: {contents: read}
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - name: Check media player and existing clock helpers without secrets
+        shell: bash
+        run: |
+          set -e
+          tokenfile=/etc/jns/credentials/ha-general.token
+          test -s "$tokenfile"
+          TOKEN=$(cat "$tokenfile")
+          for eid in media_player.music_player_daemon script.jns_westminster_test_half script.jns_clock_test_selected_hour input_boolean.jns_westminster_enabled input_select.general_clock_sound; do
+            echo "=== $eid ==="
+            curl -fsS -H "Authorization: Bearer $TOKEN" "http://ha-general.home.arpa/api/states/$eid" | python3 -c 'import json,sys; d=json.load(sys.stdin); a=d.get("attributes",{}); print({"entity_id":d.get("entity_id"),"state":d.get("state"),"friendly_name":a.get("friendly_name"),"source_list":a.get("source_list"),"media_title":a.get("media_title")})' || true
+          done
