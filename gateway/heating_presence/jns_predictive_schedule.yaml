@@ -71,7 +71,7 @@ template:
           {% set alarm = states('sensor.jns_heating_verified_alarm_state') %}
           {% if is_state('input_boolean.jns_heating_manual_setpoint_hold','on') and
                 is_number(states('input_number.jns_heating_manual_target')) %}
-            {% set target = states('input_number.jns_heating_manual_target') | float %}
+            {% set target = state_attr('climate.thermostat_thermostat','temperature') | float(states('input_number.jns_heating_manual_target') | float(21)) %}
             {{ [target, away] | max if alarm == 'armed_away' else target }}
           {% elif alarm == 'armed_away' %}
             {{ away }}
@@ -257,7 +257,7 @@ automation:
           minutes_now: "{{ now().hour * 60 + now().minute }}"
           preheat: "{{ states('sensor.jns_heating_predictive_preheat_minutes') | int(120) }}"
           user_target: "{{ states('sensor.jns_heating_active_requested_target') | float(21) }}"
-          manual_target: "{{ states('input_number.jns_heating_manual_target') | float(21) }}"
+          manual_target: "{{ state_attr('climate.thermostat_thermostat','temperature') | float(states('input_number.jns_heating_manual_target') | float(21)) }}"
           away_min: "{{ states('input_number.jns_heating_away_minimum_temp') | float(15) }}"
           cooling: "{{ [states('sensor.jns_heating_predictive_cooling_minutes') | int(60), 150] | min }}"
           bedtime_offset: "{{ states('input_number.jns_heating_bedtime_mean_offset') | int(600) }}"
