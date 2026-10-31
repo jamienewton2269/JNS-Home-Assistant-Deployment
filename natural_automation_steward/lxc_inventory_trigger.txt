@@ -1,4 +1,4 @@
 requested=2026-10-31
-purpose=house-audio-b-lxc-preflight
+purpose=house-audio-b-ct221-verification
 node=nodeb
 protect_existing_vm=true
