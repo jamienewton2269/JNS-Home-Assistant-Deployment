@@ -1,0 +1,18 @@
+name: HA-General weather and hourly forecast read-only diagnosis
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/heating_hallway/weather_diagnosis.request']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify weather provider, API forecast and heating config
+        run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/heating_hallway/diagnose_weather_vm905.py
+          python3 gateway/heating_hallway/diagnose_weather_vm905.py
