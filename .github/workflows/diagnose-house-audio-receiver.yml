@@ -1,0 +1,22 @@
+name: Diagnose House Audio receiver restarts
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/receiver-diagnostic.request']
+permissions: {contents: read}
+jobs:
+  check:
+    runs-on: [self-hosted, linux, x64, nodec]
+    steps:
+      - run: |
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          echo '=== RECEIVER ==='
+          systemctl status jns-audio-receiver --no-pager -l | tail -25
+          journalctl -u jns-audio-receiver -n 45 --no-pager
+          echo '=== PROCESSES ==='
+          ps -eo pid,stat,comm,args | grep -E 'ogg123|bluealsa' | grep -v grep
+          echo '=== BLUETOOTH ==='
+          bluetoothctl info 91:56:5F:5E:55:47 | grep -E 'Connected|Paired|Trusted'
+          echo '=== STREAM ==='
+          curl -I -sS --max-time 4 http://10.10.200.85:8000 | head -7
+          REMOTE
