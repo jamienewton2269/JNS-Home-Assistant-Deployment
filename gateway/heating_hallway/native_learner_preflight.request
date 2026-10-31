@@ -1,0 +1,4 @@
+mode=read-only
+vm=905
+required_source=verified-hallway-fireplace-OpenMeteo
+scope=standalone-native-heating-observation-only
