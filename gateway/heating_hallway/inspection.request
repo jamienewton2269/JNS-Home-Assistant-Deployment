@@ -3,3 +3,4 @@ mode=readonly
 vm=905
 run=20261031T1603Z
 no-live-writes=true
+read_only_recheck=2026-10-31-19h25-live-heating-gate
