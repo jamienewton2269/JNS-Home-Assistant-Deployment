@@ -1,0 +1,8 @@
+vm=905
+mode=guarded-source-switch
+current=Honeywell-quantized-model
+replacement=Hallway-observed-warmup
+weather=Home-Assistant-OpenMeteo-Ready
+fallback=120-minutes-until-three-cycles
+manual_Honeywell=preserve
+fireplace-suppression=hard-off
