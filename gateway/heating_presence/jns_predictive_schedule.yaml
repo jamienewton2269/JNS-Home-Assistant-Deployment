@@ -75,6 +75,11 @@ template:
             {{ [target, away] | max if alarm == 'armed_away' else target }}
           {% elif alarm == 'armed_away' %}
             {{ away }}
+          {% elif states('input_datetime.jns_heating_last_auto_command_time') in ['unknown','unavailable','']
+                and is_number(state_attr('climate.thermostat_thermostat','temperature'))
+                and state_attr('climate.thermostat_thermostat','temperature') | float not in [18,21] %}
+            {# Preserve pre-existing wall/UI target on first installation. #}
+            {{ state_attr('climate.thermostat_thermostat','temperature') | float }}
           {% else %}
             21
           {% endif %}
