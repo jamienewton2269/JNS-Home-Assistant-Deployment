@@ -1,3 +1,4 @@
 mode=read-only
 vm=905
 reason=Core restarted but helper registry attestation incomplete
+recheck=after-core-startup-2026-10-31T18-52
