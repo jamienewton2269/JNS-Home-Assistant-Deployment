@@ -134,7 +134,8 @@ grep -v 'ha-steward-ct221$' "$AUTH" > "$AUTH_TMP" || true
 printf '%s %s\n' 'from="10.10.0.0/16",restrict,command="/usr/local/sbin/ha-steward-pve-wrapper"' "$PUBKEY" >> "$AUTH_TMP"
 cat "$AUTH_TMP" > "$AUTH"
 rm -f "$AUTH_TMP"
-grep -q 'ha-steward-ct221
+grep -q 'ha-steward-ct221$' "$AUTH" || { echo 'restricted bridge key install unverified' >&2; exit 65; }
+BRIDGE_HOST=''
 for candidate in nodeb.jnsystems.xyz nodeb.home.arpa; do
   if pct exec "$CTID" -- getent ahosts "$candidate" >/dev/null 2>&1; then
     BRIDGE_HOST="$candidate"
