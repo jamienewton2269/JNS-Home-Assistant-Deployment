@@ -1,0 +1,19 @@
+name: JNS HA-General Manual Heating Status Card
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/heating_manual_boost/status_card.request']
+permissions: {contents: read}
+concurrency:
+  group: jns-ha905-native-temperature-trends
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/heating_manual_boost/install_status_card.py
+          python3 gateway/heating_manual_boost/install_status_card.py
