@@ -1,0 +1,35 @@
+name: Verify live original Westminster and HA schedule
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/live-original-test.request']
+permissions: {contents: read}
+jobs:
+  test:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - shell: bash
+        run: |
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          echo '=== HA CONFIG ==='
+          qm guest exec 905 -- /bin/sh -c 'sed -n "1,60p" /mnt/data/supervisor/homeassistant/packages/ha_general_westminster.yaml; sed -n "115,190p" /mnt/data/supervisor/homeassistant/packages/ha_general_westminster.yaml'
+          echo '=== HA HTTP ==='
+          curl -sS -o /dev/null -w 'HTTP:%{http_code}\n' --max-time 10 http://ha-general.home.arpa/api/
+          echo '=== RECEIVER ==='
+          systemctl is-active jns-audio-receiver
+          bluetoothctl info 91:56:5F:5E:55:47 | grep 'Connected:'
+          echo '=== PLAY ORIGINAL WESTMINSTER HALF ==='
+          test "$(pct exec 221 -- mpc playlist jns_westminster_half)" = half.mp3
+          pct exec 221 -- mpc clear >/dev/null
+          pct exec 221 -- mpc repeat off >/dev/null
+          pct exec 221 -- mpc load jns_westminster_half >/dev/null
+          pct exec 221 -- mpc play
+          sleep 4
+          echo '=== AFTER PLAY ==='
+          pct exec 221 -- mpc status
+          systemctl is-active jns-audio-receiver
+          journalctl -u jns-audio-receiver --since '-1 minute' --no-pager | grep -E 'Starting IO loop|Device or resource busy|Failed|Prepared' | tail -10 || true
+          echo ORIGINAL_WESTMINSTER_PLAYBACK_COMMAND_COMPLETED
+          REMOTE
