@@ -1,0 +1,35 @@
+name: Resolve duplicate House Audio stream
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/resolve-duplicate.request']
+permissions: {contents: read}
+jobs:
+  repair:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - name: Stop legacy foreground player and test managed receiver
+        shell: bash
+        run: |
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          echo '=== LEGACY FOREGROUND PLAYER ==='
+          if test -r /proc/882903/cmdline && tr '\0' ' ' </proc/882903/cmdline | grep -q '^ogg123 .*10.10.200.85:8000'; then
+            kill 882903
+            echo 'Stopped only legacy manually launched ogg123'
+          fi
+          sleep 2
+          systemctl restart jns-audio-receiver
+          sleep 4
+          systemctl is-active jns-audio-receiver
+          pgrep -af ogg123 || true
+          echo '=== PLAY WESTMINSTER HALF ==='
+          pct exec 221 -- mpc clear
+          pct exec 221 -- mpc load jns_westminster_half
+          pct exec 221 -- mpc play
+          sleep 2
+          pct exec 221 -- mpc status
+          systemctl is-active jns-audio-receiver
+          journalctl -u jns-audio-receiver -n 12 --no-pager
+          REMOTE
