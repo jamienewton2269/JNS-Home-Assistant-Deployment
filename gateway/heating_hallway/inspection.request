@@ -1,0 +1,5 @@
+scope=hallway-source-identity,fireplace-identity,heating-dependencies,dashboard
+mode=readonly
+vm=905
+run=20261031T1603Z
+no-live-writes=true
