@@ -1,0 +1,35 @@
+name: Enable House Audio B software volume
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/volume-fix.request']
+permissions: {contents: read}
+jobs:
+  fix:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - shell: bash
+        run: |
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          pct exec 221 -- sh -c '
+            set -e
+            f=/etc/mpd.conf
+            cp -p "$f" "$f.before-jns-volume-20261031"
+            if ! grep -q "mixer_type.*software" "$f"; then
+              sed -i "/type *\"httpd\"/a\\    mixer_type \"software\"" "$f"
+            fi
+            grep -A9 "type *\"httpd\"" "$f" | head -10
+            systemctl restart mpd
+          '
+          sleep 3
+          echo '=== VOLUME CHECK ==='
+          pct exec 221 -- mpc volume 65
+          pct exec 221 -- mpc volume
+          pct exec 221 -- mpc volume 90
+          echo '=== STREAM AND RECEIVER ==='
+          curl -fsSI --max-time 8 http://house-audio-b.home.arpa:8000/ | head -4
+          systemctl is-active jns-audio-receiver
+          echo SOFTWARE_VOLUME_WORKING
+          REMOTE
