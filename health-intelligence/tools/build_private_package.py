@@ -25,7 +25,7 @@ p.add_argument("--profile-b", required=True)
 p.add_argument("--out", required=True)
 a = p.parse_args()
 for prefix in (a.profile_a, a.profile_b):
-    if not prefix.replace("_", "").isalnum() or not prefix.startswith("sensor."):
+    if not prefix.replace("_", "").replace(".", "").isalnum() or not prefix.startswith("sensor."):
         p.error("Prefix must be an entity prefix such as sensor.example_phone")
 lines = [
     "# Private HA-General template package. Generated locally; never commit.",
