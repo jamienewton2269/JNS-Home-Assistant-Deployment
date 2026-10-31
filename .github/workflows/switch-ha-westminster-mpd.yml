@@ -1,0 +1,45 @@
+name: Switch HA-General Westminster MPD to House Audio B
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/ha-mpd-switch.request']
+permissions: {contents: read}
+concurrency:
+  group: jns-ha-general-mpd-switch
+  cancel-in-progress: false
+jobs:
+  switch:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 18
+    steps:
+      - name: Guarded HA-General MPD endpoint migration with rollback
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          test "$(pct exec 221 -- mpc playlist jns_westminster_half)" = "half.mp3"
+          for i in $(seq 1 12); do n=$(printf '%02d' "$i"); test "$(pct exec 221 -- mpc playlist jns_westminster_hour_$n)" = "hour_$n.mp3"; done
+          echo "Original MPD playlists verified"
+          qm guest exec 905 -- /usr/bin/jq -e '.data.entries[] | select(.entry_id=="01M4VJYJGS81KFN0FNGJJWM39B" and .domain=="mpd" and .data.host=="house-audio-a.home.arpa" and .disabled_by==null)' /mnt/data/supervisor/homeassistant/.storage/core.config_entries >/dev/null
+          qm guest exec 905 -- /usr/bin/jq -e '.data.entities[] | select(.entity_id=="media_player.music_player_daemon" and .config_entry_id=="01M4VJYJGS81KFN0FNGJJWM39B")' /mnt/data/supervisor/homeassistant/.storage/core.entity_registry >/dev/null
+          echo "HA-General existing integration and clock entity verified"
+          echo "Stopping HA Core for transactional registry change"
+          qm guest exec 905 --timeout 120 -- ha core stop
+          file=/mnt/data/supervisor/homeassistant/.storage/core.config_entries
+          backup="$file.before-house-audio-b-20261031"
+          qm guest exec 905 -- /bin/cp -p "$file" "$backup"
+          qm guest exec 905 -- /usr/bin/jq --arg host house-audio-b.home.arpa '(.data.entries[] | select(.entry_id=="01M4VJYJGS81KFN0FNGJJWM39B") | .data) |= (.host = $host | .password = "")' "$backup" > /tmp/jns-ha-mpd-migrate.stdout
+          # The guest agent prints an envelope rather than raw jq output. Use in-guest shell for atomic editing instead.
+          qm guest exec 905 -- /bin/sh -c 'f=/mnt/data/supervisor/homeassistant/.storage/core.config_entries; b="$f.before-house-audio-b-20261031"; jq --arg host house-audio-b.home.arpa '"'"'(.data.entries[] | select(.entry_id=="01M4VJYJGS81KFN0FNGJJWM39B") | .data) |= (.host = $host | .password = "")'"'"' "$b" > "$f.jns-migrate-stage" && jq -e '"'"'.data.entries[] | select(.entry_id=="01M4VJYJGS81KFN0FNGJJWM39B" and .data.host=="house-audio-b.home.arpa")'"'"' "$f.jns-migrate-stage" >/dev/null && mv "$f.jns-migrate-stage" "$f" && chmod 600 "$f"'
+          echo "Starting HA Core"
+          if ! qm guest exec 905 --timeout 120 -- ha core start; then
+            echo "Core start failed, restoring original MPD entry"
+            qm guest exec 905 -- /bin/cp -p "$backup" "$file" || true
+            qm guest exec 905 --timeout 120 -- ha core start || true
+            exit 1
+          fi
+          echo "=== NEW MPD ENDPOINT ==="
+          qm guest exec 905 -- /usr/bin/jq -c '.data.entries[] | select(.entry_id=="01M4VJYJGS81KFN0FNGJJWM39B") | {entry_id,host:.data.host,disabled_by}' "$file"
+          echo HA_MPD_SWITCH_APPLIED
+          REMOTE
