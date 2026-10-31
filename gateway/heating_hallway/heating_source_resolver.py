@@ -41,7 +41,9 @@ def _temperatures_for_device(entities, device_id):
         if not eid.startswith("sensor."):
             continue
         kind = e.get("device_class") or e.get("original_device_class")
-        if kind == "temperature" or eid.endswith("_temperature"):
+        if eid.endswith("_humidity") and kind == "temperature":
+            raise ResolutionError("Contradictory temperature/humidity classification")
+        if kind == "temperature" or (kind in (None, "") and eid.endswith("_temperature")):
             choices.append(eid)
     return sorted(set(choices))
 
