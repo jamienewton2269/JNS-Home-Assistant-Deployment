@@ -1,0 +1,18 @@
+name: JNS Hallway Thermometer Recorder Quality Audit
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/heating_hallway/recorder_quality.request']
+permissions:
+  contents: read
+jobs:
+  source-quality:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm 24h source precision and forecast config without writes
+        run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/heating_hallway/recorder_quality_vm905.py
+          python3 gateway/heating_hallway/recorder_quality_vm905.py
