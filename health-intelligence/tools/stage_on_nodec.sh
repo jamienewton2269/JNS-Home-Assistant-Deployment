@@ -16,9 +16,11 @@ for name, local in [
         (dest / local).write_bytes(r.read())
     (dest / local).chmod(0o600)
 PY
+: "${JNS_HEALTH_PROFILE_A:?Set private sensor prefix for Profile A}"
+: "${JNS_HEALTH_PROFILE_B:?Set private sensor prefix for Profile B}"
 python3 "$DEST/build_private_package.py" \
-  --profile-a sensor.sm_s721b \
-  --profile-b sensor.pixel_7_pro \
+  --profile-a "$JNS_HEALTH_PROFILE_A" \
+  --profile-b "$JNS_HEALTH_PROFILE_B" \
   --out "$DEST/jns_health_private_package.yaml"
 python3 - "$DEST" <<'PY'
 import pathlib, sys
@@ -35,8 +37,8 @@ required={
  "sensor.jns_health_profile_b_steps",
 }
 assert all(x in dash for x in required)
-assert "sensor.sm_s721b_heart_rate_variability" in pkg
-assert "sensor.pixel_7_pro_daily_steps" in pkg
+assert "_heart_rate_variability" in pkg
+assert "_daily_steps" in pkg
 print("PASS: 18 private template sensors and dashboard aliases staged.")
 print("Private source configuration remains on Node C.")
 print("NOT deployed. No HA configuration modified and no restart requested.")
