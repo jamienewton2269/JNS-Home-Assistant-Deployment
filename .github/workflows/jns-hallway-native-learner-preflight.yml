@@ -1,0 +1,16 @@
+name: JNS Hallway Adaptive Learner VM905 Read-only Preflight
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/heating_hallway/native_learner_preflight.request']
+permissions: {contents: read}
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/heating_hallway/release_warmup_vm905.py
+          python3 gateway/heating_hallway/release_warmup_vm905.py
