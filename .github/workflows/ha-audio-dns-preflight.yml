@@ -1,0 +1,17 @@
+name: Verify HA-General CT221 DNS before switch
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/ha-dns-preflight.request']
+permissions: {contents: read}
+jobs:
+  check:
+    runs-on: [self-hosted, linux, x64, nodec]
+    steps:
+      - run: |
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          qm guest exec 905 -- /bin/sh -c 'getent ahostsv4 house-audio-b.home.arpa || getent hosts house-audio-b.home.arpa'
+          REMOTE
+          ssh root@nodea.home.arpa 'bash -s' <<'REMOTE'
+          pct exec 247 -- sh -c 'grep -Ei "house-audio-b|10.10.200.85" /etc/jnsdns/dhcp-peers.hosts /var/lib/jnsdns/leases 2>/dev/null || true'
+          REMOTE
