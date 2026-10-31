@@ -1,0 +1,5 @@
+vm=905
+scope=append-verified-Hallway-Fireplace-OpenMeteo-learning-status-to-existing-Temperature-Trends
+mode=dashboard-only
+no_core_restart=true
+keep_all_views=true
