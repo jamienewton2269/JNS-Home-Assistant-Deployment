@@ -5,11 +5,28 @@ input_boolean:
   jns_heating_automatic_override:
     name: Heating Automatic Override
     icon: mdi:hand-back-right
+  jns_heating_manual_setpoint_hold:
+    name: Preserve User-Selected Honeywell Setpoint
+    icon: mdi:thermostat-lock
   jns_heating_bedtime_learning_paused:
     name: Pause Bedtime Learning
     icon: mdi:brain
 
 input_number:
+  jns_heating_manual_target:
+    name: Honeywell User-Selected Setpoint
+    min: 5
+    max: 35
+    step: 0.5
+    unit_of_measurement: "°C"
+    mode: box
+  jns_heating_last_automatic_target:
+    name: JNS Last Automatic Setpoint
+    min: 5
+    max: 35
+    step: 0.5
+    unit_of_measurement: "°C"
+    mode: box
   jns_heating_away_minimum_temp:
     name: House Minimum Away Temperature
     icon: mdi:home-thermometer-outline
@@ -32,6 +49,10 @@ input_number:
     mode: box
 
 input_datetime:
+  jns_heating_last_auto_command_time:
+    name: JNS Last Automatic Target Command Time
+    has_date: true
+    has_time: true
   jns_heating_last_bedtime_sample:
     name: Last Learned Bedtime
     has_date: true
@@ -39,6 +60,33 @@ input_datetime:
 
 template:
   - sensor:
+      - name: JNS Heating Active Requested Target
+        unique_id: jns_heating_active_requested_target
+        icon: mdi:thermostat
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "°C"
+        state: >-
+          {% set away = states('input_number.jns_heating_away_minimum_temp') | float(15) %}
+          {% set alarm = states('sensor.jns_heating_verified_alarm_state') %}
+          {% if is_state('input_boolean.jns_heating_manual_setpoint_hold','on') and
+                is_number(states('input_number.jns_heating_manual_target')) %}
+            {% set target = state_attr('climate.thermostat_thermostat','temperature') | float(states('input_number.jns_heating_manual_target') | float(21)) %}
+            {{ [target, away] | max if alarm == 'armed_away' else target }}
+          {% elif alarm == 'armed_away' %}
+            {{ away }}
+          {% elif states('input_datetime.jns_heating_last_auto_command_time') in ['unknown','unavailable','']
+                and is_number(state_attr('climate.thermostat_thermostat','temperature'))
+                and state_attr('climate.thermostat_thermostat','temperature') | float not in [18,21] %}
+            {# Preserve pre-existing wall/UI target on first installation. #}
+            {{ state_attr('climate.thermostat_thermostat','temperature') | float }}
+          {% else %}
+            21
+          {% endif %}
+        attributes:
+          manual_hold: "{{ is_state('input_boolean.jns_heating_manual_setpoint_hold','on') }}"
+          source: >-
+            {{ 'Honeywell manual target' if is_state('input_boolean.jns_heating_manual_setpoint_hold','on') else 'Scheduled default' }}
       - name: JNS Heating Learned Bedtime
         unique_id: jns_heating_learned_bedtime
         icon: mdi:bed-clock
@@ -60,20 +108,21 @@ template:
         state_class: measurement
         state: >-
           {% set indoor = states('sensor.jns_house_temperature') | float(none) %}
+          {% set target = states('sensor.jns_heating_active_requested_target') | float(21) %}
           {% set outdoor = states('sensor.thermostat_thermostat_outdoor_temperature') | float(none) %}
           {% set model = 'sensor.lyric_home_heating_thermal_learning' %}
           {% set ready = state_attr(model, 'ready') %}
           {% set k = state_attr(model, 'loss_per_hour') | float(0) %}
           {% set h = state_attr(model, 'heat_gain_c_per_hour') | float(0) %}
           {% set b = state_attr(model, 'drift_c_per_hour') | float(0) %}
-          {% if indoor is not none and indoor >= 20.8 %}
+          {% if indoor is not none and indoor >= (target - 0.2) %}
             0
           {% elif indoor is not none and outdoor is not none and ready in [true, 'True'] and k > 0 and h > 0 %}
             {% set n = namespace(temp=indoor, eta=360) %}
             {% for step in range(1, 73) %}
-              {% if n.temp < 20.8 %}
+              {% if n.temp < (target - 0.2) %}
                 {% set n.temp = n.temp + (k * (outdoor - n.temp) + h + b) / 12 %}
-                {% if n.temp >= 20.8 %}{% set n.eta = step * 5 %}{% endif %}
+                {% if n.temp >= (target - 0.2) %}{% set n.eta = step * 5 %}{% endif %}
               {% endif %}
             {% endfor %}
             {{ n.eta }}
@@ -129,6 +178,8 @@ template:
             Manual override
           {% elif is_state('sensor.jns_heating_verified_alarm_state', 'unavailable') %}
             Waiting for alarm state
+          {% elif is_state('input_boolean.jns_heating_manual_setpoint_hold', 'on') %}
+            Honeywell manual target
           {% elif is_state('sensor.jns_heating_verified_alarm_state', 'armed_away') %}
             Away minimum
           {% elif is_state('input_boolean.general_bedtime_mode', 'on') and now().hour < 4 %}
@@ -202,6 +253,7 @@ automation:
           - alarm_control_panel.house_alarm
           - input_boolean.general_bedtime_mode
           - input_boolean.jns_heating_automatic_override
+          - input_boolean.jns_heating_manual_setpoint_hold
           - input_number.jns_heating_away_minimum_temp
           - input_number.jns_heating_bedtime_samples
     actions:
@@ -209,6 +261,9 @@ automation:
           alarm: "{{ states('sensor.jns_heating_verified_alarm_state') }}"
           minutes_now: "{{ now().hour * 60 + now().minute }}"
           preheat: "{{ states('sensor.jns_heating_predictive_preheat_minutes') | int(120) }}"
+          user_target: "{{ states('sensor.jns_heating_active_requested_target') | float(21) }}"
+          manual_target: "{{ state_attr('climate.thermostat_thermostat','temperature') | float(states('input_number.jns_heating_manual_target') | float(21)) }}"
+          away_min: "{{ states('input_number.jns_heating_away_minimum_temp') | float(15) }}"
           cooling: "{{ [states('sensor.jns_heating_predictive_cooling_minutes') | int(60), 150] | min }}"
           bedtime_offset: "{{ states('input_number.jns_heating_bedtime_mean_offset') | int(600) }}"
           bed_samples: "{{ states('input_number.jns_heating_bedtime_samples') | int(0) }}"
@@ -218,18 +273,30 @@ automation:
             {% if is_state('input_boolean.jns_heating_automatic_override', 'on') %}
               none
             {% elif alarm == 'armed_away' %}
-              {{ states('input_number.jns_heating_away_minimum_temp') | float(15) }}
+              {% if is_state('input_boolean.jns_heating_manual_setpoint_hold','on')
+                    and manual_target | float > away_min | float %}
+                none
+              {% else %}
+                {{ away_min }}
+              {% endif %}
             {% elif alarm not in ['disarmed', 'armed_home'] %}
               none
+            {% elif is_state('input_boolean.jns_heating_manual_setpoint_hold','on') %}
+              none
+            {% elif states('input_datetime.jns_heating_last_auto_command_time') in ['unknown','unavailable','']
+                  and is_number(state_attr('climate.thermostat_thermostat','temperature'))
+                  and (state_attr('climate.thermostat_thermostat','temperature') | float) not in [18,21] %}
+              {# First installation: do not reset an existing user target. #}
+              none
+            {% elif is_state('input_boolean.general_bedtime_mode','on') %}
+              18
             {% elif 240 <= minutes_now | int < 600 and (600 - minutes_now | int) <= (preheat | int + 10) %}
-              21
+              {{ user_target }}
             {% elif minutes_now | int >= 600 and minutes_now | int < 1140 %}
-              21
+              {{ user_target }}
             {% elif minutes_now | int >= 1140 and bed_samples | int >= 7 and bedtime_offset | int - house_offset | int <= cooling | int and bedtime_offset | int - house_offset | int >= 0 %}
               18
             {% elif minutes_now | int >= 1140 and bed_samples | int >= 7 and house_offset | int >= bedtime_offset | int %}
-              18
-            {% elif is_state('input_boolean.general_bedtime_mode', 'on') %}
               18
             {% elif minutes_now | int >= 1140 %}
               21
@@ -241,9 +308,87 @@ automation:
           {{ desired | trim not in ['none', 'unavailable', 'unknown', ''] and
              is_number(state_attr('climate.thermostat_thermostat', 'temperature')) and
              (state_attr('climate.thermostat_thermostat', 'temperature') | float - desired | float) | abs >= 0.4 }}
+      # JNS_MANUAL_HIGH_HEAT_PRESERVED_V1: tag outbound setpoint writes.
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.jns_heating_last_automatic_target
+        data:
+          value: "{{ desired | float }}"
+      - action: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.jns_heating_last_auto_command_time
+        data:
+          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
       - action: climate.set_temperature
         target:
           entity_id: climate.thermostat_thermostat
         data:
           temperature: "{{ desired | float }}"
         continue_on_error: true
+
+  - id: jns_heating_capture_honeywell_manual_target_v1
+    alias: JNS Heating - Follow Honeywell thermostat and dashboard setpoint
+    mode: queued
+    max: 5
+    triggers:
+      - trigger: state
+        entity_id: climate.thermostat_thermostat
+        attribute: temperature
+    conditions:
+      - condition: template
+        value_template: >-
+          {% set old = trigger.from_state.attributes.get('temperature') if trigger.from_state is not none else none %}
+          {% set new = trigger.to_state.attributes.get('temperature') if trigger.to_state is not none else none %}
+          {{ is_number(new) and 5 <= new | float <= 35
+             and ((is_number(old) and (new | float - old | float) | abs >= 0.4)
+                  or (not is_number(old) and (new | float not in [18,21]))) }}
+    actions:
+      - variables:
+          received: "{{ trigger.to_state.attributes.temperature | float }}"
+          auto_target: "{{ states('input_number.jns_heating_last_automatic_target') | float(-99) }}"
+          auto_timestamp: "{{ as_timestamp(states('input_datetime.jns_heating_last_auto_command_time'), 0) }}"
+          seconds_since_auto: "{{ as_timestamp(now()) - auto_timestamp | float(0) }}"
+          alarm: "{{ states('sensor.jns_heating_verified_alarm_state') }}"
+          away_min: "{{ states('input_number.jns_heating_away_minimum_temp') | float(15) }}"
+      - condition: template
+        value_template: >-
+          {{ not (0 <= seconds_since_auto | float(9999) <= 90
+                  and (received | float - auto_target | float) | abs < 0.1) }}
+      - condition: template
+        value_template: >-
+          {{ (alarm != 'armed_away' or received | float > away_min | float)
+              and not (is_state('input_boolean.general_bedtime_mode','on')
+                       and received | float == 18) }}
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.jns_heating_manual_target
+        data:
+          value: "{{ received | float }}"
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.jns_heating_manual_setpoint_hold
+
+  - id: jns_heating_clear_old_manual_hold_on_away_v1
+    alias: JNS Heating - Restore minimum on leaving home
+    mode: restart
+    triggers:
+      - trigger: state
+        entity_id: sensor.jns_heating_verified_alarm_state
+        to: armed_away
+    actions:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.jns_heating_manual_setpoint_hold
+
+  - id: jns_heating_clear_manual_hold_on_bedtime_v1
+    alias: JNS Heating - Explicit bedtime activation ends earlier manual hold
+    mode: restart
+    triggers:
+      - trigger: state
+        entity_id: input_boolean.general_bedtime_mode
+        from: "off"
+        to: "on"
+    actions:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.jns_heating_manual_setpoint_hold
