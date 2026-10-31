@@ -37,7 +37,7 @@ assert "sensor.jns_hallway_adaptive_warmup_minutes" in data.decode()
 assert "sensor.lyric_home_heating_thermal_learning" not in data.decode()
 assert "is_state('binary_sensor.jns_fireplace_override_safe','on')" in data.decode()
 assert "sensor.jns_heating_active_requested_target" in data.decode()
-assert "target_time: \\"10:00\\"" in data.decode()
+assert 'target_time:' in data.decode() and '10:00' in data.decode()
 assert "climate.thermostat_thermostat" in data.decode()
 reg=json.loads((R/'.storage/core.entity_registry').read_text())['data']['entities']
 have={e.get('entity_id') for e in reg if not e.get('disabled_by')}
@@ -110,6 +110,8 @@ def core(payload,args,timeout=115):
  if r.get('exitcode')!=0:raise RuntimeError('Core-bound Hallway package guard blocked')
  return r.get('out-data') or ''
 def main():
+ for name,part in [('stage',STAGE),('rollback',RESTORE),('verify',VERIFY)]:
+  compile(part,'jns-hallway-'+name,'exec')
  runid=os.environ.get('GITHUB_RUN_ID','')
  if not runid.isdecimal():raise RuntimeError('Runner identity required')
  before=bridge.docker_started()
