@@ -1,4 +1,5 @@
 requested=2026-10-31
 service=house-audio-b
 ctid=221
-protect_vm219=true
+attempt=2
+resume=true
