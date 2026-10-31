@@ -1,1 +1,3 @@
 Check safe token access options
+run=2026-10-31-weather-auth-readonly
+purpose=verify-only-privileged-auth-path
