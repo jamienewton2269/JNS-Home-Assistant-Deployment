@@ -1,0 +1,32 @@
+name: Test live Westminster speaker output
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/chimes-live-test.request']
+permissions: {contents: read}
+jobs:
+  test:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Trigger half-hour Westminster chime, verify receiver and playback
+        shell: bash
+        run: |
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -e
+          test "$(pct config 221 | sed -n 's/^hostname: //p')" = house-audio-b
+          systemctl is-active --quiet jns-audio-receiver
+          bluetoothctl info 91:56:5F:5E:55:47 | grep -q 'Connected: yes'
+          pct exec 221 -- mpc clear
+          pct exec 221 -- mpc repeat off
+          pct exec 221 -- mpc load jns_westminster_half
+          pct exec 221 -- mpc play
+          sleep 2
+          echo '=== MPD CHIME PLAYBACK ==='
+          pct exec 221 -- mpc status
+          echo '=== RECEIVER ==='
+          systemctl is-active jns-audio-receiver
+          systemctl show jns-audio-receiver -p MainPID -p NRestarts
+          bluetoothctl info 91:56:5F:5E:55:47 | grep 'Connected:'
+          echo WESTMINSTER_HALF_HOUR_TEST_COMMAND_ACCEPTED
+          REMOTE
