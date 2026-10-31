@@ -1,0 +1,14 @@
+name: JNS Lux Weather Fallback Audit
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/lux_runtime_audit/weather.request']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/lux_runtime_audit/weather_audit.py
