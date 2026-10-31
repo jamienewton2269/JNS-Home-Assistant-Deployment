@@ -1,0 +1,19 @@
+name: JNS HA-General Hallway Native Weather Observer Release
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/heating_hallway/native_observer_release.request']
+permissions: {contents: read}
+concurrency:
+  group: jns-ha905-heating-presence-deploy
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate guarded native Hallway observer installer syntax
+        run: python3 -m py_compile gateway/heating_hallway/release_observer_vm905.py
+      - name: Backup, validate HA Core and add non-actuating source/forecast sensors
+        run: python3 gateway/heating_hallway/release_observer_vm905.py --apply
