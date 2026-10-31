@@ -1,0 +1,21 @@
+name: JNS HA-General Hallway Source Read-only Preflight
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/heating_hallway/inspection.request']
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-hallway-readonly
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve source identities and inspect HA905 without writes
+        run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/heating_hallway/inspect_vm905_readonly.py
+          python3 gateway/heating_hallway/inspect_vm905_readonly.py
