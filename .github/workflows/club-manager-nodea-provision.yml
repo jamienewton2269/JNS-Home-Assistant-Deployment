@@ -1,0 +1,71 @@
+name: Club Manager - provision Node A development
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type CREATE to allocate one stopped development container; otherwise inspect only'
+        required: true
+        default: INSPECT
+        type: choice
+        options:
+          - INSPECT
+          - CREATE
+
+permissions:
+  contents: read
+
+concurrency:
+  group: club-manager-nodea-allocation
+  cancel-in-progress: false
+
+jobs:
+  club-manager:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 10
+    steps:
+      - name: Validate target and optionally create a stopped unprivileged container
+        shell: bash
+        env:
+          MODE: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec || { echo 'REFUSED: runner is not nodec'; exit 1; }
+          # Exact host SSH key must already be trusted by the runner.
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 root@nodea.home.arpa             "MODE='$MODE' bash -se" <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea || { echo 'REFUSED: wrong Proxmox node'; exit 1; }
+          test "$MODE" = INSPECT || test "$MODE" = CREATE
+          echo "Node: $(hostname -s); mode: $MODE"
+          pveversion
+          free -h
+          pvesm status
+          pct list
+          echo 'Checking development allocation requirements'
+          pvesm status --enabled 1 | awk '$1=="vmdata" && $2=="zfspool" && $3=="active" && $6 >= 33554432 {ok=1} END{exit !ok}' || { echo 'REFUSED: vmdata not active or less than 32 GiB free'; exit 1; }
+          ip link show vmbr0 >/dev/null || { echo 'REFUSED: vmbr0 unavailable'; exit 1; }
+          TEMPLATE="$(pveam list local | awk '/local:vztmpl\/debian-13-standard_13[.]6-1_amd64[.]tar[.]zst/ {print $1; exit}')"
+          test -n "$TEMPLATE" || { echo 'REFUSED: reviewed Debian 13.6 amd64 template missing'; exit 1; }
+          AVAILABLE_KB="$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)"
+          test "$AVAILABLE_KB" -ge 3145728 || { echo 'REFUSED: need at least 3 GiB host memory available'; exit 1; }
+          if pct list | awk 'NR>1 && $4=="club-manager-dev" {found=1} END{exit !found}'; then
+            echo 'Existing club-manager-dev detected; refusing to create another'
+            exit 1
+          fi
+          if [ "$MODE" = INSPECT ]; then
+            echo 'INSPECTION PASSED. No changes made.'
+            exit 0
+          fi
+          CTID="$(pvesh get /cluster/nextid)"
+          test "$CTID" -ge 100
+          echo "Allocating stopped CT $CTID on vmdata."
+          pct create "$CTID" "$TEMPLATE" \
+            --hostname club-manager-dev \
+            --unprivileged 1 \
+            --features nesting=0 \
+            --cores 2 --memory 2048 --swap 256 \
+            --rootfs vmdata:16 \
+            --net0 name=eth0,bridge=vmbr0,ip=dhcp,ip6=auto \
+            --onboot 0 --start 0
+          echo "CREATED CT $CTID (stopped, not internet-published)."
+          pct config "$CTID"
+          REMOTE
