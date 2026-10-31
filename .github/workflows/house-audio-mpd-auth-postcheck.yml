@@ -1,0 +1,30 @@
+name: HA-General Core and MPD auth post-repair audit
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/mpd_auth_postcheck.request']
+permissions: {contents: read}
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Verify running HA Core and live MPD entry without mutations
+        shell: bash
+        run: |
+          ssh -o BatchMode=yes root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -u
+          echo JNS_CORE_POSTAUTH_VM
+          qm status 905
+          echo JNS_CORE_POSTAUTH_INFO
+          qm guest exec 905 --timeout 20 -- ha core info || true
+          echo JNS_CORE_POSTAUTH_CONTAINER
+          qm guest exec 905 --timeout 20 -- docker inspect --format '{{.State.Running}} {{.State.Status}} {{.State.StartedAt}}' homeassistant || true
+          echo JNS_CORE_POSTAUTH_MPD_ENTRY
+          qm guest exec 905 --timeout 20 -- /usr/bin/jq -c '.data.entries[]|select(.entry_id=="01M4VJYJGS81KFN0FNGJJWM39B")|{domain,host:.data.host,port:.data.port,disabled_by,has_password:(.data|has("password")),password_length:(.data.password|if type=="string" then length else -1 end)}' /mnt/data/supervisor/homeassistant/.storage/core.config_entries || true
+          echo JNS_CORE_POSTAUTH_BACKUP
+          qm guest exec 905 --timeout 20 -- /bin/sh -c 'test -s /mnt/data/supervisor/homeassistant/.storage/core.config_entries.before-jns-mpd-auth-20261031-1818 && echo backup_present' || true
+          echo JNS_CORE_POSTAUTH_HTTP
+          curl -sS --max-time 5 -o /dev/null -w 'HA HTTP %{http_code}\n' http://ha-general.home.arpa/api/ || true
+          echo JNS_CORE_POSTAUTH_AUDIT_DONE
+          REMOTE
