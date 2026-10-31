@@ -1,0 +1,16 @@
+name: JNS HA-General Manual Target Post-release Read-only Audit
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/heating_manual_boost/postrelease_audit.request']
+permissions: {contents: read}
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/heating_manual_boost/postrelease_audit.py
+          python3 gateway/heating_manual_boost/postrelease_audit.py
