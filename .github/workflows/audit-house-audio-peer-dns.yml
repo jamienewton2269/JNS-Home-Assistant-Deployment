@@ -1,0 +1,16 @@
+name: Audit DNS peer registration
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/dns-peer-check.request']
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    steps:
+      - run: |
+          for pair in 'nodea.home.arpa 247' 'nodeb.home.arpa 248'; do
+            set -- $pair
+            ssh root@"$1" "pct exec $2 -- sh -c 'echo PEER_HOSTS; grep -nEi "house-audio-b|10.10.200.85" /etc/jnsdns/dhcp-peers.hosts /var/lib/jnsdns/leases 2>/dev/null || true; echo RESERVATION; grep -n "BC:24:11:16:EE:52" /var/lib/jnsdns/releases/15/reservations.conf 2>/dev/null || true'"
+          done
+          ssh root@nodeb.home.arpa "qm guest exec 905 -- /bin/sh -c 'getent hosts house-audio-b.home.arpa'"
