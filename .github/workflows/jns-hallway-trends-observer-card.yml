@@ -1,0 +1,19 @@
+name: JNS Temperature Trends Show Hallway Forecast Inputs
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/heating_hallway/trends_observer_card.request']
+permissions: {contents: read}
+concurrency:
+  group: jns-ha905-native-temperature-trends
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/heating_hallway/install_observer_status_card.py
+          python3 gateway/heating_hallway/install_observer_status_card.py
