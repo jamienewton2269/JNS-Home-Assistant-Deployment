@@ -15,7 +15,9 @@ def decision(alarm="disarmed",manual=False,target=22,away=15,hour=12):
             "user_target":target if manual else 21,"manual_target":target,
             "away_min":away,"cooling":60,"bed_samples":1,
             "bedtime_offset":600,"house_offset":0,
-            "is_state":lambda name,state: manual if name.endswith("manual_setpoint_hold") else False}
+            "is_state":lambda name,state: manual if name.endswith("manual_setpoint_hold") else False,
+            "states":lambda name: "2026-10-31 08:00:00",
+            "state_attr":lambda name,attr: 21}
     return env.from_string(expr).render(**values).strip()
 
 class ManualPriority(unittest.TestCase):
