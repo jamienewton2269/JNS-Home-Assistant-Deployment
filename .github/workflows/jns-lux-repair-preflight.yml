@@ -1,0 +1,14 @@
+name: JNS Lux Repair Preflight Audit
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/lux_repair/preflight.request']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/lux_repair/preflight_audit.py
