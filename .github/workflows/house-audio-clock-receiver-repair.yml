@@ -1,0 +1,21 @@
+name: Repair clock audio receiver stream timing
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/clock_receiver_repair.request']
+permissions:
+  contents: read
+concurrency:
+  group: house-audio-clock-receiver-change
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Backup, repair, test playback and verify receiver stability
+        run: |
+          set -euo pipefail
+          bash -n house_audio_b/clock_receiver_repair.sh
+          bash house_audio_b/clock_receiver_repair.sh
