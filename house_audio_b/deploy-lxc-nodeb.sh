@@ -6,17 +6,16 @@ ssh -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new roo
 set -Eeuo pipefail
 CTID=221
 TEMPLATE=local:vztmpl/debian-13-standard_13.6-1_amd64.tar.zst
-if qm config "$CTID" >/dev/null 2>&1 || pct config "$CTID" >/dev/null 2>&1; then
-  echo "BLOCKED: ID 221 is already occupied; refusing to modify any guest" >&2
-  exit 20
+if qm config "$CTID" >/dev/null 2>&1; then exit 20; fi
+if pct config "$CTID" >/dev/null 2>&1; then
+  test "$(pct config "$CTID" | sed -n 's/^hostname: //p')" = house-audio-b || exit 21
+else
+  pct create "$CTID" "$TEMPLATE" --hostname house-audio-b --ostype debian --arch amd64 --cores 1 --memory 256 --swap 256 --rootfs local-lvm:4 --net0 'name=eth0,bridge=vmbr0,ip=dhcp,ip6=auto' --unprivileged 1 --onboot 1
 fi
-test -f /var/lib/vz/template/cache/debian-13-standard_13.6-1_amd64.tar.zst
-pvesm status | grep -Eq '^local-lvm[[:space:]]+lvmthin[[:space:]]+active'
-pct create "$CTID" "$TEMPLATE" --hostname house-audio-b --ostype debian --arch amd64 --cores 1 --memory 256 --swap 256 --rootfs local-lvm:4 --net0 'name=eth0,bridge=vmbr0,ip=dhcp,ip6=auto' --unprivileged 1 --onboot 1 --features nesting=0
-pct start "$CTID"
+pct status "$CTID" | grep -q running || pct start "$CTID"
 pct exec "$CTID" -- bash -euc '
 export DEBIAN_FRONTEND=noninteractive
-apt-get update
+apt-get update -o Acquire::http::No-Cache=true -o Acquire::https::No-Cache=true
 apt-get install -y --no-install-recommends mpd mpc sudo ca-certificates
 id jnsadmin >/dev/null 2>&1 || useradd -m -s /bin/bash -G sudo jnsadmin
 echo "jnsadmin:\$6\$V555Yd9PK66s6Ek4\$25o1JvRD/L87uOxVY2774kPNz3j1/iR7ZmHeKAd6KTdFfVW1OQQRoXf9bCjBj.zMTVvroecU36FzC4IRMB5Uz0" | chpasswd -e
