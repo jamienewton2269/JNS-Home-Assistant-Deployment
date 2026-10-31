@@ -26,8 +26,15 @@ root=pathlib.Path("/config")
 items=json.loads((root/".storage/core.config_entries").read_text())["data"]["entries"]
 weather=[{"domain":e.get("domain"),"enabled":not bool(e.get("disabled_by"))}
  for e in items if e.get("domain") in ("open_meteo","met","metoffice","accuweather","pirateweather","weatherkit","tomorrowio")]
+registry=json.loads((root/".storage/core.entity_registry").read_text())["data"]["entities"]
+entries={e.get("entry_id"):e.get("domain") for e in items}
+weather_mapping=[{"entity":e.get("entity_id"),
+                  "provider_domain":entries.get(e.get("config_entry_id"),"unmapped"),
+                  "disabled":bool(e.get("disabled_by"))}
+                 for e in registry if e.get("entity_id","").startswith("weather.")]
 heating=[e for e in items if e.get("domain")=="jns_heating_zones"]
-result={"weather_providers":weather,"heating_entries":len(heating),
+result={"weather_providers":weather,"weather_entity_mapping":weather_mapping,
+"heating_entries":len(heating),
 "heating_weather_entity":[(e.get("options") or {}).get("weather_entity",(e.get("data") or {}).get("weather_entity")) for e in heating],
 "heating_outdoor_entity":[(e.get("options") or {}).get("outdoor_temperature_entity",(e.get("data") or {}).get("outdoor_temperature_entity")) for e in heating],
 "heating_entity_available":len(heating)==1}
