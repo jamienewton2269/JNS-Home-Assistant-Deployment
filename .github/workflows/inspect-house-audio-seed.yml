@@ -1,0 +1,20 @@
+name: Check House Audio seed ISO
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/seed-audit.request']
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    steps:
+      - run: |
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          echo '=== ISO CONTENT ==='
+          if command -v isoinfo >/dev/null; then
+            isoinfo -i /var/lib/vz/template/iso/house-audio214-seed.iso -f | head -65
+          else
+            file /var/lib/vz/template/iso/house-audio214-seed.iso
+            ls -lh /var/lib/vz/template/iso/house-audio214-seed.iso
+          fi
+          REMOTE
