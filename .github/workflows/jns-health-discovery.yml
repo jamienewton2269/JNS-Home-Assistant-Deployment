@@ -1,0 +1,51 @@
+name: JNS Health Intelligence - staged discovery
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Read-only HA-General discovery"
+        required: true
+        type: choice
+        options:
+          - discover
+jobs:
+  health-discovery:
+    # Do NOT use pull_request events on self-hosted machines for this public repo.
+    if: github.repository == 'jamienewton2269/JNS-Home-Assistant-Deployment'
+    runs-on: [self-hosted]
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    steps:
+      - name: Verify Node C identity
+        shell: bash
+        run: |
+          test "$(hostname -s)" = "nodec" || { echo "Expected Node C runner; refusing"; exit 1; }
+      - name: Read-only sensor inventory
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, urllib.request, pathlib, sys
+          p=pathlib.Path('/etc/jns/credentials/ha-general.token')
+          if not p.is_file():
+              sys.exit('Node C HA-General token unavailable')
+          token=p.read_text().strip()
+          req=urllib.request.Request('http://ha-general.home.arpa/api/states',
+              headers={'Authorization': 'Bearer '+token,'Accept':'application/json'})
+          with urllib.request.urlopen(req,timeout=20) as r:
+              states=json.load(r)
+          groups={'a':'sm_s721b','b':'pixel_7_pro'}
+          measurements=('heart_rate','resting_heart_rate','heart_rate_variability','oxygen_saturation',
+              'respiratory_rate','sleep_duration','daily_steps','daily_distance','total_calories_burned')
+          def _is_number(x):
+              try: float(x); return True
+              except (TypeError,ValueError): return False
+          mapping={x['entity_id']:x for x in states}
+          print('JNS HEALTH - PRIVATE SOURCE INVENTORY (no values or identifiers)')
+          for group,prefix in groups.items():
+              for metric in measurements:
+                  entity=mapping.get('sensor.'+prefix+'_'+metric)
+                  state=(entity or {}).get('state','unavailable')
+                  status='numeric' if state not in ('unknown','unavailable','none','') and _is_number(state) else 'missing'
+                  print('Profile '+group+' | '+metric+' | '+status)
+          PY
