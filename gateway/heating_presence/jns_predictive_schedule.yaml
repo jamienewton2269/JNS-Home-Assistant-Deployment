@@ -288,6 +288,8 @@ automation:
                   and (state_attr('climate.thermostat_thermostat','temperature') | float) not in [18,21] %}
               {# First installation: do not reset an existing user target. #}
               none
+            {% elif is_state('input_boolean.general_bedtime_mode','on') %}
+              18
             {% elif 240 <= minutes_now | int < 600 and (600 - minutes_now | int) <= (preheat | int + 10) %}
               {{ user_target }}
             {% elif minutes_now | int >= 600 and minutes_now | int < 1140 %}
@@ -295,8 +297,6 @@ automation:
             {% elif minutes_now | int >= 1140 and bed_samples | int >= 7 and bedtime_offset | int - house_offset | int <= cooling | int and bedtime_offset | int - house_offset | int >= 0 %}
               18
             {% elif minutes_now | int >= 1140 and bed_samples | int >= 7 and house_offset | int >= bedtime_offset | int %}
-              18
-            {% elif is_state('input_boolean.general_bedtime_mode', 'on') %}
               18
             {% elif minutes_now | int >= 1140 %}
               21
@@ -356,7 +356,9 @@ automation:
                   and (received | float - auto_target | float) | abs < 0.1) }}
       - condition: template
         value_template: >-
-          {{ alarm != 'armed_away' or received | float > away_min | float }}
+          {{ (alarm != 'armed_away' or received | float > away_min | float)
+              and not (is_state('input_boolean.general_bedtime_mode','on')
+                       and received | float == 18) }}
       - action: input_number.set_value
         target:
           entity_id: input_number.jns_heating_manual_target
@@ -373,6 +375,19 @@ automation:
       - trigger: state
         entity_id: sensor.jns_heating_verified_alarm_state
         to: armed_away
+    actions:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.jns_heating_manual_setpoint_hold
+
+  - id: jns_heating_clear_manual_hold_on_bedtime_v1
+    alias: JNS Heating - Explicit bedtime activation ends earlier manual hold
+    mode: restart
+    triggers:
+      - trigger: state
+        entity_id: input_boolean.general_bedtime_mode
+        from: "off"
+        to: "on"
     actions:
       - action: input_boolean.turn_off
         target:
