@@ -1,0 +1,38 @@
+name: Complete original Westminster playlists
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/original-playlists-finish.request']
+permissions: {contents: read}
+jobs:
+  install:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - run: |
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          for i in $(seq 1 12); do
+            n=$(printf '%02d' "$i")
+            pct exec 221 -- test -s "/var/lib/mpd/music/hour_$n.mp3"
+          done
+          pct exec 221 -- test -s /var/lib/mpd/music/half.mp3
+          pct exec 221 -- mpc update >/dev/null
+          for i in $(seq 5 12); do
+            n=$(printf '%02d' "$i")
+            pct exec 221 -- mpc clear >/dev/null
+            pct exec 221 -- mpc add "hour_$n.mp3" >/dev/null
+            pct exec 221 -- mpc rm "jns_westminster_hour_$n" >/dev/null 2>&1 || true
+            pct exec 221 -- mpc save "jns_westminster_hour_$n" >/dev/null
+          done
+          pct exec 221 -- mpc clear >/dev/null
+          echo '=== VERIFIED ==='
+          for i in $(seq 1 12); do
+            n=$(printf '%02d' "$i")
+            x=$(pct exec 221 -- mpc playlist "jns_westminster_hour_$n")
+            test "$x" = "hour_$n.mp3"
+            echo "jns_westminster_hour_$n = $x"
+          done
+          test "$(pct exec 221 -- mpc playlist jns_westminster_half)" = half.mp3
+          echo ORIGINAL_PLAYLISTS_COMPLETE
+          REMOTE
