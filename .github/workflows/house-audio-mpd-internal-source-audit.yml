@@ -1,0 +1,30 @@
+name: Diagnose Home Assistant MPD empty-password storage behavior
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/mpd_internal_source_audit.request']
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Inspect HA MPD config-entry code and current error signatures
+        run: |
+          ssh -o BatchMode=yes root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -e
+          echo JNS_MPD_INTERNAL_CODE_START
+          qm guest exec 905 --timeout 35 -- docker exec homeassistant python3 -c 'import pathlib;root=pathlib.Path("/usr/src/homeassistant/homeassistant/components/mpd");import re
+          for name in ("__init__.py","config_flow.py","media_player.py"):
+           p=root/name; lines=p.read_text().splitlines(); patterns=["CONF_PASSWORD","password","async_setup_entry","self.password","connect()","OPTIONS"]; keep=set()
+           for i,line in enumerate(lines):
+            if any(k in line for k in patterns) and i<205:
+             keep.update(range(max(0,i-2),min(len(lines),i+4)))
+           print("JNS_MPD_SOURCE_FILE",name)
+           for i in sorted(keep):
+            if i<205:print(f"{i+1}: {lines[i]}")
+          ' || true
+          echo JNS_MPD_INTERNAL_RECENT_ERRORS
+          qm guest exec 905 --timeout 30 -- /bin/sh -c 'docker logs homeassistant --since 2026-10-31T18:22:00 2>&1 | grep -iE "incorrect password|mpd: Error on device|music_player_daemon|MPD" | tail -18' || true
+          echo JNS_MPD_INTERNAL_CODE_DONE
+          REMOTE
