@@ -1,0 +1,20 @@
+name: HA-General to House Audio B MPD socket read-only
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/ha_mpd_socket_audit.request']
+permissions: {contents: read}
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Check live HA Core MPD TCP and logged failure signatures
+        run: |
+          ssh -o BatchMode=yes root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -e
+          echo JNS_HA_MPD_SOCKET_BEGIN
+          qm guest exec 905 -- docker exec homeassistant python3 -c 'import socket,json;host="house-audio-b.home.arpa";result={"host_resolves":False,"mpd_port_open":False,"mpd_banner_ok":False};x=socket.getaddrinfo(host,6600,type=socket.SOCK_STREAM);result["host_resolves"]=bool(x);s=socket.create_connection((host,6600),timeout=7);result["mpd_port_open"]=True;s.settimeout(7);result["mpd_banner_ok"]=s.recv(80).startswith(b"OK MPD");s.close();print("JNS_HA_MPD_SOCKET "+json.dumps(result))'
+          qm guest exec 905 -- /bin/sh -c 'grep -iE "mpd|music_player_daemon|music player daemon|Error setting up entry" /mnt/data/supervisor/homeassistant/home-assistant.log 2>/dev/null | tail -15' || true
+          echo JNS_HA_MPD_SOCKET_COMPLETE
+          REMOTE
