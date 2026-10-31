@@ -1,0 +1,30 @@
+name: Repair House Audio B stale DNS A record
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/dns-repair.request']
+permissions: {contents: read}
+jobs:
+  repair:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - name: Remove obsolete static override while retaining dynamic DHCP lease
+        shell: bash
+        run: |
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -e
+          pct exec 248 -- sh -c '
+            set -e
+            f=/var/lib/jnsdns/releases/15/hosts.static
+            grep -q "10.10.200.85 house-audio-b" /var/lib/jnsdns/leases || grep -q "10.10.200.85 house-audio-b" /var/lib/jnsdns/leases
+            grep -Fxq "10.10.110.229 house-audio-b.home.arpa house-audio-b" "$f"
+            cp -p "$f" "$f.before-house-audio-20261031"
+            sed -i "/^10[.]10[.]110[.]229 house-audio-b[.]home[.]arpa house-audio-b$/d" "$f"
+            dnsmasq --test
+            kill -HUP "$(pidof dnsmasq)"
+          '
+          sleep 2
+          echo '=== RESOLVED DNS-B ==='
+          getent ahostsv4 house-audio-b.home.arpa
+          REMOTE
