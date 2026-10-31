@@ -1,0 +1,30 @@
+name: Inspect obsolete audio VM cleanup on Node B
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/inspect-retirement.request']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - name: Inspect exact targets
+        shell: bash
+        run: |
+          ssh -o BatchMode=yes root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          for id in 119 219; do
+            echo "=== VM $id ==="
+            qm status "$id" 2>&1 || true
+            qm config "$id" 2>&1 || true
+            test -e "/etc/pve/qemu-server/$id.conf" && echo CONFIG_PRESENT || echo CONFIG_ABSENT
+          done
+          echo "=== CT221 ==="
+          pct status 221
+          echo "=== STORAGE ==="
+          pvesm status 2>&1 | tail -25
+          echo "=== CSR ==="
+          lsusb -t
+          bluetoothctl list || true
+          REMOTE
