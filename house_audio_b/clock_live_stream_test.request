@@ -1,0 +1,3 @@
+target=CT221-house-audio-b
+operation=test-original-half-hour-playback-once
+scope=diagnostic
