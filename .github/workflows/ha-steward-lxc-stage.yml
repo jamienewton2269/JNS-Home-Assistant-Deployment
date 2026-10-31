@@ -1,17 +1,10 @@
 name: HA Steward LXC Stage
 # CT221 staging retry after Proxmox authorized_keys metadata fix
 
+# CT221 now hosts House Audio B. Steward staging must not retry automatically.
+# Manual run remains fail-closed until a separate CTID is safely allocated.
 on:
-  schedule:
-    - cron: '*/5 * * * *'
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/ha-steward-lxc-stage.yml'
-      - 'natural_automation_steward/lxc/STAGE'
-  pull_request:
-    paths:
-      - 'natural_automation_steward/lxc/**'
+  workflow_dispatch:
 
 permissions:
   contents: read
