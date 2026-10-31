@@ -1,0 +1,70 @@
+name: Install Westminster chimes on CT221
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/chimes-install.request']
+permissions: {contents: read}
+jobs:
+  install:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - name: Generate traditional Westminster notes and install MPD playlists
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/jns-chimes
+          python3 - <<'PY'
+          import wave,math,struct,os
+          out='/tmp/jns-chimes'
+          notes={'B3':246.94,'E4':329.63,'F#4':369.99,'G#4':415.30,'E3':164.81}
+          phrases=[
+            ['G#4','F#4','E4','B3'],
+            ['E4','G#4','F#4','B3'],
+            ['E4','F#4','G#4','E4'],
+            ['G#4','E4','F#4','B3']]
+          rate=22050
+          def make(name,sequence):
+            with wave.open(out+'/'+name,'wb') as f:
+              f.setnchannels(1);f.setsampwidth(2);f.setframerate(rate)
+              frames=bytearray()
+              for note,duration in sequence:
+                hz=notes[note]
+                for i in range(int(rate*duration)):
+                  t=i/rate
+                  attack=min(1,t/0.015)
+                  decay=math.exp(-2.5*t/duration)
+                  tone=sum(a*math.sin(2*math.pi*hz*(h+0.003*h*h)*t) for h,a in [(1,0.55),(2,0.22),(3,0.12),(4,0.08)])
+                  s=int(10000*attack*decay*tone)
+                  frames.extend(struct.pack('<h',max(-32767,min(32767,s))))
+              f.writeframes(frames)
+          for i,p in enumerate(phrases,1):
+            make('westminster-q%d.wav'%i,[(n,0.72) for n in p])
+          make('westminster-strike.wav',[('E3',2.1)])
+          print('Generated original digital recording of traditional Westminster note sequence')
+          PY
+          ssh root@nodeb.home.arpa 'pct config 221 | grep -q "^hostname: house-audio-b$"'
+          for f in /tmp/jns-chimes/*.wav; do
+            scp -q "$f" root@nodeb.home.arpa:/tmp/
+            ssh root@nodeb.home.arpa "pct push 221 /tmp/$(basename "$f") /var/lib/mpd/music/$(basename "$f"); rm /tmp/$(basename "$f")"
+          done
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -e
+          pct exec 221 -- chown -R mpd:audio /var/lib/mpd/music
+          pct exec 221 -- mpc update
+          sleep 3
+          pct exec 221 -- mpc clear
+          pct exec 221 -- mpc add westminster-q1.wav
+          pct exec 221 -- mpc add westminster-q2.wav
+          pct exec 221 -- mpc save jns_westminster_half
+          for h in $(seq 1 12); do
+            n=$(printf '%02d' "$h")
+            pct exec 221 -- mpc clear
+            for p in 1 2 3 4; do pct exec 221 -- mpc add "westminster-q$p.wav"; done
+            for i in $(seq 1 "$h"); do pct exec 221 -- mpc add westminster-strike.wav; done
+            pct exec 221 -- mpc save "jns_westminster_hour_$n"
+          done
+          pct exec 221 -- mpc clear
+          pct exec 221 -- mpc lsplaylists
+          echo CHIME_PLAYLIST_INSTALL_SUCCESS
+          REMOTE
