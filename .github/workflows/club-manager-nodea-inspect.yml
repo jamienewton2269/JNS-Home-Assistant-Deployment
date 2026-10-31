@@ -1,0 +1,34 @@
+name: Club Manager - inspect Node A (read only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect-nodea:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - name: Node C identity and Node A connectivity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec || { echo "ERROR: runner is not Node C"; exit 1; }
+          echo "Runner host: $(hostname -s)"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 root@nodea.home.arpa 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          echo "=== NODE A ==="
+          hostname; pveversion
+          echo "=== AVAILABLE MEMORY ==="
+          free -h
+          echo "=== STORAGE ==="
+          pvesm status
+          echo "=== NETWORK BRIDGES ==="
+          ip -brief link show type bridge
+          echo "=== CONTAINERS ==="
+          pct list
+          echo "=== VIRTUAL MACHINES ==="
+          qm list
+          echo "=== DEBIAN TEMPLATES ==="
+          pveam list local || true
+          REMOTE
