@@ -1,0 +1,33 @@
+name: Fix DNS-A legacy House Audio override
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/dns-a-repair.request']
+permissions: {contents: read}
+jobs:
+  repair:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - run: |
+          ssh root@nodea.home.arpa 'bash -s' <<'REMOTE'
+          set -e
+          pct status 247 | grep -q running
+          pct exec 247 -- sh -c '
+            set -e
+            f=/var/lib/jnsdns/releases/15/hosts.static
+            grep -Fxq "10.10.110.229 house-audio-b.home.arpa house-audio-b" "$f"
+            cp -p "$f" "$f.before-house-audio-20261031"
+            sed -i "s/^10[.]10[.]110[.]229 house-audio-b[.]home[.]arpa house-audio-b$/10.10.200.85 house-audio-b.home.arpa house-audio-b/" "$f"
+            dnsmasq --test
+            kill -HUP "$(pidof dnsmasq)"
+          '
+          REMOTE
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          if command -v dig >/dev/null; then
+            echo DNS_A; dig @10.10.110.247 house-audio-b.home.arpa A +short
+            echo DNS_B; dig @10.10.110.248 house-audio-b.home.arpa A +short
+          else
+            echo NO_DIG
+          fi
+          REMOTE
