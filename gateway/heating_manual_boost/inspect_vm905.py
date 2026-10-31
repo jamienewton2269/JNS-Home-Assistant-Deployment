@@ -15,6 +15,21 @@ b=p.read_bytes()
 cfg=yaml.safe_load(b)
 automations=cfg.get("automation",[])
 expected=["jns_heating_learn_bedtime_v1","jns_heating_alarm_predictive_target_v1"]
+# Do not infer an exclusive thermostat writer merely from the known package:
+# report other local files referencing the exact physical climate target.
+root=pathlib.Path("/config")
+other_writers=[]
+for folder in (root/"packages",root/"scripts",root):
+ if not folder.is_dir(): continue
+ for candidate in folder.glob("*.yaml"):
+  if candidate==p:continue
+  try:
+   text=candidate.read_text(errors="replace")
+   if "climate.thermostat_thermostat" in text and (
+      "climate.set_temperature" in text or "climate.set_hvac_mode" in text):
+    name=str(candidate.relative_to(root))
+    if name not in other_writers:other_writers.append(name)
+  except OSError:pass
 print("JNS_MANUAL_BOOST_PREFLIGHT "+json.dumps({
  "live_sha256":hashlib.sha256(b).hexdigest(),
  "automation_ids_match": [a.get("id") for a in automations]==expected,
@@ -23,6 +38,8 @@ print("JNS_MANUAL_BOOST_PREFLIGHT "+json.dumps({
   for x in automations[1].get("triggers",[])),
  "existing_manual_high_setpoint_exemption":"JNS_MANUAL_HIGH_HEAT_PRESERVED_V1" in b.decode(),
  "existing_heat_script_only":len(automations)==2,
+ "other_referencing_files":sorted(other_writers)[:30],
+ "other_referencing_count":len(other_writers),
  "scope":"VM905_READ_ONLY"
 },sort_keys=True))
 '''
