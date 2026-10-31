@@ -1,0 +1,23 @@
+name: HA Steward CT221 collision safety checks
+on:
+  pull_request:
+    paths:
+      - 'natural_automation_steward/lxc/stage-on-nodeb.sh'
+      - '.github/workflows/ha-steward-lxc-stage.yml'
+      - '.github/workflows/ha-steward-ct221-safety-ci.yml'
+jobs:
+  offline-only:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify shell syntax and no automatic CT221 staging
+        run: |
+          set -euo pipefail
+          bash -n natural_automation_steward/lxc/stage-on-nodeb.sh
+          grep -q '^  workflow_dispatch:$' .github/workflows/ha-steward-lxc-stage.yml
+          ! grep -Eq '^  (push:|schedule:|pull_request:)' .github/workflows/ha-steward-lxc-stage.yml
+          grep -q 'STAGING_BLOCKED: CT' natural_automation_steward/lxc/stage-on-nodeb.sh
+          grep -q 'CTID=221' natural_automation_steward/lxc/stage-on-nodeb.sh
+          echo CT221_STEWARD_AUTOMATIC_STAGING_DISABLED
