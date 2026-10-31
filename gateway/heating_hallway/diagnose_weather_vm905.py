@@ -86,6 +86,8 @@ def main():
     cfg=run_guest(["docker","exec","homeassistant","python3","-c",py])
     for line in cfg.splitlines():
         if line.startswith("JNS_HEATING_WEATHER_CONFIG "):print(line,flush=True)
+    if "--config-only" in sys.argv:
+        return
     output=run_guest(["docker","exec","app_core_ssh","sh","-c",SHELL],115)
     for line in output.splitlines():
         if line.startswith(("JNS_WEATHER_STATE ","JNS_WEATHER_FORECAST ","JNS_WEATHER_AUTH=")):
