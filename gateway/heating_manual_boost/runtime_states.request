@@ -1,0 +1,3 @@
+mode=read-only
+vm=905
+purpose=verify-new-manual-setpoint-entities-really-loaded
