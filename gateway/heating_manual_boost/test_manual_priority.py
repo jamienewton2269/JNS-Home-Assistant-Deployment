@@ -28,12 +28,23 @@ class ManualPriority(unittest.TestCase):
     def test_away_minimum_15(self):self.assertEqual(decision(alarm="armed_away"), "15")
     def test_away_minimum_lower_manual(self):self.assertEqual(decision(alarm="armed_away",manual=True,target=12), "15")
     def test_unknown_alarm_blocks_automation(self):self.assertEqual(decision(alarm="unknown"), "none")
-    def test_only_four_unique_automations(self):
-        self.assertEqual(len(automation),4)
+    def test_five_unique_automations(self):
+        self.assertEqual(len(automation),5)
         self.assertEqual(len(automation),len(pkg["automation"]))
     def test_automatic_command_marked_before_climate(self):
         acts=[x.get("action") for x in rule["actions"]]
         self.assertLess(acts.index("input_datetime.set_datetime"),acts.index("climate.set_temperature"))
+    def test_bedtime_activation_clears_earlier_manual_request(self):
+        a=automation["jns_heating_clear_manual_hold_on_bedtime_v1"]
+        self.assertEqual(a["triggers"][0]["entity_id"],"input_boolean.general_bedtime_mode")
+        self.assertEqual(a["actions"][0]["action"],"input_boolean.turn_off")
+    def test_manual_request_after_bedtime_still_wins(self):
+        self.assertEqual(decision(manual=True,target=22,hour=23),"none")
+    def test_schedule_keeps_bedtime_18(self):
+        # Bedtime must precede ordinary daytime and morning scheduling.
+        script=rule["actions"][1]["variables"]["desired"]
+        self.assertLess(script.index("is_state('input_boolean.general_bedtime_mode','on')"),
+                        script.index("240 <= minutes_now"))
     def test_observer_listens_to_wall_and_ui(self):
         watch=automation["jns_heating_capture_honeywell_manual_target_v1"]
         self.assertEqual(watch["triggers"][0]["attribute"],"temperature")
