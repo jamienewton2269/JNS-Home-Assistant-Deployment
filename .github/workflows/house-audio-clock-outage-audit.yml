@@ -1,0 +1,15 @@
+name: House Audio B MPD outage read-only root cause
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/clock_outage_audit.request']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check CT221 MPD port and HA-General integration without writes
+        run: bash house_audio_b/clock_outage_audit.sh
