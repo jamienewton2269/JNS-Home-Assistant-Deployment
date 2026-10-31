@@ -1,0 +1,3 @@
+mode=offline-tests
+scope=passive-hallway-observed-heatup-time-learner
+no-thermostat-writes=true
