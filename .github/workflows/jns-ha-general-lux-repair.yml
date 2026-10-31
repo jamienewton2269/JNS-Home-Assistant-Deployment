@@ -1,0 +1,20 @@
+name: JNS HA-General Lux Weather Dusk Repair
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/lux_repair/deploy.request']
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-lux-weather-dusk-repair
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/lux_repair/patch.py gateway/lux_repair/deploy.py
+          python3 gateway/lux_repair/deploy.py
