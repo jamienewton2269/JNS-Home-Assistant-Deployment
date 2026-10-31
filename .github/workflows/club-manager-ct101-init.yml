@@ -1,0 +1,59 @@
+name: Club Manager - CT101 initialise
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Inspect CT101 or start and initialise its base OS
+        required: true
+        type: choice
+        default: INSPECT
+        options: [INSPECT, INITIALISE]
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  initialise:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 15
+    steps:
+      - name: Verify and initialise CT101
+        shell: bash
+        env:
+          MODE: ${{ inputs.operation }}
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 root@nodea.home.arpa "MODE='$MODE' bash -se" <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$MODE" = INSPECT || test "$MODE" = INITIALISE
+          test -e /etc/pve/lxc/101.conf
+          test "$(pct config 101 | sed -n 's/^hostname: //p')" = club-manager-dev
+          test "$(pct config 101 | sed -n 's/^unprivileged: //p')" = 1
+          echo "=== CT101 configuration ==="
+          pct status 101
+          pct config 101
+          echo "=== Duplicate check ==="
+          if test -e /etc/pve/lxc/102.conf; then
+            echo 'STOP: CT102 still exists; verify duplicate retirement before continuing'
+            exit 1
+          fi
+          echo '=== Node A ==='
+          free -h
+          pvesm status
+          if [ "$MODE" = INSPECT ]; then
+            echo 'PASS: CT101 is the sole target. No changes made.'
+            exit 0
+          fi
+          if test "$(pct status 101)" = 'status: stopped'; then
+            pct start 101
+          fi
+          test "$(pct status 101)" = 'status: running'
+          echo '=== Guest release ==='
+          pct exec 101 -- /bin/sh -c 'cat /etc/os-release; id; hostname'
+          echo '=== Create project directories ==='
+          pct exec 101 -- /bin/sh -c 'umask 077; mkdir -p /opt/jns-club-manager /var/lib/jns-club-manager /etc/jns-club-manager; chmod 700 /var/lib/jns-club-manager /etc/jns-club-manager; printf "%s\n" "JNS Club Manager development container initialised" > /opt/jns-club-manager/README.txt'
+          echo 'PASS: CT101 running, project directories initialised; no member data installed'
+          REMOTE
