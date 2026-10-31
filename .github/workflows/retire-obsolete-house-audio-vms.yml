@@ -1,0 +1,55 @@
+name: Retire obsolete House Audio VMs on Node B
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'house_audio_b/retire-vms.request'
+permissions:
+  contents: read
+concurrency:
+  group: house-audio-b-nodeb
+  cancel-in-progress: false
+jobs:
+  retire:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 15
+    steps:
+      - name: Verify audio VMs, protect CT221, retire VM119 and VM219
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ssh -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodeb
+          test "$(pct config 221 | sed -n 's/^hostname: //p')" = house-audio-b
+          pct status 221 | grep -q running
+          test "$(qm config 119 | sed -n 's/^name: //p')" = house-audio-a
+          test "$(qm config 219 | sed -n 's/^name: //p')" = house-audio-b
+          echo "=== VERIFIED TARGETS ==="
+          qm status 119
+          qm status 219
+          pct status 221
+          echo "=== STOP VM119 ==="
+          if qm status 119 | grep -q running; then
+            qm shutdown 119 --timeout 90 || qm stop 119
+          fi
+          test "$(qm status 119)" = 'status: stopped'
+          echo "=== STOP VM219 IF NEEDED ==="
+          if qm status 219 | grep -q running; then
+            qm shutdown 219 --timeout 90 || qm stop 219
+          fi
+          test "$(qm status 219)" = 'status: stopped'
+          echo "=== DESTROY VM119 ==="
+          qm destroy 119 --purge 1 --destroy-unreferenced-disks 1
+          echo "=== DESTROY VM219 ==="
+          qm destroy 219 --purge 1 --destroy-unreferenced-disks 1
+          echo "=== VERIFICATION ==="
+          if qm config 119 >/dev/null 2>&1 || qm config 219 >/dev/null 2>&1; then echo "ERROR: obsolete VM still exists"; exit 1; fi
+          pct status 221
+          pct exec 221 -- systemctl is-active mpd
+          echo "=== BLUETOOTH USB STATE ==="
+          lsusb -t
+          ls -la /sys/class/bluetooth/
+          bluetoothctl list || true
+          echo "RETIREMENT_COMPLETE"
+          REMOTE
