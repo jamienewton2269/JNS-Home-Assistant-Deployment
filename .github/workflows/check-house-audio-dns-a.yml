@@ -1,0 +1,16 @@
+name: Check DNS A for House Audio B
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/dns-a-check.request']
+permissions: {contents: read}
+jobs:
+  check:
+    runs-on: [self-hosted, linux, x64, nodec]
+    steps:
+      - run: |
+          ssh -o BatchMode=yes -o ConnectTimeout=6 root@nodea.home.arpa 'bash -s' <<'REMOTE'
+          echo '=== DNS A ==='
+          pct status 247
+          pct exec 247 -- sh -c 'grep -Rn "house-audio-b" /var/lib/jnsdns/releases /etc/jnsdns 2>/dev/null | head -10; grep -n "10.10.200.85 house-audio-b" /var/lib/jnsdns/leases || true'
+          REMOTE
