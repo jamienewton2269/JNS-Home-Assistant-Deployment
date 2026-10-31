@@ -1,0 +1,8 @@
+approved=2026-10-31T17:24:00Z
+target=ha-general
+vmid=905
+restore_stale_timeout_seconds=300
+restore_dusk_weighting_minutes=120
+weather_consensus=weather.forecast_home+weather.ha_general
+rain_fallback=physical+MET+OpenMeteo
+preserve=priority-ladder,manual-overrides,decision-log
