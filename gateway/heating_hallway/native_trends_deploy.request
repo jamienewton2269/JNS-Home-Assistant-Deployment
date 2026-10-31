@@ -1,0 +1,9 @@
+vm=905
+operation=add-native-testing-temperature-trends-view
+mode=guarded-single-use
+scope=dashboard-only
+requires-hallway-source-fingerprint=0765c6b32aae
+requires-fireplace-source-fingerprint=6e57b33c6d86
+no-heating-changes=true
+no-core-restart=true
+requested=2026-10-31
