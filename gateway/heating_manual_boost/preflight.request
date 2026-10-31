@@ -1,0 +1,4 @@
+mode=readonly
+vm=905
+scope=honeywell-wall-and-dashboard-setpoint-ownership
+runtime=production
