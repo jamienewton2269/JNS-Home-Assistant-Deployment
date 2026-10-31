@@ -14,6 +14,8 @@ from homeassistant.util import dt as dt_util
 from .const import *
 from .thermal import ZoneLearner
 from .hallway_runtime import HallwayAdvisory
+from .weather_policy import (select_weather, outdoor_temperature,
+    weather_current_temperature, parse_hourly_forecast, cached_forecast_valid)
 
 _LOGGER = logging.getLogger(__name__)
 ON_STATES = {"on", "heat", "heating", "fast", "tickover", "true", "1"}
@@ -55,19 +57,27 @@ class ZoneCoordinator(DataUpdateCoordinator):
             return heater.attributes.get("hvac_action") == "heating"
         return heater.state == STATE_ON
 
-    def _outdoor(self):
-        value = self._number(self.cfg.get(CONF_OUTDOOR))
-        if value is not None: return value, "local outdoor sensor"
-        weather = self.hass.states.get(self.cfg.get(CONF_WEATHER))
-        try: return float(weather.attributes["temperature"]), "weather entity"
-        except (ValueError, TypeError, AttributeError, KeyError): return None, "unavailable"
+    def _outdoor(self, now):
+        configured = self.cfg.get(CONF_OUTDOOR)
+        local = self.hass.states.get(configured) if configured else None
+        current = outdoor_temperature(local, now)
+        if current is not None:
+            return current, "verified configured outdoor thermometer"
+        provider = select_weather(self.cfg.get(CONF_WEATHER),
+                                  self.hass.states.async_all("weather"))
+        weather = self.hass.states.get(provider) if provider else None
+        fallback = weather_current_temperature(weather, now)
+        return ((fallback,"fresh weather-current fallback") if fallback is not None
+                else (None,"No safe outdoor source; training paused"))
 
     async def _async_update_data(self):
         now = dt_util.utcnow()
         indoor = self._number(self.cfg[CONF_TEMPERATURE])
-        outdoor, outdoor_source = self._outdoor()
+        outdoor, outdoor_source = self._outdoor(now)
         demand = self._demand()
         await self._refresh_forecast(now)
+        if not cached_forecast_valid(self._forecast, self._forecast_at, now):
+            self._forecast = []
         if indoor is not None and outdoor is not None:
             rate_entity = self.cfg.get(CONF_RATE)
             rate = self.hass.states.get(rate_entity) if rate_entity else None
@@ -100,44 +110,42 @@ class ZoneCoordinator(DataUpdateCoordinator):
                 "hallway": hallway}
 
     async def _refresh_forecast(self, now):
-        # JNS_FORECAST_RETRY_V2: 5-min failure retry, 15-min success refresh,
-        # keep valid cached forecast for at most 90 minutes after last success.
-        last_success = self._forecast_at
+        """Fetch one explicit HA weather provider; block stale/malformed data."""
+        previous = self._forecast_at
         last_attempt = getattr(self, "_forecast_attempt_at", None)
-        if last_success and now - last_success < timedelta(minutes=15):
+        if previous and cached_forecast_valid(self._forecast, previous, now) and (
+                now-previous < timedelta(minutes=15)):
             return
-        if last_attempt and now - last_attempt < timedelta(minutes=5):
+        if last_attempt and now-last_attempt < timedelta(minutes=5):
             return
         self._forecast_attempt_at = now
-        # Drop stale data, never pass a long-expired forecast to the learner.
-        if last_success and now - last_success > timedelta(minutes=90):
+        if not cached_forecast_valid(self._forecast, previous, now):
             self._forecast = []
+        available = self.hass.states.async_all("weather")
         configured = self.cfg.get(CONF_WEATHER)
-        live = [s.entity_id for s in self.hass.states.async_all("weather")
-                if s.state not in ("unknown", "unavailable")]
-        if configured in live:
-            weather = configured
-        elif not configured and len(live) == 1:
-            weather = live[0]
-        else:
-            _LOGGER.warning("JNS hourly forecast waiting for configured provider %s (live=%s)",
-                            configured, len(live))
+        provider = select_weather(configured, available)
+        if provider is None:
+            _LOGGER.warning(
+                "JNS hourly forecast blocked: configured provider unavailable or "
+                "multiple weather providers without exact selection")
             return
         try:
             response = await self.hass.services.async_call(
-                "weather", "get_forecasts", {"type": "hourly"},
-                target={"entity_id": weather}, blocking=True, return_response=True)
-            rows = (response or {}).get(weather, {}).get("forecast", [])
-            forecast = [(datetime.fromisoformat(x["datetime"]), float(x["temperature"]))
-                        for x in rows if x.get("datetime") and x.get("temperature") is not None][:12]
-            if len(forecast) < 2:
-                _LOGGER.warning("JNS hourly forecast insufficient data from %s", weather)
+                "weather","get_forecasts",{"type":"hourly"},
+                target={"entity_id":provider},blocking=True,return_response=True)
+            rows = (response or {}).get(provider,{}).get("forecast",[])
+            forecast = parse_hourly_forecast(rows,now)
+            if not forecast:
+                _LOGGER.warning("JNS hourly forecast unusable from %s",provider)
                 return
-            self._forecast = forecast
-            self._forecast_at = now
-            _LOGGER.info("JNS hourly forecast source: %s (%s points)", weather, len(forecast))
-        except (ValueError, TypeError, KeyError, AttributeError, HomeAssistantError) as exc:
-            _LOGGER.warning("JNS hourly forecast retry pending for %s: %s", weather, exc)
+            self._forecast=forecast
+            self._forecast_at=now
+            _LOGGER.info("JNS validated hourly forecast from %s, %d points",
+                         provider,len(forecast))
+        except (ValueError, TypeError, KeyError, AttributeError,
+                HomeAssistantError) as exc:
+            _LOGGER.warning("JNS hourly forecast retry pending for %s: %s",
+                            provider, type(exc).__name__)
 
     async def async_start_manual_test(self):
         indoor = self._number(self.cfg[CONF_TEMPERATURE])
