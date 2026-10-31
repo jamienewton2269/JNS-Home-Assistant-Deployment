@@ -1,0 +1,27 @@
+name: HA-General Westminster media player diagnosis
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/ha_player_diagnosis.request']
+permissions: {contents: read}
+jobs:
+  read-only:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Inspect Core MPD loading, entity registry and chime scripts
+        run: |
+          ssh -o BatchMode=yes root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          echo JNS_CLOCK_HA_CORE_SERVICE
+          qm guest exec 905 -- docker inspect --format '{{.State.Running}} {{.State.StartedAt}}' homeassistant
+          echo JNS_CLOCK_MPD_REGISTRY
+          qm guest exec 905 -- /usr/bin/jq -c '.data.entities[]|select(.platform=="mpd" or .entity_id=="media_player.music_player_daemon")|{entity_id,platform,disabled_by,config_entry_id,unique_id}' /mnt/data/supervisor/homeassistant/.storage/core.entity_registry
+          echo JNS_CLOCK_MPD_CONFIG
+          qm guest exec 905 -- /usr/bin/jq -c '.data.entries[]|select(.domain=="mpd")|{entry_id,host:.data.host,port:.data.port,disabled_by,source:.source}' /mnt/data/supervisor/homeassistant/.storage/core.config_entries
+          echo JNS_CLOCK_PACKAGE_TRIGGERS_AND_ACTIONS
+          qm guest exec 905 -- /bin/sh -c 'grep -nE "media_player.music_player_daemon|media_player.play_media|mpd|script:|automation:|event|Westminster|clock_mode|schedule" /mnt/data/supervisor/homeassistant/packages/ha_general_westminster.yaml 2>/dev/null | head -90'
+          echo JNS_CLOCK_CORE_MPD_LOGS
+          qm guest exec 905 -- /bin/sh -c 'docker logs homeassistant --since 2026-10-31T16:40:00 2>&1 | grep -iE "mpd|music_player_daemon|music player daemon|westminster|house.audio|Failed to connect|ConnectionRefused" | tail -28' || true
+          echo JNS_CLOCK_HA_DIAGNOSTIC_COMPLETE
+          REMOTE
