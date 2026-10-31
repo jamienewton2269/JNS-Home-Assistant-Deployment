@@ -13,7 +13,7 @@ class JNSTemperatureTimelineCard extends HTMLElement {
     this.hours = config.hours === 168 ? 168 : 24;
     this._lastFetch = 0;
     this._history = [];
-    this.attachShadow({mode:"open"});
+    if (!this.shadowRoot) this.attachShadow({mode:"open"});
   }
   set hass(hass) {
     this._hass = hass;
