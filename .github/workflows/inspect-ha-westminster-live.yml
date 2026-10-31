@@ -1,0 +1,26 @@
+name: Inspect HA Westminster live migration
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/westminster-inspect.request']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - name: Inspect chimes and MPD without modifying services
+        run: |
+          ssh -o BatchMode=yes root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          echo '=== HOST ==='
+          bluetoothctl info 91:56:5F:5E:55:47 | grep -E 'Connected:|Paired:'
+          systemctl is-active bluealsa
+          getent ahostsv4 house-audio-b.home.arpa
+          echo '=== CT221 ==='
+          pct exec 221 -- sh -c 'hostname -I; mpc outputs; mpc status; mpc lsplaylists; find /var/lib/mpd/music -maxdepth 2 -type f | head -40; ss -lnt | grep -E "6600|8000"' || true
+          echo '=== HA CONFIG ==='
+          qm guest exec 905 -- /bin/sh -c 'grep -nEi "mpd|westminster|house.audio|music_player_daemon" /mnt/data/supervisor/homeassistant/configuration.yaml /mnt/data/supervisor/homeassistant/packages/ha_general_westminster.yaml /mnt/data/supervisor/homeassistant/packages/house_clock.yaml 2>/dev/null | head -140' || true
+          echo '=== HA AUDIO CONTENT ==='
+          qm guest exec 905 -- /bin/sh -c 'find /mnt/data/supervisor/homeassistant -maxdepth 5 -iname "*westminster*" -o -iname "*chime*" 2>/dev/null | head -45' || true
+          REMOTE
