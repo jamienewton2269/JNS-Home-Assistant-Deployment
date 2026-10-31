@@ -18,7 +18,10 @@ required=[
  {'entity':'binary_sensor.jns_fireplace_heat_detected','name':'Fireplace sustained heat'},
  {'entity':'binary_sensor.jns_fireplace_override_safe','name':'Automatic suppression protection (blocked until trained)'},
  {'entity':'sensor.jns_hallway_weather_input_status','name':'Open-Meteo hourly forecast health'},
- {'entity':'sensor.jns_hallway_hourly_open_meteo','name':'Hourly weather feed'}]
+ {'entity':'sensor.jns_hallway_hourly_open_meteo','name':'Hourly weather feed'},
+ {'entity':'sensor.jns_hallway_adaptive_warmup_minutes','name':'Measured hallway warmup lead time'},
+ {'entity':'input_number.jns_hallway_warmup_observations','name':'Accepted hallway heating cycles'},
+ {'entity':'sensor.jns_hallway_predicted_60m_while_heating','name':'Forecast hallway +60 min while heating'}]
 already={x.get('entity') for x in matching[0]['entities'] if isinstance(x,dict)}
 assert not any(x['entity'] in already for x in required),'Source status card already updated'
 registered={e['entity_id'] for e in
