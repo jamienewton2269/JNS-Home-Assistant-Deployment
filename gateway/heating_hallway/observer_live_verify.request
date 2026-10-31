@@ -1,0 +1,3 @@
+vm=905
+mode=read-only
+purpose=observe-local-Open-Meteo-hourly-service-response-and-forecast-state
