@@ -3,3 +3,4 @@ scope=append-verified-Hallway-Fireplace-OpenMeteo-learning-status-to-existing-Te
 mode=dashboard-only
 no_core_restart=true
 keep_all_views=true
+retry=correct-runid-argv-index-no-dash-changes-prior
