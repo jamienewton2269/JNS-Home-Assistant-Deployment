@@ -1,2 +1,3 @@
 mode=read-only
 scope=recent MPD player recorder states
+post-heating-core-restart=2026-10-31T18-55
