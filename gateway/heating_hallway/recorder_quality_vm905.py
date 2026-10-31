@@ -18,7 +18,7 @@ def tempids(device):
  return [x["entity_id"] for x in es if x.get("device_id")==device and
        not x.get("disabled_by") and x.get("entity_id","").startswith("sensor.")
        and ((x.get("device_class") or x.get("original_device_class"))=="temperature" or
-        (not (x.get("device_class") or x.get("original_device_class")) and x.get("entity_id","").endswith("_temperature"))]
+        (not (x.get("device_class") or x.get("original_device_class")) and x.get("entity_id","").endswith("_temperature")))]
 fireids=set()
 for d in ds:
  if any(F in str(y).lower() for z in d.get("identifiers",[]) for y in z):
@@ -74,6 +74,7 @@ print("JNS_HALLWAY_INPUT_READONLY "+json.dumps({
 },sort_keys=True))
 '''
 def main():
+ compile(INNER, "jns-recorder-quality-inner.py", "exec")
  if "running" not in ssh_host("nodeb",["qm","status","905"]):raise RuntimeError("VM905 not running")
  py="exec(__import__('base64').b64decode('"+base64.b64encode(INNER.encode()).decode()+"'))"
  r=json.loads(ssh_host("nodeb",["qm","guest","exec","905","--","docker","exec","homeassistant","python3","-c",py]))
