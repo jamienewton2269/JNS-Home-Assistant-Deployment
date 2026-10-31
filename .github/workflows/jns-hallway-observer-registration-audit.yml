@@ -1,0 +1,31 @@
+name: JNS Hallway Observer Registration and Startup Error Audit
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/heating_hallway/observer_registration.request']
+permissions: {contents: read}
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - name: Inspect observer package identity, HA registry and template errors
+        run: |
+          ssh -o BatchMode=yes root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          qm guest exec 905 --timeout 70 -- docker exec homeassistant python3 -c 'import json,pathlib,hashlib
+          r=pathlib.Path("/config")
+          p=r/"packages/jns_hallway_observer.yaml"
+          have={x.get("entity_id"):x for x in json.loads((r/".storage/core.entity_registry").read_text())["data"]["entities"]}
+          names=["sensor.jns_hallway_house_temperature","sensor.jns_fireplace_temperature","sensor.jns_honeywell_target_temperature",
+                 "sensor.jns_hallway_hourly_open_meteo","sensor.jns_hallway_weather_input_status",
+                 "binary_sensor.jns_fireplace_heat_detected","binary_sensor.jns_fireplace_override_safe"]
+          data={"file_present":p.is_file(),
+                "file_sha256":hashlib.sha256(p.read_bytes()).hexdigest() if p.is_file() else None,
+                "registered":{x: x in have for x in names},
+                "suffixed_matches":[x for x in have if x.startswith(("sensor.jns_hallway","sensor.jns_fireplace","binary_sensor.jns_fireplace"))][:28]}
+          print("JNS_OBSERVER_REGISTRATION",json.dumps(data,sort_keys=True))'
+          echo JNS_OBSERVER_STARTUP_ERRORS
+          qm guest exec 905 --timeout 45 -- /bin/sh -c 'docker logs homeassistant --since "2026-10-31T19:31:00Z" 2>&1 | grep -iE "jns_hallway|jns_fireplace|weather.get_forecasts|template|open.meteo|observation" | grep -iE "error|warning|not found|invalid|failed|unexpected|could not|exception|name" | tail -25' || true
+          echo JNS_OBSERVER_REGISTRATION_AUDIT_DONE
+          REMOTE
