@@ -1,0 +1,6 @@
+vm=905
+scope=Hallway-warmup-learning-observational-package
+forecast_dependency=OpenMeteo-ready
+physical_Honeywell=setpoint-writes-none
+no_fireplace_setback=true
+approval=user-fix-outstanding-heating-controller
