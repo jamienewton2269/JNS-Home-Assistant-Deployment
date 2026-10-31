@@ -2,3 +2,5 @@ mode=readonly
 vm=905
 scope=honeywell-wall-and-dashboard-setpoint-ownership
 runtime=production
+
+check-other-setpoint-writers=20261031T1807Z
