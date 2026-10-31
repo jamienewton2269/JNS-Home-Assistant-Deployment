@@ -1,0 +1,23 @@
+name: House Audio B MPD authentication read-only preflight
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/mpd_auth_preflight.request']
+permissions: {contents: read}
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Confirm MPD password behavior and Home Assistant password-setting code
+        run: |
+          ssh -o BatchMode=yes root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          echo JNS_AUTH_PREFLIGHT_MPD_CONFIG
+          pct exec 221 -- sh -c 'if grep -Eq "^[[:space:]]*password[[:space:]]+" /etc/mpd.conf; then echo password_directive_present; else echo no_password_directive; fi; mpc -h 127.0.0.1 -p 6600 status | tail -2'
+          echo JNS_AUTH_PREFLIGHT_HA_SAVED_DATA
+          qm guest exec 905 -- /usr/bin/jq -c '.data.entries[] | select(.entry_id=="01M4VJYJGS81KFN0FNGJJWM39B") | {host:.data.host,password_key_present:(.data|has("password")),password_value_type:(.data.password|type),password_length:(.data.password|if type=="string" then length else -1 end),disabled_by}' /mnt/data/supervisor/homeassistant/.storage/core.config_entries
+          echo JNS_AUTH_PREFLIGHT_HA_SOURCE
+          qm guest exec 905 -- docker exec homeassistant python3 -c 'import pathlib; p=pathlib.Path("/usr/src/homeassistant/homeassistant/components/mpd/media_player.py");s=p.read_text().splitlines();print("\n".join(f"{i+1}: {x}" for i,x in enumerate(s) if 115 <= i <= 160))'
+          echo JNS_AUTH_PREFLIGHT_DONE
+          REMOTE
