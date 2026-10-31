@@ -87,16 +87,16 @@ template:
         unit_of_measurement: min
         state_class: measurement
         state: >-
-          {% set indoor = states('sensor.jns_house_temperature') | float(none) %}
+          {% set indoor = states('sensor.jns_hallway_house_temperature') | float(none) %}
           {% set outdoor = states('sensor.thermostat_thermostat_outdoor_temperature') | float(none) %}
-          {% set model = 'sensor.lyric_home_heating_thermal_learning' %}
+          {% set model = 'sensor.jns_hallway_thermal_learning' %}
           {% set ready = state_attr(model, 'ready') %}
           {% set k = state_attr(model, 'loss_per_hour') | float(0) %}
           {% set h = state_attr(model, 'heat_gain_c_per_hour') | float(0) %}
           {% set b = state_attr(model, 'drift_c_per_hour') | float(0) %}
           {% if indoor is not none and indoor >= 20.8 %}
             0
-          {% elif indoor is not none and outdoor is not none and ready in [true, 'True'] and k > 0 and h > 0 %}
+          {% elif indoor is not none and outdoor is not none and ready in [true, 'True'] and state_attr(model, 'source_epoch') == 'hallway-precision-v1' and k > 0 and h > 0 %}
             {% set n = namespace(temp=indoor, eta=360) %}
             {% for step in range(1, 73) %}
               {% if n.temp < 20.8 %}
@@ -114,7 +114,7 @@ template:
           {% endif %}
         attributes:
           prediction_model: >-
-            {% if state_attr('sensor.lyric_home_heating_thermal_learning', 'ready') in [true, 'True'] %}
+            {% if state_attr('sensor.jns_hallway_thermal_learning', 'ready') in [true, 'True'] and state_attr('sensor.jns_hallway_thermal_learning', 'source_epoch') == 'hallway-precision-v1' %}
               Validated JNS thermal learner
             {% elif states('input_number.jns_heating_warmup_observations') | int(0) >= 3 %}
               Observed morning warm-up ({{ states('input_number.jns_heating_warmup_observations') | int(0) }} accepted cycles)
@@ -128,15 +128,15 @@ template:
         unit_of_measurement: min
         state_class: measurement
         state: >-
-          {% set indoor = states('sensor.jns_house_temperature') | float(none) %}
+          {% set indoor = states('sensor.jns_hallway_house_temperature') | float(none) %}
           {% set outdoor = states('sensor.thermostat_thermostat_outdoor_temperature') | float(none) %}
-          {% set model = 'sensor.lyric_home_heating_thermal_learning' %}
+          {% set model = 'sensor.jns_hallway_thermal_learning' %}
           {% set ready = state_attr(model, 'ready') %}
           {% set k = state_attr(model, 'loss_per_hour') | float(0) %}
           {% set b = state_attr(model, 'drift_c_per_hour') | float(0) %}
           {% if indoor is not none and indoor <= 18.2 %}
             0
-          {% elif indoor is not none and outdoor is not none and ready in [true, 'True'] and k > 0 %}
+          {% elif indoor is not none and outdoor is not none and ready in [true, 'True'] and state_attr(model, 'source_epoch') == 'hallway-precision-v1' and k > 0 %}
             {% set n = namespace(temp=indoor, eta=180) %}
             {% for step in range(1, 37) %}
               {% if n.temp > 18.2 %}
@@ -149,7 +149,7 @@ template:
             60
           {% endif %}
         attributes:
-          predictive: "{{ state_attr('sensor.lyric_home_heating_thermal_learning', 'ready') in [true, 'True'] }}"
+          predictive: "{{ state_attr('sensor.jns_hallway_thermal_learning', 'ready') in [true, 'True'] and state_attr('sensor.jns_hallway_thermal_learning', 'source_epoch') == 'hallway-precision-v1' }}"
       - name: JNS Heating Verified Alarm State
         unique_id: jns_heating_verified_alarm_state
         icon: mdi:shield-home
@@ -259,6 +259,8 @@ automation:
               {{ states('input_number.jns_heating_away_minimum_temp') | float(15) }}
             {% elif alarm not in ['disarmed', 'armed_home'] %}
               none
+            {% elif is_state('binary_sensor.jns_fireplace_override_safe', 'on') %}
+              18
             {% elif 240 <= minutes_now | int < 600 and (600 - minutes_now | int) <= (preheat | int + 10) %}
               21
             {% elif minutes_now | int >= 600 and minutes_now | int < 1140 %}
@@ -279,9 +281,9 @@ automation:
           {{ desired | trim not in ['none', 'unavailable', 'unknown', ''] and
              is_number(state_attr('climate.thermostat_thermostat', 'temperature')) and
              (state_attr('climate.thermostat_thermostat', 'temperature') | float - desired | float) | abs >= 0.4 }}
-      # Observe actual 18-21C morning response, but never use the bathroom
-      # advisory estimate to command the thermostat. The Honeywell remains
-      # the only authoritative room reference.
+      # Observe Hallway 18-21C response, ignoring fireplace periods.
+      # Honeywell remains the only heating actuator; the hallway is the
+      # authoritative JNS prediction input, not a Honeywell sensor replacement.
       - choose:
           - conditions:
               - condition: template
@@ -289,15 +291,16 @@ automation:
                   {{ desired | float(0) == 21 and 240 <= minutes_now | int(0) < 600
                      and alarm in ['disarmed', 'armed_home']
                      and is_state('input_boolean.jns_heating_warmup_tracking', 'off')
-                     and is_number(states('sensor.jns_house_temperature'))
-                     and 15 <= states('sensor.jns_house_temperature') | float(0) < 20.8
+                     and is_state('binary_sensor.jns_fireplace_heat_detected', 'off')
+                     and is_number(states('sensor.jns_hallway_house_temperature'))
+                     and 15 <= states('sensor.jns_hallway_house_temperature') | float(0) < 20.8
                      and state_attr('climate.thermostat_thermostat', 'temperature') | float(0) < 20.5 }}
             sequence:
               - action: input_number.set_value
                 target:
                   entity_id: input_number.jns_heating_warmup_start_temperature
                 data:
-                  value: "{{ states('sensor.jns_house_temperature') | float }}"
+                  value: "{{ states('sensor.jns_hallway_house_temperature') | float }}"
               - action: input_datetime.set_datetime
                 target:
                   entity_id: input_datetime.jns_heating_warmup_started
@@ -326,7 +329,7 @@ automation:
         minutes: "/5"
       - trigger: state
         entity_id:
-          - sensor.jns_house_temperature
+          - sensor.jns_hallway_house_temperature
           - binary_sensor.lyric_home_heating_heating_call
           - climate.thermostat_thermostat
     conditions:
@@ -335,7 +338,7 @@ automation:
         state: "on"
     actions:
       - variables:
-          indoor: "{{ states('sensor.jns_house_temperature') | float(-99) }}"
+          indoor: "{{ states('sensor.jns_hallway_house_temperature') | float(-99) }}"
           start_c: "{{ states('input_number.jns_heating_warmup_start_temperature') | float(-99) }}"
           elapsed_min: "{{ (as_timestamp(now()) - as_timestamp(states('input_datetime.jns_heating_warmup_started'), as_timestamp(now()))) / 60 }}"
           alarm: "{{ states('sensor.jns_heating_verified_alarm_state') }}"
@@ -347,6 +350,8 @@ automation:
                 value_template: >-
                   {{ is_state('input_boolean.jns_heating_automatic_override', 'on')
                      or alarm not in ['disarmed', 'armed_home']
+                     or is_state('binary_sensor.jns_fireplace_heat_detected','on')
+                     or is_state('binary_sensor.jns_fireplace_override_safe','on')
                      or target_c | float(-99) != 21
                      or indoor | float(-99) < 15
                      or start_c | float(-99) < 15
