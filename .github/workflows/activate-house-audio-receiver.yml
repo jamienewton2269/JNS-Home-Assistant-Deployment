@@ -1,0 +1,47 @@
+name: Activate House Audio B receiver
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/receiver-activate.request']
+permissions: {contents: read}
+jobs:
+  install:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - name: Install receiver service using CT221 DHCP address discovery
+        shell: bash
+        run: |
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -e
+          test "$(pct config 221 | sed -n 's/^hostname: //p')" = house-audio-b
+          command -v ogg123
+          systemctl is-active --quiet bluealsa
+          cat > /usr/local/sbin/jns-audio-receiver <<'EOF'
+          #!/bin/bash
+          set -euo pipefail
+          addr=$(pct exec 221 -- hostname -I | tr ' ' '\n' | grep -m1 '^[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*$')
+          test -n "$addr"
+          bluetoothctl connect 91:56:5F:5E:55:47 || true
+          exec ogg123 -q -d alsa -o 'dev:bluealsa:DEV=91:56:5F:5E:55:47,PROFILE=a2dp' "http://$addr:8000/"
+          EOF
+          chmod 0755 /usr/local/sbin/jns-audio-receiver
+          cat >/etc/systemd/system/jns-audio-receiver.service <<'EOF'
+          [Unit]
+          Description=JNS CT221 MPD to TK-BS001 Bluetooth audio
+          After=network-online.target bluetooth.service bluealsa.service
+          Wants=network-online.target
+          [Service]
+          Type=simple
+          ExecStart=/usr/local/sbin/jns-audio-receiver
+          Restart=always
+          RestartSec=10
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          systemctl daemon-reload
+          systemctl enable --now jns-audio-receiver.service
+          sleep 3
+          systemctl is-active jns-audio-receiver.service
+          journalctl -u jns-audio-receiver -n 12 --no-pager
+          REMOTE
