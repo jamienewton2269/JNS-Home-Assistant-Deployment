@@ -1,0 +1,29 @@
+name: Verify original chimes and HA-General state
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/original-chimes-check.request']
+permissions: {contents: read}
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - name: Read-only preflight
+        shell: bash
+        run: |
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          echo '=== ORIGINAL MP3 FILES ==='
+          pct exec 221 -- sh -c 'find /var/lib/mpd/music -type f -name "*.mp3" | sort | head -30'
+          echo '=== MPD LISTS ==='
+          pct exec 221 -- mpc lsplaylists
+          echo '=== HALF CONTENT ==='
+          pct exec 221 -- mpc playlist jns_westminster_half
+          echo '=== HOUR CONTENT ==='
+          pct exec 221 -- mpc playlist jns_westminster_hour_03
+          echo '=== CORE STATUS ==='
+          qm guest exec 905 -- ha core info
+          echo '=== CONFIG AND ENTITIES ==='
+          qm guest exec 905 -- /usr/bin/jq -c '.data.entries[] | select(.domain=="mpd") | {entry_id,disabled_by,host:.data.host}' /mnt/data/supervisor/homeassistant/.storage/core.config_entries
+          qm guest exec 905 -- /usr/bin/jq -c '.data.entities[] | select(.platform=="mpd") | {entity_id,config_entry_id,disabled_by}' /mnt/data/supervisor/homeassistant/.storage/core.entity_registry
+          REMOTE
