@@ -1,0 +1,25 @@
+name: Locate HA Westminster media and MPD integration
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/westminster-assets.request']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - name: Search media and registry metadata
+        shell: bash
+        run: |
+          ssh -o BatchMode=yes root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          echo '=== HA MEDIA SEARCH ==='
+          qm guest exec 905 -- /bin/sh -c 'find /mnt/data -type f \( -iname "*westminster*" -o -iname "*chime*" -o -iname "*half.mp3" -o -iname "hour_*.mp3" \) 2>/dev/null | head -80'
+          echo '=== HA INTEGRATION REGISTRY ==='
+          qm guest exec 905 -- /bin/sh -c 'grep -o -E ".{0,100}music_player_daemon.{0,140}|.{0,90}mpd.{0,150}" /mnt/data/supervisor/homeassistant/.storage/core.config_entries 2>/dev/null | head -25'
+          echo '=== HA CLOCK MEDIA ==='
+          qm guest exec 905 -- /bin/sh -c 'sed -n "1,95p" /mnt/data/supervisor/homeassistant/packages/house_clock.yaml'
+          echo '=== CT221 LISTEN / HA ACCESS ==='
+          pct exec 221 -- mpc lsplaylists
+          REMOTE
