@@ -21,7 +21,7 @@ qga() {
 recovery() {
   local rc=$?
   trap - EXIT
-  if [ "$finished" != 1 ] && [ "$core_stopped" = 1 ]; then
+  if [ "$finished" != 1 ] && { [ "$core_stopped" = 1 ] || [ "$patch_done" = 1 ]; }; then
     if [ "$patch_done" = 1 ]; then
       echo JNS_CLOCK_MPD_AUTH_ROLLBACK_ATTEMPTED
       qga ha core stop >/dev/null 2>&1 || true
