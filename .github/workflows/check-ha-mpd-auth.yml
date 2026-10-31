@@ -1,0 +1,16 @@
+name: Check HA MPD saved authentication settings
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/mpd-auth-check.request']
+permissions: {contents: read}
+jobs:
+  check:
+    runs-on: [self-hosted, linux, x64, nodec]
+    steps:
+      - run: |
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          qm guest exec 905 -- /usr/bin/jq -c '.data.entries[] | select(.domain=="mpd") | {entry_id,host:.data.host,port:.data.port,password_configured:(.data.password != null and .data.password != "")}' /mnt/data/supervisor/homeassistant/.storage/core.config_entries
+          echo '=== CT221 MPD PASSWORD CONFIG ==='
+          pct exec 221 -- sh -c 'grep -q "^password " /etc/mpd.conf && echo configured || echo none'
+          REMOTE
