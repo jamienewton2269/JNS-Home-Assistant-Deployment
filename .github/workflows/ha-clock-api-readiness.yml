@@ -1,0 +1,21 @@
+name: Check HA-General clock API readiness
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/clock-api-ready.request']
+permissions: {contents: read}
+jobs:
+  check:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - shell: bash
+        run: |
+          ssh root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          echo '=== CORE STATUS ==='
+          qm guest exec 905 -- ha core info
+          echo '=== CORE CONTAINER ==='
+          qm guest exec 905 -- /bin/sh -c 'docker ps --format "{{.Names}}" | grep -E "^homeassistant$|hassio_supervisor"'
+          echo '=== INTERNAL PROXY PREFLIGHT (NO CREDENTIALS LOGGED) ==='
+          qm guest exec 905 -- /bin/sh -c 'docker exec homeassistant python3 -c "import os; print(\x27CORE_SUPERVISOR_TOKEN_PRESENT=\x27 + str(bool(os.getenv(\x27SUPERVISOR_TOKEN\x27))))"'
+          REMOTE
