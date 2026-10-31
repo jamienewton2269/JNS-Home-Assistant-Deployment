@@ -1,0 +1,28 @@
+name: JNS HA-General Heating Loader Error Read-only Audit
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/heating_manual_boost/loader_diagnosis.request']
+permissions: {contents: read}
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read new HA Core start failures without changing system
+        run: |
+          ssh -o BatchMode=yes root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          echo JNS_HEATING_LOADER_DIAGNOSTIC_BEGIN
+          qm status 905
+          qm guest exec 905 --timeout 40 -- /bin/sh -c \
+            'docker logs homeassistant --since 2026-10-31T18:46:25Z 2>&1 |
+             grep -iE "error|invalid|failed|package|template|input_number|input_boolean|input_datetime|automation|unique.?id|configuration" |
+             grep -viE "password|token|secret|authorization|api.key|bearer" |
+             tail -65' || true
+          echo JNS_HEATING_CONFIG_INCLUDES
+          qm guest exec 905 --timeout 30 -- /bin/sh -c \
+            "grep -nE '^(homeassistant:|  packages:|  packages:.*include|automation:)' /mnt/data/supervisor/homeassistant/configuration.yaml | head -20" || true
+          echo JNS_HEATING_LOADER_DIAGNOSTIC_COMPLETE
+          REMOTE
