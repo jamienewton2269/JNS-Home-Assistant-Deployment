@@ -1,0 +1,24 @@
+name: JNS HA-General Honeywell Manual Target Guarded Release
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/heating_manual_boost/release.request']
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-heating-presence-deploy
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@v4
+      - name: Static checks before guarded VM905 release
+        run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/heating_manual_boost/release_vm905.py
+          python3 -m py_compile gateway/heating_presence/deploy.py
+          test -f gateway/heating_presence/jns_predictive_schedule.yaml
+      - name: Hash-pinned VM905 manual setpoint activation
+        run: python3 gateway/heating_manual_boost/release_vm905.py --apply
