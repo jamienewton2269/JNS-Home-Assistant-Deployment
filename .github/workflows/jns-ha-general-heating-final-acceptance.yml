@@ -1,0 +1,56 @@
+name: JNS HA-General Heating Final Read-only Acceptance
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/heating_hallway/final_acceptance.request']
+permissions: {contents: read}
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - name: Confirm current heating model/forecast/manual controls and clock after restart
+        run: |
+          ssh -o BatchMode=yes root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          echo JNS_HEATING_ACCEPTANCE_START
+          qm guest exec 905 --timeout 90 -- docker exec homeassistant python3 -c 'import datetime,hashlib,json,pathlib,sqlite3,yaml
+          R=pathlib.Path("/config")
+          schedule=R/"packages/jns_heating_predictive_schedule.yaml"
+          observer=R/"packages/jns_hallway_observer.yaml"
+          learner=R/"packages/jns_hallway_adaptive_learning.yaml"
+          board=R/"dashboards/testing.yaml"
+          s=schedule.read_text()
+          views=yaml.safe_load(board.read_text())["views"]
+          trends=[v for v in views if v.get("path")=="temperature-trends"]
+          cards=[c for v in trends for c in v.get("cards",[]) if c.get("title")=="Current thermometers and forecast"]
+          lines=[e.get("entity") for c in cards for e in c.get("entities",[]) if isinstance(e,dict)]
+          DB=R/"home-assistant_v2.db"
+          db=sqlite3.connect("file:"+str(DB)+"?mode=ro",uri=True,timeout=8)
+          wanted=["sensor.jns_hallway_weather_input_status","sensor.jns_hallway_hourly_open_meteo",
+            "sensor.jns_hallway_adaptive_warmup_minutes","input_number.jns_hallway_warmup_observations",
+            "binary_sensor.jns_fireplace_override_safe","media_player.music_player_daemon",
+            "input_boolean.jns_heating_manual_setpoint_hold"]
+          states={}
+          for eid in wanted:
+           row=db.execute("SELECT s.state,s.last_updated_ts FROM states s JOIN states_meta m ON s.metadata_id=m.metadata_id WHERE m.entity_id=? ORDER BY s.state_id DESC LIMIT 1",(eid,)).fetchone()
+           states[eid]={"seen":bool(row)}
+           if row:
+            state,ts=row
+            states[eid]["age_min"]=round((datetime.datetime.now(datetime.timezone.utc).timestamp()-ts)/60,1) if ts else None
+            if eid.endswith("warmup_observations"):
+             states[eid]["count"]=int(float(state)) if state not in ("unknown","unavailable") else None
+            else:
+             states[eid]["state"]=state if eid.endswith(("weather_input_status","override_safe","music_player_daemon","manual_setpoint_hold")) else "[numeric or status hidden]"
+          db.close()
+          result={"observer_package":observer.is_file(),"learner_package":learner.is_file(),
+           "schedule_hallway_authority":"JNS_HALLWAY_WARMUP_AUTHORITY_V1" in s,
+           "manual_priority_preserved":"JNS_MANUAL_HIGH_HEAT_PRESERVED_V1" in s,
+           "old_honeywell_model_not_used":"sensor.lyric_home_heating_thermal_learning" not in s,
+           "fire_suppression_hard_disabled":any(e.get("name")=="JNS Fireplace Override Safe" and e.get("state")=="false" for t in yaml.safe_load(observer.read_text())["template"] for e in t.get("binary_sensor",[])),
+           "temperature_trends_present":len(trends)==1,"temperature_trends_new_items":len([e for e in lines if e and e.startswith(("sensor.jns_hallway","sensor.jns_fireplace","binary_sensor.jns_fireplace","input_number.jns_hallway"))]),
+           "temperature_views_preserved":len(views),"states":states}
+          print("JNS_HEATING_FINAL_ACCEPTANCE "+json.dumps(result,sort_keys=True))
+          assert all([result["observer_package"],result["learner_package"],result["schedule_hallway_authority"],result["manual_priority_preserved"],result["old_honeywell_model_not_used"],result["fire_suppression_hard_disabled"],result["temperature_trends_present"]])'
+          echo JNS_HEATING_ACCEPTANCE_DONE
+          REMOTE
