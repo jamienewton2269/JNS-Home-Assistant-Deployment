@@ -1,0 +1,6 @@
+mode=guarded-additive-native-package
+vm=905
+purpose=Hallway-Fireplace-source-and-internal-Open-Meteo-hourly-diagnostic
+fireplace_suppression=hard-off
+thermostat_services=none
+needs=Core-check+single-restart+registration-verification
