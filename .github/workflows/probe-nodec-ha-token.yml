@@ -1,0 +1,17 @@
+name: Node C HA token access probe
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/token-access-probe.request']
+permissions: {contents: read}
+jobs:
+  probe:
+    runs-on: [self-hosted, linux, x64, nodec]
+    steps:
+      - name: Check safe token access methods (no secret output)
+        shell: bash
+        run: |
+          echo "RUNNER_USER=$(whoami)"
+          if test -r /etc/jns/credentials/ha-general.token; then echo DIRECT_READ=yes; else echo DIRECT_READ=no; fi
+          if sudo -n test -r /etc/jns/credentials/ha-general.token 2>/dev/null; then echo SUDO_READ=yes; else echo SUDO_READ=no; fi
+          if ssh -o BatchMode=yes -o ConnectTimeout=3 root@localhost 'test -r /etc/jns/credentials/ha-general.token' 2>/dev/null; then echo LOOPBACK_SSH_READ=yes; else echo LOOPBACK_SSH_READ=no; fi
