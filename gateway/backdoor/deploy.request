@@ -1,0 +1,9 @@
+approved=2026-10-31T15:37:00Z
+target=ha-general
+vmid=905
+old_trigger=binary_sensor.backdoor_contact_sensor_door
+new_trigger=binary_sensor.backdoor_contact_switch_contact
+dogs_run_switch=switch.0x84fd27fffe9ce438
+duration_helper=input_number.jns_backdoor_dogs_run_minutes
+night_only=true
+return_open_does_not_restart_timer=true
