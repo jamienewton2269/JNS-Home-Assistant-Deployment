@@ -4,3 +4,4 @@ scope=honeywell-wall-and-dashboard-setpoint-ownership
 runtime=production
 
 check-other-setpoint-writers=20261031T1807Z
+recheck=manual-priority-release-after-clock-acceptance-20261031
