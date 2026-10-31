@@ -1,0 +1,18 @@
+name: HA-General weather provider source mapping (no API)
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/heating_hallway/weather_mapping.request']
+permissions:
+  contents: read
+jobs:
+  mapping:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read weather integration registry and heating config only
+        run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/heating_hallway/diagnose_weather_vm905.py
+          python3 gateway/heating_hallway/diagnose_weather_vm905.py --config-only
