@@ -1,0 +1,14 @@
+name: JNS HA-General Back Door Live Audit
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/backdoor/current.request']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/backdoor/current_audit.py
