@@ -1,0 +1,6 @@
+vm=905
+operation=activate-manual-Honeywell-setpoint-priority
+expected_previous_sha256=3f4dc62b3a3143bafc5d4c7d72bf81f1a06af0ebe12f17a1e027b7a56f4ac108
+safety=backup+core-check+single-core-restart
+scope=heating-schedule-package-only
+initiated=2026-10-31
