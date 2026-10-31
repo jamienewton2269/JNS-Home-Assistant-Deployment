@@ -1,0 +1,39 @@
+name: Finish obsolete audio VM cleanup Node B
+on:
+  push:
+    branches: [main]
+    paths: ['house_audio_b/finish-retirement.request']
+permissions:
+  contents: read
+jobs:
+  finish:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 15
+    steps:
+      - name: Finish stopped audio guest deletion without offline storage scan
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ssh -o BatchMode=yes root@nodeb.home.arpa 'bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodeb
+          test "$(pct config 221 | sed -n 's/^hostname: //p')" = house-audio-b
+          pct status 221 | grep -q running
+          for pair in '119 house-audio-a' '219 house-audio-b'; do
+            read -r id expected <<< "$pair"
+            test "$(qm config "$id" | sed -n 's/^name: //p')" = "$expected"
+            test "$(qm status "$id")" = 'status: stopped'
+          done
+          echo "=== RETIRE VM119 (its disk was already removed) ==="
+          qm set 119 --delete scsi0
+          qm destroy 119 --purge 1 --destroy-unreferenced-disks 0
+          echo "=== RETIRE VM219 ==="
+          qm destroy 219 --purge 1 --destroy-unreferenced-disks 0
+          echo "=== VERIFY ==="
+          test ! -f /etc/pve/qemu-server/119.conf
+          test ! -f /etc/pve/qemu-server/219.conf
+          pct status 221
+          pct exec 221 -- systemctl is-active mpd
+          bluetoothctl list
+          echo "AUDIO_VM_CLEANUP_COMPLETE"
+          REMOTE
