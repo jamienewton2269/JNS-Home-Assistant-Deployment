@@ -1,0 +1,16 @@
+name: JNS Hallway Open-Meteo Weather Actual Response Audit
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/heating_hallway/observer_live_verify.request']
+permissions: {contents: read}
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/heating_hallway/verify_observer_recorder.py
+          python3 gateway/heating_hallway/verify_observer_recorder.py
