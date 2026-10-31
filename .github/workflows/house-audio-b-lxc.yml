@@ -1,0 +1,24 @@
+name: Deploy House Audio B LXC
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'house_audio_b/deploy.request'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: house-audio-b-nodeb
+  cancel-in-progress: false
+
+jobs:
+  install:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Provision guarded CT221 on Node B
+        shell: bash
+        run: bash house_audio_b/deploy-lxc-nodeb.sh
