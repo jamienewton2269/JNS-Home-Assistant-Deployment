@@ -21,6 +21,13 @@ jobs:
         shell: bash
         run: |
           test "$(hostname -s)" = "nodec" || { echo "Expected Node C runner; refusing"; exit 1; }
+      - name: Confirm protected API credential access
+        shell: bash
+        run: |
+          test -r /etc/jns/credentials/ha-general.token || {
+            echo "::error::Node C runner cannot read protected HA-General credential. Do not change token permissions; set up a least-privilege read-only helper through the existing deployment gateway."
+            exit 1
+          }
       - name: Read-only sensor inventory
         shell: bash
         run: |
