@@ -107,31 +107,28 @@ template:
         unit_of_measurement: min
         state_class: measurement
         state: >-
-          {% set indoor = states('sensor.jns_house_temperature') | float(none) %}
+          {# JNS_HALLWAY_WARMUP_AUTHORITY_V1: model must be from hallway source epoch. #}
+          {% set hall = states('sensor.jns_hallway_house_temperature') | float(none) %}
           {% set target = states('sensor.jns_heating_active_requested_target') | float(21) %}
-          {% set outdoor = states('sensor.thermostat_thermostat_outdoor_temperature') | float(none) %}
-          {% set model = 'sensor.lyric_home_heating_thermal_learning' %}
-          {% set ready = state_attr(model, 'ready') %}
-          {% set k = state_attr(model, 'loss_per_hour') | float(0) %}
-          {% set h = state_attr(model, 'heat_gain_c_per_hour') | float(0) %}
-          {% set b = state_attr(model, 'drift_c_per_hour') | float(0) %}
-          {% if indoor is not none and indoor >= (target - 0.2) %}
+          {% set ready = state_attr('sensor.jns_hallway_adaptive_warmup_minutes','ready') == true %}
+          {% set learned = states('sensor.jns_hallway_adaptive_warmup_minutes') | int(120) %}
+          {% if hall is not none and hall >= target - 0.2 %}
             0
-          {% elif indoor is not none and outdoor is not none and ready in [true, 'True'] and k > 0 and h > 0 %}
-            {% set n = namespace(temp=indoor, eta=360) %}
-            {% for step in range(1, 73) %}
-              {% if n.temp < (target - 0.2) %}
-                {% set n.temp = n.temp + (k * (outdoor - n.temp) + h + b) / 12 %}
-                {% if n.temp >= (target - 0.2) %}{% set n.eta = step * 5 %}{% endif %}
-              {% endif %}
-            {% endfor %}
-            {{ n.eta }}
+          {% elif hall is not none and ready and 5 <= learned <= 360 and
+                  state_attr('sensor.jns_hallway_adaptive_warmup_minutes','source_epoch') == 'hallway-precision-v1' %}
+            {{ learned }}
           {% else %}
             120
           {% endif %}
         attributes:
           prediction_model: >-
-            {{ 'Validated JNS thermal learner' if state_attr('sensor.lyric_home_heating_thermal_learning', 'ready') in [true, 'True'] else 'Conservative 120-minute fallback' }}
+            {% if state_attr('sensor.jns_hallway_adaptive_warmup_minutes','ready') == true
+                  and state_attr('sensor.jns_hallway_adaptive_warmup_minutes','source_epoch') == 'hallway-precision-v1' %}
+              Measured Hallway warm-up cycles and Open-Meteo forecast
+            {% else %}
+              Conservative fallback: waiting for validated Hallway warm-up data
+            {% endif %}
+          authoritative_room_sensor: sensor.jns_hallway_house_temperature
           target_time: "10:00"
       - name: JNS Heating Predictive Cooling Minutes
         unique_id: jns_heating_predictive_cooling_minutes
@@ -139,37 +136,16 @@ template:
         unit_of_measurement: min
         state_class: measurement
         state: >-
-          {% set indoor = states('sensor.jns_house_temperature') | float(none) %}
-          {% set outdoor = states('sensor.thermostat_thermostat_outdoor_temperature') | float(none) %}
-          {% set model = 'sensor.lyric_home_heating_thermal_learning' %}
-          {% set ready = state_attr(model, 'ready') %}
-          {% set k = state_attr(model, 'loss_per_hour') | float(0) %}
-          {% set b = state_attr(model, 'drift_c_per_hour') | float(0) %}
-          {% if indoor is not none and indoor <= 18.2 %}
+          {% set hall = states('sensor.jns_hallway_house_temperature') | float(none) %}
+          {% if hall is not none and hall <= 18.2 %}
             0
-          {% elif indoor is not none and outdoor is not none and ready in [true, 'True'] and k > 0 %}
-            {% set n = namespace(temp=indoor, eta=180) %}
-            {% for step in range(1, 37) %}
-              {% if n.temp > 18.2 %}
-                {% set n.temp = n.temp + (k * (outdoor - n.temp) + b) / 12 %}
-                {% if n.temp <= 18.2 %}{% set n.eta = step * 5 %}{% endif %}
-              {% endif %}
-            {% endfor %}
-            {{ n.eta }}
           {% else %}
             60
           {% endif %}
         attributes:
-          predictive: "{{ state_attr('sensor.lyric_home_heating_thermal_learning', 'ready') in [true, 'True'] }}"
-      - name: JNS Heating Verified Alarm State
-        unique_id: jns_heating_verified_alarm_state
-        icon: mdi:shield-home
-        state: >-
-          {% set a = states('alarm_control_panel.home_alarm') %}
-          {% set b = states('alarm_control_panel.house_alarm') %}
-          {% if a in ['armed_home', 'armed_away', 'disarmed'] %}{{ a }}
-          {% elif b in ['armed_home', 'armed_away', 'disarmed'] %}{{ b }}
-          {% else %}unavailable{% endif %}
+          source: Hallway
+          prediction_status: Conservative cooling fallback; Hallway cooling model not trained
+          model_epoch: hallway-precision-v1
       - name: JNS Heating Schedule Decision
         unique_id: jns_heating_schedule_decision
         icon: mdi:calendar-clock
@@ -289,6 +265,9 @@ automation:
               {# First installation: do not reset an existing user target. #}
               none
             {% elif is_state('input_boolean.general_bedtime_mode','on') %}
+              18
+            {% elif is_state('binary_sensor.jns_fireplace_override_safe','on') %}
+              {# Gate remains hard-off until verified cooling forecast permits heat reduction. #}
               18
             {% elif 240 <= minutes_now | int < 600 and (600 - minutes_now | int) <= (preheat | int + 10) %}
               {{ user_target }}
