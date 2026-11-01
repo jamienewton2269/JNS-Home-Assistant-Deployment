@@ -1,0 +1,74 @@
+name: Club Manager - backend database migration and tests
+on:
+  push:
+    paths:
+      - club-manager/migrations/002_backend_domains.sql
+      - .github/workflows/club-manager-backend-tests.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  migrate-test:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Migrate and test existing CT101
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          getent hosts nodea.home.arpa
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'test "$(hostname -s)" = nodea; test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev; test "$(pct status 101)" = "status: running"'
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat > /tmp/club-manager-migration-002.sql' < club-manager/migrations/002_backend_domains.sql
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          pct push 101 /tmp/club-manager-migration-002.sql /tmp/club-manager-migration-002.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager -f /tmp/club-manager-migration-002.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager <<'SQL'
+          BEGIN;
+          DO $$
+          DECLARE n integer;
+          BEGIN
+            SELECT count(*) INTO n FROM information_schema.tables
+              WHERE table_schema='club' AND table_name IN
+              ('households','member_profiles','member_history','vessels','fee_rules','invoices','payment_events','sync_inbox','sync_outbox','privacy_requests','security_incidents','governance_approvals');
+            IF n <> 12 THEN RAISE EXCEPTION 'expected 12 backend tables, got %',n; END IF;
+          END $$;
+          INSERT INTO club.sync_inbox(source,source_event_id,event_type) VALUES('joomla','synthetic-replay-test','member_update');
+          DO $$
+          BEGIN
+            BEGIN
+              INSERT INTO club.sync_inbox(source,source_event_id,event_type) VALUES('joomla','synthetic-replay-test','member_update');
+              RAISE EXCEPTION 'REPLAY GUARD FAILED';
+            EXCEPTION WHEN unique_violation THEN
+              RAISE NOTICE 'PASS: duplicate Joomla event rejected';
+            END;
+            BEGIN
+              INSERT INTO club.governance_approvals(action,requested_by,approved_by) VALUES('export','officer-a','officer-a');
+              RAISE EXCEPTION 'SELF APPROVAL GUARD FAILED';
+            EXCEPTION WHEN check_violation THEN
+              RAISE NOTICE 'PASS: self-approval rejected';
+            END;
+            BEGIN
+              INSERT INTO club.payment_events(invoice_id,provider,provider_event_id,amount_pence)
+              VALUES(gen_random_uuid(),'test','missing-invoice',100);
+              RAISE EXCEPTION 'INVOICE REFERENCE GUARD FAILED';
+            EXCEPTION WHEN foreign_key_violation THEN
+              RAISE NOTICE 'PASS: invalid payment reference rejected';
+            END;
+          END $$;
+          ROLLBACK;
+          SELECT 'PASS: 12 schema tables and constraints verified' AS result;
+          SQL
+          pct exec 101 -- systemctl is-active jns-club-manager-dev
+          pct exec 101 -- curl -fsS http://127.0.0.1:8765/healthz
+          echo
+          echo 'PASS: CT101 migration, constraints and service health.'
+          rm -f /tmp/club-manager-migration-002.sql
+          REMOTE
