@@ -1,0 +1,44 @@
+name: Club Manager - Node C DNS diagnostic
+on:
+  push:
+    paths:
+      - .github/workflows/club-manager-nodec-dns-diagnostic.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 4
+    steps:
+      - name: Read-only Node C resolver checks
+        shell: bash
+        run: |
+          set +e
+          echo '=== IDENTITY ==='
+          hostname; date -u
+          echo '=== RESOLV.CONF TARGET ==='
+          readlink -f /etc/resolv.conf
+          echo '=== RESOLV.CONF CONTENTS ==='
+          sed -n '1,50p' /etc/resolv.conf
+          echo '=== NAME SERVICE SWITCH ==='
+          grep '^hosts:' /etc/nsswitch.conf
+          echo '=== SYSTEMD RESOLVER ==='
+          if command -v resolvectl >/dev/null; then resolvectl status --no-pager | head -n 85; else echo 'resolvectl unavailable'; fi
+          echo '=== INTERFACES / ROUTES ==='
+          ip -brief address
+          ip route
+          ip -6 route | head -n 25
+          echo '=== GETENT CHECKS ==='
+          for host in nodea.home.arpa nodeb.home.arpa nodec.home.arpa; do
+            echo "LOOKUP $host"; timeout 4 getent ahosts "$host" || echo "LOOKUP FAILED: $host"
+          done
+          echo '=== DIRECT DNS RESPONSES (IF DIG PRESENT) ==='
+          if command -v dig >/dev/null; then
+            for host in nodea.home.arpa nodeb.home.arpa; do
+              dig +time=2 +tries=1 "$host" A | grep -E '^;; (SERVER|status:)|^'"${host}"'\.' | head -n 8
+            done
+          fi
+          echo '=== SSH CONFIG ALIAS (NON-SECRET HOST FIELDS ONLY) ==='
+          ssh -G nodea.home.arpa 2>/dev/null | grep -E '^(hostname|user|port|proxyjump|proxycommand|stricthostkeychecking) ' || true
+          echo 'Diagnostic complete. No system settings changed.'
