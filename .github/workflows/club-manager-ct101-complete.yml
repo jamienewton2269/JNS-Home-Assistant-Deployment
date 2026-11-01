@@ -30,6 +30,20 @@ jobs:
           test "$(hostname -s)" = nodec || { echo 'REFUSED: runner is not Node C'; exit 1; }
           test "$MODE" = INSPECT || test "$MODE" = DEPLOY
           SSH=(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 root@nodea.home.arpa)
+          echo 'Checking Node A hostname resolution before deployment (read-only).'
+          RESOLVED=0
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if getent ahosts nodea.home.arpa >/dev/null 2>&1; then
+              RESOLVED=1
+              break
+            fi
+            echo "Node A DNS lookup unavailable (attempt $attempt/10); retrying..."
+            sleep 3
+          done
+          if [ "$RESOLVED" -ne 1 ]; then
+            echo 'STOP: nodea.home.arpa did not resolve. No networking settings modified.'
+            exit 1
+          fi
           "${SSH[@]}" "MODE='$MODE' bash -se" <<'REMOTE'
           set -euo pipefail
           test "$(hostname -s)" = nodea
