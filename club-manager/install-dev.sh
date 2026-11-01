@@ -76,7 +76,7 @@ BEGIN
   v_prev := coalesce(v_prev, repeat('0',64));
   v_payload := jsonb_build_object('name',p_name,'email',p_email,'category',p_category);
   v_seq := nextval(pg_get_serial_sequence('club.event_log', 'seq'));
-  v_digest := encode(digest(v_prev || '|' || v_seq::text || '|' || p_id::text || '|' ||
+  v_digest := encode(public.digest(v_prev || '|' || v_seq::text || '|' || p_id::text || '|' ||
                            v_action || '|' || v_payload::text || '|' || p_actor, 'sha256'),'hex');
   INSERT INTO club.event_log(seq,prev_hash,entry_hash,member_id,action,payload,actor)
   OVERRIDING SYSTEM VALUE VALUES (v_seq,v_prev,v_digest,p_id,v_action,v_payload,p_actor);
