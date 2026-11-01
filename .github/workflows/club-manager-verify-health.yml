@@ -1,0 +1,29 @@
+name: Club Manager - verify development health
+on:
+  push:
+    paths:
+      - .github/workflows/club-manager-verify-health.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Inspect CT101 health and audit status
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev
+          pct exec 101 -- systemctl is-active postgresql
+          pct exec 101 -- systemctl is-active jns-club-manager-dev
+          pct exec 101 -- curl --fail --silent --show-error http://127.0.0.1:8765/healthz
+          echo
+          pct exec 101 -- runuser -u clubmgr -- psql -d club_manager -Atqc 'SELECT count(*) FROM club.audit_rows()'
+          echo 'Health verification complete'
+          REMOTE
