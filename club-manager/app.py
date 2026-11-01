@@ -27,7 +27,7 @@ def db():
 
 def audit_verified():
     with db() as cn, cn.cursor() as cur:
-        cur.execute("SELECT seq, entry_hash, prev_hash, member_id, action, payload::text, actor FROM club.event_log ORDER BY seq")
+        cur.execute("SELECT seq, entry_hash, prev_hash, member_id, action, payload, actor FROM club.audit_rows()")
         previous = "0" * 64
         count = 0
         for seq, digest, prev, member, action, payload, actor in cur:
