@@ -5,6 +5,7 @@ on:
       - club-manager/migrations/002_backend_domains.sql
       - .github/workflows/club-manager-backend-tests.yml
       - club-manager/tests/003_event_integrity.sql
+      - club-manager/migrations/003_fix_append_digest.sql
   workflow_dispatch:
 permissions:
   contents: read
@@ -27,6 +28,7 @@ jobs:
           getent hosts nodea.home.arpa
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'test "$(hostname -s)" = nodea; test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev; test "$(pct status 101)" = "status: running"'
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat > /tmp/club-manager-migration-002.sql' < club-manager/migrations/002_backend_domains.sql
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat > /tmp/club-manager-fix-003.sql' < club-manager/migrations/003_fix_append_digest.sql
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat > /tmp/club-manager-event-test.sql' < club-manager/tests/003_event_integrity.sql
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'REMOTE'
           set -euo pipefail
@@ -68,6 +70,8 @@ jobs:
           ROLLBACK;
           SELECT 'PASS: 12 schema tables and constraints verified' AS result;
           SQL
+          pct push 101 /tmp/club-manager-fix-003.sql /tmp/club-manager-fix-003.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager -f /tmp/club-manager-fix-003.sql
           pct push 101 /tmp/club-manager-event-test.sql /tmp/club-manager-event-test.sql
           pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager -f /tmp/club-manager-event-test.sql
           pct exec 101 -- rm -f /tmp/club-manager-event-test.sql
@@ -75,5 +79,5 @@ jobs:
           pct exec 101 -- curl -fsS http://127.0.0.1:8765/healthz
           echo
           echo 'PASS: CT101 migration, constraints and service health.'
-          rm -f /tmp/club-manager-migration-002.sql /tmp/club-manager-event-test.sql
+          rm -f /tmp/club-manager-migration-002.sql /tmp/club-manager-fix-003.sql /tmp/club-manager-event-test.sql
           REMOTE
