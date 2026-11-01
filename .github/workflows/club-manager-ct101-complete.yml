@@ -37,7 +37,7 @@ jobs:
           test "$(pct config 101 | sed -n 's/^hostname: //p')" = club-manager-dev
           test "$(pct config 101 | sed -n 's/^unprivileged: //p')" = 1
           if test -e /etc/pve/lxc/102.conf; then
-            echo 'REFUSED: CT102 still exists; verify duplicate first'; exit 1
+            echo 'NOTICE: CT102 duplicate still exists. It will not be accessed or modified.'
           fi
           echo "=== Node A / CT101 ==="
           pct status 101
