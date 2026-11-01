@@ -55,6 +55,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def reject(self, code, message):
         self.send_response(code)
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
         if code == 401:
             self.send_header("WWW-Authenticate", 'Basic realm="Club Manager Development"')
         self.send_header("Content-Type", "text/plain; charset=utf-8")
@@ -125,7 +127,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         # Only loopback clients can reach this service. Require browser Origin to match.
         origin = self.headers.get("Origin")
-        if origin and origin not in ("http://127.0.0.1:8765", "http://localhost:8765"):
+        if origin not in ("http://127.0.0.1:8765", "http://localhost:8765"):
             self.reject(403, "Invalid origin")
             return
         try:
@@ -153,5 +155,6 @@ class Handler(BaseHTTPRequestHandler):
             self.reject(400, "Invalid member record or database rejected change")
 
 if __name__ == "__main__":
+    ThreadingHTTPServer.allow_reuse_address = True
     server = ThreadingHTTPServer(("127.0.0.1", 8765), Handler)
     server.serve_forever()
