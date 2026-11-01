@@ -107,6 +107,9 @@ DROP TRIGGER IF EXISTS lock_history ON club.event_log;
 CREATE TRIGGER lock_history BEFORE UPDATE OR DELETE ON club.event_log
 FOR EACH ROW
 EXECUTE FUNCTION club.prevent_change();
+-- Restrict PUBLIC from all club functions (PostgreSQL defaults to PUBLIC EXECUTE).
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA club FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA club REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 -- NOTE: this development ledger is tamper-evident only, not independently immutable.
 COMMIT;
 SQL
