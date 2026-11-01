@@ -46,9 +46,21 @@ jobs:
           if [ "$MODE" = INSPECT ]; then
             echo 'INSPECT PASSED: no changes made'; exit 0
           fi
-          if test "$(pct status 101)" = 'status: stopped'; then pct start 101; fi
-          test "$(pct status 101)" = 'status: running'
-          pct exec 101 -- sh -c 'test "$(hostname -s)" = club-manager-dev && grep -q "VERSION_ID=13" /etc/os-release'
+          if test "$(pct status 101)" = 'status: stopped'; then
+            echo 'Starting existing CT101 (not creating a new container)'
+            pct start 101
+          fi
+          echo '=== CT101 status after start ==='
+          pct status 101
+          echo '=== CT101 guest diagnostics ==='
+          if ! pct exec 101 -- /bin/sh -c 'hostname; cat /etc/os-release; id'; then
+            echo 'Guest exec failed. Container diagnostics:'
+            pct status 101 || true
+            journalctl -u pve-container@101 --no-pager -n 45 || true
+            echo 'STOP: CT101 guest startup/exec failure'
+            exit 1
+          fi
+          pct exec 101 -- /bin/sh -c 'test "$(hostname -s)" = club-manager-dev && grep -q "^VERSION_ID=13$" /etc/os-release'
           REMOTE
           if [ "$MODE" = INSPECT ]; then exit 0; fi
           "${SSH[@]}" 'umask 077; cat > /tmp/jns-club-manager-app.py' < club-manager/app.py
