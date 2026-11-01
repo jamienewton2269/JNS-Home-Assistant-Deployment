@@ -1,0 +1,84 @@
+name: Club Manager - security hardening verification
+on:
+  push:
+    paths:
+      - club-manager/app.py
+      - club-manager/migrations/004_restrict_function_privileges.sql
+      - .github/workflows/club-manager-security-gate.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  security:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify and harden CT101 development application
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          python3 -m py_compile club-manager/app.py
+          getent ahosts nodea.home.arpa >/dev/null
+          SSH=(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 root@nodea.home.arpa)
+          "${SSH[@]}" 'umask 077; cat > /tmp/club-security-004.sql' < club-manager/migrations/004_restrict_function_privileges.sql
+          "${SSH[@]}" 'umask 077; cat > /tmp/club-manager-hardened-app.py' < club-manager/app.py
+          "${SSH[@]}" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev
+          test "$(pct status 101)" = "status: running"
+          pct push 101 /tmp/club-security-004.sql /tmp/club-security-004.sql
+          pct push 101 /tmp/club-manager-hardened-app.py /tmp/club-manager-hardened-app.py
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager -f /tmp/club-security-004.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager <<'SQL'
+          DO $$
+          BEGIN
+            IF has_table_privilege('clubmgr','club.event_log','SELECT') THEN RAISE EXCEPTION 'Direct audit read permission'; END IF;
+            IF has_table_privilege('clubmgr','club.member_profiles','INSERT') THEN RAISE EXCEPTION 'Direct profile write permission'; END IF;
+            IF has_function_privilege('public','club.append_member(uuid,text,text,text,text)','EXECUTE') THEN RAISE EXCEPTION 'Public append access'; END IF;
+            IF has_function_privilege('public','club.audit_rows()','EXECUTE') THEN RAISE EXCEPTION 'Public audit access'; END IF;
+            IF NOT has_function_privilege('clubmgr','club.append_member(uuid,text,text,text,text)','EXECUTE') THEN RAISE EXCEPTION 'App append missing'; END IF;
+            IF NOT has_function_privilege('clubmgr','club.audit_rows()','EXECUTE') THEN RAISE EXCEPTION 'App audit missing'; END IF;
+          END $$;
+          SQL
+          pct exec 101 -- cp /tmp/club-manager-hardened-app.py /opt/jns-club-manager/app.py
+          pct exec 101 -- chown root:root /opt/jns-club-manager/app.py
+          pct exec 101 -- chmod 0755 /opt/jns-club-manager/app.py
+          pct exec 101 -- systemctl restart jns-club-manager-dev
+          pct exec 101 -- python3 - <<'PY'
+          import base64,urllib.request,urllib.error,time
+          root="http://127.0.0.1:8765"
+          for i in range(12):
+              try:
+                  with urllib.request.urlopen(root+"/healthz",timeout=2) as r:
+                      assert r.status==200
+                  break
+              except Exception:
+                  time.sleep(1)
+          else:
+              raise AssertionError("health check not available")
+          def status(method,path,headers=None,data=None):
+              req=urllib.request.Request(root+path,method=method,headers=headers or {},data=data)
+              try:
+                  with urllib.request.urlopen(req,timeout=3) as r: return r.status
+              except urllib.error.HTTPError as e: return e.code
+          assert status('GET','/')==401
+          assert status('POST','/member',data=b'x=1')==401
+          with open('/etc/jns-club-manager/admin.secret',encoding='utf8') as f: secret=f.read().strip()
+          auth=base64.b64encode(('admin:'+secret).encode()).decode()
+          assert status('POST','/member',headers={'Authorization':'Basic '+auth,'Content-Type':'application/x-www-form-urlencoded'},data=b'x=1')==403
+          assert status('GET','/audit',headers={'Authorization':'Basic '+auth})==200
+          print('PASS: anonymous rejected, missing Origin rejected, authorised audit, healthy app')
+          PY
+          pct exec 101 -- systemctl is-active jns-club-manager-dev
+          pct exec 101 -- rm -f /tmp/club-security-004.sql /tmp/club-manager-hardened-app.py
+          rm -f /tmp/club-security-004.sql /tmp/club-manager-hardened-app.py
+          echo 'PASS: hardened CT101 app and database permissions'
+          REMOTE
