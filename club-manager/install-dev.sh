@@ -75,14 +75,11 @@ BEGIN
   SELECT entry_hash INTO v_prev FROM club.event_log ORDER BY seq DESC LIMIT 1;
   v_prev := coalesce(v_prev, repeat('0',64));
   v_payload := jsonb_build_object('name',p_name,'email',p_email,'category',p_category);
-  -- Identity value is allocated by INSERT; digest is set by separate privileged update.
-  -- No application user can UPDATE or DELETE the event ledger.
-  INSERT INTO club.event_log(prev_hash,entry_hash,member_id,action,payload,actor)
-  VALUES (v_prev, encode(gen_random_bytes(32),'hex'), p_id,v_action,v_payload,p_actor)
-  RETURNING seq INTO v_seq;
+  v_seq := nextval(pg_get_serial_sequence('club.event_log', 'seq'));
   v_digest := encode(digest(v_prev || '|' || v_seq::text || '|' || p_id::text || '|' ||
                            v_action || '|' || v_payload::text || '|' || p_actor, 'sha256'),'hex');
-  UPDATE club.event_log SET entry_hash=v_digest WHERE seq=v_seq;
+  INSERT INTO club.event_log(seq,prev_hash,entry_hash,member_id,action,payload,actor)
+  OVERRIDING SYSTEM VALUE VALUES (v_seq,v_prev,v_digest,p_id,v_action,v_payload,p_actor);
   RETURN v_seq;
 END $$;
 REVOKE ALL ON FUNCTION club.append_member(uuid,text,text,text,text) FROM PUBLIC;
@@ -108,7 +105,7 @@ CREATE OR REPLACE FUNCTION club.prevent_change() RETURNS trigger
 LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'immutable history'; END $$;
 DROP TRIGGER IF EXISTS lock_history ON club.event_log;
 CREATE TRIGGER lock_history BEFORE UPDATE OR DELETE ON club.event_log
-FOR EACH ROW WHEN (OLD.entry_hash !~ '^[0-9a-f]{64}$')
+FOR EACH ROW
 EXECUTE FUNCTION club.prevent_change();
 -- NOTE: this development ledger is tamper-evident only, not independently immutable.
 COMMIT;
