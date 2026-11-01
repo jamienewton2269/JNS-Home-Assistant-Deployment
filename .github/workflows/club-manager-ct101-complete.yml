@@ -47,6 +47,10 @@ jobs:
             echo 'INSPECT PASSED: no changes made'; exit 0
           fi
           if test "$(pct status 101)" = 'status: stopped'; then
+            if pct config 101 | grep -q '^features: nesting=0'; then
+              echo 'Debian 13 systemd 257 compatibility: enable nesting on unprivileged development CT101 only.'
+              pct set 101 --features nesting=1
+            fi
             echo 'Starting existing CT101 (not creating a new container)'
             pct start 101
           fi
