@@ -1,0 +1,58 @@
+name: Club Manager - complete CT101 development deployment
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Install PostgreSQL and development application into existing CT101
+        required: true
+        type: choice
+        default: INSPECT
+        options: [INSPECT, DEPLOY]
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Confirm target and deploy complete development stack
+        shell: bash
+        env:
+          MODE: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec || { echo 'REFUSED: runner is not Node C'; exit 1; }
+          test "$MODE" = INSPECT || test "$MODE" = DEPLOY
+          SSH=(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 root@nodea.home.arpa)
+          "${SSH[@]}" "MODE='$MODE' bash -se" <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test -f /etc/pve/lxc/101.conf || { echo 'REFUSED: CT101 absent'; exit 1; }
+          test "$(pct config 101 | sed -n 's/^hostname: //p')" = club-manager-dev
+          test "$(pct config 101 | sed -n 's/^unprivileged: //p')" = 1
+          if test -e /etc/pve/lxc/102.conf; then
+            echo 'REFUSED: CT102 still exists; verify duplicate first'; exit 1
+          fi
+          echo "=== Node A / CT101 ==="
+          pct status 101
+          pct config 101
+          free -h
+          if [ "$MODE" = INSPECT ]; then
+            echo 'INSPECT PASSED: no changes made'; exit 0
+          fi
+          if test "$(pct status 101)" = 'status: stopped'; then pct start 101; fi
+          test "$(pct status 101)" = 'status: running'
+          pct exec 101 -- sh -c 'test "$(hostname -s)" = club-manager-dev && grep -q "VERSION_ID=13" /etc/os-release'
+          REMOTE
+          if [ "$MODE" = INSPECT ]; then exit 0; fi
+          "${SSH[@]}" 'umask 077; cat > /tmp/jns-club-manager-app.py' < club-manager/app.py
+          "${SSH[@]}" 'umask 077; cat > /tmp/jns-club-manager-install.sh' < club-manager/install-dev.sh
+          "${SSH[@]}" 'set -eu; pct push 101 /tmp/jns-club-manager-app.py /tmp/jns-club-manager-app.py; pct push 101 /tmp/jns-club-manager-install.sh /tmp/jns-club-manager-install.sh; pct exec 101 -- sh /tmp/jns-club-manager-install.sh; rm -f /tmp/jns-club-manager-app.py /tmp/jns-club-manager-install.sh'
+          echo 'SUCCESS: installed and health-checked on CT101.'
+          echo 'Web UI is localhost-only inside CT101. No public port exposed.'
