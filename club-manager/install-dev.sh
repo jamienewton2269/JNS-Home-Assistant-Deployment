@@ -148,8 +148,28 @@ UNIT
 systemctl daemon-reload
 systemctl enable --now jns-club-manager-dev
 systemctl restart jns-club-manager-dev
-curl --fail --silent --show-error http://127.0.0.1:8765/healthz
-echo
+echo "=== WAITING FOR APPLICATION HEALTH CHECK ==="
+READY=0
+for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+    if curl --connect-timeout 2 --max-time 3 --fail --silent http://127.0.0.1:8765/healthz; then
+        echo
+        READY=1
+        break
+    fi
+    sleep 2
+done
+if [ "$READY" -ne 1 ]; then
+    echo 'ERROR: Club Manager health endpoint unavailable.'
+    echo '=== APPLICATION UNIT STATUS ==='
+    systemctl status jns-club-manager-dev --no-pager --full || true
+    echo '=== APPLICATION JOURNAL ==='
+    journalctl -u jns-club-manager-dev --no-pager -n 80 || true
+    echo '=== POSTGRESQL STATUS ==='
+    systemctl status postgresql --no-pager --full || true
+    echo '=== LISTENERS ==='
+    ss -lnt || true
+    exit 1
+fi
 echo "=== SERVICE ==="
 systemctl --no-pager --full status jns-club-manager-dev | head -n 20
 echo "=== LOCAL PORT ==="
