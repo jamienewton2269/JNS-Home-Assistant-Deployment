@@ -1,0 +1,73 @@
+name: Club Manager - yard mooring and tariff migration
+on:
+  push:
+    paths:
+      - club-manager/migrations/005_yard_mooring_facilities.sql
+      - club-manager/migrations/006_membership_tariffs_current.sql
+      - .github/workflows/club-manager-yard-mooring-tests.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  migrate-test:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Deploy and verify synthetic yard/mooring/diary schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          getent hosts nodea.home.arpa
+          SSH=(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa)
+          "${SSH[@]}" 'umask 077; cat > /tmp/club-005.sql' < club-manager/migrations/005_yard_mooring_facilities.sql
+          "${SSH[@]}" 'umask 077; cat > /tmp/club-006.sql' < club-manager/migrations/006_membership_tariffs_current.sql
+          "${SSH[@]}" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev
+          test "$(pct status 101)" = "status: running"
+          for migration in 005 006; do
+            pct push 101 /tmp/club-${migration}.sql /tmp/club-${migration}.sql
+            pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager -f /tmp/club-${migration}.sql
+          done
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager <<'SQL'
+          BEGIN;
+          DO $$
+          DECLARE n integer;
+          BEGIN
+            SELECT count(*) INTO n FROM club.membership_tariffs;
+            IF n <> 5 THEN RAISE EXCEPTION 'Expected five approved current categories, found %',n; END IF;
+            IF NOT EXISTS(SELECT 1 FROM club.membership_tariffs WHERE category='Full' AND annual_pence=12000 AND joining_pence=5000) THEN RAISE EXCEPTION 'Full tariff mismatch'; END IF;
+            IF NOT EXISTS(SELECT 1 FROM club.membership_tariffs WHERE category='Full Family' AND annual_pence=14000 AND joining_pence=5000) THEN RAISE EXCEPTION 'Full family mismatch'; END IF;
+            IF NOT EXISTS(SELECT 1 FROM club.membership_tariffs WHERE category='Full Student' AND annual_pence=7000 AND joining_pence=5000) THEN RAISE EXCEPTION 'Full student mismatch'; END IF;
+            IF NOT EXISTS(SELECT 1 FROM club.membership_tariffs WHERE category='House' AND annual_pence=4800 AND joining_pence=0) THEN RAISE EXCEPTION 'House tariff mismatch'; END IF;
+            IF NOT EXISTS(SELECT 1 FROM club.membership_tariffs WHERE category='House Family' AND annual_pence=5500 AND joining_pence=0) THEN RAISE EXCEPTION 'House family mismatch'; END IF;
+            IF EXISTS(SELECT 1 FROM club.yard_tariffs) THEN RAISE EXCEPTION 'Unknown yard pricing must not be invented'; END IF;
+            IF has_table_privilege('clubmgr','club.membership_tariffs','SELECT') THEN RAISE EXCEPTION 'Tariffs exposed directly to prototype app'; END IF;
+            IF has_table_privilege('clubmgr','club.mooring_bookings','INSERT') THEN RAISE EXCEPTION 'Unapproved access to mooring bookings'; END IF;
+            BEGIN
+              INSERT INTO club.mooring_allocations(location_id,asset_id,season_year,valid_from,valid_until)
+              VALUES(gen_random_uuid(),gen_random_uuid(),2027,DATE '2027-02-01',DATE '2027-11-30');
+              RAISE EXCEPTION 'Season enforcement failed';
+            EXCEPTION WHEN check_violation THEN RAISE NOTICE 'PASS season boundary enforced'; END;
+            BEGIN
+              INSERT INTO club.facility_bookings(facility_id,event_title,starts_at,ends_at)
+              VALUES(gen_random_uuid(),'Synthetic',now(),now() - interval '1 hour');
+              RAISE EXCEPTION 'Diary interval enforcement failed';
+            EXCEPTION WHEN check_violation THEN RAISE NOTICE 'PASS invalid time interval rejected'; END;
+          END $$;
+          ROLLBACK;
+          SELECT 'PASS: club tariff and yard/mooring constraints';
+          SQL
+          pct exec 101 -- systemctl is-active jns-club-manager-dev
+          pct exec 101 -- curl -fsS http://127.0.0.1:8765/healthz
+          rm -f /tmp/club-005.sql /tmp/club-006.sql
+          echo 'PASS: current tariffs, mooring schema and application health'
+          REMOTE
