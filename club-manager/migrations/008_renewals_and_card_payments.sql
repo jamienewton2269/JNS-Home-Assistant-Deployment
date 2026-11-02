@@ -81,12 +81,13 @@ BEGIN
  IF p_amount<=0 OR p_currency <> 'GBP' OR p_provider_payment_id IS NULL OR length(trim(p_provider_payment_id))<4
  THEN RAISE EXCEPTION 'Invalid payment proof'; END IF;
  SELECT * INTO inv FROM club.renewal_invoices WHERE id=p_invoice FOR UPDATE;
- IF NOT FOUND OR inv.state NOT IN ('issued','part_paid') THEN
-   RAISE EXCEPTION 'Invoice not payable';
- END IF;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Invoice not found'; END IF;
  SELECT id INTO existing FROM club.payment_receipts
   WHERE provider='stripe' AND provider_payment_id=p_provider_payment_id;
  IF existing IS NOT NULL THEN RETURN 'duplicate'; END IF;
+ IF inv.state NOT IN ('issued','part_paid') THEN
+   RAISE EXCEPTION 'Invoice not payable';
+ END IF;
  next_paid:=inv.amount_paid_pence+p_amount;
  IF next_paid>inv.amount_pence THEN RAISE EXCEPTION 'Payment exceeds outstanding amount'; END IF;
  INSERT INTO club.payment_receipts(invoice_id,provider,provider_payment_id,amount_pence,currency)
