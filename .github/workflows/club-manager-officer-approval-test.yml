@@ -39,7 +39,8 @@ jobs:
            BEGIN
              UPDATE club.officer_actions SET state='approved',reviewed_by='membership-secretary',reviewed_at=now() WHERE id=a;
              RAISE EXCEPTION 'Self approval accepted';
-           EXCEPTION WHEN check_violation THEN NULL; END;
+           EXCEPTION WHEN raise_exception THEN
+             IF SQLERRM<>'Independent review required' THEN RAISE; END IF; END;
            BEGIN
              UPDATE club.officer_actions SET request_json='{"tampered":true}'::jsonb WHERE id=a;
              RAISE EXCEPTION 'Request modification accepted';
