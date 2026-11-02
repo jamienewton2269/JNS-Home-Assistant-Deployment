@@ -46,7 +46,7 @@ d={
    "grid_signed_w":"{{ states('sensor.jns_solar_learning_grid_signed_w') }}",
    "grid_sign_verified":"false",
    "inverter_modbus_w":"{{ states('sensor.solar_inverter_ac_power') }}",
-   "note":"Grid meter measures net flow; consumption/generation not inferable without inverter and sign validation"}}]}]}],
+   "note":"Grid meter measures net flow; consumption/generation not inferable without inverter and sign validation"}}]}],
  "automation":[{
   "id":"jns_solar_daylight_learning_20261102",
   "alias":"Solar daylight learner - supervised 5 minute observations",
