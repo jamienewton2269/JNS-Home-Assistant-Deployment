@@ -2,9 +2,13 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 -- Range constraints protect against concurrent approval races.
 ALTER TABLE club.mooring_bookings
+  DROP CONSTRAINT IF EXISTS mooring_no_approved_overlap;
+ALTER TABLE club.mooring_bookings
   ADD CONSTRAINT mooring_no_approved_overlap
   EXCLUDE USING gist (location_id WITH =, tstzrange(starts_at,ends_at,'[)') WITH &&)
   WHERE (state IN ('approved','completed'));
+ALTER TABLE club.facility_bookings
+  DROP CONSTRAINT IF EXISTS facility_no_approved_overlap;
 ALTER TABLE club.facility_bookings
   ADD CONSTRAINT facility_no_approved_overlap
   EXCLUDE USING gist (facility_id WITH =, tstzrange(starts_at,ends_at,'[)') WITH &&)
@@ -33,7 +37,7 @@ RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,club A
 DECLARE p record; t uuid; charge_id uuid;
 BEGIN
  SELECT * INTO p FROM club.preview_yard_charge(p_asset,p_year);
- SELECT id INTO t FROM club.yard_tariffs y JOIN club.yard_assets a ON a.asset_type=y.asset_type
+ SELECT y.id INTO t FROM club.yard_tariffs y JOIN club.yard_assets a ON a.asset_type=y.asset_type
  WHERE a.id=p_asset AND y.financial_year=p_year;
  INSERT INTO club.yard_charges(asset_id,financial_year,tariff_id,measured_metres,charge_pence)
  SELECT a.id,p_year,t,a.length_metres,p.total_pence FROM club.yard_assets a WHERE id=p_asset
