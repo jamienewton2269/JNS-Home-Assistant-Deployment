@@ -1,0 +1,95 @@
+name: Club Manager - committee accounts default deny
+on:
+  push:
+    paths:
+      - club-manager/migrations/012_committee_accounts_default_deny.sql
+      - .github/workflows/club-manager-committee-accounts-test.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          python3 -m py_compile club-manager/app.py
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat > /tmp/club-012.sql' < club-manager/migrations/012_committee_accounts_default_deny.sql
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat > /tmp/club-committee-app.py' < club-manager/app.py
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev
+          pct push 101 /tmp/club-012.sql /tmp/club-012.sql
+          pct push 101 /tmp/club-committee-app.py /tmp/club-committee-app.py
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager -f /tmp/club-012.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager <<'SQL'
+          BEGIN;
+          DO $$
+          DECLARE a uuid; s text; n integer;
+          BEGIN
+           a:=club.create_disabled_committee_account('Synthetic Committee Officer','synthetic-officer@example.invalid','local-dev-admin');
+           SELECT account_state INTO s FROM club.committee_accounts WHERE id=a;
+           IF s <> 'disabled' THEN RAISE EXCEPTION 'New account has access'; END IF;
+           SELECT count(*) INTO n FROM club.committee_role_grants WHERE account_id=a;
+           IF n<>0 THEN RAISE EXCEPTION 'New account received roles'; END IF;
+           SELECT count(*) INTO n FROM club.committee_permission_grants WHERE account_id=a;
+           IF n<>0 THEN RAISE EXCEPTION 'New account received permissions'; END IF;
+           IF NOT EXISTS(SELECT 1 FROM club.list_committee_accounts() WHERE id=a) THEN
+             RAISE EXCEPTION 'Account missing from private listing';
+           END IF;
+           BEGIN
+             PERFORM club.create_disabled_committee_account('Duplicate','synthetic-officer@example.invalid','local-dev-admin');
+             RAISE EXCEPTION 'Duplicate identity accepted';
+           EXCEPTION WHEN unique_violation THEN NULL; END;
+           RAISE NOTICE 'PASS: account disabled, no role, no permissions, private list, duplicate rejected';
+          END $$;
+          ROLLBACK;
+          DO $$ BEGIN
+           IF has_table_privilege('clubmgr','club.committee_permission_grants','INSERT') OR
+              has_table_privilege('clubmgr','club.committee_accounts','UPDATE') THEN
+             RAISE EXCEPTION 'Application can bypass approval to grant access'; END IF;
+           IF has_function_privilege('public','club.create_disabled_committee_account(text,text,text)','EXECUTE') THEN
+             RAISE EXCEPTION 'PUBLIC may create committee accounts'; END IF;
+          END $$;
+          SQL
+          pct exec 101 -- cp /tmp/club-committee-app.py /opt/jns-club-manager/app.py
+          pct exec 101 -- chown root:root /opt/jns-club-manager/app.py
+          pct exec 101 -- systemctl restart jns-club-manager-dev
+          pct exec 101 -- python3 - <<'PY'
+          import urllib.request,urllib.error,base64,time
+          root='http://127.0.0.1:8765'
+          for attempt in range(12):
+              try:
+                  with urllib.request.urlopen(root+'/healthz',timeout=3) as r: assert r.status==200
+                  break
+              except Exception: time.sleep(1)
+          else: raise RuntimeError('service unavailable')
+          try: urllib.request.urlopen(root+'/admin/accounts')
+          except urllib.error.HTTPError as e: assert e.code==401
+          else: raise AssertionError('Unauthorised committee page accessible')
+          with open('/etc/jns-club-manager/admin.secret') as f: secret=f.read().strip()
+          auth=base64.b64encode(('admin:'+secret).encode()).decode()
+          req=urllib.request.Request(root+'/admin/accounts',headers={'Authorization':'Basic '+auth})
+          with urllib.request.urlopen(req,timeout=5) as r:
+              b=r.read().decode()
+              assert 'Create disabled account' in b and 'no roles' in b
+          req=urllib.request.Request(root+'/admin/accounts',headers={'Authorization':'Basic '+auth},data=b'name=Synthetic&email=synthetic%40example.invalid')
+          try: urllib.request.urlopen(req,timeout=5)
+          except urllib.error.HTTPError as e: assert e.code==403
+          else: raise AssertionError('POST without Origin permitted')
+          print('PASS private committee admin access and CSRF guard')
+          PY
+          pct exec 101 -- rm -f /tmp/club-012.sql /tmp/club-committee-app.py
+          rm -f /tmp/club-012.sql /tmp/club-committee-app.py
+          echo 'PASS CT101 default-deny committee management'
+          REMOTE
