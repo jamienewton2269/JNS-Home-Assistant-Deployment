@@ -90,6 +90,36 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized():
             self.reject(401, "Authentication required")
             return
+        if self.path == "/admin":
+            with db() as cn, cn.cursor() as cur:
+                cur.execute("SELECT club.admin_snapshot()")
+                snapshot = cur.fetchone()[0]
+            categories = "".join(
+                f"<tr><td>{esc(x['category'])}</td><td>£{x['annual_pence']/100:.2f}</td><td>£{x['joining_pence']/100:.2f}</td></tr>"
+                for x in snapshot["member_tariffs"])
+            yard_rates = "".join(
+                f"<tr><td>{esc(x['year'])}</td><td>{esc(x['asset_type'])}</td><td>{esc(x['basis'])}</td><td>£{x['pence_per_unit']/100:.2f}</td></tr>"
+                for x in snapshot["yard_tariffs"]) or "<tr><td colspan='4'>No approved yard tariffs entered</td></tr>"
+            html_body = f"""<!doctype html><html lang="en"><meta charset="utf-8">
+            <meta name="viewport" content="width=device-width,initial-scale=1">
+            <title>Private Club Administration (Development)</title>
+            <style>body{{background:#0d1727;color:#e2edf4;font:16px system-ui;max-width:1050px;margin:2rem auto;padding:0 1rem}}
+            table{{border-collapse:collapse;width:100%;margin-bottom:1.5rem}}td,th{{padding:.7rem;border-bottom:1px solid #456;text-align:left}}
+            section{{border:1px solid #456;border-radius:10px;padding:1rem;margin:1rem 0}}a{{color:#8df}}</style>
+            <h1>Club Manager · Private Administration</h1>
+            <p>Development preview · synthetic records only · <a href="/">Member register</a> · <a href="/audit">Audit</a></p>
+            <section><h2>Operational diary</h2>
+            <p>Yard assets: {snapshot['yard_assets']} · Approved mooring bookings: {snapshot['approved_mooring_bookings']}</p>
+            <p>Pending mooring requests: {snapshot['pending_mooring_requests']} · Pending clubhouse requests: {snapshot['pending_facility_requests']}</p>
+            <p>Bookings are controlled by database exclusion constraints. Officer approval workflows are not enabled in this preview.</p></section>
+            <section><h2>Approved membership fees</h2>
+            <table><tr><th>Category</th><th>Annual</th><th>Joining</th></tr>{categories}</table></section>
+            <section><h2>Yard and trailer rates</h2>
+            <table><tr><th>Year</th><th>Asset</th><th>Unit</th><th>Rate</th></tr>{yard_rates}</table>
+            <p>Charges use measured length in metres or feet, including stored yard trailers. There is no seasonal or amenity-mooring waiver.</p></section>
+            <p>No live finance operations or public access are enabled.</p></html>"""
+            self.respond(html_body)
+            return
         if self.path == "/audit":
             ok, count = audit_verified()
             self.respond(json.dumps({"chain_verified":ok,"events":count,"note":"local database checks only; not independently immutable"}), mime="application/json")
