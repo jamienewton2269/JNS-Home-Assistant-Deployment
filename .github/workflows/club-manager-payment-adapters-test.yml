@@ -1,0 +1,73 @@
+name: Club Manager - provider-neutral payments schema tests
+on:
+  push:
+    paths:
+      - club-manager/migrations/009_provider_neutral_payments.sql
+      - .github/workflows/club-manager-payment-adapters-test.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat > /tmp/club-payment-009.sql' < club-manager/migrations/009_provider_neutral_payments.sql
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev
+          pct push 101 /tmp/club-payment-009.sql /tmp/club-payment-009.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager -f /tmp/club-payment-009.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager <<'SQL'
+          BEGIN;
+          DO $$
+          DECLARE m uuid:=gen_random_uuid(); c uuid:=gen_random_uuid(); i uuid:=gen_random_uuid();
+                  a uuid:=gen_random_uuid(); n integer;
+          BEGIN
+            SELECT count(*) INTO n FROM club.payment_providers
+            WHERE provider_code IN ('stripe','paypal','sumup','quickbooks_payments') AND enabled=false;
+            IF n<>4 THEN RAISE EXCEPTION 'Expected four disabled provider configurations; got %',n; END IF;
+            INSERT INTO club.member_profiles(id,category) VALUES(m,'Full');
+            INSERT INTO club.renewal_campaigns(id,renewal_year) VALUES(c,2099);
+            INSERT INTO club.renewal_invoices(id,campaign_id,member_id,amount_pence) VALUES(i,c,m,12000);
+            INSERT INTO club.payment_attempts(id,invoice_id,provider_code,requested_pence) VALUES(a,i,'paypal',12000);
+            INSERT INTO club.provider_transactions(invoice_id,attempt_id,provider_code,external_transaction_id,transaction_type,gross_pence)
+              VALUES(i,a,'paypal','synthetic-payment','payment',12000);
+            BEGIN
+              INSERT INTO club.provider_transactions(invoice_id,attempt_id,provider_code,external_transaction_id,transaction_type,gross_pence)
+              VALUES(i,a,'paypal','synthetic-payment','payment',12000);
+              RAISE EXCEPTION 'Replay was accepted';
+            EXCEPTION WHEN unique_violation THEN NULL; END;
+            INSERT INTO club.provider_transactions(invoice_id,provider_code,external_transaction_id,transaction_type,gross_pence)
+              VALUES(i,'sumup','synthetic-payment','payment',12000);
+            INSERT INTO club.provider_payouts(provider_code,external_payout_id,gross_pence,fees_pence,net_pence)
+              VALUES('sumup','synthetic-payout',12000,200,11800);
+            BEGIN
+              INSERT INTO club.provider_payouts(provider_code,external_payout_id,gross_pence,fees_pence,net_pence)
+              VALUES('sumup','bad-net',12000,200,12000);
+              RAISE EXCEPTION 'Invalid net was accepted';
+            EXCEPTION WHEN check_violation THEN NULL; END;
+            RAISE NOTICE 'PASS: four disabled providers, cross-provider references, per-provider replay protection, payout maths';
+          END $$;
+          ROLLBACK;
+          DO $$ BEGIN
+            IF has_table_privilege('clubmgr','club.provider_transactions','INSERT')
+            THEN RAISE EXCEPTION 'Prototype role can forge payment'; END IF;
+          END $$;
+          SQL
+          pct exec 101 -- curl -fsS http://127.0.0.1:8765/healthz
+          pct exec 101 -- rm -f /tmp/club-payment-009.sql
+          rm -f /tmp/club-payment-009.sql
+          echo 'PASS: provider-neutral schema installed on CT101, synthetic tests rolled back'
+          REMOTE
