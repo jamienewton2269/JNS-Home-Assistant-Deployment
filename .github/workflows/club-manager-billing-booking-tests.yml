@@ -1,0 +1,115 @@
+name: Club Manager - yard billing booking and admin tests
+on:
+  push:
+    paths:
+      - club-manager/migrations/007_billing_conflicts_and_admin.sql
+      - .github/workflows/club-manager-billing-booking-tests.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Deploy functions and private admin application; run rollback-only tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile club-manager/app.py
+          test "$(hostname -s)" = nodec
+          SSH=(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa)
+          "${SSH[@]}" 'umask 077; cat > /tmp/club-007.sql' < club-manager/migrations/007_billing_conflicts_and_admin.sql
+          "${SSH[@]}" 'umask 077; cat > /tmp/club-admin.py' < club-manager/app.py
+          "${SSH[@]}" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev
+          pct push 101 /tmp/club-007.sql /tmp/club-007.sql
+          pct push 101 /tmp/club-admin.py /tmp/club-admin.py
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager -f /tmp/club-007.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager <<'SQL'
+          BEGIN;
+          DO $$
+          DECLARE m uuid:=gen_random_uuid(); a uuid:=gen_random_uuid(); b uuid:=gen_random_uuid(); f uuid:=gen_random_uuid();
+          DECLARE x record; n integer;
+          BEGIN
+            INSERT INTO club.member_profiles(id,category) VALUES(m,'Full');
+            INSERT INTO club.yard_assets(id,member_id,asset_type,label,length_metres) VALUES(a,m,'boat','Synthetic 6.096m boat',6.096);
+            BEGIN
+              PERFORM club.preview_yard_charge(a,2027);
+              RAISE EXCEPTION 'Missing tariff was accepted';
+            EXCEPTION WHEN raise_exception THEN
+              IF SQLERRM <> 'No approved yard rate for asset type and year' THEN RAISE; END IF;
+            END;
+            INSERT INTO club.yard_tariffs(financial_year,asset_type,rate_basis,pence_per_unit,approved_by)
+              VALUES(2027,'boat','foot',125,'Synthetic officer');
+            SELECT * INTO x FROM club.preview_yard_charge(a,2027);
+            IF x.total_pence <> 2500 THEN RAISE EXCEPTION 'Expected 20ft × 125p = 2500p, got %',x.total_pence; END IF;
+            PERFORM club.issue_yard_charge(a,2027);
+            BEGIN
+              PERFORM club.issue_yard_charge(a,2027);
+              RAISE EXCEPTION 'Duplicate annual fee was accepted';
+            EXCEPTION WHEN raise_exception THEN
+              IF SQLERRM <> 'Annual charge already exists' THEN RAISE; END IF;
+            END;
+            INSERT INTO club.mooring_locations(id,designation,mooring_type) VALUES(b,'Synthetic berth','amenity');
+            INSERT INTO club.mooring_bookings(location_id,member_id,starts_at,ends_at,state)
+              VALUES(b,m,'2027-06-01 10:00+00','2027-06-01 12:00+00','approved');
+            BEGIN
+              INSERT INTO club.mooring_bookings(location_id,member_id,starts_at,ends_at,state)
+                VALUES(b,m,'2027-06-01 11:00+00','2027-06-01 13:00+00','approved');
+              RAISE EXCEPTION 'Overlapping mooring accepted';
+            EXCEPTION WHEN exclusion_violation THEN NULL; END;
+            INSERT INTO club.clubhouse_facilities(id,name) VALUES(f,'Synthetic clubhouse');
+            INSERT INTO club.facility_bookings(facility_id,event_title,starts_at,ends_at,state)
+             VALUES(f,'First','2027-07-01 10:00+00','2027-07-01 12:00+00','approved');
+            BEGIN
+              INSERT INTO club.facility_bookings(facility_id,event_title,starts_at,ends_at,state)
+              VALUES(f,'Second','2027-07-01 11:00+00','2027-07-01 13:00+00','approved');
+              RAISE EXCEPTION 'Overlapping clubhouse booking accepted';
+            EXCEPTION WHEN exclusion_violation THEN NULL; END;
+            RAISE NOTICE 'PASS yard calculation, missing tariff guard, annual dedupe, both booking overlap guards';
+          END $$;
+          ROLLBACK;
+          DO $$
+          BEGIN
+            IF has_function_privilege('clubmgr','club.issue_yard_charge(uuid,integer)','EXECUTE') THEN RAISE EXCEPTION 'Prototype can write annual charges'; END IF;
+            IF has_function_privilege('public','club.admin_snapshot()','EXECUTE') THEN RAISE EXCEPTION 'Public admin snapshot exposed'; END IF;
+            IF NOT has_function_privilege('clubmgr','club.admin_snapshot()','EXECUTE') THEN RAISE EXCEPTION 'Admin dashboard lacks scoped access'; END IF;
+          END $$;
+          SQL
+          pct exec 101 -- cp /tmp/club-admin.py /opt/jns-club-manager/app.py
+          pct exec 101 -- chown root:root /opt/jns-club-manager/app.py
+          pct exec 101 -- systemctl restart jns-club-manager-dev
+          pct exec 101 -- python3 - <<'PY'
+          import urllib.request,urllib.error,time,base64
+          root='http://127.0.0.1:8765'
+          for attempt in range(12):
+              try:
+                  with urllib.request.urlopen(root+'/healthz',timeout=3) as r: assert r.status==200
+                  break
+              except Exception: time.sleep(1)
+          else: raise RuntimeError('service unavailable')
+          try: urllib.request.urlopen(root+'/admin')
+          except urllib.error.HTTPError as e: assert e.code==401
+          else: raise AssertionError('admin page publicly accessible')
+          with open('/etc/jns-club-manager/admin.secret') as f: secret=f.read().strip()
+          auth=base64.b64encode(('admin:'+secret).encode()).decode()
+          request=urllib.request.Request(root+'/admin',headers={'Authorization':'Basic '+auth})
+          with urllib.request.urlopen(request,timeout=5) as r:
+              body=r.read().decode()
+              assert r.status==200
+              assert 'Private Administration' in body and 'Approved membership fees' in body
+          print('PASS: protected private admin screen, available service')
+          PY
+          pct exec 101 -- rm -f /tmp/club-007.sql /tmp/club-admin.py
+          rm -f /tmp/club-007.sql /tmp/club-admin.py
+          echo 'PASS billing, double-booking and private admin.'
+          REMOTE
