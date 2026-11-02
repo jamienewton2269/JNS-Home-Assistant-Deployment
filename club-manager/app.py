@@ -90,6 +90,31 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized():
             self.reject(401, "Authentication required")
             return
+        if self.path == "/admin/accounts":
+            with db() as cn, cn.cursor() as cur:
+                cur.execute("SELECT id,display_name,email,account_state,roles,permissions FROM club.list_committee_accounts()")
+                accounts=cur.fetchall()
+            rows="".join("<tr><td>"+esc(a[1])+"</td><td>"+esc(a[2])+"</td><td>"+esc(a[3])+"</td><td>"+esc(", ".join(a[4]) or "None")+"</td><td>"+esc(", ".join(a[5]) or "None")+"</td></tr>" for a in accounts)
+            self.respond("""<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+            <title>Committee Access — Development</title><style>
+            body{background:#101d30;color:#e8f1f5;font:16px system-ui;max-width:1100px;margin:2rem auto;padding:0 1rem}
+            section{background:#1a3047;border:1px solid #425f70;border-radius:12px;padding:1.2rem;margin:1rem 0}
+            input,button{padding:.7rem;border-radius:6px;margin:.3rem}label{display:inline-block}
+            table{width:100%;border-collapse:collapse}td,th{padding:.7rem;border-bottom:1px solid #456;text-align:left}
+            a{color:#92e5ef}.muted{color:#abc2d1}</style>
+            <h1>General Committee · Accounts &amp; Access</h1><p><a href="/admin">Administration</a></p>
+            <section><h2>Create committee account</h2>
+            <p class="muted">Default: disabled · no roles · no permissions · cannot sign in.</p>
+            <form method="post" action="/admin/accounts">
+            <label>Name <input name="name" maxlength="120" required></label>
+            <label>Email <input name="email" type="email" maxlength="254" required></label>
+            <button type="submit">Create disabled account</button></form></section>
+            <section><h2>Existing accounts</h2><table><thead><tr><th>Name</th><th>Email</th><th>State</th><th>Roles</th><th>Permissions</th></tr></thead><tbody>"""+rows+"""</tbody></table></section>
+            <section><h2>Permission management</h2><p>Role and permission grants require separately authenticated, independent approval.
+            They are intentionally unavailable in this development interface. Creating an account never grants access.</p>
+            <p>Available roles: Membership Secretary, Treasurer, Commodore / Committee, System Administrator.</p>
+            </section><p class="muted">Synthetic-data-only development interface. Do not enter real committee member details.</p></html>""")
+            return
         if self.path == "/admin":
             with db() as cn, cn.cursor() as cur:
                 cur.execute("SELECT club.admin_snapshot()")
@@ -107,7 +132,7 @@ class Handler(BaseHTTPRequestHandler):
             table{{border-collapse:collapse;width:100%;margin-bottom:1.5rem}}td,th{{padding:.7rem;border-bottom:1px solid #456;text-align:left}}
             section{{border:1px solid #456;border-radius:10px;padding:1rem;margin:1rem 0}}a{{color:#8df}}</style>
             <h1>Club Manager · Private Administration</h1>
-            <p>Development preview · synthetic records only · <a href="/">Member register</a> · <a href="/audit">Audit</a></p>
+            <p>Development preview · synthetic records only · <a href="/">Member register</a> · <a href="/audit">Audit</a> · <a href="/admin/accounts">Committee accounts</a></p>
             <section><h2>Operational diary</h2>
             <p>Yard assets: {snapshot['yard_assets']} · Approved mooring bookings: {snapshot['approved_mooring_bookings']}</p>
             <p>Pending mooring requests: {snapshot['pending_mooring_requests']} · Pending clubhouse requests: {snapshot['pending_facility_requests']}</p>
@@ -152,13 +177,30 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized():
             self.reject(401, "Authentication required")
             return
-        if self.path != "/member":
+        if self.path not in ("/member", "/admin/accounts"):
             self.reject(404, "Not found")
             return
         # Only loopback clients can reach this service. Require browser Origin to match.
         origin = self.headers.get("Origin")
         if origin not in ("http://127.0.0.1:8765", "http://localhost:8765"):
             self.reject(403, "Invalid origin")
+            return
+        if self.path == "/admin/accounts":
+            try:
+                n=int(self.headers.get("Content-Length","0"))
+                if not 1<=n<=2048:
+                    raise ValueError("Invalid input size")
+                form=urllib.parse.parse_qs(self.rfile.read(n).decode("utf-8"),keep_blank_values=True)
+                name=form.get("name",[""])[0].strip()
+                email=form.get("email",[""])[0].strip()
+                with db() as cn, cn.cursor() as cur:
+                    cur.execute("SELECT club.create_disabled_committee_account(%s,%s,%s)",(name,email,"local-dev-admin"))
+                self.send_response(303)
+                self.send_header("Location","/admin/accounts")
+                self.send_header("Cache-Control","no-store")
+                self.end_headers()
+            except (ValueError,psycopg2.Error):
+                self.reject(400,"Invalid or duplicate account. No access granted.")
             return
         try:
             n = int(self.headers.get("Content-Length", "0"))
