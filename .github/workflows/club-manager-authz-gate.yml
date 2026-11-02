@@ -1,0 +1,66 @@
+name: Club Manager - committee authorisation gate
+on:
+  push:
+    paths:
+      - club-manager/migrations/013_committee_authorisation_default_deny.sql
+      - .github/workflows/club-manager-authz-gate.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat > /tmp/club-013.sql' < club-manager/migrations/013_committee_authorisation_default_deny.sql
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev
+          pct push 101 /tmp/club-013.sql /tmp/club-013.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager -f /tmp/club-013.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager <<'SQL'
+          BEGIN;
+          DO $$
+          DECLARE a uuid:=gen_random_uuid();
+          BEGIN
+           INSERT INTO club.committee_accounts(id,display_name,email,created_by)
+           VALUES(a,'Synthetic Officer','authz-synthetic@example.invalid','local-dev-admin');
+           IF club.committee_has_permission(a,'members_view') THEN RAISE EXCEPTION 'Disabled account allowed'; END IF;
+           INSERT INTO club.committee_permission_grants(account_id,permission_code,approved_by)
+           VALUES(a,'members_view','synthetic-authoriser');
+           IF club.committee_has_permission(a,'members_view') THEN RAISE EXCEPTION 'Disabled account with grant allowed'; END IF;
+           UPDATE club.committee_accounts SET account_state='active' WHERE id=a;
+           IF NOT club.committee_has_permission(a,'members_view') THEN RAISE EXCEPTION 'Explicit grant not recognised'; END IF;
+           IF club.committee_has_permission(a,'payments_reconcile') THEN RAISE EXCEPTION 'Unassigned permission allowed'; END IF;
+           INSERT INTO club.committee_role_grants(account_id,role_code,approved_by)
+           VALUES(a,'treasurer','synthetic-authoriser');
+           IF club.committee_has_permission(a,'payments_reconcile') THEN RAISE EXCEPTION 'Role implied a grant'; END IF;
+           UPDATE club.committee_accounts SET account_state='suspended' WHERE id=a;
+           IF club.committee_has_permission(a,'members_view') THEN RAISE EXCEPTION 'Suspended account allowed'; END IF;
+           IF club.committee_has_permission(gen_random_uuid(),'members_view') THEN RAISE EXCEPTION 'Unknown account allowed'; END IF;
+           RAISE NOTICE 'PASS: disabled/suspended/unknown denied, explicit grant required, roles do not imply privileges';
+          END $$;
+          ROLLBACK;
+          DO $$ BEGIN
+           IF has_function_privilege('clubmgr','club.committee_has_permission(uuid,text)','EXECUTE') THEN
+             RAISE EXCEPTION 'Prototype role may invoke authorisation service'; END IF;
+           IF has_function_privilege('public','club.committee_has_permission(uuid,text)','EXECUTE') THEN
+             RAISE EXCEPTION 'PUBLIC may invoke authorisation service'; END IF;
+          END $$;
+          SQL
+          pct exec 101 -- curl -fsS http://127.0.0.1:8765/healthz
+          pct exec 101 -- rm -f /tmp/club-013.sql
+          rm -f /tmp/club-013.sql
+          echo 'PASS: default-deny committee authorisation regression'
+          REMOTE
