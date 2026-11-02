@@ -1,0 +1,73 @@
+name: Club Manager - officer approval security tests
+on:
+  push:
+    paths:
+      - club-manager/migrations/011_officer_approval_queue.sql
+      - .github/workflows/club-manager-officer-approval-test.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat > /tmp/club-011.sql' < club-manager/migrations/011_officer_approval_queue.sql
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev
+          pct push 101 /tmp/club-011.sql /tmp/club-011.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager -f /tmp/club-011.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager <<'SQL'
+          BEGIN;
+          DO $$
+          DECLARE a uuid:=gen_random_uuid(); n integer;
+          BEGIN
+           INSERT INTO club.officer_actions(id,action_kind,request_json,requested_by)
+           VALUES(a,'mooring_booking','{"synthetic":true}'::jsonb,'membership-secretary');
+           BEGIN
+             UPDATE club.officer_actions SET state='approved',reviewed_by='membership-secretary',reviewed_at=now() WHERE id=a;
+             RAISE EXCEPTION 'Self approval accepted';
+           EXCEPTION WHEN check_violation THEN NULL; END;
+           BEGIN
+             UPDATE club.officer_actions SET request_json='{"tampered":true}'::jsonb WHERE id=a;
+             RAISE EXCEPTION 'Request modification accepted';
+           EXCEPTION WHEN raise_exception THEN
+             IF SQLERRM='Request modification accepted' THEN RAISE; END IF; END;
+           UPDATE club.officer_actions SET state='approved',reviewed_by='commodore',reviewed_at=now() WHERE id=a;
+           BEGIN
+             UPDATE club.officer_actions SET state='rejected',reviewed_by='treasurer',reviewed_at=now() WHERE id=a;
+             RAISE EXCEPTION 'Final decision changed';
+           EXCEPTION WHEN raise_exception THEN
+             IF SQLERRM='Final decision changed' THEN RAISE; END IF; END;
+           SELECT count(*) INTO n FROM club.officer_action_events WHERE action_id=a;
+           IF n<>2 THEN RAISE EXCEPTION 'Expected 2 audit events, got %',n; END IF;
+           BEGIN
+             DELETE FROM club.officer_action_events WHERE action_id=a;
+             RAISE EXCEPTION 'Audit history deleted';
+           EXCEPTION WHEN raise_exception THEN
+             IF SQLERRM='Audit history deleted' THEN RAISE; END IF; END;
+           RAISE NOTICE 'PASS: self approval, immutable request, one-time decision, event log guards';
+          END $$;
+          ROLLBACK;
+          DO $$ BEGIN
+           IF has_table_privilege('clubmgr','club.officer_actions','INSERT') THEN
+            RAISE EXCEPTION 'Unprotected application write permission'; END IF;
+          END $$;
+          SQL
+          pct exec 101 -- curl -fsS http://127.0.0.1:8765/healthz
+          pct exec 101 -- rm -f /tmp/club-011.sql
+          rm -f /tmp/club-011.sql
+          echo 'PASS officer approval regression'
+          REMOTE
