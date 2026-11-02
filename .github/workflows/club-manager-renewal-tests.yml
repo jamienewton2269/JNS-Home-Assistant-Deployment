@@ -1,0 +1,81 @@
+name: Club Manager - renewals and simulated card settlement
+on:
+  push:
+    paths:
+      - club-manager/migrations/008_renewals_and_card_payments.sql
+      - .github/workflows/club-manager-renewal-tests.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Deploy renewal schema and test synthetic ledger
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat > /tmp/club-renewals-008.sql' < club-manager/migrations/008_renewals_and_card_payments.sql
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev
+          pct push 101 /tmp/club-renewals-008.sql /tmp/club-renewals-008.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager -f /tmp/club-renewals-008.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager <<'SQL'
+          BEGIN;
+          DO $$
+          DECLARE m uuid:=gen_random_uuid(); c uuid:=gen_random_uuid(); i uuid:=gen_random_uuid();
+           result text; paid bigint; status text; n integer;
+          BEGIN
+            INSERT INTO club.member_profiles(id,category) VALUES(m,'Full');
+            INSERT INTO club.renewal_campaigns(id,renewal_year) VALUES(c,2028);
+            INSERT INTO club.renewal_items(campaign_id,member_id,charge_kind,description,amount_pence)
+              VALUES(c,m,'membership','Synthetic full membership',12000);
+            INSERT INTO club.renewal_items(campaign_id,member_id,charge_kind,description,amount_pence)
+              VALUES(c,m,'yard','Synthetic boat storage',2500);
+            INSERT INTO club.renewal_invoices(id,campaign_id,member_id,amount_pence,state,issued_at)
+              VALUES(i,c,m,14500,'issued',clock_timestamp());
+            INSERT INTO club.renewal_notices(invoice_id,channel) VALUES(i,'email'),(i,'joomla');
+            INSERT INTO club.checkout_requests(invoice_id,amount_pence) VALUES(i,14500);
+            result:=club.apply_verified_card_payment(i,'synthetic-payment-one',5000,'GBP');
+            IF result <> 'applied' THEN RAISE EXCEPTION 'First partial payment failed'; END IF;
+            result:=club.apply_verified_card_payment(i,'synthetic-payment-two',9500,'GBP');
+            IF result <> 'applied' THEN RAISE EXCEPTION 'Final payment failed'; END IF;
+            result:=club.apply_verified_card_payment(i,'synthetic-payment-two',9500,'GBP');
+            IF result <> 'duplicate' THEN RAISE EXCEPTION 'Duplicate was not idempotent'; END IF;
+            SELECT amount_paid_pence,state INTO paid,status FROM club.renewal_invoices WHERE id=i;
+            IF paid<>14500 OR status<>'paid' THEN RAISE EXCEPTION 'Settlement incorrect'; END IF;
+            SELECT count(*) INTO n FROM club.payment_receipts WHERE invoice_id=i;
+            IF n<>2 THEN RAISE EXCEPTION 'Duplicate receipt created'; END IF;
+            BEGIN
+              PERFORM club.apply_verified_card_payment(i,'synthetic-overpay',100,'GBP');
+              RAISE EXCEPTION 'Overpayment accepted';
+            EXCEPTION WHEN raise_exception THEN
+              IF SQLERRM='Overpayment accepted' THEN RAISE; END IF;
+            END;
+            RAISE NOTICE 'PASS: renewal breakdown, distribution queue, partial/final settlement, webhook replay dedupe';
+          END $$;
+          ROLLBACK;
+          DO $$
+          BEGIN
+            IF has_function_privilege('clubmgr','club.apply_verified_card_payment(uuid,text,bigint,character)','EXECUTE')
+              THEN RAISE EXCEPTION 'Prototype may mark invoices paid'; END IF;
+            IF has_function_privilege('public','club.apply_verified_card_payment(uuid,text,bigint,character)','EXECUTE')
+              THEN RAISE EXCEPTION 'Public may mark invoices paid'; END IF;
+          END $$;
+          SQL
+          pct exec 101 -- systemctl is-active jns-club-manager-dev
+          pct exec 101 -- curl -fsS http://127.0.0.1:8765/healthz
+          pct exec 101 -- rm -f /tmp/club-renewals-008.sql
+          rm -f /tmp/club-renewals-008.sql
+          echo 'PASS: renewals and simulated card payment security gate.'
+          REMOTE
