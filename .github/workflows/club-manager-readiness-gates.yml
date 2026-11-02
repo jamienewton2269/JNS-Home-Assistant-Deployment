@@ -1,0 +1,71 @@
+name: Club Manager - payment and renewal readiness gates
+on:
+  push:
+    paths:
+      - club-manager/migrations/010_payment_guard_and_renewal_approvals.sql
+      - .github/workflows/club-manager-readiness-gates.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat > /tmp/club-010.sql' < club-manager/migrations/010_payment_guard_and_renewal_approvals.sql
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev
+          pct push 101 /tmp/club-010.sql /tmp/club-010.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager -f /tmp/club-010.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager <<'SQL'
+          BEGIN;
+          DO $$
+          DECLARE m uuid:=gen_random_uuid(); c uuid:=gen_random_uuid(); i uuid:=gen_random_uuid(); a uuid:=gen_random_uuid();
+          BEGIN
+            INSERT INTO club.member_profiles(id,category) VALUES(m,'Full');
+            INSERT INTO club.renewal_campaigns(id,renewal_year) VALUES(c,2088);
+            INSERT INTO club.renewal_invoices(id,campaign_id,member_id,amount_pence,state) VALUES(i,c,m,12000,'issued');
+            INSERT INTO club.payment_attempts(id,invoice_id,provider_code,requested_pence)
+             VALUES(a,i,'stripe',12000);
+            IF NOT club.validate_payment_attempt(a) THEN RAISE EXCEPTION 'Valid payment rejected'; END IF;
+            UPDATE club.payment_attempts SET requested_pence=11900 WHERE id=a;
+            BEGIN
+              PERFORM club.validate_payment_attempt(a);
+              RAISE EXCEPTION 'Wrong amount accepted';
+            EXCEPTION WHEN raise_exception THEN
+              IF SQLERRM='Wrong amount accepted' THEN RAISE; END IF;
+            END;
+            BEGIN
+              INSERT INTO club.renewal_approvals(campaign_id,requested_by,approved_by)
+               VALUES(c,'same-officer','same-officer');
+              RAISE EXCEPTION 'Self approval accepted';
+            EXCEPTION WHEN check_violation THEN NULL; END;
+            INSERT INTO club.renewal_approvals(campaign_id,requested_by,approved_by)
+             VALUES(c,'membership-secretary','treasurer');
+            RAISE NOTICE 'PASS: amount validation and two-person annual renewal approval';
+          END $$;
+          ROLLBACK;
+          DO $$ BEGIN
+           IF has_function_privilege('clubmgr','club.validate_payment_attempt(uuid)','EXECUTE')
+            THEN RAISE EXCEPTION 'Prototype can bypass payment guard'; END IF;
+           IF has_function_privilege('public','club.validate_payment_attempt(uuid)','EXECUTE')
+            THEN RAISE EXCEPTION 'Public may execute payment guard'; END IF;
+          END $$;
+          SQL
+          pct exec 101 -- curl -fsS http://127.0.0.1:8765/healthz
+          pct exec 101 -- rm -f /tmp/club-010.sql
+          rm -f /tmp/club-010.sql
+          echo 'PASS: CT101 security and renewal readiness gates'
+          REMOTE
