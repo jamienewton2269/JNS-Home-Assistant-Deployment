@@ -1,0 +1,108 @@
+name: Club Manager - mandatory MFA privileged gate
+on:
+  push:
+    paths:
+      - club-manager/migrations/014_mfa_privileged_lockdown.sql
+      - .github/workflows/club-manager-mfa-gate.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Deploy MFA gate and lock legacy prototype
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          python3 -m py_compile club-manager/app.py
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat > /tmp/club-mfa-014.sql' < club-manager/migrations/014_mfa_privileged_lockdown.sql
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat > /tmp/club-mfa-app.py' < club-manager/app.py
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev
+          pct push 101 /tmp/club-mfa-014.sql /tmp/club-mfa-014.sql
+          pct push 101 /tmp/club-mfa-app.py /tmp/club-mfa-app.py
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager -f /tmp/club-mfa-014.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager <<'SQL'
+          BEGIN;
+          DO $$
+          DECLARE a uuid:=gen_random_uuid(); s uuid:=gen_random_uuid();
+          BEGIN
+           INSERT INTO club.committee_accounts(id,display_name,email,created_by,account_state)
+            VALUES(a,'Synthetic MFA Officer','mfa-test@example.invalid','synthetic-test','active');
+           INSERT INTO club.committee_permission_grants(account_id,permission_code,approved_by)
+            VALUES(a,'members_amend','synthetic-reviewer');
+           IF club.has_privileged_access(a,'members_amend',s) THEN
+            RAISE EXCEPTION 'Missing MFA session permitted'; END IF;
+           INSERT INTO club.officer_mfa_sessions(session_id,account_id,method,verified_at,expires_at)
+            VALUES(s,a,'totp',clock_timestamp()-interval '20 minutes',clock_timestamp()-interval '5 minutes');
+           IF club.has_privileged_access(a,'members_amend',s) THEN
+            RAISE EXCEPTION 'Expired MFA session permitted'; END IF;
+           UPDATE club.officer_mfa_sessions SET verified_at=clock_timestamp()-interval '1 minute',expires_at=clock_timestamp()+interval '10 minutes' WHERE session_id=s;
+           IF NOT club.has_privileged_access(a,'members_amend',s) THEN
+            RAISE EXCEPTION 'Valid synthetic MFA session rejected'; END IF;
+           IF club.has_privileged_access(a,'payments_reconcile',s) THEN
+            RAISE EXCEPTION 'Missing explicit permission permitted'; END IF;
+           UPDATE club.officer_mfa_sessions SET revoked_at=clock_timestamp() WHERE session_id=s;
+           IF club.has_privileged_access(a,'members_amend',s) THEN
+            RAISE EXCEPTION 'Revoked MFA session permitted'; END IF;
+           UPDATE club.committee_accounts SET account_state='suspended' WHERE id=a;
+           IF club.has_privileged_access(a,'members_amend',s) THEN
+            RAISE EXCEPTION 'Suspended account permitted'; END IF;
+           RAISE NOTICE 'PASS: missing, expired, revoked MFA rejected; explicit grant and active account enforced';
+          END $$;
+          ROLLBACK;
+          DO $$ BEGIN
+           IF has_table_privilege('clubmgr','club.officer_mfa_sessions','INSERT')
+            OR has_function_privilege('clubmgr','club.has_privileged_access(uuid,text,uuid)','EXECUTE')
+            OR has_function_privilege('clubmgr','club.append_member(uuid,text,text,text,text)','EXECUTE')
+            OR has_function_privilege('clubmgr','club.create_disabled_committee_account(text,text,text)','EXECUTE')
+            OR has_function_privilege('clubmgr','club.admin_snapshot()','EXECUTE')
+            OR has_function_privilege('clubmgr','club.audit_rows()','EXECUTE')
+            OR has_table_privilege('clubmgr','club.current_members','SELECT')
+           THEN RAISE EXCEPTION 'Legacy app still has sensitive database rights'; END IF;
+          END $$;
+          SQL
+          pct exec 101 -- cp /tmp/club-mfa-app.py /opt/jns-club-manager/app.py
+          pct exec 101 -- chown root:root /opt/jns-club-manager/app.py
+          pct exec 101 -- systemctl restart jns-club-manager-dev
+          pct exec 101 -- python3 - <<'PY'
+          import urllib.request,urllib.error,base64,time
+          root='http://127.0.0.1:8765'
+          for attempt in range(12):
+              try:
+                  with urllib.request.urlopen(root+'/healthz',timeout=3) as r:
+                      assert r.status==200
+                  break
+              except Exception: time.sleep(1)
+          else: raise RuntimeError('service not healthy')
+          try: urllib.request.urlopen(root+'/admin')
+          except urllib.error.HTTPError as e: assert e.code==401
+          else: raise AssertionError('anonymous privileged access')
+          with open('/etc/jns-club-manager/admin.secret') as f: secret=f.read().strip()
+          auth='Basic '+base64.b64encode(('admin:'+secret).encode()).decode()
+          for path in ('/','/audit','/admin','/admin/accounts'):
+              try: urllib.request.urlopen(urllib.request.Request(root+path,headers={'Authorization':auth}),timeout=5)
+              except urllib.error.HTTPError as e: assert e.code==403,(path,e.code)
+              else: raise AssertionError('shared password bypassed MFA on '+path)
+          for path in ('/member','/admin/accounts'):
+              r=urllib.request.Request(root+path,headers={'Authorization':auth,'Origin':root},data=b'name=Synthetic&email=a%40example.invalid')
+              try: urllib.request.urlopen(r,timeout=5)
+              except urllib.error.HTTPError as e: assert e.code==403,(path,e.code)
+              else: raise AssertionError('shared password allowed write to '+path)
+          print('PASS: shared password cannot read sensitive data or write, service healthy')
+          PY
+          pct exec 101 -- rm -f /tmp/club-mfa-014.sql /tmp/club-mfa-app.py
+          rm -f /tmp/club-mfa-014.sql /tmp/club-mfa-app.py
+          echo 'PASS: CT101 mandatory MFA development lockdown'
+          REMOTE
