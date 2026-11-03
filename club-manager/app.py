@@ -90,6 +90,10 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized():
             self.reject(401, "Authentication required")
             return
+        # Shared-password development credentials never satisfy named-user MFA.
+        # All sensitive read/admin routes stay closed until MFA identity integration.
+        self.reject(403, "Individual MFA required; development access locked")
+        return
         if self.path == "/admin/accounts":
             with db() as cn, cn.cursor() as cur:
                 cur.execute("SELECT id,display_name,email,account_state,roles,permissions FROM club.list_committee_accounts()")
@@ -177,6 +181,9 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized():
             self.reject(401, "Authentication required")
             return
+        # No writes under shared Basic authentication, regardless of Origin.
+        self.reject(403, "Individual MFA required; writes disabled")
+        return
         if self.path not in ("/member", "/admin/accounts"):
             self.reject(404, "Not found")
             return
