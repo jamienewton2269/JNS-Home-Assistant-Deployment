@@ -1,0 +1,118 @@
+name: Club Manager - passkey policy and dual-officer security gate
+on:
+  push:
+    paths:
+      - club-manager/migrations/015_officer_mfa_recovery_and_maintenance_policy.sql
+      - .github/workflows/club-manager-dual-security-gate.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Deploy controlled security policy and synthetic regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat > /tmp/club-015.sql' < club-manager/migrations/015_officer_mfa_recovery_and_maintenance_policy.sql
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev
+          pct push 101 /tmp/club-015.sql /tmp/club-015.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager -f /tmp/club-015.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager <<'SQL'
+          BEGIN;
+          DO $$
+          DECLARE requester uuid:=gen_random_uuid();
+                  subject uuid:=gen_random_uuid();
+                  officer1 uuid:=gen_random_uuid();
+                  officer2 uuid:=gen_random_uuid();
+                  session1 uuid:=gen_random_uuid();
+                  session2 uuid:=gen_random_uuid();
+                  recovery uuid:=gen_random_uuid();
+                  maintenance uuid:=gen_random_uuid();
+                  rec record;
+          BEGIN
+           SELECT * INTO rec FROM club.security_policy WHERE singleton=true;
+           IF rec.preferred_factor<>'webauthn' OR rec.fallback_factor<>'totp'
+              OR rec.minimum_independent_approvers<>2
+              OR rec.privileged_session_minutes<>15
+              OR NOT rec.direct_database_admin_mfa_required
+            THEN RAISE EXCEPTION 'Security policy mismatch'; END IF;
+
+           INSERT INTO club.committee_accounts(id,display_name,email,created_by,account_state) VALUES
+           (requester,'Synthetic Requester','req-synthetic@example.invalid','test','active'),
+           (subject,'Synthetic Recovery Subject','subject-synthetic@example.invalid','test','active'),
+           (officer1,'Synthetic Authoriser One','officer1-synthetic@example.invalid','test','active'),
+           (officer2,'Synthetic Authoriser Two','officer2-synthetic@example.invalid','test','active');
+           INSERT INTO club.committee_permission_grants(account_id,permission_code,approved_by) VALUES
+           (officer1,'account_recovery_approve','synthetic-admin'),
+           (officer2,'account_recovery_approve','synthetic-admin'),
+           (officer1,'database_maintenance_approve','synthetic-admin'),
+           (officer2,'database_maintenance_approve','synthetic-admin');
+           INSERT INTO club.officer_mfa_sessions(session_id,account_id,method,verified_at,expires_at) VALUES
+           (session1,officer1,'webauthn',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '10 minutes'),
+           (session2,officer2,'totp',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '10 minutes');
+           INSERT INTO club.security_change_requests(id,change_kind,subject_account_id,requested_by,justification) VALUES
+           (recovery,'account_recovery',subject,requester,'Synthetic lost security key recovery request'),
+           (maintenance,'database_maintenance',NULL,requester,'Synthetic approved maintenance procedure');
+           IF club.security_change_ready(recovery) THEN RAISE EXCEPTION 'Zero approvals permitted'; END IF;
+           BEGIN
+             INSERT INTO club.security_change_approvals(request_id,approver_id,mfa_session_id)
+              VALUES(recovery,requester,session1);
+             RAISE EXCEPTION 'Requester approved own request';
+           EXCEPTION WHEN raise_exception THEN
+             IF SQLERRM<>'Requester or recovery subject cannot approve' THEN RAISE; END IF;
+           END;
+           INSERT INTO club.security_change_approvals(request_id,approver_id,mfa_session_id)
+            VALUES(recovery,officer1,session1);
+           IF club.security_change_ready(recovery) THEN RAISE EXCEPTION 'Single approval permitted'; END IF;
+           BEGIN
+             INSERT INTO club.security_change_approvals(request_id,approver_id,mfa_session_id)
+              VALUES(recovery,officer1,session2);
+             RAISE EXCEPTION 'Approver identity mismatch permitted';
+           EXCEPTION WHEN raise_exception THEN
+             IF SQLERRM<>'Current named-officer MFA required' THEN RAISE; END IF;
+           END;
+           INSERT INTO club.security_change_approvals(request_id,approver_id,mfa_session_id)
+            VALUES(recovery,officer2,session2);
+           IF NOT club.security_change_ready(recovery) THEN RAISE EXCEPTION 'Two independent approvals rejected'; END IF;
+
+           INSERT INTO club.security_change_approvals(request_id,approver_id,mfa_session_id)
+            VALUES(maintenance,officer1,session1),(maintenance,officer2,session2);
+           IF NOT club.security_change_ready(maintenance) THEN RAISE EXCEPTION 'Maintenance dual approval rejected'; END IF;
+           UPDATE club.officer_mfa_sessions SET revoked_at=clock_timestamp() WHERE session_id=session2;
+           IF club.security_change_ready(recovery) OR club.security_change_ready(maintenance)
+            THEN RAISE EXCEPTION 'Revoked MFA counted towards approval quorum'; END IF;
+           BEGIN
+             DELETE FROM club.security_change_approvals WHERE request_id=recovery;
+             RAISE EXCEPTION 'Approval evidence deleted';
+           EXCEPTION WHEN raise_exception THEN
+             IF SQLERRM<>'Security approvals are immutable' THEN RAISE; END IF;
+           END;
+           RAISE NOTICE 'PASS: WebAuthn preference/TOTP fallback, two officers, no self approval, MFA binding, session revocation, immutable evidence';
+          END $$;
+          ROLLBACK;
+          DO $$ BEGIN
+           IF has_table_privilege('clubmgr','club.security_change_approvals','INSERT')
+              OR has_table_privilege('clubmgr','club.officer_authenticator_registry','INSERT')
+              OR has_function_privilege('clubmgr','club.security_change_ready(uuid)','EXECUTE')
+              OR has_function_privilege('public','club.security_change_ready(uuid)','EXECUTE')
+            THEN RAISE EXCEPTION 'Privileged security operation exposed'; END IF;
+          END $$;
+          SQL
+          pct exec 101 -- curl -fsS http://127.0.0.1:8765/healthz
+          pct exec 101 -- rm -f /tmp/club-015.sql
+          rm -f /tmp/club-015.sql
+          echo 'PASS: CT101 two-person MFA security policy and synthetic recovery checks'
+          REMOTE
