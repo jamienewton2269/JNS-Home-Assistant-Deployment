@@ -10,6 +10,19 @@ Evidence baseline: 2026-11-01.
 - App service and audit endpoint health verified by GitHub Actions.
 - Rollback-only synthetic tests, no genuine member records.
 
+
+## Confirmed security policy — 2026-11-03
+- **MFA:** WebAuthn/passkeys or hardware security keys preferred; authenticator TOTP fallback.
+- **Recovery:** two distinct independently MFA-authenticated authorised officers; neither the requester nor recovering account may approve.
+- **Sensitive PostgreSQL maintenance:** designated administrators only; independently MFA-authenticated two-person approval required before a narrowly scoped maintenance broker executes authorised tasks.
+- **Privileged sessions:** MFA assurance <=15 minutes; renewal required after expiry; revocation invalidates access.
+- **Request approval windows:** maximum 24 hours; no cross-user reuse of MFA proof.
+- **No general write/privileged read without MFA:** prototype shared-password sensitive paths locked; no live officer enrolment, credential verifier, session issuer or operational maintenance broker yet.
+- **Database administrators:** PostgreSQL superusers/OS root inherently can bypass ordinary DB permissions and triggers. The policy is **not** enforced on direct superuser connections until a separate MFA-protected management access path, restricted superuser access, dual-control runbook and independent audit evidence are verified.
+- **Development release gate:** synthetic identities only, no public/Joomla activation, no live payment processors.
+- **Evidence:** CT101 migration 015 and synthetic gate run https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/41630552335 (passed).
+- **Additional acceptance tests needed:** genuine WebAuthn challenge/origin/RP validation and signature counters; TOTP secret protection and replay rejection; phishing-resistant MFA where supported; lockout, recovery proofing, onboarding, device-loss drills, role revocation; independent persistent security-event audit; request expiration, concurrent approvals and external DBA access controls.
+
 ## Mandatory release gates — all must pass before real data
 1. **Identity and access:** replace one shared Basic Auth secret with individual named accounts, strong MFA for officers, RBAC per operation, secure sessions, revocation, and independent break-glass procedure. Include failed-login throttling.
 2. **Audit independence:** replicate signed, sequenced audit events to independently administered append-only storage outside CT101; anchor and periodically verify digests; privileged-operator tampering must trigger an alert. A DB trigger alone is insufficient.
