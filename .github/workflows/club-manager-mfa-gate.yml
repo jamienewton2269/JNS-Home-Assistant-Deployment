@@ -45,7 +45,7 @@ jobs:
            IF club.has_privileged_access(a,'members_amend',s) THEN
             RAISE EXCEPTION 'Missing MFA session permitted'; END IF;
            INSERT INTO club.officer_mfa_sessions(session_id,account_id,method,verified_at,expires_at)
-            VALUES(s,a,'totp',clock_timestamp()-interval '20 minutes',clock_timestamp()-interval '5 minutes');
+            VALUES(s,a,'totp',clock_timestamp()-interval '19 minutes',clock_timestamp()-interval '5 minutes');
            IF club.has_privileged_access(a,'members_amend',s) THEN
             RAISE EXCEPTION 'Expired MFA session permitted'; END IF;
            UPDATE club.officer_mfa_sessions SET verified_at=clock_timestamp()-interval '1 minute',expires_at=clock_timestamp()+interval '10 minutes' WHERE session_id=s;
