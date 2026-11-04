@@ -1,37 +1,19 @@
-$ErrorActionPreference='Continue'
-"=== SAGE NIKON UNINSTALL + DISK PROBE ==="
-"Computer: $env:COMPUTERNAME"
-""
-
-"=== WINDOWS INSTALLER SERVICE ==="
-Get-Service msiserver | Select-Object Name,Status,StartType | Format-Table -AutoSize
-""
-
-"=== NIKON/CAMERA UNINSTALL ENTRIES ==="
-Get-ItemProperty 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue |
- Where-Object { $_.DisplayName -match 'Nikon|CameraRC|Camera Control Pro|NX Studio|Picture Control Utility' } |
- Select-Object DisplayName,DisplayVersion,PSChildName,UninstallString,QuietUninstallString,InstallLocation |
- Format-List
-
-"=== TOP-LEVEL C: DIRECTORY SIZES ==="
-Get-ChildItem C:\ -Force -Directory -ErrorAction SilentlyContinue | ForEach-Object {
- $p=$_.FullName
- try {
-   $sum=(Get-ChildItem -LiteralPath $p -Force -File -Recurse -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum
-   [pscustomobject]@{Folder=$p;GB=[math]::Round($sum/1GB,2)}
- } catch {}
-} | Sort-Object GB -Descending | Format-Table -AutoSize
-
-"=== LARGE ROOT FILES ==="
-Get-ChildItem C:\ -Force -File -ErrorAction SilentlyContinue |
- Select-Object FullName,@{N='GB';E={[math]::Round($_.Length/1GB,2)}} |
- Sort-Object GB -Descending | Format-Table -AutoSize
-
-"=== VSS / SYSTEM STORAGE ==="
-vssadmin list shadowstorage
-""
-"=== FINAL BMW / ISTA CHECK ==="
-Get-ItemProperty 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue |
- Where-Object { $_.DisplayName -match 'ISTA|BMW|E-Sys|INPA|EDIABAS' } |
- Select-Object DisplayName,DisplayVersion,Publisher |
- Format-Table -AutoSize
+$ErrorActionPreference = 'Stop'
+Write-Output '=== SAGE TRANSFER DESTINATION PREFLIGHT ==='
+Write-Output "Host: $env:COMPUTERNAME"
+$root='\\127.0.0.1\d'
+$destination=Join-Path $root 'Knott Migration External'
+Write-Output "Share available: $(Test-Path -LiteralPath $root)"
+if (-not (Test-Path -LiteralPath $root)) { Write-Output 'RESULT: BLOCKED - local share unavailable to runner'; exit 0 }
+try {
+  $folder=New-Item -ItemType Directory -Path $destination -Force
+  Write-Output "Destination created/available: $(Test-Path -LiteralPath $destination)"
+  Write-Output 'RESULT: DESTINATION READY'
+} catch {
+  Write-Output "RESULT: DESTINATION ERROR ($($_.Exception.GetType().Name))"
+  exit 0
+}
+Write-Output '=== SHAREPOINT ACCESS PREFLIGHT ==='
+$syncroots = Get-ChildItem 'Env:' | Where-Object { $_.Name -like '*OneDrive*' } | ForEach-Object { $_.Value } | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+Write-Output "Visible OneDrive sync roots: $(@($syncroots).Count)"
+Write-Output 'No confidential SharePoint files or authentication data were read, uploaded, or logged.'
