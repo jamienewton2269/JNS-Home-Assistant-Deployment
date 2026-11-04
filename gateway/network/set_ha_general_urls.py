@@ -207,6 +207,10 @@ if not already:
 else:
     print("JNS_HA_URL_CONFIG_CHECK=previously_passed")
 
+if already:
+    print("JNS_HA_URL_UPDATE=complete_yaml_verified")
+    raise SystemExit(0)
+
 if api_urls_loaded():
     print("JNS_HA_URL_UPDATE=complete_loaded")
     raise SystemExit(0)
