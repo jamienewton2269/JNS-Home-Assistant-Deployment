@@ -114,7 +114,7 @@ def ssh(args, timeout=35):
     return p.stdout
 
 def guest(args, timeout=180):
-    data = json.loads(ssh(["qm", "guest", "exec", VM, "--", *args]))
+    data = json.loads(ssh(["qm", "guest", "exec", VM, "--", *args], min(timeout + 30, 360)))
     deadline = time.monotonic() + timeout
     while not data.get("exited"):
         if not data.get("pid") or time.monotonic() >= deadline:
@@ -159,21 +159,23 @@ output = result.get("out-data", "") or ""
 if result.get("exitcode") != 0:
     raise SystemExit("PATCH_FAILED")
 status = next((x for x in output.splitlines() if x.startswith("JNS_HA_URLS=")), "")
-if status == "JNS_HA_URLS=already_configured":
-    print(status)
-    raise SystemExit(0)
+already = status == "JNS_HA_URLS=already_configured"
 backup = next((x.split("=", 1)[1] for x in output.splitlines() if x.startswith("JNS_HA_URL_BACKUP=")), "")
-if not backup.startswith("/config/.jns_url_backups/"):
+if not already and not backup.startswith("/config/.jns_url_backups/"):
     raise SystemExit("MISSING_SAFE_BACKUP")
 print(status)
 check = guest(["ha", "core", "check"], 300)
 if check.get("exitcode") != 0:
-    restore(backup)
-    raise SystemExit("CONFIG_CHECK_FAILED_ROLLED_BACK")
+    if backup:
+        restore(backup)
+        raise SystemExit("CONFIG_CHECK_FAILED_ROLLED_BACK")
+    raise SystemExit("CONFIG_CHECK_FAILED_NO_NEW_CHANGE")
 verify = inside(VERIFY)
 if verify.get("exitcode") != 0:
-    restore(backup)
-    raise SystemExit("VERIFY_FAILED_ROLLED_BACK")
+    if backup:
+        restore(backup)
+        raise SystemExit("VERIFY_FAILED_ROLLED_BACK")
+    raise SystemExit("VERIFY_FAILED_NO_NEW_CHANGE")
 print("JNS_HA_URL_CONFIG_CHECK=passed")
 guest(["ha", "core", "restart"], 100)
 deadline = time.monotonic() + 240
