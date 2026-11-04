@@ -177,22 +177,40 @@ if verify.get("exitcode") != 0:
         raise SystemExit("VERIFY_FAILED_ROLLED_BACK")
     raise SystemExit("VERIFY_FAILED_NO_NEW_CHANGE")
 print("JNS_HA_URL_CONFIG_CHECK=passed")
+
+def api_urls_loaded():
+    import pathlib, urllib.request
+    token_path = pathlib.Path("/etc/jns/credentials/ha-general.token")
+    if not token_path.is_file() or token_path.is_symlink():
+        return False
+    token = token_path.read_text().strip()
+    if not token:
+        return False
+    req = urllib.request.Request(
+        "http://ha-general.home.arpa/api/config",
+        headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=12) as response:
+            data = json.load(response)
+        return data.get("internal_url") == URL and data.get("external_url") == URL
+    except Exception:
+        return False
+
+if api_urls_loaded():
+    print("JNS_HA_URL_UPDATE=complete_loaded")
+    raise SystemExit(0)
+
 try:
     guest(["ha", "core", "restart"], 100)
     print("JNS_HA_URL_RESTART_COMMAND=accepted")
 except Exception:
-    # HAOS commonly drops the guest-exec command while Core restarts.
-    print("JNS_HA_URL_RESTART_COMMAND=ambiguous_verifying_runtime")
-deadline = time.monotonic() + 240
+    print("JNS_HA_URL_RESTART_COMMAND=ambiguous_verifying_api")
+
+deadline = time.monotonic() + 300
 while time.monotonic() < deadline:
-    try:
-        now = guest(["docker", "inspect", "homeassistant", "--format", "{{.State.StartedAt}}"], 40).get("out-data", "").strip()
-        if now and now != old_start:
-            info = guest(["ha", "core", "info"], 60)
-            if info.get("exitcode") == 0:
-                print("JNS_HA_URL_UPDATE=complete")
-                raise SystemExit(0)
-    except Exception:
-        pass
+    if api_urls_loaded():
+        print("JNS_HA_URL_UPDATE=complete_loaded")
+        raise SystemExit(0)
     time.sleep(5)
-raise SystemExit("RESTART_HEALTH_UNVERIFIED")
+raise SystemExit("API_URL_VALUES_NOT_LOADED")
