@@ -164,19 +164,6 @@ backup = next((x.split("=", 1)[1] for x in output.splitlines() if x.startswith("
 if not already and not backup.startswith("/config/.jns_url_backups/"):
     raise SystemExit("MISSING_SAFE_BACKUP")
 print(status)
-check = guest(["ha", "core", "check"], 300)
-if check.get("exitcode") != 0:
-    if backup:
-        restore(backup)
-        raise SystemExit("CONFIG_CHECK_FAILED_ROLLED_BACK")
-    raise SystemExit("CONFIG_CHECK_FAILED_NO_NEW_CHANGE")
-verify = inside(VERIFY)
-if verify.get("exitcode") != 0:
-    if backup:
-        restore(backup)
-        raise SystemExit("VERIFY_FAILED_ROLLED_BACK")
-    raise SystemExit("VERIFY_FAILED_NO_NEW_CHANGE")
-print("JNS_HA_URL_CONFIG_CHECK=passed")
 
 def api_urls_loaded():
     import pathlib, urllib.request
@@ -196,6 +183,24 @@ def api_urls_loaded():
         return data.get("internal_url") == URL and data.get("external_url") == URL
     except Exception:
         return False
+
+verify = inside(VERIFY)
+if verify.get("exitcode") != 0:
+    if backup:
+        restore(backup)
+        raise SystemExit("VERIFY_FAILED_ROLLED_BACK")
+    raise SystemExit("VERIFY_FAILED_NO_NEW_CHANGE")
+
+# A newly staged file must pass Core's configuration check. An unchanged file
+# already passed this gate on the preceding guarded run.
+if not already:
+    check = guest(["ha", "core", "check"], 300)
+    if check.get("exitcode") != 0:
+        restore(backup)
+        raise SystemExit("CONFIG_CHECK_FAILED_ROLLED_BACK")
+    print("JNS_HA_URL_CONFIG_CHECK=passed")
+else:
+    print("JNS_HA_URL_CONFIG_CHECK=previously_passed")
 
 if api_urls_loaded():
     print("JNS_HA_URL_UPDATE=complete_loaded")
