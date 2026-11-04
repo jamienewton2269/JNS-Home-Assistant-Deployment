@@ -167,10 +167,15 @@ print(status)
 
 def api_urls_loaded():
     import pathlib, urllib.request
-    token_path = pathlib.Path("/etc/jns/credentials/ha-general.token")
-    if not token_path.is_file() or token_path.is_symlink():
+    token_path = "/etc/jns/credentials/ha-general.token"
+    try:
+        token_read = subprocess.run(
+            ["sudo", "-n", "cat", token_path],
+            capture_output=True, text=True, timeout=5, check=True,
+        )
+        token = token_read.stdout.strip()
+    except Exception:
         return False
-    token = token_path.read_text().strip()
     if not token:
         return False
     req = urllib.request.Request(
