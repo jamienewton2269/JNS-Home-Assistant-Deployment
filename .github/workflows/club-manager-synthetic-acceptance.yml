@@ -1,0 +1,71 @@
+name: Club Manager - CT101 synthetic acceptance smoke test
+on:
+  push:
+    paths:
+      - .github/workflows/club-manager-synthetic-acceptance.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 7
+    steps:
+      - name: Verify current backend without permanent data changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          ssh -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev
+          pct exec 101 -- systemctl is-active --quiet jns-club-manager-dev
+          pct exec 101 -- curl -fsS --max-time 5 http://127.0.0.1:8765/healthz
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager <<'SQL'
+          BEGIN;
+          DO $$
+          DECLARE c integer; a uuid := gen_random_uuid(); s uuid := gen_random_uuid();
+          BEGIN
+            SELECT count(*) INTO c FROM information_schema.tables
+             WHERE table_schema='club' AND table_name IN (
+              'membership_tariffs','yard_assets','mooring_bookings','facility_bookings',
+              'renewal_campaigns','payment_attempts','officer_actions',
+              'committee_accounts','officer_mfa_sessions','security_policy',
+              'security_change_requests','security_change_approvals');
+            IF c<>12 THEN RAISE EXCEPTION 'Missing backend tables: found %',c; END IF;
+            SELECT count(*) INTO c FROM club.membership_tariffs
+             WHERE effective_from=DATE '2026-11-02'
+             AND ((category='Full' AND annual_pence=12000 AND joining_pence=5000)
+               OR (category='Full Family' AND annual_pence=14000 AND joining_pence=5000)
+               OR (category='Full Student' AND annual_pence=7000 AND joining_pence=5000)
+               OR (category='House' AND annual_pence=4800 AND joining_pence=0)
+               OR (category='House Family' AND annual_pence=5500 AND joining_pence=0));
+            IF c<>5 THEN RAISE EXCEPTION 'Membership tariffs do not match confirmed prices: %',c; END IF;
+            IF NOT EXISTS (SELECT 1 FROM club.security_policy WHERE singleton
+              AND preferred_factor='webauthn' AND fallback_factor='totp'
+              AND minimum_independent_approvers=2
+              AND privileged_session_minutes=15 AND direct_database_admin_mfa_required)
+             THEN RAISE EXCEPTION 'Security policy mismatch'; END IF;
+            INSERT INTO club.committee_accounts(id,display_name,email,created_by)
+             VALUES(a,'Synthetic Acceptance Officer','acceptance-check@example.invalid','synthetic');
+            IF club.committee_has_permission(a,'members_view')
+              OR club.has_privileged_access(a,'members_view',s)
+             THEN RAISE EXCEPTION 'Disabled account bypassed default deny'; END IF;
+            RAISE NOTICE 'PASS: 12 backend tables, 5 confirmed tariffs, MFA policy, disabled account denied';
+          END $$;
+          ROLLBACK;
+          DO $$ BEGIN
+            IF has_function_privilege('clubmgr','club.append_member(uuid,text,text,text,text)','EXECUTE')
+              OR has_function_privilege('clubmgr','club.create_disabled_committee_account(text,text,text)','EXECUTE')
+              OR has_function_privilege('clubmgr','club.security_change_ready(uuid)','EXECUTE')
+              OR has_table_privilege('clubmgr','club.current_members','SELECT')
+             THEN RAISE EXCEPTION 'Legacy shared-password role retained sensitive privileges'; END IF;
+            RAISE NOTICE 'PASS: legacy development role locked out of sensitive operations';
+          END $$;
+          SQL
+          echo 'PASS: CT101 synthetic rollback-only acceptance smoke test'
+          REMOTE
