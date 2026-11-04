@@ -177,7 +177,12 @@ if verify.get("exitcode") != 0:
         raise SystemExit("VERIFY_FAILED_ROLLED_BACK")
     raise SystemExit("VERIFY_FAILED_NO_NEW_CHANGE")
 print("JNS_HA_URL_CONFIG_CHECK=passed")
-guest(["ha", "core", "restart"], 100)
+try:
+    guest(["ha", "core", "restart"], 100)
+    print("JNS_HA_URL_RESTART_COMMAND=accepted")
+except Exception:
+    # HAOS commonly drops the guest-exec command while Core restarts.
+    print("JNS_HA_URL_RESTART_COMMAND=ambiguous_verifying_runtime")
 deadline = time.monotonic() + 240
 while time.monotonic() < deadline:
     try:
