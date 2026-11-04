@@ -1,0 +1,27 @@
+name: JNS HA-General HTTPS URL Configuration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-general-url-config.yml'
+      - 'gateway/network/set_ha_general_urls.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jns-ha-general-url-config
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate guarded update
+        run: python3 -m py_compile gateway/network/set_ha_general_urls.py
+      - name: Back up, update, validate and restart HA-General
+        run: python3 gateway/network/set_ha_general_urls.py
