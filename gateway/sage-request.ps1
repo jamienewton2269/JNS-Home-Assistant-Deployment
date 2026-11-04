@@ -1,19 +1,14 @@
-$ErrorActionPreference = 'Stop'
-Write-Output '=== SAGE TRANSFER DESTINATION PREFLIGHT ==='
-Write-Output "Host: $env:COMPUTERNAME"
-$root='\\127.0.0.1\d'
-$destination=Join-Path $root 'Knott Migration External'
-Write-Output "Share available: $(Test-Path -LiteralPath $root)"
-if (-not (Test-Path -LiteralPath $root)) { Write-Output 'RESULT: BLOCKED - local share unavailable to runner'; exit 0 }
-try {
-  $folder=New-Item -ItemType Directory -Path $destination -Force
-  Write-Output "Destination created/available: $(Test-Path -LiteralPath $destination)"
-  Write-Output 'RESULT: DESTINATION READY'
-} catch {
-  Write-Output "RESULT: DESTINATION ERROR ($($_.Exception.GetType().Name))"
-  exit 0
-}
-Write-Output '=== SHAREPOINT ACCESS PREFLIGHT ==='
-$syncroots = Get-ChildItem 'Env:' | Where-Object { $_.Name -like '*OneDrive*' } | ForEach-Object { $_.Value } | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
-Write-Output "Visible OneDrive sync roots: $(@($syncroots).Count)"
-Write-Output 'No confidential SharePoint files or authentication data were read, uploaded, or logged.'
+$ErrorActionPreference='Continue'
+'=== SAGE FIREFOX INTERACTIVE ACCESS PREFLIGHT ==='
+"Computer=$env:COMPUTERNAME"
+"RunnerUser=$env:USERNAME"
+"RunnerSession=$([System.Diagnostics.Process]::GetCurrentProcess().SessionId)"
+'=== INTERACTIVE SESSIONS ==='
+try { (query user) | Out-String } catch { "query-user unavailable: $($_.Exception.GetType().Name)" }
+'=== FIREFOX PROCESS SESSIONS (NO BROWSER CONTENT) ==='
+Get-Process firefox -ErrorAction SilentlyContinue | Group-Object SessionId | ForEach-Object { "Session=$($_.Name) Count=$($_.Count)" }
+'=== EXPLORER PROCESS SESSIONS ==='
+Get-Process explorer -ErrorAction SilentlyContinue | Group-Object SessionId | ForEach-Object { "Session=$($_.Name) Count=$($_.Count)" }
+'=== UI ACCESS TEST ==='
+try { Add-Type -AssemblyName System.Windows.Forms; "InteractiveDesktop=$([System.Windows.Forms.SystemInformation]::UserInteractive)" } catch { "WinForms unavailable: $($_.Exception.GetType().Name)" }
+'No browser credentials or content accessed.'
