@@ -1,0 +1,43 @@
+name: JNS mail DHCP renew and verify
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/jns-mail-dhcp-renew.yml']
+permissions:
+  contents: read
+concurrency:
+  group: jns-mail-ct250
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - name: Acquire reserved lease and verify mail
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'HOST'
+          set -euo pipefail
+          pct exec 247 -- grep -Fx 'dhcp-host=BC:24:11:52:AA:1F,10.10.110.232,jns-mail,infinite' /var/lib/jnsdns/active/reservations.conf
+          pct reboot 250
+          for attempt in $(seq 1 25); do
+            if pct exec 250 -- ip -4 -o addr show dev eth0 2>/dev/null | grep -q '10.10.110.232/16'; then break; fi
+            sleep 2
+          done
+          pct exec 250 -- ip -4 -o addr show dev eth0 | grep '10.10.110.232/16'
+          for attempt in $(seq 1 15); do
+            if pct exec 250 -- systemctl is-active --quiet postfix dovecot opendkim; then break; fi
+            sleep 2
+          done
+          pct exec 250 -- systemctl is-active postfix dovecot opendkim
+          pct config 250 | grep net0
+          pct exec 247 -- bash -c 'grep -i "bc:24:11:52:aa:1f" /var/lib/jnsdns/leases || true'
+          HOST
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodeb.home.arpa 'pct exec 248 -- bash -c '\''grep -i "bc:24:11:52:aa:1f" /var/lib/jnsdns/active/reservations.conf; grep -i "bc:24:11:52:aa:1f" /var/lib/jnsdns/leases || true'\'''
+          python3 - <<'PY'
+          import socket
+          for port in [25,587,993]:
+              with socket.create_connection(("10.10.110.232",port),timeout=5): print("PASS reserved address mail port",port)
+          print("DNS",sorted(set(r[4][0] for r in socket.getaddrinfo("jns-mail.home.arpa",None,family=socket.AF_INET))))
+          PY
