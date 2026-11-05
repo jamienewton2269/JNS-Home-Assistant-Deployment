@@ -1,4 +1,5 @@
 name: JNS mail server verify
+# Revision 2: Debian DKIM PID-file integration
 on:
   push:
     branches: [main]
