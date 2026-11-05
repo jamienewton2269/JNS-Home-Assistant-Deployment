@@ -70,3 +70,21 @@ https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42
 - Container free -m reported 48 MiB used excluding cache after acceptance,
   463 MiB available and no swap used.
 - Public DNS is unchanged and the commissioning certificate remains temporary.
+
+## Confirmed dynamic public addressing
+
+User confirmed that the home public IPv4 address is dynamic and is maintained
+by the existing DDNS hostname jnsystems.freeddns.org.
+On 5 November 2026, public DNS returned a direct A record with a 120-second TTL,
+no AAAA or CNAME, and its IPv4 matched Node C's current outbound public IPv4.
+The public reverse-DNS query returned no PTR answer.
+
+Incoming MX for both domains can target jnsystems.freeddns.org directly, subject
+to confirming externally reachable TCP/25 and DDNS maintenance. Do not create
+a CNAME as an MX target. A branded mail hostname used by clients can be separate.
+DDNS changes do not establish inbound connectivity or direct-send reputation.
+Prefer authenticated outbound relay unless the ISP can provide suitable
+reverse DNS and permits direct mail from this dynamic range. Provider details
+and external port forwarding remain unconfirmed; public MX remains unchanged.
+DDNS check:
+https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42060310792
