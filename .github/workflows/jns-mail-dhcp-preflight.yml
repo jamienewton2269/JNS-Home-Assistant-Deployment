@@ -1,0 +1,55 @@
+name: JNS mail DHCP preflight
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/jns-mail-dhcp-preflight.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - name: Inspect current reservation source and leases
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== EXISTING PUBLISHER ==='
+          if test -r /opt/jns-deployment/jns-dns-kit/publish.sh; then cat /opt/jns-deployment/jns-dns-kit/publish.sh; fi
+          for spec in nodea.home.arpa:247 nodeb.home.arpa:248; do
+            host="${spec%:*}"
+            ct="${spec#*:}"
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@"$host" bash -s -- "$ct" <<'HOST'
+          set -euo pipefail
+          CT="$1"
+          hostname
+          if test "$CT" = 247; then pct config 250; fi
+          echo '=== HOST SHARED MOUNTS ==='
+          findmnt -rn -o TARGET,SOURCE,OPTIONS | grep -E 'jns-dns|WD-BACKUP' || true
+          pct exec "$CT" -- bash -se <<'DNS'
+          echo '=== DNSMASQ PROCESS ==='
+          ps -C dnsmasq -o pid,args
+          echo '=== ACTIVE LINKS ==='
+          ls -ld /var/lib/jnsdns/active /mnt/master /mnt/master/current 2>/dev/null || true
+          echo '=== LIVE CONFIG ==='
+          for path in /var/lib/jnsdns/active/dnsmasq.conf /etc/dnsmasq.conf; do
+            if test -f "$path"; then echo "$path"; cat "$path"; fi
+          done
+          echo '=== CURRENT RESERVATIONS ==='
+          for path in /var/lib/jnsdns/active/reservations.conf /mnt/master/current/reservations.conf; do
+            if test -f "$path"; then echo "$path"; cat "$path"; fi
+          done
+          echo '=== STATIC HOSTS ==='
+          for path in /var/lib/jnsdns/active/hosts.static /mnt/master/current/hosts.static; do
+            if test -f "$path"; then echo "$path"; cat "$path"; fi
+          done
+          echo '=== RELEVANT LEASES ==='
+          if test -f /var/lib/jnsdns/leases; then awk 'tolower($2)=="bc:24:11:52:aa:1f" || $3 ~ /^10[.]10[.]110[.]/' /var/lib/jnsdns/leases; fi
+          echo '=== EXISTING SYNC ==='
+          systemctl cat jns-dns.service jns-dns-sync.service 2>/dev/null || true
+          for path in /usr/local/sbin/jns-dns-sync /usr/local/bin/jns-dns-sync; do
+            if test -f "$path"; then cat "$path"; fi
+          done
+          DNS
+          HOST
+          done
