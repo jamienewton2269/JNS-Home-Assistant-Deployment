@@ -120,3 +120,28 @@ Public MX remains unchanged and outbound relay/PTR decision remains pending.
 
 Evidence:
 https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42093091868
+
+## SMTP2GO selected and prepared — 5 November 2026
+
+User selected SMTP2GO free plan for outbound relay.
+Installed libsasl2-modules and the private helper /usr/local/sbin/jns-smtp2go-setup
+inside CT250. Verified connection from CT250 to mail.smtp2go.com:587 with
+STARTTLS, trusted server certificate verification and TLS 1.3.
+No SMTP2GO credentials were present in the known credential locations.
+Postfix relayhost remains unchanged pending account signup/domain verification.
+
+User must complete SMTP2GO account signup and email verification.
+Add jnsystems.xyz and sailing-uk.org as Verified Sender domains, publish the
+exact DNS verification records supplied by SMTP2GO, then create an SMTP User.
+Keep dashboard login credentials separate from the SMTP User credentials.
+
+Once domains are verified, run inside CT250:
+    jns-smtp2go-setup
+It prompts privately for SMTP credentials, verifies authentication and TLS
+before changing Postfix, installs root-only credential maps and reloads Postfix.
+Alternatively use --credentials with a root-owned mode-600 JSON file containing
+username and password; never commit that file or include credentials in logs.
+Authenticated outbound delivery and provider domain verification are not yet tested.
+
+Preparation evidence:
+https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42100791746
