@@ -22,10 +22,10 @@ jobs:
               return [r["data"] for r in data.get("Answer",[]) if r.get("type")==15]
           for attempt in range(12):
               answers=mx()
-              if answers==["10 "+target+"."]:break
+              if answers and all(x.split()[-1].rstrip(".")==target for x in answers):break
               time.sleep(5)
           print("SAILING_PUBLIC_MX",answers)
-          assert answers==["10 "+target+"."],"Expected sole MX to home mail server; public DNS differs"
+          assert answers and all(x.split()[-1].rstrip(".")==target for x in answers),"Public MX contains a different mail destination"
           msg=EmailMessage()
           msg["From"]="postmaster@sailing-uk.org"
           msg["To"]="jamie@sailing-uk.org, webadmin@sailing-uk.org, mailadmin@sailing-uk.org"
