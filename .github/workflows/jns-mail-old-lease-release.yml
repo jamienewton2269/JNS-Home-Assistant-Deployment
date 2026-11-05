@@ -1,0 +1,61 @@
+name: JNS mail old lease release
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/jns-mail-old-lease-release.yml']
+permissions:
+  contents: read
+jobs:
+  cleanup:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - name: Release only mail server's obsolete dynamic lease
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodeb.home.arpa 'pct exec 248 -- bash -se' <<'DNS'
+          set -euo pipefail
+          if awk 'tolower($2)=="bc:24:11:52:aa:1f" && $3=="10.10.200.49" {found=1} END {exit !found}' /var/lib/jnsdns/leases; then
+            work="$(mktemp -d /root/mail-lease-release.XXXXXXXX)"
+            trap 'rm -rf "$work"' EXIT
+            cd "$work"
+            apt-get download dnsmasq-utils
+            dpkg-deb -x ./*.deb extracted
+            tool="$(find extracted -type f -name dhcp_release -print -quit)"
+            test -n "$tool"
+            "$work/$tool" eth0 10.10.200.49 BC:24:11:52:AA:1F '*'
+            sleep 1
+            if awk 'tolower($2)=="bc:24:11:52:aa:1f" && $3=="10.10.200.49" {found=1} END {exit !found}' /var/lib/jnsdns/leases; then
+              echo 'Old lease still present'; exit 1
+            fi
+            echo 'Released obsolete mail lease only'
+          fi
+          DNS
+          for spec in nodea.home.arpa:247 nodeb.home.arpa:248; do
+            host="${spec%:*}"; ct="${spec#*:}"
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@"$host" "pct exec $ct -- pkill -HUP -x dnsmasq"
+          done
+          python3 - <<'PY'
+          import socket,struct,random
+          def name_end(data,p):
+              while data[p]:
+                  if data[p]&192==192:return p+2
+                  p+=data[p]+1
+              return p+1
+          for server in ["10.10.110.247","10.10.110.248","10.10.110.249"]:
+              try:
+                  tid=random.randrange(65536)
+                  q=b"".join(bytes([len(x)])+x.encode() for x in "jns-mail.home.arpa".split("."))+b"\0"
+                  query=struct.pack("!6H",tid,256,1,0,0,0)+q+struct.pack("!HH",1,1)
+                  s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(3);s.sendto(query,(server,53));d=s.recv(4096)
+                  ident,flags,qd,an,_,_=struct.unpack("!6H",d[:12]);p=12
+                  for _ in range(qd):p=name_end(d,p)+4
+                  ips=[]
+                  for _ in range(an):
+                      p=name_end(d,p);typ,cls,ttl,n=struct.unpack("!HHIH",d[p:p+10]);p+=10
+                      if typ==1 and n==4:ips.append(socket.inet_ntoa(d[p:p+n]))
+                      p+=n
+                  print("DNS_SERVER",server,"MAIL_ADDRESSES",ips,"RCODE",flags&15)
+              except Exception as e: print("DNS_SERVER",server,type(e).__name__,str(e))
+          PY
