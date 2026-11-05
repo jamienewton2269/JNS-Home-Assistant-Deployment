@@ -1,0 +1,46 @@
+name: JNS mail SMTP2GO preparation
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/jns-mail-smtp2go-prepare.yml']
+permissions:
+  contents: read
+concurrency:
+  group: jns-mail-ct250
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install private relay setup helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'pct exec 250 -- bash -c "umask 077; cat > /root/jns-mail/smtp2go_setup.py; chmod 700 /root/jns-mail/smtp2go_setup.py; ln -sf /root/jns-mail/smtp2go_setup.py /usr/local/sbin/jns-smtp2go-setup"' < mail_server/smtp2go_setup.py
+      - name: Prepare authentication modules and test verified TLS
+        shell: bash
+        run: |
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'pct exec 250 -- bash -se' <<'GUEST'
+          set -euo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          if ! apt-get install -y --no-install-recommends libsasl2-modules ca-certificates >/root/jns-mail/smtp2go-package-prepare.log 2>&1; then tail -30 /root/jns-mail/smtp2go-package-prepare.log; exit 1; fi
+          python3 - <<'PY'
+          import smtplib,ssl,pathlib
+          compile(pathlib.Path("/root/jns-mail/smtp2go_setup.py").read_text(),"smtp2go_setup.py","exec")
+          with smtplib.SMTP("mail.smtp2go.com",587,timeout=20) as smtp:
+              smtp.ehlo("mail.jnsystems.xyz")
+              smtp.starttls(context=ssl.create_default_context())
+              smtp.ehlo("mail.jnsystems.xyz")
+              print("SMTP2GO_TLS",smtp.sock.version(),smtp.sock.cipher()[0])
+              print("SMTP2GO_AUTH_METHODS",smtp.esmtp_features.get("auth"))
+              print("PASS: outbound port 587 and public certificate verification")
+          for name in ["/root/jns-mail/smtp2go.json","/etc/jns/credentials/smtp2go.json","/etc/postfix/smtp2go_passwd"]:
+              p=pathlib.Path(name)
+              print("EXISTING_CREDENTIAL_FILE",name,"present" if p.is_file() and p.stat().st_size else "absent")
+          PY
+          echo '=== CURRENT RELAY DESTINATION ==='
+          postconf relayhost
+          systemctl is-active postfix dovecot opendkim
+          GUEST
