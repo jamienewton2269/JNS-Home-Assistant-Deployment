@@ -1,0 +1,40 @@
+name: JNS mail server preflight
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/jns-mail-preflight.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Inspect mail hosting prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          for host in nodea.home.arpa nodeb.home.arpa; do
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 root@"$host" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          hostname
+          free -m
+          pvesm status
+          pct list
+          qm list
+          pveam list local
+          ip -brief link show type bridge
+          REMOTE
+          done
+          python3 - <<'PY'
+          import json,urllib.request
+          for domain in ["jnsystems.xyz","jnsytems.xyz","sailing-uk.org"]:
+              for kind in ["MX","NS","TXT"]:
+                  url="https://cloudflare-dns.com/dns-query?name="+domain+"&type="+kind
+                  try:
+                      req=urllib.request.Request(url,headers={"accept":"application/dns-json"})
+                      d=json.load(urllib.request.urlopen(req,timeout=10))
+                      print(domain,kind,json.dumps({"Status":d.get("Status"),"Answer":d.get("Answer",[])}))
+                  except Exception as e: print(domain,kind,type(e).__name__)
+          PY
