@@ -1,0 +1,35 @@
+name: JNS mail LAN readiness
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/jns-mail-lan-readiness.yml']
+permissions:
+  contents: read
+jobs:
+  readiness:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - name: Verify LAN access and certificate tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import socket
+          for name in ["jns-mail.home.arpa"]:
+              try:
+                  print("LAN_DNS",name,sorted(set(r[4][0] for r in socket.getaddrinfo(name,None))))
+                  for port in [25,587,993]:
+                      with socket.create_connection((name,port),timeout=5): print("LAN_PORT",name,port,"reachable")
+              except Exception as e: print("LAN_CHECK",type(e).__name__,str(e))
+          PY
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'HOST'
+          set -euo pipefail
+          pct config 250
+          pct exec 250 -- systemctl is-enabled postfix dovecot opendkim
+          pct exec 250 -- bash -c 'doveconf -n >/dev/null && postfix check'
+          echo '=== Existing certificate configuration filenames on Node A ==='
+          if test -d /etc/letsencrypt; then find /etc/letsencrypt -maxdepth 3 -type f -name '*.conf' -printf '%p\n'; fi
+          HOST
+          echo '=== Existing certificate configuration filenames on Node C ==='
+          if sudo -n test -d /etc/letsencrypt; then sudo -n find /etc/letsencrypt -maxdepth 3 -type f -name '*.conf' -printf '%p\n'; fi
