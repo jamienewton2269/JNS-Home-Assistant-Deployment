@@ -1,5 +1,5 @@
 name: JNS mail server verify
-# Revision 2: Debian DKIM PID-file integration
+# Revision 3: verify relay-specific rejection
 on:
   push:
     branches: [main]
