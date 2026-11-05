@@ -15,6 +15,7 @@ test "$old" = 17
 test "$(sha256sum "$prev/reservations.conf" | cut -d' ' -f1)" = f852d386cb893eecbed8a3a65639d3b94857d5d3565910da1ec06a25b12dcd7e
 final=
 changed=0
+made_final=0
 done_ok=0
 rollback() {
   rc=$?
@@ -25,7 +26,7 @@ rollback() {
       printf '%s\n' "$old" >"$root/applied"
       systemctl restart jns-dns.service || true
     fi
-    if test -n "$final" && test "$final" = "$root/releases/18" && test -d "$final"; then rm -rf -- "$final"; fi
+    if test "$made_final" = 1 && test "$final" = "$root/releases/18" && test -d "$final"; then rm -rf -- "$final"; fi
   fi
   exit "$rc"
 }
@@ -52,6 +53,7 @@ cp "$prev/hosts.static" "$work/hosts.static"
 chmod 755 "$work"
 chmod 644 "$work/"*
 mv "$work" "$final"
+made_final=1
 /usr/local/sbin/jns-dns-build-config "$final"
 python3 - "$prev/dnsmasq.conf" "$final/dnsmasq.conf" <<'PY'
 import pathlib,re,sys
