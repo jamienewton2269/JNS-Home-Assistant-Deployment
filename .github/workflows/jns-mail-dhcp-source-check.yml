@@ -1,0 +1,58 @@
+name: JNS mail DHCP source check
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/jns-mail-dhcp-source-check.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== PUBLISH MASTER ==='
+          ls -ld /mnt/jns-dns-publish/jns-dns /mnt/jns-dns-publish/jns-dns/current
+          cat /mnt/jns-dns-publish/jns-dns/current
+          test -w /mnt/jns-dns-publish/jns-dns && echo PUBLISH_DIRECTORY_WRITABLE
+          for spec in nodea.home.arpa:247 nodeb.home.arpa:248; do
+            host="${spec%:*}"; ct="${spec#*:}"
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@"$host" bash -s -- "$ct" <<'HOST'
+          set -euo pipefail
+          hostname
+          CT="$1"
+          pct exec "$CT" -- bash -se <<'DNS'
+          echo '=== BUILD CONFIG ==='
+          cat /usr/local/sbin/jns-dns-build-config
+          echo '=== CURRENT MASTER REVISION ==='
+          cat /mnt/master/current
+          rev="$(cat /mnt/master/current)"
+          sha256sum /mnt/master/releases/"$rev"/hosts.static /var/lib/jnsdns/active/hosts.static /mnt/master/releases/"$rev"/reservations.conf /var/lib/jnsdns/active/reservations.conf
+          echo '=== CANDIDATE EXISTING RECORDS ==='
+          grep -E '10[.]10[.]110[.]232([ ,]|$)|bc:24:11:52:aa:1f|jns-mail' /var/lib/jnsdns/leases /etc/jnsdns/dhcp-peers.hosts /var/lib/jnsdns/active/hosts.static /var/lib/jnsdns/active/reservations.conf || true
+          DNS
+          if test "$CT" = 247; then
+            python3 - <<'PY'
+          import socket,struct,json,subprocess,time
+          iface="vmbr0"
+          link=json.loads(subprocess.check_output(["ip","-j","address","show","dev",iface]))[0]
+          mac=bytes.fromhex(link["address"].replace(":",""))
+          ip=next(a["local"] for a in link["addr_info"] if a["family"]=="inet")
+          target=socket.inet_aton("10.10.110.232")
+          packet=b"\xff"*6+mac+b"\x08\x06"+struct.pack("!HHBBH",1,0x0800,6,4,1)+mac+socket.inet_aton(ip)+b"\0"*6+target
+          s=socket.socket(socket.AF_PACKET,socket.SOCK_RAW,socket.htons(0x0806));s.bind((iface,0));s.settimeout(.3)
+          end=time.monotonic()+3
+          for _ in range(3): s.send(packet)
+          conflicts=set()
+          while time.monotonic()<end:
+              try: frame=s.recv(2048)
+              except socket.timeout: continue
+              if len(frame)>=42 and frame[28:32]==target: conflicts.add(frame[22:28].hex(":"))
+          print("CANDIDATE_ARP_CONFLICTS",sorted(conflicts))
+          if conflicts: raise SystemExit("10.10.110.232 already responds on LAN")
+          PY
+          fi
+          HOST
+          done
