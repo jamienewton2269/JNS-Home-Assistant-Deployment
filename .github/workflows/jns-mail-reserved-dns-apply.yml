@@ -1,4 +1,5 @@
 name: JNS mail reserved DNS apply
+# Validate corrected hostname line formatting
 on:
   push:
     branches: [main]
