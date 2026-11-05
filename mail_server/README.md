@@ -54,3 +54,19 @@ Read credentials locally with:
     pct exec 250 -- cat /root/jns-mail/credentials.json
 Run acceptance tests through mail_server/verify.sh.
 Internal test messages are clearly marked JNS local commissioning.
+
+## Verified 5 November 2026
+
+Local acceptance passed:
+https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42039540208
+
+- Both requested aliases on both domains delivered to their respective Jamie inbox.
+- TLS SMTP and IMAP authentication passed for both accounts.
+- DKIM headers were present on all four test messages.
+- Unauthenticated external relaying, unknown local recipients and cross-domain
+  SMTP envelope sender impersonation were rejected.
+- Outbound TCP/25 reached Google and Microsoft SMTP greetings; no external
+  message was sent. This does not establish inbound reachability or inbox delivery.
+- Container free -m reported 48 MiB used excluding cache after acceptance,
+  463 MiB available and no swap used.
+- Public DNS is unchanged and the commissioning certificate remains temporary.
