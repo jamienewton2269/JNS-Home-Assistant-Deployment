@@ -174,6 +174,8 @@ for domain in jnsystems.xyz sailing-uk.org; do
   echo "mail202611._domainkey.$domain $domain:mail202611:/etc/opendkim/keys/$domain/mail202611.private" >>/etc/opendkim/KeyTable
   echo "*@$domain mail202611._domainkey.$domain" >>/etc/opendkim/SigningTable
 done
+chown root:opendkim /etc/opendkim/KeyTable /etc/opendkim/SigningTable
+chmod 640 /etc/opendkim/KeyTable /etc/opendkim/SigningTable
 cat >/etc/opendkim.conf <<'DKIM'
 Syslog yes
 UMask 007
