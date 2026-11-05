@@ -2,7 +2,8 @@
 
 Dedicated unprivileged Debian 13 container CT250 (jns-mail) on Node A.
 1 shared CPU, 512 MiB memory limit, 256 MiB swap, 8 GiB local vmdata disk.
-Dynamic IPv4 and IPv6; use DNS names in client settings after registration is verified.
+DHCP-reserved IPv4 10.10.110.232; IPv6 remains automatic.
+Local name: jns-mail.home.arpa. Use DNS names in client settings.
 
 ## Accounts and aliases
 
@@ -88,3 +89,19 @@ reverse DNS and permits direct mail from this dynamic range. Provider details
 and external port forwarding remain unconfirmed; public MX remains unchanged.
 DDNS check:
 https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42060310792
+
+## Reserved server address — 5 November 2026
+
+User authorized a static DHCP IPv4 address within 10.10.110.* for CT250.
+- MAC: BC:24:11:52:AA:1F.
+- Reservation: dhcp-host=BC:24:11:52:AA:1F,10.10.110.232,jns-mail,infinite.
+- Published reservation revision 18, followed by associated local DNS revision 19.
+- Both CT247 and CT248 hold the reservation and resolve jns-mail.home.arpa to 10.10.110.232.
+- CT250 acquired 10.10.110.232/16 through DHCP after restart.
+- Postfix, Dovecot and OpenDKIM active; TCP 25, 587 and 993 reachable on the reserved address.
+- The old mail lease 10.10.200.49 was released through the standard dnsmasq DHCPRELEASE utility.
+- Each DNS node's existing unrelated hosts entries were preserved, including Node B's local House Audio B overrides. No DHCP pools or IPv6 settings changed.
+- Router forwarding and public MX cutover remain pending.
+
+Verification:
+https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42092700507
