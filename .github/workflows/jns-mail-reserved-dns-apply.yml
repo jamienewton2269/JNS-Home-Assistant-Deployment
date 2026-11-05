@@ -1,0 +1,40 @@
+name: JNS mail reserved DNS apply
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/jns-mail-reserved-dns-apply.yml']
+permissions:
+  contents: read
+jobs:
+  apply:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Register reserved mail hostname
+        run: python3 mail_server/reserve_dns_once.py
+      - name: Verify DNS and mail ports
+        run: |
+          python3 - <<'PY'
+          import socket,struct,random
+          def skip(d,p):
+              while d[p]:
+                  if d[p]&192==192:return p+2
+                  p+=d[p]+1
+              return p+1
+          for server in ["10.10.110.247","10.10.110.248"]:
+              q=b"".join(bytes([len(x)])+x.encode() for x in "jns-mail.home.arpa".split("."))+b"\0"
+              pkt=struct.pack("!6H",random.randrange(65536),256,1,0,0,0)+q+struct.pack("!HH",1,1)
+              sock=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);sock.settimeout(5);sock.sendto(pkt,(server,53));d=sock.recv(4096)
+              _,flags,qd,an,_,_=struct.unpack("!6H",d[:12]);p=12
+              for _ in range(qd):p=skip(d,p)+4
+              ips=[]
+              for _ in range(an):
+                  p=skip(d,p);typ,cls,ttl,n=struct.unpack("!HHIH",d[p:p+10]);p+=10
+                  if typ==1 and n==4:ips.append(socket.inet_ntoa(d[p:p+n]))
+                  p+=n
+              assert ips and set(ips)=={"10.10.110.232"},(server,ips,flags&15)
+              print("PASS DNS",server,ips)
+          for port in [25,587,993]:
+              with socket.create_connection(("10.10.110.232",port),timeout=5):print("PASS mail port",port)
+          PY
