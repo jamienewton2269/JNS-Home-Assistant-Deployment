@@ -180,6 +180,7 @@ cat >/etc/opendkim.conf <<'DKIM'
 Syslog yes
 UMask 007
 UserID opendkim
+PidFile /run/opendkim/opendkim.pid
 Mode s
 Canonicalization relaxed/simple
 Socket inet:8891@127.0.0.1
@@ -188,6 +189,7 @@ SigningTable refile:/etc/opendkim/SigningTable
 InternalHosts 127.0.0.1,::1
 OversignHeaders From
 DKIM
+chmod 644 /etc/opendkim.conf
 cat >/etc/aliases <<'ALIASES'
 postmaster: root
 root: jamie@jnsystems.xyz
