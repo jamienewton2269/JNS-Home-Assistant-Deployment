@@ -1,0 +1,14 @@
+name: JNS mail certificate DNS access
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/jns-mail-certificate-dns-access.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 mail_server/check_existing_dns_access.py
