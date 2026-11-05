@@ -1,0 +1,15 @@
+name: JNS mail DHCP drift check
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/jns-mail-dhcp-drift-check.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 2
+    steps:
+      - shell: bash
+        run: |
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodeb.home.arpa 'pct exec 248 -- bash -c '\''rev=$(cat /mnt/master/current); diff -u /mnt/master/releases/$rev/hosts.static /var/lib/jnsdns/active/hosts.static || test "$?" = 1'\'''
