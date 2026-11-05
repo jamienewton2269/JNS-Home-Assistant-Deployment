@@ -1,0 +1,38 @@
+name: JNS mail DDNS check
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/jns-mail-ddns-check.yml']
+permissions:
+  contents: read
+jobs:
+  ddns:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - name: Check public DDNS mail target without changing DNS
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json,urllib.request,urllib.parse,ipaddress
+          host="jnsystems.freeddns.org"
+          answers={}
+          for kind in ["A","AAAA","CNAME"]:
+              url="https://cloudflare-dns.com/dns-query?"+urllib.parse.urlencode({"name":host,"type":kind})
+              req=urllib.request.Request(url,headers={"accept":"application/dns-json"})
+              data=json.load(urllib.request.urlopen(req,timeout=10))
+              answers[kind]=data
+              print("DDNS",kind,json.dumps({"status":data.get("Status"),"answers":data.get("Answer",[])}))
+          for answer in answers.get("A",{}).get("Answer",[]):
+              if answer.get("type")!=1: continue
+              ptr=ipaddress.ip_address(answer["data"]).reverse_pointer
+              req=urllib.request.Request("https://cloudflare-dns.com/dns-query?"+urllib.parse.urlencode({"name":ptr,"type":"PTR"}),headers={"accept":"application/dns-json"})
+              data=json.load(urllib.request.urlopen(req,timeout=10))
+              print("PUBLIC_PTR",json.dumps(data.get("Answer",[])))
+          try:
+              req=urllib.request.Request("https://api.ipify.org?format=json")
+              current=json.load(urllib.request.urlopen(req,timeout=10))["ip"]
+              ips=[a["data"] for a in answers.get("A",{}).get("Answer",[]) if a.get("type")==1]
+              print("DDNS_MATCHES_CURRENT_OUTBOUND_IPV4",current in ips)
+          except Exception as e: print("WAN_COMPARE",type(e).__name__)
+          PY
