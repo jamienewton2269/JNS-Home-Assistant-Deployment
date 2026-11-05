@@ -1,0 +1,22 @@
+name: JNS mail server verify
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/jns-mail-verify.yml']
+permissions:
+  contents: read
+concurrency:
+  group: jns-mail-ct250
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash mail_server/configure.sh
+      - run: bash mail_server/verify.sh
+      - name: Service diagnostics
+        if: failure()
+        run: |
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'pct exec 250 -- bash -c "systemctl --no-pager --full status postfix dovecot opendkim; journalctl -u dovecot -u opendkim --no-pager -n 35"'
