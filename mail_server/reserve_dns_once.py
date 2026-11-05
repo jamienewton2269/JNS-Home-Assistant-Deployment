@@ -49,7 +49,7 @@ assert b==a,"Reservation changed during associated DNS update"
 PY
 # Preserve each node's pre-existing hosts file byte-for-byte.
 cp "$prev/hosts.static" "$work/hosts.static"
-printf '\\n10.10.110.232 jns-mail.home.arpa jns-mail\\n' >>"$work/hosts.static"
+printf '\n10.10.110.232 jns-mail.home.arpa jns-mail\n' >>"$work/hosts.static"
 (cd "$work"; sha256sum hosts.static reservations.conf >manifest.sha256)
 chmod 755 "$work"
 chmod 644 "$work/"*
