@@ -1,0 +1,56 @@
+name: JNS sailing incoming mail verification
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/jns-mail-sailing-incoming-verify.yml']
+permissions:
+  contents: read
+jobs:
+  external-delivery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Verify sailing public MX and send Internet test
+        run: |
+          python3 -u - <<'PY'
+          import json,urllib.request,urllib.parse,time,smtplib
+          from email.message import EmailMessage
+          domain="sailing-uk.org";target="jnsystems.freeddns.org"
+          def mx():
+              req=urllib.request.Request("https://cloudflare-dns.com/dns-query?"+urllib.parse.urlencode({"name":domain,"type":"MX"}),headers={"accept":"application/dns-json"})
+              data=json.load(urllib.request.urlopen(req,timeout=10))
+              return [r["data"] for r in data.get("Answer",[]) if r.get("type")==15]
+          for attempt in range(12):
+              answers=mx()
+              if answers==["10 "+target+"."]:break
+              time.sleep(5)
+          print("SAILING_PUBLIC_MX",answers)
+          assert answers==["10 "+target+"."],"Expected sole MX to home mail server; public DNS differs"
+          msg=EmailMessage()
+          msg["From"]="postmaster@sailing-uk.org"
+          msg["To"]="jamie@sailing-uk.org, webadmin@sailing-uk.org, mailadmin@sailing-uk.org"
+          msg["Subject"]="Sailing-UK incoming Internet mail test"
+          msg["Message-ID"]="<sailing-mx-activation-20261105@sailing-uk.org>"
+          msg.set_content("Sailing-UK incoming mail commissioning test sent from an independent Internet runner to Jamie and the two requested aliases after the MX change. No reply is needed.")
+          with smtplib.SMTP(target,25,timeout=20) as smtp:
+              smtp.ehlo("jns-internet-probe.home.arpa")
+              refused=smtp.send_message(msg)
+              assert not refused,refused
+          print("PASS_SAILING_EXTERNAL_MESSAGE_ACCEPTED; all three recipient addresses accepted")
+          PY
+  mailbox-confirmation:
+    needs: external-delivery
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 2
+    steps:
+      - name: Confirm sailing test in Jamie mailbox
+        run: |
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'pct exec 250 -- bash -se' <<'GUEST'
+          set -euo pipefail
+          for attempt in $(seq 1 15); do
+            result="$(doveadm search -u jamie@sailing-uk.org HEADER Message-ID '<sailing-mx-activation-20261105@sailing-uk.org>')"
+            if test -n "$result"; then printf 'PASS_SAILING_MAILBOX_DELIVERY %s\n' "$result"; exit 0; fi
+            sleep 2
+          done
+          echo 'Sailing mailbox delivery not yet confirmed'; exit 1
+          GUEST
