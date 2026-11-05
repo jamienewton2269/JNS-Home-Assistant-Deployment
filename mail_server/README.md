@@ -27,7 +27,10 @@ No webmail, SQL database, Docker, antivirus or server-side spam scoring.
 
 ## Commissioning status
 
-Public MX and SPF records remain on the existing registrar forwarding service.
+jnsystems.xyz MX now points to jnsystems.freeddns.org (priority 10, TTL 300).
+Incoming Internet delivery to Jamie was confirmed. sailing-uk.org still uses
+registrar forwarding because the available DNS token cannot access its zone.
+SPF remains on the previous forwarding-service policy pending SMTP2GO activation.
 The initial TLS certificate is self-signed and valid for 30 days, solely for
 commissioning. Replace it with an automatically renewed public certificate
 before normal client use; do not disable certificate verification in clients.
@@ -38,7 +41,7 @@ Public cutover requires:
   or a selected authenticated outbound relay.
 - DNS-only A/AAAA for mail.jnsystems.xyz pointing to externally reachable
   addresses. Publish AAAA only after externally testing the IPv6 path.
-- MX for both domains pointing to mail.jnsystems.xyz.
+- MX for sailing-uk.org pointing directly to jnsystems.freeddns.org; jnsystems.xyz is complete.
 - Correct SPF for the actual outbound path, DKIM records from the generated
   public mail202611.txt files, and DMARC monitoring before enforcement.
 - Public TLS certificate and automated renewal/reload.
@@ -145,3 +148,24 @@ Authenticated outbound delivery and provider domain verification are not yet tes
 
 Preparation evidence:
 https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42100791746
+
+## Incoming jnsystems.xyz activated — 5 November 2026, 20:49 GMT
+
+Found the existing Cloudflare DNS-01 token in HA-General's Let's Encrypt app
+configuration; used it in place without logging or copying the token to GitHub.
+It has access to jnsystems.xyz, but not sailing-uk.org.
+Backed up the previous JNS MX set privately under the Supervisor data directory,
+then atomically replaced the five root MX records via Cloudflare's batch API.
+New root MX: priority 10, target jnsystems.freeddns.org, TTL 300.
+Cloudflare API and an independent public DNS lookup confirmed the new record.
+An independent GitHub-hosted Internet runner sent a commissioning message to
+jamie@jnsystems.xyz, and doveadm confirmed that message in Jamie's inbox.
+This is end-to-end incoming delivery, not just a connection test.
+
+Evidence:
+https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42106860704
+
+Remaining action for sailing-uk.org: an authorized Cloudflare user must replace
+its five eforward*.registrar-servers.com MX records with root MX priority 10,
+target jnsystems.freeddns.org, TTL 300. Available token cannot edit this zone.
+Incoming JNS mail is independent of the still-pending SMTP2GO outgoing account.
