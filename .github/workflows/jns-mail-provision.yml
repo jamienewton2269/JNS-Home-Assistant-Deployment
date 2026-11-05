@@ -1,0 +1,17 @@
+name: JNS mail server provision
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/jns-mail-provision.yml']
+permissions:
+  contents: read
+concurrency:
+  group: jns-mail-ct250
+  cancel-in-progress: false
+jobs:
+  provision:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash mail_server/provision.sh
