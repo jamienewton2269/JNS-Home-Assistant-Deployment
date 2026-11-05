@@ -28,8 +28,9 @@ No webmail, SQL database, Docker, antivirus or server-side spam scoring.
 ## Commissioning status
 
 jnsystems.xyz MX now points to jnsystems.freeddns.org (priority 10, TTL 300).
-Incoming Internet delivery to Jamie was confirmed. sailing-uk.org still uses
-registrar forwarding because the available DNS token cannot access its zone.
+Incoming Internet delivery to Jamie is confirmed for both domains. The user
+updated sailing-uk.org in Cloudflare; all of its current MX entries point to
+jnsystems.freeddns.org (priorities 5, 10, 15 and 20; equivalent redundant routes).
 SPF remains on the previous forwarding-service policy pending SMTP2GO activation.
 The initial TLS certificate is self-signed and valid for 30 days, solely for
 commissioning. Replace it with an automatically renewed public certificate
@@ -169,3 +170,21 @@ Remaining action for sailing-uk.org: an authorized Cloudflare user must replace
 its five eforward*.registrar-servers.com MX records with root MX priority 10,
 target jnsystems.freeddns.org, TTL 300. Available token cannot edit this zone.
 Incoming JNS mail is independent of the still-pending SMTP2GO outgoing account.
+
+## Sailing incoming delivery verified — 5 November 2026, 20:55 GMT
+
+User updated sailing-uk.org MX records manually.
+Public DNS returned four MX entries at priorities 5, 10, 15 and 20, all targeting
+jnsystems.freeddns.org. Multiple equivalent destinations are redundant but valid.
+An independent GitHub-hosted Internet runner sent a test message to Jamie,
+webadmin and mailadmin on sailing-uk.org. SMTP accepted all three recipients,
+and doveadm confirmed the test message in jamie@sailing-uk.org's mailbox.
+Both domains now have confirmed end-to-end Internet incoming delivery.
+SMTP2GO outgoing authentication and a trusted server certificate remain pending.
+
+Local client hostname: jns-mail.home.arpa (10.10.110.232).
+IMAP: 993 SSL/TLS; SMTP submission: 587 STARTTLS, authentication required.
+Login with the full Jamie mailbox address; aliases are not separate logins.
+
+Evidence:
+https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42107851501
