@@ -1,0 +1,54 @@
+name: JNS mail Internet probe
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/jns-mail-internet-probe.yml']
+permissions:
+  contents: read
+jobs:
+  external:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Probe SMTP from GitHub-hosted Internet runner
+        run: |
+          python3 -u - <<'PY'
+          import socket,smtplib,ssl,json,urllib.request
+          host="jnsystems.freeddns.org"
+          print("PROBE_LOCATION=GitHub-hosted ubuntu-latest; outside home LAN")
+          print("DNS",sorted(set(r[4][0] for r in socket.getaddrinfo(host,25,type=socket.SOCK_STREAM))))
+          try:
+              print("PROBE_SOURCE_IP",urllib.request.urlopen("https://api.ipify.org",timeout=8).read().decode())
+          except Exception as e:print("SOURCE_LOOKUP",type(e).__name__)
+          try:
+              with smtplib.SMTP(host,25,timeout=15) as smtp:
+                  print("TARGET_CONNECTED",smtp.sock.getpeername())
+                  code,banner=smtp.ehlo("jns-internet-probe-20261105.home.arpa")
+                  print("EHLO",code,banner.decode(errors="replace"))
+                  assert code==250
+                  assert not smtp.has_extn("auth"),"Port 25 unexpectedly offers authentication"
+                  for domain in ["jnsystems.xyz","sailing-uk.org"]:
+                      for local in ["jamie","webadmin","mailadmin"]:
+                          smtp.mail("jamie@jnsystems.xyz")
+                          code,text=smtp.rcpt(local+"@"+domain)
+                          print("RECIPIENT",local+"@"+domain,code,text.decode(errors="replace"))
+                          assert code==250
+                          smtp.rset()
+                  smtp.mail("jamie@jnsystems.xyz")
+                  code,text=smtp.rcpt("jns-invalid-mailbox@jnsystems.xyz")
+                  print("UNKNOWN_RECIPIENT",code,text.decode(errors="replace"))
+                  assert code==550
+                  smtp.rset();smtp.mail("jamie@jnsystems.xyz")
+                  code,text=smtp.rcpt("jns-relay-probe@gmail.com")
+                  print("RELAY_TEST",code,text.decode(errors="replace"))
+                  assert code==554 and b"Relay access denied" in text
+                  print("INTERNET_SMTP_TEST=PASS; no message sent")
+          except Exception as e:
+              print("TARGET_TEST_FAILED",type(e).__name__,str(e))
+              for control in ["gmail-smtp-in.l.google.com","outlook-com.olc.protection.outlook.com"]:
+                  try:
+                      with socket.create_connection((control,25),timeout=10) as s:
+                          print("CONTROL",control,s.recv(256).decode(errors="replace").strip())
+                  except Exception as ce:print("CONTROL_FAILED",control,type(ce).__name__,str(ce))
+              raise
+          PY
