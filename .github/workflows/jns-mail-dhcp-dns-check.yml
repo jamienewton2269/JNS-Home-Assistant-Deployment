@@ -1,0 +1,28 @@
+name: JNS mail DHCP DNS cache check
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/jns-mail-dhcp-dns-check.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 2
+    steps:
+      - shell: bash
+        run: |
+          set -euo pipefail
+          for spec in nodea.home.arpa:247 nodeb.home.arpa:248; do
+            host="${spec%:*}"; ct="${spec#*:}"
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@"$host" bash -s -- "$ct" <<'HOST'
+          pct exec "$1" -- bash -se <<'DNS'
+          hostname
+          command -v dhcp_release || true
+          systemctl list-units --all --no-pager --plain | grep -E 'peer|lease|dhcp' || true
+          systemctl list-timers --all --no-pager | grep -E 'peer|lease|dhcp' || true
+          grep -R -l 'dhcp-peers.hosts' /usr/local/sbin /etc/systemd/system 2>/dev/null || true
+          grep -i -E 'jns-mail|bc:24:11:52:aa:1f' /var/lib/jnsdns/leases /etc/jnsdns/dhcp-peers.hosts || true
+          DNS
+          HOST
+          done
