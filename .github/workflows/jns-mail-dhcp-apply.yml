@@ -1,0 +1,48 @@
+name: JNS mail DHCP reservation apply
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/jns-mail-dhcp-apply.yml']
+permissions:
+  contents: read
+concurrency:
+  group: jns-mail-ct250
+  cancel-in-progress: false
+jobs:
+  reserve:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish and apply one authorized reservation
+        run: python3 mail_server/reserve_ipv4_once.py
+      - name: Renew mail server lease and verify services
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'HOST'
+          set -euo pipefail
+          pct exec 250 -- networkctl renew eth0
+          for attempt in $(seq 1 20); do
+            if pct exec 250 -- ip -4 -o addr show dev eth0 | grep -q '10.10.110.232/16'; then break; fi
+            sleep 2
+          done
+          if ! pct exec 250 -- ip -4 -o addr show dev eth0 | grep -q '10.10.110.232/16'; then
+            pct reboot 250
+            for attempt in $(seq 1 20); do
+              if pct exec 250 -- ip -4 -o addr show dev eth0 2>/dev/null | grep -q '10.10.110.232/16'; then break; fi
+              sleep 2
+            done
+          fi
+          pct exec 250 -- ip -4 -o addr show dev eth0 | grep '10.10.110.232/16'
+          pct exec 250 -- systemctl is-active postfix dovecot opendkim
+          pct exec 247 -- bash -c 'grep -i "bc:24:11:52:aa:1f" /var/lib/jnsdns/active/reservations.conf'
+          HOST
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodeb.home.arpa 'pct exec 248 -- bash -c '\''grep -i "bc:24:11:52:aa:1f" /var/lib/jnsdns/active/reservations.conf; grep -i "bc:24:11:52:aa:1f" /var/lib/jnsdns/leases || true'\'''
+          python3 - <<'PY'
+          import socket
+          for port in [25,587,993]:
+              with socket.create_connection(("10.10.110.232",port),timeout=5):
+                  print("PASS reserved address mail port",port)
+          print("DNS",sorted(set(r[4][0] for r in socket.getaddrinfo("jns-mail.home.arpa",None,family=socket.AF_INET))))
+          PY
