@@ -105,3 +105,18 @@ User authorized a static DHCP IPv4 address within 10.10.110.* for CT250.
 
 Verification:
 https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42092700507
+
+## Internet SMTP probe passed — 5 November 2026, 19:21 GMT
+
+After the user saved TCP/25 forwarding to 10.10.110.232, a GitHub-hosted
+ubuntu-latest runner outside the home network connected to
+jnsystems.freeddns.org:25 and received the mail.jnsystems.xyz EHLO response.
+All six Jamie/webadmin/mailadmin recipients across both domains returned 250.
+An unknown local recipient returned 550 and external relaying returned 554.
+STARTTLS was advertised. This probe did not perform a TLS handshake or send
+message DATA, so it establishes Internet reachability and recipient/relay
+checks, not complete external message delivery or public certificate validity.
+Public MX remains unchanged and outbound relay/PTR decision remains pending.
+
+Evidence:
+https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42093091868
