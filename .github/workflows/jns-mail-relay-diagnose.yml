@@ -1,0 +1,16 @@
+name: Diagnose mail relay helper
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/jns-mail-relay-diagnose.yml']
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - name: Inspect installed helper without credentials
+        shell: bash
+        run: |
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'pct exec 250 -- python3 -c '"'"'import pathlib,hashlib,subprocess; p=pathlib.Path("/usr/local/sbin/jns-smtp2go-setup"); print("LINK",p.is_symlink(),str(p.resolve())); b=p.read_bytes(); print("BYTES",len(b),"SHA256",hashlib.sha256(b).hexdigest()); print("HEADER",b.splitlines()[:2]); r=subprocess.run([str(p),"--help"],capture_output=True,text=True,timeout=10); print("HELP_EXIT",r.returncode); print(r.stdout); print(r.stderr)'"'"''
