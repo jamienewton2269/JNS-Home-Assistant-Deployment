@@ -188,3 +188,19 @@ Login with the full Jamie mailbox address; aliases are not separate logins.
 
 Evidence:
 https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42107851501
+
+## Private mailbox password changes — 6 November 2026
+
+Installed /usr/local/sbin/jns-mail-password in CT250.
+From Node A's Proxmox shell, use pct enter 250, then:
+    jns-mail-password jamie@jnsystems.xyz
+or:
+    jns-mail-password jamie@sailing-uk.org
+
+The command prompts twice with hidden input, changes only the selected
+mailbox's hash, preserves ownership/mode and other user records, updates the
+existing root-only saved credential record and flushes that user's auth cache.
+The same mailbox password is used for IMAP and authenticated SMTP submission.
+webadmin/mailadmin aliases have no independent password.
+Helper installation validated both existing mailbox records and syntax;
+installation did not change any password.
