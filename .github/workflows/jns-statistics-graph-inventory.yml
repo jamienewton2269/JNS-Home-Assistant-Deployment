@@ -7,16 +7,16 @@ permissions: {contents: read}
 jobs:
   inventory:
     runs-on: [self-hosted, linux, x64, nodec]
-    timeout-minutes: 6
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Inventory dashboard graph types without configuration changes
+      - name: Inventory editable dashboards
         run: |
           python3 - <<'PY'
           import sys,base64,json,time
           sys.path.insert(0,"gateway/arrival_lighting")
           from readiness_probe import ssh_host
-          source="import pathlib,json;R=pathlib.Path('/config');print(json.dumps({'config_exists':R.is_dir(),'hacs_present':(R/'custom_components/hacs').is_dir()}))"
+          source="import pathlib,json,yaml,collections\nR=pathlib.Path(\"/config\")\nfiles=list((R/\"dashboards\").glob(\"*.yaml\"))+list((R/\"lovelace\").glob(\"*.yaml\"))+list((R/\".storage\").glob(\"lovelace*\"))\ndef walk(x,c):\n if isinstance(x,dict):\n  t=x.get(\"type\")\n  if isinstance(t,str) and (\"chart\" in t or \"graph\" in t):c[t]+=1\n  for v in x.values():walk(v,c)\n elif isinstance(x,list):\n  for v in x:walk(v,c)\nresult=[]\nfor p in files:\n try:\n  d=json.loads(p.read_text()) if p.parent.name==\".storage\" else yaml.safe_load(p.read_text())\n  c=collections.Counter();walk(d,c)\n  if c:result.append({\"file\":str(p.relative_to(R)),\"graphs\":dict(c)})\n except Exception:pass\nprint(json.dumps({\"dashboards\":result,\"custom_components_count\":len(list((R/\"custom_components\").glob(\"*\"))),\"configuration_exists\":(R/\"configuration.yaml\").exists(),\"www_exists\":(R/\"www\").exists(),\"storage_exists\":(R/\".storage\").exists()}))\n"
           for vm,node in [(905,"nodeb")]:
            try:
             status=ssh_host(node,["qm","status",str(vm)])
@@ -24,11 +24,8 @@ jobs:
              print("GRAPH_INVENTORY",vm,"not_running",flush=True);continue
             cmd="exec(__import__('base64').b64decode('"+base64.b64encode(source.encode()).decode()+"'))"
             r=json.loads(ssh_host(node,["qm","guest","exec",str(vm),"--","docker","exec","homeassistant","python3","-c",cmd]))
-            print("GUEST_RESPONSE_SHAPE",list(r),flush=True)
             for _ in range(40):
              if r.get("exited") or "exitcode" in r:break
-             if "pid" not in r:
-              print("GUEST_ROUTE_ERROR",r,flush=True);break
              time.sleep(1);r=json.loads(ssh_host(node,["qm","guest","exec-status",str(vm),str(r["pid"])]))
             print("GRAPH_INVENTORY",vm,r.get("exitcode"),r.get("out-data",""),flush=True)
            except Exception as e:print("GRAPH_INVENTORY",vm,"blocked",str(e),flush=True)
