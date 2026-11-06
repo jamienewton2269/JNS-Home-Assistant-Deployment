@@ -14,3 +14,7 @@ jobs:
         shell: bash
         run: |
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'pct exec 250 -- python3 -c '"'"'import pathlib,hashlib,subprocess; p=pathlib.Path("/usr/local/sbin/jns-smtp2go-setup"); print("LINK",p.is_symlink(),str(p.resolve())); b=p.read_bytes(); print("BYTES",len(b),"SHA256",hashlib.sha256(b).hexdigest()); print("HEADER",b.splitlines()[:2]); r=subprocess.run([str(p),"--help"],capture_output=True,text=True,timeout=10); print("HELP_EXIT",r.returncode); print(r.stdout); print(r.stderr)'"'"''
+      - name: Test username prompt using a terminal without credentials
+        shell: bash
+        run: |
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'pct exec 250 -- python3 -c '"'"'import os,pty,subprocess,select; master,slave=pty.openpty(); p=subprocess.Popen(["/usr/local/sbin/jns-smtp2go-setup"],stdin=slave,stdout=slave,stderr=slave,start_new_session=True); os.close(slave); ready=select.select([master],[],[],5)[0]; output=os.read(master,4096).decode(errors="replace") if ready else "NO_OUTPUT_WITHIN_5_SECONDS"; print("INTERACTIVE_PROMPT",repr(output)); p.terminate(); p.wait(timeout=5); os.close(master)'"'"''
