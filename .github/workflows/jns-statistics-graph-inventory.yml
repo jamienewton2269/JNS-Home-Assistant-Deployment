@@ -28,8 +28,8 @@ jobs:
             for _ in range(40):
              if r.get("exited") or "exitcode" in r:break
              if "pid" not in r:
-               print("GUEST_ROUTE_ERROR",r,flush=True);break
-              time.sleep(1);r=json.loads(ssh_host(node,["qm","guest","exec-status",str(vm),str(r["pid"])]))
+              print("GUEST_ROUTE_ERROR",r,flush=True);break
+             time.sleep(1);r=json.loads(ssh_host(node,["qm","guest","exec-status",str(vm),str(r["pid"])]))
             print("GRAPH_INVENTORY",vm,r.get("exitcode"),r.get("out-data",""),flush=True)
            except Exception as e:print("GRAPH_INVENTORY",vm,"blocked",str(e),flush=True)
           
