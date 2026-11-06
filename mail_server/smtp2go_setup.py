@@ -18,7 +18,7 @@ if not isinstance(username,str) or not isinstance(password,str) or not username 
     sys.exit("Both SMTP username and password are required.")
 if any(c in username+password for c in "\r\n\0") or ":" in username:
     sys.exit("Unsupported characters in SMTP credentials.")
-host="mail.smtp2go.com"
+host="mail-eu.smtp2go.com"
 try:
     with smtplib.SMTP(host,587,timeout=20) as smtp:
         smtp.ehlo()
@@ -35,13 +35,13 @@ backup.chmod(0o600)
 path=pathlib.Path("/etc/postfix/smtp2go_passwd")
 # Write the credential map privately; no credentials enter command arguments or logs.
 fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
-with os.fdopen(fd,"w") as out:out.write("[mail.smtp2go.com]:587 "+username+":"+password+"\n")
+with os.fdopen(fd,"w") as out:out.write("[mail-eu.smtp2go.com]:587 "+username+":"+password+"\n")
 path.chmod(0o600)
 try:
     subprocess.run(["postmap","hash:"+str(path)],check=True)
     pathlib.Path(str(path)+".db").chmod(0o600)
     settings=[
-      "relayhost = [mail.smtp2go.com]:587",
+      "relayhost = [mail-eu.smtp2go.com]:587",
       "smtp_sasl_auth_enable = yes",
       "smtp_sasl_password_maps = hash:/etc/postfix/smtp2go_passwd",
       "smtp_sasl_security_options = noanonymous",
