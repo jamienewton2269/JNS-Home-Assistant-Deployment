@@ -29,7 +29,7 @@ jobs:
           python3 - <<'PY'
           import smtplib,ssl,pathlib
           compile(pathlib.Path("/root/jns-mail/smtp2go_setup.py").read_text(),"smtp2go_setup.py","exec")
-          with smtplib.SMTP("mail.smtp2go.com",587,timeout=20) as smtp:
+          with smtplib.SMTP("mail-eu.smtp2go.com",587,timeout=20) as smtp:
               smtp.ehlo("mail.jnsystems.xyz")
               smtp.starttls(context=ssl.create_default_context())
               smtp.ehlo("mail.jnsystems.xyz")
