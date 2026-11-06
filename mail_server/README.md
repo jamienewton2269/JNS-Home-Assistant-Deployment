@@ -204,3 +204,28 @@ The same mailbox password is used for IMAP and authenticated SMTP submission.
 webadmin/mailadmin aliases have no independent password.
 Helper installation validated both existing mailbox records and syntax;
 installation did not change any password.
+
+## EU SMTP2GO account prepared — 6 November 2026
+
+User created the SMTP2GO EU account and reports publishing its DNS records.
+SMTP user shown in the dashboard: mailadmin@jnsystems.xyz.
+Updated the installed private setup helper to mail-eu.smtp2go.com:587.
+CT250 successfully connected using STARTTLS, TLS 1.3 and trusted certificate
+verification. Postfix, Dovecot and OpenDKIM remain active.
+
+Activation is still pending: no SMTP credentials are installed and relayhost
+remains empty. The screenshot still displayed the Verified Sender warning;
+confirm both jnsystems.xyz and sailing-uk.org show as verified in SMTP2GO.
+
+In Node A's Proxmox shell:
+    pct enter 250
+    /usr/local/sbin/jns-smtp2go-setup
+
+Enter the SMTP user name and its SMTP password at the private prompts.
+The website account login and local mailbox passwords are separate.
+The helper checks SMTP authentication before configuring and reloading Postfix.
+Clients continue submitting to jns-mail.home.arpa; incoming MX stays unchanged.
+Authenticated external delivery must be tested after activation.
+
+Evidence:
+https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42226481706
