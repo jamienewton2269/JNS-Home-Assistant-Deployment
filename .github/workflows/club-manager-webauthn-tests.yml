@@ -1,0 +1,28 @@
+name: Club Manager - WebAuthn ceremony security tests
+on:
+  push:
+    paths:
+      - club-manager/auth/webauthn_flow.py
+      - club-manager/tests/test_webauthn_flow.py
+      - .github/workflows/club-manager-webauthn-tests.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Isolated WebAuthn dependency and synthetic ceremony tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          python3 -m venv "$RUNNER_TEMP/club-webauthn-venv"
+          "$RUNNER_TEMP/club-webauthn-venv/bin/python" -m pip install --disable-pip-version-check --quiet webauthn==3.0.1
+          "$RUNNER_TEMP/club-webauthn-venv/bin/python" -m py_compile club-manager/auth/webauthn_flow.py club-manager/tests/test_webauthn_flow.py
+          "$RUNNER_TEMP/club-webauthn-venv/bin/python" -m unittest discover -s club-manager/tests -p 'test_webauthn_flow.py' -v
+          echo 'PASS: locally tested WebAuthn ceremonies only; no officer enrolment or login exposed'
