@@ -57,8 +57,8 @@ class WebAuthnFlow:
                 user_verification=UserVerificationRequirement.REQUIRED,
             ),
         )
-        self.store.save_challenge(account_id, "register", hashlib.sha256(options.challenge).digest(), options.challenge)
-        return options_to_json(options)
+        challenge_id = self.store.save_challenge(account_id, "register", hashlib.sha256(options.challenge).digest(), options.challenge)
+        return challenge_id, options_to_json(options)
 
     def finish_enrolment(self, account_id: UUID, challenge_id: UUID, response: dict):
         # The store must atomically consume the challenge BEFORE crypto checks;
@@ -88,8 +88,8 @@ class WebAuthnFlow:
             allow_credentials=[PublicKeyCredentialDescriptor(id=c.id) for c in credentials],
             user_verification=UserVerificationRequirement.REQUIRED,
         )
-        self.store.save_challenge(account_id, "authenticate", hashlib.sha256(options.challenge).digest(), options.challenge)
-        return options_to_json(options)
+        challenge_id = self.store.save_challenge(account_id, "authenticate", hashlib.sha256(options.challenge).digest(), options.challenge)
+        return challenge_id, options_to_json(options)
 
     def finish_login(self, account_id: UUID, challenge_id: UUID, response: dict):
         challenge = self.store.claim_challenge(challenge_id, account_id, "authenticate")
