@@ -42,7 +42,7 @@ try:
     bundle['smtp_user'],bundle['smtp_password']=smtp.split(' ',1)[1].split(':',1)
     for host,ct,name,sid in NODES:
         peer='auth-b' if sid==1 else 'auth-a'
-        state={k:v for k,v in bundle.items() if not k.endswith('_key') and not k.endswith('_crt')}
+        state={k:v for k,v in bundle.items() if k not in ['auth-a_key','auth-b_key','ca_key'] and not k.endswith('_crt')}
         state.update(name=name,peer=peer,sid=sid,certificate=bundle[name+'_crt'],private_key=bundle[name+'_key'],ca_private_key=bundle['ca_key'])
         put(host,ct,'/root/identity/bootstrap.json',json.dumps(state))
         put(host,ct,'/root/identity/guest_configure.py',pathlib.Path('identity/guest_configure.py').read_bytes(),0o700)
