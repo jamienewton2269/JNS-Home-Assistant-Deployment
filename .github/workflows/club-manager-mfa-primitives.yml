@@ -1,0 +1,42 @@
+name: Club Manager - MFA authentication primitives
+on:
+  push:
+    paths:
+      - club-manager/auth/**
+      - .github/workflows/club-manager-mfa-primitives.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  test-and-stage:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Unit test and stage isolated authentication code on CT101
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          PYTHONPATH=club-manager/auth python3 -m unittest discover -s club-manager/auth -p 'test_*.py' -v
+          python3 -m py_compile club-manager/auth/club_mfa_core.py
+          ssh -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat >/tmp/club-mfa-core-stage.py' <club-manager/auth/club_mfa_core.py
+          ssh -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev
+          pct push 101 /tmp/club-mfa-core-stage.py /tmp/club-mfa-core-stage.py
+          pct exec 101 -- mkdir -p /opt/jns-club-manager/auth-staging
+          pct exec 101 -- cp /tmp/club-mfa-core-stage.py /opt/jns-club-manager/auth-staging/club_mfa_core.py
+          pct exec 101 -- chmod 0644 /opt/jns-club-manager/auth-staging/club_mfa_core.py
+          pct exec 101 -- python3 -m py_compile /opt/jns-club-manager/auth-staging/club_mfa_core.py
+          pct exec 101 -- curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8765/healthz
+          pct exec 101 -- rm -f /tmp/club-mfa-core-stage.py
+          rm -f /tmp/club-mfa-core-stage.py
+          echo 'PASS: tested isolated MFA primitives staged; no login endpoints enabled'
+          REMOTE
