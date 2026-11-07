@@ -1,0 +1,77 @@
+name: Club Manager - atomic TOTP replay guard
+on:
+  push:
+    paths:
+      - club-manager/migrations/016_atomic_totp_replay_guard.sql
+      - .github/workflows/club-manager-totp-replay-gate.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Deploy and synthetic rollback regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat > /tmp/club-016.sql' < club-manager/migrations/016_atomic_totp_replay_guard.sql
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev
+          pct push 101 /tmp/club-016.sql /tmp/club-016.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager -f /tmp/club-016.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager <<'SQL'
+          BEGIN;
+          DO $$
+          DECLARE officer uuid:=gen_random_uuid();
+                  other uuid:=gen_random_uuid();
+                  cred uuid:=gen_random_uuid();
+          BEGIN
+            INSERT INTO club.committee_accounts(id,display_name,email,created_by,account_state)
+             VALUES(officer,'Synthetic TOTP Officer','totp-guard@example.invalid','synthetic','active'),
+                   (other,'Synthetic Other Officer','totp-other@example.invalid','synthetic','active');
+            INSERT INTO club.officer_authenticator_registry
+              (id,account_id,factor_type,credential_ref,verified_at)
+             VALUES(cred,officer,'totp','synthetic-totp-ref-'||cred::text,clock_timestamp());
+            IF NOT club.consume_officer_totp_step(cred,officer,12345) THEN
+              RAISE EXCEPTION 'Valid first step not consumed'; END IF;
+            IF club.consume_officer_totp_step(cred,officer,12345)
+              OR club.consume_officer_totp_step(cred,officer,12344) THEN
+              RAISE EXCEPTION 'Replayed/older step accepted'; END IF;
+            IF club.consume_officer_totp_step(cred,other,12346) THEN
+              RAISE EXCEPTION 'Wrong officer credential accepted'; END IF;
+            IF NOT club.consume_officer_totp_step(cred,officer,12346) THEN
+              RAISE EXCEPTION 'Newer step rejected'; END IF;
+            UPDATE club.committee_accounts SET account_state='suspended' WHERE id=officer;
+            IF club.consume_officer_totp_step(cred,officer,12347) THEN
+              RAISE EXCEPTION 'Suspended officer accepted'; END IF;
+            UPDATE club.committee_accounts SET account_state='active' WHERE id=officer;
+            UPDATE club.officer_authenticator_registry SET revoked_at=clock_timestamp() WHERE id=cred;
+            IF club.consume_officer_totp_step(cred,officer,12347) THEN
+              RAISE EXCEPTION 'Revoked credential accepted'; END IF;
+            RAISE NOTICE 'PASS: atomic replay, account binding, suspension and revocation';
+          END $$;
+          ROLLBACK;
+          DO $$ BEGIN
+            IF has_function_privilege('clubmgr','club.consume_officer_totp_step(uuid,uuid,bigint)','EXECUTE')
+              OR has_function_privilege('public','club.consume_officer_totp_step(uuid,uuid,bigint)','EXECUTE')
+              OR NOT has_function_privilege('club_authn_service',
+                'club.consume_officer_totp_step(uuid,uuid,bigint)','EXECUTE')
+            THEN RAISE EXCEPTION 'TOTP replay role boundary incorrect'; END IF;
+          END $$;
+          SQL
+          pct exec 101 -- curl -fsS http://127.0.0.1:8765/healthz
+          pct exec 101 -- rm -f /tmp/club-016.sql
+          rm -f /tmp/club-016.sql
+          echo 'PASS: CT101 TOTP replay gate; no officer login enabled'
+          REMOTE
