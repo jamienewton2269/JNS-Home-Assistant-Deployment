@@ -1,0 +1,89 @@
+name: Club Manager - WebAuthn replay and credential gate
+on:
+  push:
+    paths:
+      - club-manager/migrations/018_webauthn_credential_and_challenge_guard.sql
+      - .github/workflows/club-manager-webauthn-database-gate.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Deploy DB WebAuthn anti-replay and synthetic regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat > /tmp/club-018.sql' < club-manager/migrations/018_webauthn_credential_and_challenge_guard.sql
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev
+          pct push 101 /tmp/club-018.sql /tmp/club-018.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager -f /tmp/club-018.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager <<'SQL'
+          BEGIN;
+          DO $$
+          DECLARE officer uuid:=gen_random_uuid();
+                  other uuid:=gen_random_uuid();
+                  cid uuid:=gen_random_uuid();
+                  hash bytea:=public.digest('synthetic-webauthn-challenge','sha256');
+                  key_id bytea:=convert_to('synthetic-credential-0123456789','UTF8');
+          BEGIN
+           INSERT INTO club.committee_accounts(id,display_name,email,created_by,account_state) VALUES
+            (officer,'Synthetic Passkey Officer','passkey-officer@example.invalid','test','active'),
+            (other,'Synthetic Passkey Other','passkey-other@example.invalid','test','active');
+           INSERT INTO club.officer_webauthn_challenges
+            (challenge_id,account_id,ceremony,challenge_sha256,expires_at)
+            VALUES(cid,officer,'authenticate',hash,clock_timestamp()+interval '2 minutes');
+           IF club.consume_webauthn_challenge(cid,other,'authenticate',hash)
+             OR club.consume_webauthn_challenge(cid,officer,'register',hash)
+             OR club.consume_webauthn_challenge(cid,officer,'authenticate',public.digest('wrong','sha256'))
+           THEN RAISE EXCEPTION 'Wrong account/purpose/challenge accepted'; END IF;
+           IF NOT club.consume_webauthn_challenge(cid,officer,'authenticate',hash)
+           THEN RAISE EXCEPTION 'Valid one-time challenge rejected'; END IF;
+           IF club.consume_webauthn_challenge(cid,officer,'authenticate',hash)
+           THEN RAISE EXCEPTION 'Replayed challenge accepted'; END IF;
+           INSERT INTO club.officer_webauthn_credentials
+            (credential_id,account_id,public_key,signature_counter)
+            VALUES(key_id,officer,convert_to(repeat('public-key-placeholder-',3),'UTF8'),3);
+           IF club.commit_webauthn_counter(other,key_id,4)
+             OR club.commit_webauthn_counter(officer,key_id,2)
+           THEN RAISE EXCEPTION 'Mismatched officer/regressing counter accepted'; END IF;
+           IF NOT club.commit_webauthn_counter(officer,key_id,4)
+           THEN RAISE EXCEPTION 'Valid increased counter rejected'; END IF;
+           IF club.commit_webauthn_counter(officer,key_id,4)
+           THEN RAISE EXCEPTION 'Duplicated nonzero counter accepted'; END IF;
+           UPDATE club.committee_accounts SET account_state='suspended' WHERE id=officer;
+           IF club.commit_webauthn_counter(officer,key_id,5)
+           THEN RAISE EXCEPTION 'Suspended officer retained counter rights'; END IF;
+           UPDATE club.committee_accounts SET account_state='active' WHERE id=officer;
+           UPDATE club.officer_webauthn_credentials SET revoked_at=clock_timestamp() WHERE credential_id=key_id;
+           IF club.commit_webauthn_counter(officer,key_id,5)
+           THEN RAISE EXCEPTION 'Revoked credential retained counter rights'; END IF;
+           RAISE NOTICE 'PASS: one-use WebAuthn challenge binding and credential counter revocation';
+          END $$;
+          ROLLBACK;
+          DO $$ BEGIN
+            IF has_function_privilege('clubmgr','club.consume_webauthn_challenge(uuid,uuid,text,bytea)','EXECUTE')
+              OR has_function_privilege('club_api_service','club.commit_webauthn_counter(uuid,bytea,bigint)','EXECUTE')
+              OR NOT has_function_privilege('club_authn_service','club.commit_webauthn_counter(uuid,bytea,bigint)','EXECUTE')
+              OR has_table_privilege('clubmgr','club.officer_webauthn_credentials','INSERT')
+            THEN RAISE EXCEPTION 'WebAuthn database privileges incorrect'; END IF;
+            RAISE NOTICE 'PASS: credential and challenge tables unavailable to prototype HTTP role';
+          END $$;
+          SQL
+          pct exec 101 -- curl -fsS --max-time 5 http://127.0.0.1:8765/healthz
+          pct exec 101 -- rm -f /tmp/club-018.sql
+          rm -f /tmp/club-018.sql
+          echo 'PASS: isolated WebAuthn database anti-replay; no live enrolment or session issuance'
+          REMOTE
