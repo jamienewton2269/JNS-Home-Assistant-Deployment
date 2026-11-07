@@ -31,18 +31,10 @@ class PostgreSQLWebAuthnStore:
             "SELECT club.active_officer_for_authn(%s)", (account_id,)))
 
     def enrolment_approved(self, account_id: UUID):
-        # An initial invite cannot self-activate. Existing officers can recover
-        # credentials only with two fresh independent MFA-backed approvals.
-        return bool(self._one("""
-          SELECT EXISTS (
-            SELECT 1 FROM club.security_change_requests r
-             WHERE r.subject_account_id=%s
-               AND r.change_kind='account_recovery'
-               AND r.status='pending'
-               AND r.expires_at>clock_timestamp()
-               AND club.security_change_ready(r.id)
-          ) AND club.active_officer_for_authn(%s)
-        """, (account_id, account_id)))
+        # Only an independently verified recovery approval makes enrollment
+        # possible. The first-officer bootstrap process is not yet enabled.
+        return bool(self._one(
+            "SELECT club.can_enrol_officer_webauthn(%s)", (account_id,)))
 
     def credentials_for(self, account_id: UUID):
         with closing(self.connect()) as conn:
