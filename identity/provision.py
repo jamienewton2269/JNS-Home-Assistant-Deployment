@@ -26,11 +26,11 @@ import subprocess,pathlib,os
 os.environ['DEBIAN_FRONTEND']='noninteractive'
 root=pathlib.Path('/root/identity');root.mkdir(mode=0o700,exist_ok=True)
 with open(root/'install.log','a') as log:
- def run(args,**kw):subprocess.run(args,check=True,stdout=log,stderr=log,**kw)
+ def run(args,**kw):subprocess.run(args,check=True,stdout=log,stderr=log,timeout=300,**kw)
  run(['apt-get','update','-qq'])
  run(['debconf-set-selections'],input=b'slapd slapd/no_configuration boolean true\n')
  run(['apt-get','install','-y','--no-install-recommends','slapd','ldap-utils','openssl','ca-certificates','curl','gnupg','nginx','php-fpm','php-ldap','php-mbstring','php-gd','php-curl','python3-ldap','ldap-account-manager'])
- key=subprocess.check_output(['curl','-fsSL','https://ltb-project.org/documentation/_static/ltb-project-debian-keyring.gpg'])
+ key=subprocess.check_output(['curl','--connect-timeout','15','--max-time','60','-fsSL','https://ltb-project.org/documentation/_static/ltb-project-debian-keyring.gpg'])
  run(['gpg','--dearmor','--yes','-o','/usr/share/keyrings/ltb-project-debian-keyring.gpg'],input=key)
  pathlib.Path('/etc/apt/sources.list.d/ltb-project.sources').write_text('Types: deb\nURIs: https://ltb-project.org/debian/stable\nSuites: stable\nComponents: main\nSigned-By: /usr/share/keyrings/ltb-project-debian-keyring.gpg\nArchitectures: amd64\n')
  run(['apt-get','update','-qq'])
