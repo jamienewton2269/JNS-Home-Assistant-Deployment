@@ -18,14 +18,14 @@ jobs:
            for v in D.values():
             if isinstance(v,str) and len(v)>5:s=s.replace(v,"[REDACTED]")
            return s
-          r=subprocess.run(["runuser","-u","www-data","--","php","-d","display_errors=1","-d","log_errors=0","-r",'"'"'"'"'"'"'"'"'chdir("/usr/share/self-service-password/htdocs");$_SERVER["SCRIPT_NAME"]="/password/index.php";$_SERVER["HTTP_HOST"]="auth-a.home.arpa";$_GET["action"]="change";include "index.php";'"'"'"'"'"'"'"'"'],capture_output=True,text=True);print("PHP",r.returncode,clean(r.stdout+r.stderr)[-5000:])
-          print("SYSLOG",clean("\n".join(pathlib.Path("/var/log/syslog").read_text(errors="replace").splitlines()[-45:])))
+          code='"'"'"'"'"'"'"'"'register_shutdown_function(function(){echo "SHUTDOWN:".json_encode(error_get_last());}); chdir("/usr/share/self-service-password/htdocs"); $_SERVER["SCRIPT_NAME"]="/password/index.php";$_SERVER["HTTP_HOST"]="auth-a.home.arpa";include "index.php";'"'"'"'"'"'"'"'"'
+          r=subprocess.run(["runuser","-u","www-data","--","php","-r",code],capture_output=True,text=True);print("PHP",r.returncode,clean(r.stdout+r.stderr)[-6000:])
           p=pathlib.Path("/var/lib/ldap-account-manager/config/lam.conf")
-          for line in p.read_text().splitlines():
-           if line.startswith(("Server","Admins","types:","modules:","login","treesuffix")):print("LAMSETTING",line)
-          for p in pathlib.Path("/run/systemd/network").glob("*"):print("NETWORK",str(p),p.read_text()[:3000])
-          for p in pathlib.Path("/var/lib/dhcp").glob("*leases*"):
-           print("DUIDFILE",p.name)
-           for line in p.read_text().splitlines():
-            if "default-duid" in line:print(line)
+          print("LAM BYTES",p.stat().st_size)
+          try:
+           data=json.loads(p.read_text());print("LAM JSON KEYS",list(data));print("LAM SELECTED",{k:v for k,v in data.items() if k in ["ServerURL","Admins","treesuffix","types","modules","serverURL","admins"]})
+          except ValueError:
+           print("LAM TEXT",clean("\n".join(line for line in p.read_text().splitlines()[:50] if "pass" not in line.lower())))
+          print("NETWORK FILES",list(pathlib.Path("/etc/systemd").rglob("*network*")))
+          print("PHP LOG SETTINGS",subprocess.check_output(["php","-i"]).decode().split("error_log =>")[1][:200])
           '"'"''
