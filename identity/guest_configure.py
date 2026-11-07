@@ -113,22 +113,21 @@ if not pathlib.Path('/var/lib/ldap/data.mdb').exists() and sid==1:
 run(['systemctl','enable','--now','slapd'])
 
 # Package-provided LAM, restricted to the named directory administrator.
-lam=pathlib.Path('/etc/ldap-account-manager/lam.conf')
-if not lam.exists():
- samples=list(pathlib.Path('/usr/share/ldap-account-manager').rglob('lam.conf.sample'))
- if samples:shutil.copy2(samples[0],lam)
-text=lam.read_text() if lam.exists() else ''
-def setting(key,value):
- global text
- import re
- line=key+': '+value
- if re.search(r'^'+re.escape(key)+r':.*$',text,re.M):text=re.sub(r'^'+re.escape(key)+r':.*$',lambda m:line,text,flags=re.M)
- else:text+='\n'+line+'\n'
-for k,v in {'ServerURL':'ldaps://'+name+'.home.arpa','useTLS':'no','treesuffix':BASE,'Admins':admin_dn,'defaultLanguage':'en_GB.utf8','Passwd':hashlib.sha256(D['lam-config'].encode()).hexdigest(),'types: active':'user,group','types: suffix_user':PEOPLE,'types: suffix_group':'ou=Groups,'+BASE,'modules: user':'inetOrgPerson,posixAccount','modules: group':'posixGroup','loginMethod':'list','hideLAMLogo':'true'}.items():setting(k,v)
-write(str(lam),text,0o640,'www-data')
+lam=pathlib.Path('/var/lib/ldap-account-manager/config/lam.conf')
+profile=json.loads(lam.read_text())
+profile.update(ServerURL='ldaps://'+name+'.home.arpa',useTLS='no',Admins=admin_dn,defaultLanguage='en_GB.utf8',activeTypes='user,group',loginMethod='list',serverDisplayName='JNSystems Identity',timeZone='Europe/London')
+profile['typeSettings'].update(suffix_user=PEOPLE,suffix_group='ou=Groups,'+BASE,modules_user='inetOrgPerson,posixAccount',modules_group='posixGroup',attr_user='#uid;#cn;#mail',attr_group='#cn;#memberUID;#description')
+write(str(lam),json.dumps(profile,indent=2),0o640,'www-data')
+# LTB 1.8.2's packaged default points at Smarty 3 although it installs Smarty 4.
+ssp_defaults=pathlib.Path('/etc/self-service-password/config.inc.php')
+ssp_defaults.write_text(ssp_defaults.read_text().replace('/usr/share/php/smarty3/Smarty.class.php','/usr/share/php/smarty4/Smarty.class.php'))
+for directory in ['tokens','templates','cache']:
+ p=pathlib.Path('/var/cache/self-service-password')/directory;p.mkdir(parents=True,exist_ok=True);p.chmod(0o700);shutil.chown(p,'www-data','www-data')
 
 # Package-provided password recovery, with a narrowly scoped LDAP account.
-def php(v):return json.dumps(v)
+def php(v):
+ if isinstance(v,str):return "'"+v.replace('\\','\\\\').replace("'","\\'")+"'"
+ return json.dumps(v)
 ssp={
  'ldap_url':'ldaps://'+name+'.home.arpa','ldap_binddn':reset_dn,'ldap_bindpw':D['reset'],
  'ldap_base':PEOPLE,'ldap_login_attribute':'uid','ldap_filter':'(&(objectClass=inetOrgPerson)(uid={login})(!(uid=jamie-admin)))',
@@ -139,11 +138,11 @@ ssp={
  'mail_smtp_auth':True,'mail_smtp_user':D['smtp_user'],'mail_smtp_pass':D['smtp_password'],'mail_smtp_secure':'tls',
  'mail_from':'mailadmin@jnsystems.xyz','mail_from_name':'JNSystems Account Services','mail_smtp_debug':0,
  'reset_url':'https://'+name+'.home.arpa/password/index.php','reset_request_log':'/dev/null',
- 'custom_css':'/identity.css','show_menu':True,'use_recaptcha':False,'debug':False,'lang':'en','logo':'',
+ 'smarty_compile_dir':'/var/cache/self-service-password/templates','smarty_cache_dir':'/var/cache/self-service-password/cache','cache_directory':'/var/cache/self-service-password/tokens','custom_css':'/identity.css','show_menu':True,'use_recaptcha':False,'debug':False,'lang':'en','logo':'',
 }
 write('/etc/self-service-password/config.inc.local.php','<?php\n'+''.join('$'+k+' = '+php(v)+';\n' for k,v in ssp.items()),0o640,'www-data')
 # Minimal web footprint: nginx and an on-demand PHP pool, no Apache or database service.
-for service in ['apache2','mariadb']:
+for service in ['apache2','mariadb','postfix']:
  subprocess.run(['systemctl','disable','--now',service],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 versions=glob.glob('/etc/php/*/fpm/pool.d/www.conf');assert len(versions)==1
 pool=pathlib.Path(versions[0]);s=pool.read_text()
