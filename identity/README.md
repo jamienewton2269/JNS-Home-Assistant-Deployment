@@ -128,7 +128,7 @@ compares contextCSN vectors. No account details or credentials are published.
 Daily maintenance creates GnuPG AES-256 encrypted LDAP/config exports under
 /root/identity/backups, retaining seven. The encryption key stays in protected
 bootstrap state and must be preserved separately for disaster recovery.
-An off-host copy and a restore drill must be verified before production cutover.
+A host cron job copies encrypted exports to the existing mounted WD-BACKUP NFS storage. It refuses to write if that mount is unavailable. An off-host copy and a restore drill must be verified before production cutover.
 Replication is not a substitute for backups.
 
 ## Migration sequence
