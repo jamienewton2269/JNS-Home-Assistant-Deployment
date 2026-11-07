@@ -1,0 +1,25 @@
+name: Club Manager - TOTP verifier tests
+on:
+  push:
+    paths:
+      - club-manager/auth/totp.py
+      - club-manager/tests/test_totp.py
+      - .github/workflows/club-manager-totp-tests.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify TOTP fallback without enabling any authentication path
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile club-manager/auth/totp.py club-manager/tests/test_totp.py
+          python3 -m unittest discover -s club-manager/tests -p 'test_totp.py' -v
+          echo 'PASS: TOTP unit tests; no database or production access changed'
