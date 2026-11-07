@@ -206,4 +206,7 @@ run(['nginx','-t']);run(['systemctl','restart','php'+pool.parts[3]+'-fpm','nginx
 write('/etc/systemd/system/identity-health.service','[Unit]\nDescription=Directory availability and replication check\n[Service]\nType=oneshot\nExecStart=/usr/bin/python3 /root/identity/health.py\n')
 write('/etc/systemd/system/identity-health.timer','[Unit]\nDescription=Refresh directory status\n[Timer]\nOnBootSec=30\nOnUnitActiveSec=30\n[Install]\nWantedBy=timers.target\n')
 run(['systemctl','daemon-reload']);run(['systemctl','enable','--now','identity-health.timer'])
+write('/etc/systemd/system/identity-maintenance.service','[Unit]\nDescription=Identity certificate renewal and encrypted backup\n[Service]\nType=oneshot\nExecStart=/usr/bin/python3 /root/identity/maintenance.py\n')
+write('/etc/systemd/system/identity-maintenance.timer','[Unit]\nDescription=Daily identity maintenance\n[Timer]\nOnCalendar=*-*-* 03:15:00\nRandomizedDelaySec=900\nPersistent=true\n[Install]\nWantedBy=timers.target\n')
+run(['systemctl','daemon-reload']);run(['systemctl','enable','--now','identity-maintenance.timer'])
 print('Identity services configured',name)
