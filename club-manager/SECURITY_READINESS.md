@@ -56,3 +56,9 @@ Evidence baseline: 2026-11-01.
 - Backend integrity regression: GitHub Actions run 41343804165.
 - Backend schema migration: GitHub Actions run 41343643064.
 Release decision: BLOCKED pending mandatory gates, full evidence package, and authorised independent assessment.
+
+## Authentication engineering progress — 2026-11-07
+- RFC 6238 TOTP fallback verifier committed at `club-manager/auth/totp.py`, with eight reference, invalid-input, clock-window and replay-regression tests passing: https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42365672157.
+- Database migration 016 adds an atomic last-accepted TOTP counter tied to an active named officer and non-revoked credential. Repeated, older, mismatched-account, suspended or revoked credentials were rejected on CT101 in rollback-only tests: https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42365735731.
+- The replay function is granted exclusively to a NOLOGIN verifier role; the prototype web application retains no MFA credential update rights. **Neither TOTP login nor WebAuthn login has been enabled.**
+- Release blocker: real passkey WebAuthn RP origin/challenge validation, secure factor enrolment, encrypted TOTP secret management, verified primary named identity, service credential isolation, rate limiting, atomic counter consumption before signed session issuance, recovery, end-to-end officer workflows, independent audit and operational authorisation are not yet integrated.
