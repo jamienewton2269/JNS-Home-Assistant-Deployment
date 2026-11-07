@@ -12,19 +12,17 @@ jobs:
     steps:
       - name: Read redacted errors and upstream form handling
         run: |
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'pct exec 251 -- python3 -c '"'"'import pathlib,json,subprocess
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'pct exec 251 -- python3 -c '"'"'import urllib.request,urllib.error,ssl,pathlib,json,subprocess,re
           D=json.loads(pathlib.Path("/root/identity/bootstrap.json").read_text())
-          for fn in ["/var/log/nginx/error.log","/var/log/php8.4-fpm.log"]:
-           p=pathlib.Path(fn)
-           if p.exists():
-            s="\n".join(p.read_text(errors="replace").splitlines()[-15:])
-            for value in D.values():
-             if isinstance(value,str) and len(value)>5:s=s.replace(value,"[REDACTED]")
-            print(fn,s)
-          print("NETWORK PROCESSES",subprocess.check_output(["ps","-eo","comm"]).decode())
-          for p in pathlib.Path("/usr/share/self-service-password").rglob("*.php"):
-           if p.name in ["index.php","sendtoken.php","resetbytoken.php","change.php"]:
-            print("SOURCE",str(p))
-            for line in p.read_text(errors="replace").splitlines():
-             if any(s in line for s in ["$_POST","csrf","token","session_name"]):print(line[:230])
+          def redact(s):
+           for v in D.values():
+            if isinstance(v,str) and len(v)>5:s=s.replace(v,"[REDACTED]")
+           return s
+          ctx=ssl.create_default_context(cafile="/etc/ldap/identity/ca.crt")
+          for path in ["/password/?action=change","/admin/templates/login.php"]:
+           try:r=urllib.request.urlopen("https://auth-a.home.arpa"+path,context=ctx);body=r.read().decode()
+           except urllib.error.HTTPError as e:body=e.read().decode()
+           print("HTTPBODY",path,redact(re.sub("<[^>]+>"," ",body))[-6000:])
+          r=subprocess.run(["php","-l","/etc/self-service-password/config.inc.local.php"],capture_output=True,text=True);print(redact(r.stdout+r.stderr))
+          r=subprocess.run(["journalctl","-n","30","--no-pager"],capture_output=True,text=True);print(redact(r.stdout))
           '"'"''
