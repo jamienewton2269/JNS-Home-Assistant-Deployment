@@ -17,3 +17,5 @@ jobs:
         with:
           ref: main
       - run: python3 identity/verify.py
+
+# Acceptance revision 2: LDAP subtree lookup.
