@@ -1,0 +1,30 @@
+name: Identity web diagnostics
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/identity-diagnose.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - name: Read redacted errors and upstream form handling
+        run: |
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'pct exec 251 -- python3 -c '"'"'import pathlib,json,subprocess
+          D=json.loads(pathlib.Path("/root/identity/bootstrap.json").read_text())
+          for fn in ["/var/log/nginx/error.log","/var/log/php8.4-fpm.log"]:
+           p=pathlib.Path(fn)
+           if p.exists():
+            s="\n".join(p.read_text(errors="replace").splitlines()[-15:])
+            for value in D.values():
+             if isinstance(value,str) and len(value)>5:s=s.replace(value,"[REDACTED]")
+            print(fn,s)
+          print("NETWORK PROCESSES",subprocess.check_output(["ps","-eo","comm"]).decode())
+          for p in pathlib.Path("/usr/share/self-service-password").rglob("*.php"):
+           if p.name in ["index.php","sendtoken.php","resetbytoken.php","change.php"]:
+            print("SOURCE",str(p))
+            for line in p.read_text(errors="replace").splitlines():
+             if any(s in line for s in ["$_POST","csrf","token","session_name"]):print(line[:230])
+          '"'"''
