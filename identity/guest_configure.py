@@ -121,6 +121,7 @@ write(str(lam),json.dumps(profile,indent=2),0o640,'www-data')
 # LTB 1.8.2's packaged default points at Smarty 3 although it installs Smarty 4.
 ssp_defaults=pathlib.Path('/etc/self-service-password/config.inc.php')
 ssp_defaults.write_text(ssp_defaults.read_text().replace('/usr/share/php/smarty3/Smarty.class.php','/usr/share/php/smarty4/Smarty.class.php'))
+cache_parent=pathlib.Path('/var/cache/self-service-password');cache_parent.mkdir(parents=True,exist_ok=True);cache_parent.chmod(0o750);shutil.chown(cache_parent,'www-data','www-data')
 for directory in ['tokens','templates','cache']:
  p=pathlib.Path('/var/cache/self-service-password')/directory;p.mkdir(parents=True,exist_ok=True);p.chmod(0o700);shutil.chown(p,'www-data','www-data')
 
