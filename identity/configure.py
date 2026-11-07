@@ -53,5 +53,7 @@ try:
         # Run private configuration logs: neither exceptions nor shell tracing expose secrets.
         remote(host,['pct','exec',str(ct),'--','bash','-c','python3 /root/identity/guest_configure.py > /root/identity/configure.log 2>&1 || { echo "Identity configuration failed; private log: /root/identity/configure.log"; exit 1; }'])
         print('CONFIGURED',name,flush=True)
+        put(host,None,'/usr/local/sbin/identity-backup',pathlib.Path('identity/backup_host.py').read_bytes(),0o700)
+        put(host,None,'/etc/cron.d/identity-backup-'+str(ct),'45 3 * * * root /usr/local/sbin/identity-backup '+str(ct)+' '+name+' > /root/identity-backup-'+str(ct)+'.log 2>&1\n',0o644)
 except Exception as exc:
     print(type(exc).__name__+': identity stage failed; credentials were not printed',file=sys.stderr);sys.exit(1)
