@@ -8,6 +8,8 @@ import json
 import os
 import sys
 from pathlib import Path
+from threading import Lock
+from time import monotonic
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlsplit
 from uuid import UUID
@@ -21,6 +23,30 @@ from officer_controller import OfficerController
 from read_api import ReadOnlyBetaAPI, READ_ROUTES
 
 MAX_BODY = 16384
+
+# Lightweight beta-only in-process login throttle. A future reverse proxy must
+# add an independent IP-based limit; restart must not unlock production policy.
+_ATTEMPTS = {}
+_ATTEMPT_LOCK = Lock()
+
+def allow_auth_attempt(account_id):
+    now = monotonic()
+    with _ATTEMPT_LOCK:
+        # Cap storage and reject floods of invented account IDs.
+        for key, entries in list(_ATTEMPTS.items()):
+            fresh = [t for t in entries if now - t < 60]
+            if fresh:
+                _ATTEMPTS[key] = fresh
+            else:
+                del _ATTEMPTS[key]
+        if len(_ATTEMPTS) >= 2048 and str(account_id) not in _ATTEMPTS:
+            return False
+        total = sum(len(x) for x in _ATTEMPTS.values())
+        key = str(account_id)
+        if total >= 120 or len(_ATTEMPTS.get(key, ())) >= 8:
+            return False
+        _ATTEMPTS.setdefault(key, []).append(now)
+        return True
 ASSETS = {"/login": ("login.html", "text/html"), "/assets/style.css": ("style.css", "text/css"),
           "/assets/browser.js": ("browser.js", "text/javascript"), "/beta": ("beta.html", "text/html")}
 
@@ -116,6 +142,8 @@ class Handler(BaseHTTPRequestHandler):
                 cleared = self.controller.logout(self.headers.get("Cookie",""))
                 return self.send_body(200, {"signed_out":True}, cookie=cleared)
             officer_id = UUID(body["officer_id"])
+            if not allow_auth_attempt(officer_id):
+                return self.deny(429, "Too many authentication attempts")
             if self.path.endswith("/begin"):
                 cid, options = self.controller.begin_passkey(officer_id)
                 return self.send_body(200, {"challenge_id":str(cid),"options":json.loads(options)})
