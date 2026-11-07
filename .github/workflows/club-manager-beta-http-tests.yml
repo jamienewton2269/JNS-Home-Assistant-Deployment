@@ -1,0 +1,29 @@
+name: Club Manager - private beta HTTP safety tests
+on:
+  push:
+    paths:
+      - club-manager/beta/server.py
+      - club-manager/beta/static/**
+      - club-manager/tests/test_beta_http.py
+      - .github/workflows/club-manager-beta-http-tests.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check private beta HTTP and browser assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/club-beta-http-venv"
+          "$RUNNER_TEMP/club-beta-http-venv/bin/python" -m pip install --disable-pip-version-check --quiet webauthn==3.0.1
+          "$RUNNER_TEMP/club-beta-http-venv/bin/python" -m py_compile club-manager/beta/server.py club-manager/tests/test_beta_http.py
+          "$RUNNER_TEMP/club-beta-http-venv/bin/python" -m unittest discover -s club-manager/tests -p 'test_beta_http.py' -v
+          if command -v node >/dev/null; then node --check club-manager/beta/static/browser.js; fi
+          echo "PASS: private beta HTTP tests, no deployment or external port opened"
