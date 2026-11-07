@@ -17,6 +17,7 @@ RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,club A
 DECLARE v_id uuid;
 BEGIN
  IF p_account IS NULL OR p_purpose NOT IN ('register','authenticate')
+   OR (p_purpose='register' AND NOT club.can_enrol_officer_webauthn(p_account))
    OR p_nonce IS NULL OR octet_length(p_nonce) < 32 OR octet_length(p_nonce) > 128
    OR NOT EXISTS (SELECT 1 FROM club.committee_accounts a WHERE a.id=p_account AND a.account_state='active')
  THEN RAISE EXCEPTION 'WebAuthn ceremony unavailable' USING ERRCODE='42501'; END IF;
@@ -51,7 +52,8 @@ CREATE OR REPLACE FUNCTION club.register_verified_webauthn_credential(
  p_account uuid,p_credential_id bytea,p_public_key bytea,p_counter bigint)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,club AS $$
 BEGIN
- IF p_account IS NULL OR p_credential_id IS NULL OR p_public_key IS NULL
+ IF p_account IS NULL OR NOT club.can_enrol_officer_webauthn(p_account)
+  OR p_credential_id IS NULL OR p_public_key IS NULL
   OR octet_length(p_credential_id) NOT BETWEEN 16 AND 1024
   OR octet_length(p_public_key) NOT BETWEEN 32 AND 8192
   OR p_counter IS NULL OR p_counter < 0
