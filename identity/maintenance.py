@@ -18,7 +18,7 @@ with tempfile.TemporaryDirectory(dir=R) as tmp:
  with (p/'directory.ldif').open('wb') as f:subprocess.run(['slapcat','-f','/etc/ldap/slapd-identity.conf'],stdout=f,stderr=subprocess.DEVNULL,check=True)
  with tarfile.open(p/'export.tar.gz','w:gz') as t:
   t.add(p/'directory.ldif',arcname='directory.ldif')
-  for source in ['/etc/ldap/slapd-identity.conf','/etc/ldap/identity','/etc/ldap-account-manager','/etc/self-service-password','/etc/nginx/sites-available/identity']:
+  for source in ['/etc/ldap/slapd-identity.conf','/etc/ldap/identity','/var/lib/ldap-account-manager/config','/etc/self-service-password','/etc/nginx/sites-available/identity','/root/identity/bootstrap.json']:
    t.add(source,arcname=source.lstrip('/'))
  stamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
  run(['gpg','--batch','--yes','--pinentry-mode','loopback','--passphrase-file',str(p/'backup.key'),'--symmetric','--cipher-algo','AES256','--compress-algo','none','--output',str(backup/(stamp+'.tar.gz.gpg')),str(p/'export.tar.gz')])
