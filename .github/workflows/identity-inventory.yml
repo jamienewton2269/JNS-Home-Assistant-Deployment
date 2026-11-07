@@ -1,0 +1,17 @@
+name: Identity infrastructure inventory
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/identity-inventory.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - name: Read cluster capacity and templates
+        run: |
+          for host in nodea.home.arpa nodeb.home.arpa; do
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@$host 'hostname; pvesh get /cluster/nextid; pct list; pvesm status; ls /var/lib/vz/template/cache/*debian*; free -m; getent hosts auth-a.home.arpa auth-b.home.arpa || true'
+          done
