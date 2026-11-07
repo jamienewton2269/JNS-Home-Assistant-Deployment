@@ -94,6 +94,7 @@ ppolicy_hash_cleartext
 write('/etc/ldap/slapd-identity.conf',cfg,0o640,'openldap')
 write('/etc/default/slapd','SLAPD_CONF=/etc/ldap/slapd-identity.conf\nSLAPD_USER=openldap\nSLAPD_GROUP=openldap\nSLAPD_PIDFILE=/run/slapd/slapd.pid\nSLAPD_SERVICES="ldaps:/// ldapi:///"\nSLAPD_SENTINEL_FILE=/etc/ldap/noslapd\nSLAPD_OPTIONS=""\n')
 run(['systemctl','stop','slapd'])
+pathlib.Path('/etc/ldap/noslapd').unlink(missing_ok=True)
 pathlib.Path('/var/lib/ldap').mkdir(exist_ok=True);shutil.chown('/var/lib/ldap','openldap','openldap')
 run(['slaptest','-f','/etc/ldap/slapd-identity.conf','-u'])
 if not pathlib.Path('/var/lib/ldap/data.mdb').exists() and sid==1:
@@ -133,12 +134,12 @@ ssp={
  'ldap_base':PEOPLE,'ldap_login_attribute':'uid','ldap_filter':'(&(objectClass=inetOrgPerson)(uid={login})(!(uid=jamie-admin)))',
  'ldap_use_exop_passwd':True,'ldap_use_ppolicy_control':True,'who_change_password':'user',
  'hash':'SSHA','pwd_min_length':14,'pwd_max_length':128,'pwd_min_upper':0,'pwd_min_lower':0,'pwd_min_digit':0,'pwd_min_special':0,
- 'use_questions':False,'use_sms':False,'use_tokens':True,'crypt_tokens':True,'keyphrase':D['keyphrase'],'token_lifetime':900,
+ 'use_questions':False,'use_sms':False,'use_tokens':True,'crypt_tokens':True,'keyphrase':D['keyphrase'],'token_lifetime':900,'cache_token_expiration':900,'obscure_usernotfound_sendtoken':True,
  'mail_address_use_ldap':True,'notify_on_change':True,'mail_protocol':'smtp','mail_smtp_host':'mail-eu.smtp2go.com','mail_smtp_port':587,
  'mail_smtp_auth':True,'mail_smtp_user':D['smtp_user'],'mail_smtp_pass':D['smtp_password'],'mail_smtp_secure':'tls',
  'mail_from':'mailadmin@jnsystems.xyz','mail_from_name':'JNSystems Account Services','mail_smtp_debug':0,
  'reset_url':'https://'+name+'.home.arpa/password/index.php','reset_request_log':'/dev/null',
- 'show_menu':True,'use_recaptcha':False,'debug':False,'lang':'en','logo':'',
+ 'custom_css':'/identity.css','show_menu':True,'use_recaptcha':False,'debug':False,'lang':'en','logo':'',
 }
 write('/etc/self-service-password/config.inc.local.php','<?php\n'+''.join('$'+k+' = '+php(v)+';\n' for k,v in ssp.items()),0o640,'www-data')
 # Minimal web footprint: nginx and an on-demand PHP pool, no Apache or database service.
@@ -177,7 +178,8 @@ server {{
  client_max_body_size 1m;
  location / {{ try_files $uri $uri/ =404; }}
  location /admin/ {{ alias {lam_root}/; index index.html index.php;
-   location ~ ^/admin/(config|sess|tmp|locale|lib)/ {{ deny all; }}
+   location ~ ^/admin/(config|sess|tmp)/ {{ deny all; }}
+   location ^~ /admin/templates/config/ {{ deny all; }}
    location ~ ^/admin/(.+\\.php)$ {{
      limit_req zone=identity burst=15 nodelay;
      include fastcgi_params; fastcgi_param SCRIPT_FILENAME {lam_root}/$1;
@@ -196,6 +198,7 @@ server {{
  location ~ /\\. {{ deny all; }}
 }}
 ''')
+write('/var/www/identity/identity.css','body{background:#f3f6f8;color:#172c38;font-family:system-ui,sans-serif}.navbar{background:#122c38!important;border:0;border-radius:0}.btn-primary{background:#126c60;border-color:#126c60}.panel,.card{border-radius:12px;box-shadow:0 6px 24px #193e4b0a}a{color:#126c60}')
 pathlib.Path('/etc/nginx/sites-enabled/default').unlink(missing_ok=True)
 link=pathlib.Path('/etc/nginx/sites-enabled/identity');link.unlink(missing_ok=True);link.symlink_to('/etc/nginx/sites-available/identity')
 shutil.copy2('/etc/ldap/identity/ca.crt','/var/www/identity/identity-ca.crt');os.chmod('/var/www/identity/identity-ca.crt',0o644)
