@@ -82,6 +82,24 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,
   WHERE id=p_account AND account_state='active')
 $$;
 
+-- Enrolment is denied unless recovery has two distinct, current MFA-backed
+-- officer approvals; bootstrap for the first authorised officer remains blocked.
+CREATE OR REPLACE FUNCTION club.can_enrol_officer_webauthn(p_account uuid)
+RETURNS boolean LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,club AS $
+ SELECT EXISTS(
+  SELECT 1 FROM club.security_change_requests r
+  JOIN club.committee_accounts a ON a.id=r.subject_account_id
+  WHERE a.id=p_account AND a.account_state='active'
+   AND r.change_kind='account_recovery'
+   AND r.status='pending' AND r.expires_at>clock_timestamp()
+   AND club.security_change_ready(r.id)
+ )
+$;
+REVOKE EXECUTE ON FUNCTION club.can_enrol_officer_webauthn(uuid)
+ FROM PUBLIC,clubmgr,club_api_service,club_authz_service;
+GRANT EXECUTE ON FUNCTION club.can_enrol_officer_webauthn(uuid)
+ TO club_authn_service;
+
 REVOKE EXECUTE ON FUNCTION club.start_webauthn_challenge(uuid,text,bytea) FROM PUBLIC,clubmgr,club_api_service,club_authz_service;
 REVOKE EXECUTE ON FUNCTION club.claim_webauthn_challenge(uuid,uuid,text) FROM PUBLIC,clubmgr,club_api_service,club_authz_service;
 REVOKE EXECUTE ON FUNCTION club.register_verified_webauthn_credential(uuid,bytea,bytea,bigint) FROM PUBLIC,clubmgr,club_api_service,club_authz_service;
