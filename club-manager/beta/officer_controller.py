@@ -78,3 +78,21 @@ class OfficerController:
         if item is None:
             raise PermissionError("Named officer session required")
         return self.read_api.get(route, item.value)
+
+    def logout(self, cookie_header):
+        """Revoke server-side session before clearing the browser cookie."""
+        if not isinstance(cookie_header, str) or len(cookie_header)>4096:
+            raise PermissionError("Invalid session cookie")
+        cookie = SimpleCookie()
+        cookie.load(cookie_header)
+        item = cookie.get(COOKIE_NAME)
+        if item is None or not 40 <= len(item.value) <= 256:
+            raise PermissionError("Named officer session required")
+        digest = hashlib.sha256(item.value.encode("utf-8")).digest()
+        with closing(self.authn_db_factory()) as conn:
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT club.revoke_verified_beta_token(%s)", (digest,))
+                    if not cur.fetchone()[0]:
+                        raise PermissionError("Session already expired or revoked")
+        return self.clear_cookie()
