@@ -1,0 +1,101 @@
+name: Club Manager - beta scoped read API checks
+on:
+  push:
+    paths:
+      - club-manager/migrations/020_beta_scoped_read_api.sql
+      - .github/workflows/club-manager-beta-scoped-api.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Deploy beta read projections and exercise synthetic security gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat > /tmp/club-020.sql' < club-manager/migrations/020_beta_scoped_read_api.sql
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev
+          pct push 101 /tmp/club-020.sql /tmp/club-020.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager -f /tmp/club-020.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager <<'SQL'
+          BEGIN;
+          DO $$
+          DECLARE a uuid:=gen_random_uuid();
+                  m uuid:=gen_random_uuid();
+                  token text:='synthetic-opaque-high-entropy-token-regression-only-000001';
+                  fn text;
+                  result jsonb;
+                  count_ok integer:=0;
+          BEGIN
+            INSERT INTO club.committee_accounts(id,display_name,email,created_by,account_state)
+            VALUES(a,'Synthetic Beta Read Officer','beta-read@example.invalid','test','active');
+            INSERT INTO club.officer_mfa_sessions(session_id,account_id,method,verified_at,expires_at)
+            VALUES(m,a,'webauthn',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '10 minutes');
+            PERFORM club.issue_officer_api_session(a,m,public.digest(convert_to(token,'UTF8'),'sha256'));
+            FOR fn IN SELECT unnest(ARRAY['moorings','clubhouse','renewals','committee','security'])
+            LOOP
+              BEGIN
+                EXECUTE format('SELECT club.api_%s_for_officer($1)',fn) INTO result USING token;
+                RAISE EXCEPTION 'Missing permission allowed for %',fn;
+              EXCEPTION WHEN insufficient_privilege THEN
+                count_ok:=count_ok+1;
+              END;
+            END LOOP;
+            IF count_ok<>5 THEN RAISE EXCEPTION 'Default deny failed'; END IF;
+            INSERT INTO club.committee_permission_grants(account_id,permission_code,approved_by)
+            VALUES(a,'moorings_manage','synthetic'),
+                  (a,'clubhouse_manage','synthetic'),
+                  (a,'renewals_manage','synthetic'),
+                  (a,'accounts_grant','synthetic'),
+                  (a,'audit_view','synthetic');
+            FOR fn IN SELECT unnest(ARRAY['moorings','clubhouse','renewals','committee','security'])
+            LOOP
+              EXECUTE format('SELECT club.api_%s_for_officer($1)',fn) INTO result USING token;
+              IF result IS NULL OR jsonb_typeof(result)<>'object' THEN
+                RAISE EXCEPTION 'Invalid data shape for %',fn; END IF;
+            END LOOP;
+            IF club.api_security_for_officer(token)->>'preferred_factor'<>'webauthn'
+            THEN RAISE EXCEPTION 'MFA preference mismatch'; END IF;
+            DELETE FROM club.committee_permission_grants WHERE account_id=a AND permission_code='audit_view';
+            BEGIN
+              PERFORM club.api_security_for_officer(token);
+              RAISE EXCEPTION 'Revoked security permission ignored';
+            EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+            UPDATE club.officer_mfa_sessions SET revoked_at=clock_timestamp() WHERE session_id=m;
+            BEGIN
+              PERFORM club.api_moorings_for_officer(token);
+              RAISE EXCEPTION 'Revoked MFA continued to access data';
+            EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+            RAISE NOTICE 'PASS: five scoped beta views, explicit grants, immediate permission and MFA revocation';
+          END $$;
+          ROLLBACK;
+          DO $$ DECLARE fn text; BEGIN
+            FOR fn IN SELECT unnest(ARRAY[
+             'api_moorings_for_officer','api_clubhouse_for_officer',
+             'api_renewals_for_officer','api_committee_for_officer','api_security_for_officer'])
+            LOOP
+             IF has_function_privilege('clubmgr','club.'||fn||'(text)','EXECUTE')
+              OR NOT has_function_privilege('club_api_service','club.'||fn||'(text)','EXECUTE')
+             THEN RAISE EXCEPTION 'Invalid API role boundary for %',fn; END IF;
+            END LOOP;
+            RAISE NOTICE 'PASS: legacy app cannot execute beta read functions';
+          END $$;
+          SQL
+          pct exec 101 -- curl -fsS --max-time 5 http://127.0.0.1:8765/healthz
+          pct exec 101 -- rm -f /tmp/club-020.sql
+          rm -f /tmp/club-020.sql
+          echo 'PASS: scoped beta read API installed without enabling HTTP routes'
+          REMOTE
