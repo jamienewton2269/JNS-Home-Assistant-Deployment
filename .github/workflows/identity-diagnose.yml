@@ -12,10 +12,17 @@ jobs:
     steps:
       - name: Read redacted errors and upstream form handling
         run: |
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'pct exec 251 -- python3 -c '"'"'import pathlib,json,subprocess
-          p=pathlib.Path("/var/lib/ldap-account-manager/config/lam.conf");d=json.loads(p.read_text())
-          print("LAM TYPES",json.dumps(d["typeSettings"]));print("LAM ACTIVE",d["activeTypes"])
-          print("SMARTY LOCATIONS",subprocess.check_output(["dpkg","-L","smarty4"]).decode())
-          for line in pathlib.Path("/etc/self-service-password/config.inc.php").read_text().splitlines():
-           if "SMARTY" in line:print("SSP SMARTY",line)
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'pct exec 251 -- python3 -c '"'"'import pathlib,json,urllib.request,ssl,html.parser,subprocess
+          class P(html.parser.HTMLParser):
+           def handle_starttag(self,tag,attrs):
+            d=dict(attrs)
+            if tag in ["form","input","select"]:print("FIELD",tag,d.get("name"),d.get("type"),d.get("action"))
+          ctx=ssl.create_default_context(cafile="/etc/ldap/identity/ca.crt")
+          P().feed(urllib.request.urlopen("https://auth-a.home.arpa/admin/templates/login.php",context=ctx).read().decode())
+          d=json.loads(pathlib.Path("/var/lib/ldap-account-manager/config/lam.conf").read_text());print("PROFILE",d["ServerURL"],d["Admins"],d["typeSettings"])
+          for p in pathlib.Path("/proc").glob("[0-9]*/cmdline"):
+           try:
+            cmd=p.read_bytes().replace(bytes([0]),b" ").decode()
+            if cmd.startswith("/sbin/dhclient") or cmd.startswith("/usr/sbin/dhclient"):print("CLIENT",p.parent.name,cmd)
+           except (FileNotFoundError,PermissionError):pass
           '"'"''
