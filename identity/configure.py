@@ -44,6 +44,7 @@ try:
         state.update(name=name,peer=peer,sid=sid,certificate=bundle[name+'_crt'],private_key=bundle[name+'_key'])
         put(host,ct,'/root/identity/bootstrap.json',json.dumps(state))
         put(host,ct,'/root/identity/guest_configure.py',pathlib.Path('identity/guest_configure.py').read_bytes(),0o700)
+        put(host,ct,'/usr/local/sbin/identity-password',pathlib.Path('identity/password.py').read_bytes(),0o700)
         put(host,ct,'/root/identity/health.py',pathlib.Path('identity/health.py').read_bytes(),0o700)
         put(host,ct,'/var/www/identity/index.html',pathlib.Path('identity/index.html').read_bytes(),0o644)
         # Run private configuration logs: neither exceptions nor shell tracing expose secrets.
