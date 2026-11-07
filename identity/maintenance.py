@@ -21,6 +21,6 @@ with tempfile.TemporaryDirectory(dir=R) as tmp:
   for source in ['/etc/ldap/slapd-identity.conf','/etc/ldap/identity','/etc/ldap-account-manager','/etc/self-service-password','/etc/nginx/sites-available/identity']:
    t.add(source,arcname=source.lstrip('/'))
  stamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
- run(['openssl','enc','-aes-256-cbc','-pbkdf2','-iter','200000','-salt','-in',str(p/'export.tar.gz'),'-out',str(backup/(stamp+'.tar.gz.enc')),'-pass','file:'+str(p/'backup.key')])
-for old in sorted(backup.glob('*.enc'))[:-7]:old.unlink()
+ run(['gpg','--batch','--yes','--pinentry-mode','loopback','--passphrase-file',str(p/'backup.key'),'--symmetric','--cipher-algo','AES256','--compress-algo','none','--output',str(backup/(stamp+'.tar.gz.gpg')),str(p/'export.tar.gz')])
+for old in sorted(backup.glob('*.gpg'))[:-7]:old.unlink()
 print('Identity certificate checked; encrypted export created.')
