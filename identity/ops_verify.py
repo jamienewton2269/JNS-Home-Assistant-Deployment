@@ -12,7 +12,9 @@ def upload(host,ct,target,source):
  code='import pathlib,base64;p=pathlib.Path('+repr(target)+');p.write_bytes(base64.b64decode('+repr(base64.b64encode(source).decode())+'));p.chmod(0o700)'
  py(host,ct,code)
 try:
+ backup_key=remote('nodea.home.arpa',['python3','-c',"import pathlib,json;print(json.loads(pathlib.Path('/root/jns-identity/bootstrap.json').read_text())['backup_key'])"],True).strip()
  for host,ct,name in [('nodea.home.arpa',251,'auth-a'),('nodeb.home.arpa',252,'auth-b')]:
+  py(host,ct,"import pathlib,json;p=pathlib.Path('/root/identity/bootstrap.json');d=json.loads(p.read_text());d['backup_key']="+repr(backup_key)+";p.write_text(json.dumps(d));p.chmod(0o600)")
   upload(host,ct,'/root/identity/maintenance.py',pathlib.Path('identity/maintenance.py').read_bytes())
   py(host,ct,pathlib.Path('identity/verify_backup.py').read_text())
   remote(host,['/usr/local/sbin/identity-backup',str(ct),name])
