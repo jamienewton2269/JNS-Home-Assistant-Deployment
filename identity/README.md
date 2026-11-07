@@ -125,7 +125,7 @@ The front page reads aggregate /health.json, refreshed every 30 seconds by a
 short-lived local process. It checks verified TLS binds to both directories and
 compares contextCSN vectors. No account details or credentials are published.
 
-Daily maintenance creates AES-256-CBC/PBKDF2 encrypted LDAP/config exports under
+Daily maintenance creates GnuPG AES-256 encrypted LDAP/config exports under
 /root/identity/backups, retaining seven. The encryption key stays in protected
 bootstrap state and must be preserved separately for disaster recovery.
 An off-host copy and a restore drill must be verified before production cutover.
