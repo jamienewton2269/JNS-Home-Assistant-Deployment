@@ -17,3 +17,5 @@ jobs:
         with:
           ref: main
       - run: python3 identity/ops_verify.py
+
+# Operational revision 2: propagate protected encryption key.
