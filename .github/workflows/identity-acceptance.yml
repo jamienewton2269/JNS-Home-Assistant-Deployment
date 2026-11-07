@@ -19,3 +19,5 @@ jobs:
       - run: python3 identity/verify.py
 
 # Acceptance revision 2: LDAP subtree lookup.
+
+# Acceptance revision 3: exercise configured upstream PHP applications.
