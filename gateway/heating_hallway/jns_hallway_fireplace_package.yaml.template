@@ -1,0 +1,115 @@
+# JNS HA-General Hallway Authority + Fireplace Heat Guard
+# RELEASE CANDIDATE ONLY — unresolved placeholders MUST be replaced by a
+# private VM905 device/registry resolver before any Home Assistant load.
+# Not a replacement for Honeywell's internal thermostat sensor.
+input_boolean:
+  jns_fireplace_override_enabled:
+    name: Enable fireplace heating override
+    icon: mdi:fireplace
+
+template:
+  - sensor:
+      - name: JNS Hallway House Temperature
+        unique_id: jns_hallway_house_temperature_v1
+        icon: mdi:home-thermometer
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "°C"
+        availability: >-
+          {% set e = '__HALLWAY_TEMP_ENTITY__' %}
+          {% set obj = states[e] %}
+          {{ obj is not none and is_number(obj.state)
+             and -10 < obj.state | float < 45
+             and 0 <= as_timestamp(now()) - as_timestamp(obj.last_reported | default(obj.last_updated), 0) <= 1800 }}
+        state: "{{ states('__HALLWAY_TEMP_ENTITY__') | float }}"
+        attributes:
+          source_entity: "__HALLWAY_TEMP_ENTITY__"
+          source_epoch: hallway-precision-v1
+          authority: hallway
+      - name: JNS Fireplace Temperature
+        unique_id: jns_fireplace_temperature_v1
+        icon: mdi:fireplace
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "°C"
+        availability: >-
+          {% set e = '__FIREPLACE_TEMP_ENTITY__' %}
+          {% set obj = states[e] %}
+          {{ obj is not none and is_number(obj.state)
+             and 0 <= obj.state | float <= 45
+             and 0 <= as_timestamp(now()) - as_timestamp(obj.last_reported | default(obj.last_updated), 0) <= 1800 }}
+        state: "{{ states('__FIREPLACE_TEMP_ENTITY__') | float }}"
+        attributes:
+          source_entity: "__FIREPLACE_TEMP_ENTITY__"
+          placement: fireplace-livingroom
+      - name: JNS Hallway Thermal Forecast 60m
+        unique_id: jns_hallway_thermal_forecast_60m_v1
+        icon: mdi:chart-line
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "°C"
+        availability: >-
+          {{ is_number(states('__NATIVE_HALLWAY_FORECAST_ENTITY__'))
+             and state_attr('__NATIVE_HALLWAY_FORECAST_ENTITY__','validated') == true
+             and state_attr('__NATIVE_HALLWAY_FORECAST_ENTITY__','source_epoch') == 'hallway-precision-v1'
+             and state_attr('__NATIVE_HALLWAY_FORECAST_ENTITY__','weather_forecast_fresh') == true }}
+        state: "{{ states('__NATIVE_HALLWAY_FORECAST_ENTITY__') | float }}"
+        attributes:
+          source_epoch: hallway-precision-v1
+          validated: >-
+            {{ state_attr('__NATIVE_HALLWAY_FORECAST_ENTITY__','validated') == true }}
+          weather_forecast_fresh: >-
+            {{ state_attr('__NATIVE_HALLWAY_FORECAST_ENTITY__','weather_forecast_fresh') == true }}
+      - name: JNS Hallway Thermal Learning
+        unique_id: jns_hallway_thermal_learning_v1
+        icon: mdi:chart-bell-curve-cumulative
+        state: "{{ states('__NATIVE_HALLWAY_LEARNING_ENTITY__') }}"
+        attributes:
+          ready: >-
+            {{ state_attr('__NATIVE_HALLWAY_LEARNING_ENTITY__','ready') == true }}
+          source_epoch: hallway-precision-v1
+          loss_per_hour: >-
+            {{ state_attr('__NATIVE_HALLWAY_LEARNING_ENTITY__','loss_per_hour') | float(0) }}
+          heat_gain_c_per_hour: >-
+            {{ state_attr('__NATIVE_HALLWAY_LEARNING_ENTITY__','heat_gain_c_per_hour') | float(0) }}
+          drift_c_per_hour: >-
+            {{ state_attr('__NATIVE_HALLWAY_LEARNING_ENTITY__','drift_c_per_hour') | float(0) }}
+      - name: JNS Honeywell Target Temperature
+        unique_id: jns_honeywell_target_temperature_v1
+        icon: mdi:thermostat
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "°C"
+        availability: >-
+          {{ is_number(state_attr('climate.thermostat_thermostat', 'temperature')) }}
+        state: >-
+          {{ state_attr('climate.thermostat_thermostat', 'temperature') | float }}
+  - binary_sensor:
+      - name: JNS Fireplace Heat Detected
+        unique_id: jns_fireplace_heat_detected_v1
+        icon: mdi:fire
+        delay_on: "00:15:00"
+        delay_off: "00:30:00"
+        state: >-
+          {% set fire = states('sensor.jns_fireplace_temperature') | float(none) %}
+          {% set hall = states('sensor.jns_hallway_house_temperature') | float(none) %}
+          {{ fire is not none and hall is not none and fire >= 23 and fire - hall >= 2.0 }}
+      - name: JNS Fireplace Override Safe
+        unique_id: jns_fireplace_override_safe_v1
+        icon: mdi:shield-check
+        state: >-
+          {% set hall = states('sensor.jns_hallway_house_temperature') | float(none) %}
+          {% set future_entity = 'sensor.jns_hallway_thermal_forecast_60m' %}
+          {% set future = states(future_entity) | float(none) %}
+          {% set fire = states('sensor.jns_fireplace_temperature') | float(none) %}
+          {% set valid = state_attr(future_entity,'validated') == true %}
+          {% set source_correct = state_attr(future_entity,'source_epoch') == 'hallway-precision-v1' %}
+          {% set weather_valid = state_attr(future_entity,'weather_forecast_fresh') == true %}
+          {{ is_state('input_boolean.jns_fireplace_override_enabled','on')
+             and is_state('binary_sensor.jns_fireplace_heat_detected','on')
+             and is_state('sensor.jns_heating_verified_alarm_state','disarmed')
+             and not is_state('input_boolean.jns_heating_automatic_override','on')
+             and hall is not none and fire is not none
+             and hall >= 19 and fire >= 23 and fire - hall >= 2.0
+             and future is not none and future >= 18.5
+             and valid and source_correct and weather_valid }}
