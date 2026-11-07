@@ -24,3 +24,5 @@ jobs:
             host=${spec%:*}; ct=${spec#*:}
             ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@$host "pct exec $ct -- bash -c 'systemctl is-active slapd nginx; dpkg-query -W slapd ldap-account-manager self-service-password; test ! -f /root/identity/install.log || tail -12 /root/identity/install.log; ls /usr/share/self-service-password; ls /usr/share/ldap-account-manager; test ! -f /root/identity/configure.log || tail -15 /root/identity/configure.log'" || true
           done
+
+# Configuration revision 3: packaged LAM JSON and Smarty 4.
