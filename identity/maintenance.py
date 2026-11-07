@@ -16,7 +16,7 @@ backup=R/'backups';backup.mkdir(mode=0o700,exist_ok=True)
 with tempfile.TemporaryDirectory(dir=R) as tmp:
  p=pathlib.Path(tmp);(p/'backup.key').write_text(D['backup_key'])
  with (p/'directory.ldif').open('wb') as f:subprocess.run(['slapcat','-f','/etc/ldap/slapd-identity.conf'],stdout=f,stderr=subprocess.DEVNULL,check=True)
- with tarfile.open(p/'export.tar.gz','w:gz') as t:
+ with tarfile.open(p/'export.tar.gz','w:gz',dereference=True) as t:
   t.add(p/'directory.ldif',arcname='directory.ldif')
   for source in ['/etc/ldap/slapd-identity.conf','/etc/ldap/identity','/var/lib/ldap-account-manager/config','/etc/self-service-password','/etc/nginx/sites-available/identity','/root/identity/bootstrap.json']:
    t.add(source,arcname=source.lstrip('/'))
