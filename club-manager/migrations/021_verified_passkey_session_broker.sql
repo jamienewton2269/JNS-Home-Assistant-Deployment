@@ -23,8 +23,8 @@ BEGIN
     USING ERRCODE='42501'; END IF;
  INSERT INTO club.officer_mfa_sessions(
    account_id,method,verified_at,expires_at)
- VALUES(p_account,'webauthn',clock_timestamp(),
-        clock_timestamp()+interval '15 minutes')
+ VALUES(p_account,'webauthn',statement_timestamp(),
+        statement_timestamp()+interval '15 minutes')
  RETURNING session_id INTO v_mfa;
  v_api:=club.issue_officer_api_session(p_account,v_mfa,p_bearer_sha256);
  RETURN v_api;
