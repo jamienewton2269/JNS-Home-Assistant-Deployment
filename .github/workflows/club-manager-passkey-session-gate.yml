@@ -1,0 +1,90 @@
+name: Club Manager - verified passkey session gate
+on:
+  push:
+    paths:
+      - club-manager/migrations/021_verified_passkey_session_broker.sql
+      - .github/workflows/club-manager-passkey-session-gate.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Deploy trusted verifier session broker and rollback-only checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat > /tmp/club-021.sql' < club-manager/migrations/021_verified_passkey_session_broker.sql
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev
+          pct push 101 /tmp/club-021.sql /tmp/club-021.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager -f /tmp/club-021.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager <<'SQL'
+          BEGIN;
+          DO $$
+          DECLARE officer uuid:=gen_random_uuid();
+                  other uuid:=gen_random_uuid();
+                  key_id bytea:=convert_to('synthetic-passkey-credential-id-001','UTF8');
+                  token text:='synthetic-never-issued-in-browser-passkey-token-000001';
+                  tok_hash bytea;
+                  session uuid;
+          BEGIN
+           tok_hash:=public.digest(convert_to(token,'UTF8'),'sha256');
+           INSERT INTO club.committee_accounts(id,display_name,email,created_by,account_state) VALUES
+            (officer,'Synthetic Session Officer','session-officer@example.invalid','test','active'),
+            (other,'Synthetic Session Other','session-other@example.invalid','test','active');
+           BEGIN
+             PERFORM club.complete_verified_webauthn_login(officer,key_id,tok_hash);
+             RAISE EXCEPTION 'No credential accepted';
+           EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+           INSERT INTO club.officer_webauthn_credentials
+             (credential_id,account_id,public_key,signature_counter)
+           VALUES(key_id,officer,convert_to(repeat('synthetic-public-key-',3),'UTF8'),1);
+           BEGIN
+             PERFORM club.complete_verified_webauthn_login(other,key_id,tok_hash);
+             RAISE EXCEPTION 'Wrong account accepted';
+           EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+           session:=club.complete_verified_webauthn_login(officer,key_id,tok_hash);
+           IF session IS NULL THEN RAISE EXCEPTION 'No session created'; END IF;
+           INSERT INTO club.committee_permission_grants(account_id,permission_code,approved_by)
+            VALUES(officer,'members_view','synthetic');
+           IF NOT club.officer_session_authorized(token,'members_view') THEN
+             RAISE EXCEPTION 'Issued token cannot access scoped read'; END IF;
+           IF club.officer_session_authorized(token,'accounts_grant') THEN
+             RAISE EXCEPTION 'Incorrect privilege granted'; END IF;
+           IF NOT club.revoke_officer_api_session(officer,tok_hash) THEN
+             RAISE EXCEPTION 'Session logout revocation rejected'; END IF;
+           IF club.officer_session_authorized(token,'members_view') THEN
+             RAISE EXCEPTION 'Revoked bearer still valid'; END IF;
+           UPDATE club.officer_webauthn_credentials SET revoked_at=clock_timestamp() WHERE credential_id=key_id;
+           BEGIN
+             PERFORM club.complete_verified_webauthn_login(officer,key_id,
+               public.digest('different synthetic token','sha256'));
+             RAISE EXCEPTION 'Revoked credential accepted';
+           EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+           RAISE NOTICE 'PASS: account/credential binding, scoped session, logout and revoked key';
+          END $$;
+          ROLLBACK;
+          DO $$ BEGIN
+           IF has_function_privilege('clubmgr','club.complete_verified_webauthn_login(uuid,bytea,bytea)','EXECUTE')
+              OR has_function_privilege('club_api_service','club.complete_verified_webauthn_login(uuid,bytea,bytea)','EXECUTE')
+              OR NOT has_function_privilege('club_authn_service','club.complete_verified_webauthn_login(uuid,bytea,bytea)','EXECUTE')
+             THEN RAISE EXCEPTION 'Session service role boundary unsafe'; END IF;
+          END $$;
+          SQL
+          pct exec 101 -- curl -fsS --max-time 5 http://127.0.0.1:8765/healthz
+          pct exec 101 -- rm -f /tmp/club-021.sql
+          rm -f /tmp/club-021.sql
+          echo 'PASS: isolated WebAuthn-to-session broker; web login still disabled'
+          REMOTE
