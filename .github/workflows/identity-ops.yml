@@ -19,3 +19,5 @@ jobs:
       - run: python3 identity/ops_verify.py
 
 # Operational revision 2: propagate protected encryption key.
+
+# Operational revision 3: restore portable configuration archive.
