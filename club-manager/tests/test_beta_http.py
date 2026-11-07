@@ -94,3 +94,13 @@ class Tests(TestCase):
         status,headers,_=self.request('POST','/auth/webauthn/complete',body,h)
         self.assertEqual(status,403)
         self.assertNotIn('Set-Cookie',headers)
+
+    def test_authentication_rate_limit(self):
+        import json
+        officer=str(uuid4())
+        body=json.dumps({'officer_id':officer})
+        headers={'Content-Type':'application/json',
+                 'Origin':'https://club-beta.example.invalid'}
+        for _ in range(8):
+            self.assertEqual(self.request('POST','/auth/webauthn/begin',body,headers)[0],200)
+        self.assertEqual(self.request('POST','/auth/webauthn/begin',body,headers)[0],429)
