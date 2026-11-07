@@ -30,7 +30,9 @@ if not state.exists():
   (r/'ext').write_text('subjectAltName=DNS:'+name+'.home.arpa,DNS:'+name+'\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth\n')
   run(['openssl','x509','-req','-in',str(r/(name+'.csr')),'-CA',str(r/'ca.crt'),'-CAkey',str(r/'ca.key'),'-CAcreateserial','-out',str(r/(name+'.crt')),'-days','365','-extfile',str(r/'ext')])
   d[name+'_key']=(r/(name+'.key')).read_text();d[name+'_crt']=(r/(name+'.crt')).read_text()
+ d['ca_key']=(r/'ca.key').read_text();d['backup_key']=secrets.token_hex(32)
  state.write_text(json.dumps(d));state.chmod(0o600)
+d=json.loads(state.read_text());d.setdefault('ca_key',(r/'ca.key').read_text());d.setdefault('backup_key',secrets.token_hex(32));state.write_text(json.dumps(d));state.chmod(0o600)
 print(state.read_text())
 '''
 try:
@@ -41,10 +43,11 @@ try:
     for host,ct,name,sid in NODES:
         peer='auth-b' if sid==1 else 'auth-a'
         state={k:v for k,v in bundle.items() if not k.endswith('_key') and not k.endswith('_crt')}
-        state.update(name=name,peer=peer,sid=sid,certificate=bundle[name+'_crt'],private_key=bundle[name+'_key'])
+        state.update(name=name,peer=peer,sid=sid,certificate=bundle[name+'_crt'],private_key=bundle[name+'_key'],ca_private_key=bundle['ca_key'])
         put(host,ct,'/root/identity/bootstrap.json',json.dumps(state))
         put(host,ct,'/root/identity/guest_configure.py',pathlib.Path('identity/guest_configure.py').read_bytes(),0o700)
         put(host,ct,'/usr/local/sbin/identity-password',pathlib.Path('identity/password.py').read_bytes(),0o700)
+        put(host,ct,'/root/identity/maintenance.py',pathlib.Path('identity/maintenance.py').read_bytes(),0o700)
         put(host,ct,'/root/identity/health.py',pathlib.Path('identity/health.py').read_bytes(),0o700)
         put(host,ct,'/var/www/identity/index.html',pathlib.Path('identity/index.html').read_bytes(),0o644)
         # Run private configuration logs: neither exceptions nor shell tracing expose secrets.
