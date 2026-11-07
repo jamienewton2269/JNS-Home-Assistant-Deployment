@@ -43,18 +43,21 @@ jobs:
           install -d -m 0755 -o root -g root /opt/jns-club-beta
           tar -xzf /tmp/club-beta-stage.tgz -C /opt/jns-club-beta
           chown -R root:root /opt/jns-club-beta
-          if [ ! -x /opt/jns-club-beta/venv/bin/python ]; then
+          if [ ! -x /opt/jns-club-beta/venv/bin/python ] || ! /opt/jns-club-beta/venv/bin/python -m pip --version >/dev/null 2>&1; then
+            apt-get update -qq
+            apt-get install -y --no-install-recommends python3-venv
+            rm -rf /opt/jns-club-beta/venv
             python3 -m venv --system-site-packages /opt/jns-club-beta/venv
           fi
           /opt/jns-club-beta/venv/bin/python -m pip install --disable-pip-version-check --quiet 'webauthn==3.0.1'
           /opt/jns-club-beta/venv/bin/python -m py_compile /opt/jns-club-beta/beta/server.py
           runuser -u clubbeta -- psql -XAt -v ON_ERROR_STOP=1 -d club_manager -c "SELECT CASE WHEN has_function_privilege(current_user,'club.api_members_for_officer(text)','EXECUTE') AND has_function_privilege(current_user,'club.start_webauthn_challenge(uuid,text,bytea)','EXECUTE') AND NOT has_table_privilege(current_user,'club.officer_api_sessions','SELECT') THEN 'BETA_ROLE_OK' ELSE 'BETA_ROLE_BAD' END" | grep -qx BETA_ROLE_OK
-          install -d -m 0750 -o root -g clubbeta /etc/jns-club-manager
-          if [ ! -f /etc/jns-club-manager/beta.env ]; then
-            printf 'CLUB_BETA_ORIGIN=\n' > /etc/jns-club-manager/beta.env
+          install -d -m 0750 -o root -g clubbeta /etc/jns-club-beta
+          if [ ! -f /etc/jns-club-beta/beta.env ]; then
+            printf 'CLUB_BETA_ORIGIN=\n' > /etc/jns-club-beta/beta.env
           fi
-          chown root:clubbeta /etc/jns-club-manager/beta.env
-          chmod 0640 /etc/jns-club-manager/beta.env
+          chown root:clubbeta /etc/jns-club-beta/beta.env
+          chmod 0640 /etc/jns-club-beta/beta.env
           cat > /etc/systemd/system/jns-club-manager-beta.service <<'UNIT'
           [Unit]
           Description=Private Club Manager WebAuthn beta (gated)
@@ -63,7 +66,7 @@ jobs:
           [Service]
           User=clubbeta
           Group=clubbeta
-          EnvironmentFile=/etc/jns-club-manager/beta.env
+          EnvironmentFile=/etc/jns-club-beta/beta.env
           WorkingDirectory=/opt/jns-club-beta/beta
           ExecStart=/opt/jns-club-beta/venv/bin/python /opt/jns-club-beta/beta/server.py
           Restart=on-failure
