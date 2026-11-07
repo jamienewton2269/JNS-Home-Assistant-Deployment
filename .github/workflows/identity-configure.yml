@@ -1,0 +1,24 @@
+name: Identity directory configure
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/identity-configure.yml']
+permissions:
+  contents: read
+concurrency:
+  group: identity-deploy
+  cancel-in-progress: false
+jobs:
+  configure:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 identity/configure.py
+      - name: Check public application paths and private logs
+        if: always()
+        run: |
+          for spec in nodea.home.arpa:251 nodeb.home.arpa:252; do
+            host=${spec%:*}; ct=${spec#*:}
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@$host "pct exec $ct -- bash -c 'systemctl is-active slapd nginx; dpkg-query -W slapd ldap-account-manager self-service-password; ls /usr/share/self-service-password; ls /usr/share/ldap-account-manager; test ! -f /root/identity/configure.log || tail -15 /root/identity/configure.log'" || true
+          done
