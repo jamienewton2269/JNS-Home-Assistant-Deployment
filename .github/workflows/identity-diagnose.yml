@@ -13,19 +13,9 @@ jobs:
       - name: Read redacted errors and upstream form handling
         run: |
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'pct exec 251 -- python3 -c '"'"'import pathlib,json,subprocess
-          D=json.loads(pathlib.Path("/root/identity/bootstrap.json").read_text())
-          def clean(s):
-           for v in D.values():
-            if isinstance(v,str) and len(v)>5:s=s.replace(v,"[REDACTED]")
-           return s
-          code='"'"'"'"'"'"'"'"'register_shutdown_function(function(){echo "SHUTDOWN:".json_encode(error_get_last());}); chdir("/usr/share/self-service-password/htdocs"); $_SERVER["SCRIPT_NAME"]="/password/index.php";$_SERVER["HTTP_HOST"]="auth-a.home.arpa";include "index.php";'"'"'"'"'"'"'"'"'
-          r=subprocess.run(["runuser","-u","www-data","--","php","-r",code],capture_output=True,text=True);print("PHP",r.returncode,clean(r.stdout+r.stderr)[-6000:])
-          p=pathlib.Path("/var/lib/ldap-account-manager/config/lam.conf")
-          print("LAM BYTES",p.stat().st_size)
-          try:
-           data=json.loads(p.read_text());print("LAM JSON KEYS",list(data));print("LAM SELECTED",{k:v for k,v in data.items() if k in ["ServerURL","Admins","treesuffix","types","modules","serverURL","admins"]})
-          except ValueError:
-           print("LAM TEXT",clean("\n".join(line for line in p.read_text().splitlines()[:50] if "pass" not in line.lower())))
-          print("NETWORK FILES",list(pathlib.Path("/etc/systemd").rglob("*network*")))
-          print("PHP LOG SETTINGS",subprocess.check_output(["php","-i"]).decode().split("error_log =>")[1][:200])
+          p=pathlib.Path("/var/lib/ldap-account-manager/config/lam.conf");d=json.loads(p.read_text())
+          print("LAM TYPES",json.dumps(d["typeSettings"]));print("LAM ACTIVE",d["activeTypes"])
+          print("SMARTY LOCATIONS",subprocess.check_output(["dpkg","-L","smarty4"]).decode())
+          for line in pathlib.Path("/etc/self-service-password/config.inc.php").read_text().splitlines():
+           if "SMARTY" in line:print("SSP SMARTY",line)
           '"'"''
