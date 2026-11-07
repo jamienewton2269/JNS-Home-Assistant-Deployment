@@ -1,0 +1,19 @@
+name: Identity operational acceptance
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/identity-ops.yml']
+permissions:
+  contents: read
+concurrency:
+  group: identity-deploy
+  cancel-in-progress: false
+jobs:
+  operational:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - run: python3 identity/ops_verify.py
