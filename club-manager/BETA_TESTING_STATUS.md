@@ -40,3 +40,20 @@ No new services, identity platforms, brokers or databases.
 Independent audit, UK GDPR work, operational backup restore, Joomla sync safety, verified payment adapters/reconciliation, formal independent security assessment and club authorisation remain mandatory.
 
 **Never introduce real member or committee personal information until production-release approval.**
+
+
+## 2026-11-07 private beta staging update
+
+**Status: CT101 service staged and tested internally; private browser beta NOT YET RELEASED to testers.**
+
+- Existing DNS already resolves `club-manager-dev.home.arpa`; no DNS/DHCP changes were made.
+- `/opt/jns-club-beta` contains the same existing Python/PostgreSQL codebase with pinned upstream `webauthn==3.0.1`.
+- `clubbeta` has a separate peer-authenticated local PostgreSQL login and only the isolated authn/API function grants. Legacy `clubmgr` was not elevated.
+- Private `jns-club-manager-beta.service` is **disabled**, binding to `127.0.0.1:8766` only during internal tests. The existing `127.0.0.1:8765` service remains healthy.
+- HTTP login/options/completion, secure cookie, logout, read-only screen routes and responsive cards/tables are staged. All sensitive content is permission checked in PostgreSQL on each request.
+- CI tested HTTP host/origin checks, anonymous rejection, denied mutation methods, and per-officer passkey rate limiting. Workflow evidence: https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42375467184
+- Full CT101 private staging deployment and HTTP health tests: https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42375452242
+- **Release blockers:** approved private HTTPS listener/certificate trust for beta browsers, verified two-person first-officer commissioning (the current recovery-only enrolment gate cannot bootstrap the first two officers), real physical/virtual authenticator browser test, active session evidence, and formal independent beta acceptance. Until then, the service remains disabled.
+- No public endpoint, live membership data, real committee identities, payment processor, Joomla integration, DNS/DHCP modification or SSH tunnel was introduced.
+
+Activation must be a separate authorised change, with a private TLS path and a supervised enrolment plan. Do not enable the systemd unit merely because the staging smoke tests pass.
