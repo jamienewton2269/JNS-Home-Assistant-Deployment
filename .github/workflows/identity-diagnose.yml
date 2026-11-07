@@ -12,17 +12,16 @@ jobs:
     steps:
       - name: Read redacted errors and upstream form handling
         run: |
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'pct exec 251 -- python3 -c '"'"'import urllib.request,urllib.error,ssl,pathlib,json,subprocess,re
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'pct exec 251 -- python3 -c '"'"'import pathlib,subprocess,json
           D=json.loads(pathlib.Path("/root/identity/bootstrap.json").read_text())
-          def redact(s):
+          def clean(s):
            for v in D.values():
             if isinstance(v,str) and len(v)>5:s=s.replace(v,"[REDACTED]")
            return s
-          ctx=ssl.create_default_context(cafile="/etc/ldap/identity/ca.crt")
-          for path in ["/password/?action=change","/admin/templates/login.php"]:
-           try:r=urllib.request.urlopen("https://auth-a.home.arpa"+path,context=ctx);body=r.read().decode()
-           except urllib.error.HTTPError as e:body=e.read().decode()
-           print("HTTPBODY",path,redact(re.sub("<[^>]+>"," ",body))[-6000:])
-          r=subprocess.run(["php","-l","/etc/self-service-password/config.inc.local.php"],capture_output=True,text=True);print(redact(r.stdout+r.stderr))
-          r=subprocess.run(["journalctl","-n","30","--no-pager"],capture_output=True,text=True);print(redact(r.stdout))
+          for p in ["/usr/share/ldap-account-manager/config","/var/lib/ldap-account-manager/config","/etc/ldap-account-manager/lam.conf","/usr/share/self-service-password/htdocs/index.php"]:
+           f=pathlib.Path(p);print("PATH",p,"RESOLVES",str(f.resolve()),"DIR",f.is_dir())
+           if f.is_dir():print("FILES",[p.name for p in f.iterdir()])
+           if p.endswith("index.php"):print(f.read_text()[:14000])
+          r=subprocess.run(["runuser","-u","www-data","--","php","-d","display_errors=1","-d","log_errors=0","-r",'"'"'"'"'"'"'"'"'$_SERVER["SCRIPT_NAME"]="/password/index.php"; $_SERVER["HTTP_HOST"]="auth-a.home.arpa"; $_GET["action"]="change"; include "/usr/share/self-service-password/htdocs/index.php";'"'"'"'"'"'"'"'"'],capture_output=True,text=True);print("PHP_CLI",r.returncode,clean(r.stdout+r.stderr)[-6000:])
+          print("LOGFILES",subprocess.check_output(["find","/var/log","-maxdepth","2","-type","f"]).decode())
           '"'"''
