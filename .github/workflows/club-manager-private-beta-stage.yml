@@ -1,0 +1,117 @@
+name: Club Manager - stage private database-connected beta
+on:
+  push:
+    paths:
+      - club-manager/migrations/022_local_beta_service_role.sql
+      - club-manager/beta/**
+      - .github/workflows/club-manager-private-beta-stage.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  stage:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Stage on CT101, verify safety, leave service disabled
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          python3 -m py_compile club-manager/beta/server.py club-manager/beta/officer_controller.py club-manager/beta/read_api.py club-manager/auth/webauthn_flow.py club-manager/auth/pg_webauthn_store.py
+          tar -czf "$RUNNER_TEMP/club-beta-stage.tgz" -C club-manager beta auth
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat > /tmp/club-beta-stage.tgz' < "$RUNNER_TEMP/club-beta-stage.tgz"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat > /tmp/club-022.sql' < club-manager/migrations/022_local_beta_service_role.sql
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev
+          pct push 101 /tmp/club-022.sql /tmp/club-022.sql
+          pct push 101 /tmp/club-beta-stage.tgz /tmp/club-beta-stage.tgz
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager -f /tmp/club-022.sql
+          pct exec 101 -- bash -se <<'GUEST'
+          set -euo pipefail
+          if ! id clubbeta >/dev/null 2>&1; then
+            useradd --system --no-create-home --shell /usr/sbin/nologin clubbeta
+          fi
+          install -d -m 0755 -o root -g root /opt/jns-club-beta
+          tar -xzf /tmp/club-beta-stage.tgz -C /opt/jns-club-beta
+          chown -R root:root /opt/jns-club-beta
+          if [ ! -x /opt/jns-club-beta/venv/bin/python ]; then
+            python3 -m venv --system-site-packages /opt/jns-club-beta/venv
+          fi
+          /opt/jns-club-beta/venv/bin/python -m pip install --disable-pip-version-check --quiet 'webauthn==3.0.1'
+          /opt/jns-club-beta/venv/bin/python -m py_compile /opt/jns-club-beta/beta/server.py
+          runuser -u clubbeta -- psql -XAt -v ON_ERROR_STOP=1 -d club_manager -c "SELECT CASE WHEN has_function_privilege(current_user,'club.api_members_for_officer(text)','EXECUTE') AND has_function_privilege(current_user,'club.start_webauthn_challenge(uuid,text,bytea)','EXECUTE') AND NOT has_table_privilege(current_user,'club.officer_api_sessions','SELECT') THEN 'BETA_ROLE_OK' ELSE 'BETA_ROLE_BAD' END" | grep -qx BETA_ROLE_OK
+          install -d -m 0750 -o root -g clubbeta /etc/jns-club-manager
+          if [ ! -f /etc/jns-club-manager/beta.env ]; then
+            printf 'CLUB_BETA_ORIGIN=\n' > /etc/jns-club-manager/beta.env
+          fi
+          chown root:clubbeta /etc/jns-club-manager/beta.env
+          chmod 0640 /etc/jns-club-manager/beta.env
+          cat > /etc/systemd/system/jns-club-manager-beta.service <<'UNIT'
+          [Unit]
+          Description=Private Club Manager WebAuthn beta (gated)
+          After=postgresql.service
+          Requires=postgresql.service
+          [Service]
+          User=clubbeta
+          Group=clubbeta
+          EnvironmentFile=/etc/jns-club-manager/beta.env
+          WorkingDirectory=/opt/jns-club-beta/beta
+          ExecStart=/opt/jns-club-beta/venv/bin/python /opt/jns-club-beta/beta/server.py
+          Restart=on-failure
+          RestartSec=5
+          NoNewPrivileges=true
+          PrivateTmp=true
+          ProtectSystem=strict
+          ProtectHome=true
+          RestrictAddressFamilies=AF_UNIX AF_INET
+          [Install]
+          WantedBy=multi-user.target
+          UNIT
+          systemctl daemon-reload
+          systemctl disable --now jns-club-manager-beta.service || true
+          python3 - <<'PY'
+          import http.client,os,subprocess,time
+          env=dict(os.environ,CLUB_BETA_ORIGIN='https://club-beta.home.arpa')
+          p=subprocess.Popen(['runuser','-u','clubbeta','--','/opt/jns-club-beta/venv/bin/python','/opt/jns-club-beta/beta/server.py'],env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+          try:
+              for _ in range(30):
+                  if p.poll() is not None: raise RuntimeError('Beta process exited unexpectedly')
+                  try:
+                      c=http.client.HTTPConnection('127.0.0.1',8766,timeout=1)
+                      c.request('GET','/healthz')
+                      r=c.getresponse();assert r.status==200; r.read();c.close();break
+                  except OSError: time.sleep(.2)
+              else: raise RuntimeError('Beta HTTP failed to start')
+              def status(path,headers=None):
+                  c=http.client.HTTPConnection('127.0.0.1',8766,timeout=3)
+                  c.request('GET',path,headers=dict({'Host':'club-beta.home.arpa'},**(headers or {})))
+                  r=c.getresponse();value=r.status;r.read();c.close();return value
+              assert status('/login')==200
+              assert status('/api/v1/members')==401
+              assert status('/api/v1/security')==401
+              assert status('/beta')==303
+              assert status('/login',{'Host':'unexpected.invalid'})==421
+              print('PASS: real CT101 localhost beta service, no anonymous database access')
+          finally:
+              p.terminate()
+              try: p.wait(timeout=4)
+              except subprocess.TimeoutExpired: p.kill();p.wait()
+          PY
+          test "$(systemctl is-enabled jns-club-manager-beta.service)" = disabled
+          ! ss -lnt | grep -q '127.0.0.1:8766'
+          curl -fsS --max-time 5 http://127.0.0.1:8765/healthz
+          rm -f /tmp/club-022.sql /tmp/club-beta-stage.tgz
+          echo 'PASS: private beta staged and disabled; old service unaffected'
+          GUEST
+          rm -f /tmp/club-022.sql /tmp/club-beta-stage.tgz
+          echo 'PASS: staged CT101 beta; no public port or DNS changes'
+          REMOTE
