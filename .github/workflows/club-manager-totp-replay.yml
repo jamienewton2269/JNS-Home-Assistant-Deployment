@@ -1,0 +1,72 @@
+name: Club Manager - atomic TOTP replay protection
+on:
+  push:
+    paths:
+      - club-manager/migrations/016_totp_replay_counter.sql
+      - .github/workflows/club-manager-totp-replay.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Deploy and test atomic TOTP replay lock on CT101
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat >/tmp/club-016.sql' < club-manager/migrations/016_totp_replay_counter.sql
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev
+          pct push 101 /tmp/club-016.sql /tmp/club-016.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager -f /tmp/club-016.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager <<'SQL'
+          BEGIN;
+          DO $$
+          DECLARE a uuid:=gen_random_uuid(); credential uuid:=gen_random_uuid();
+          BEGIN
+           INSERT INTO club.committee_accounts(id,display_name,email,created_by,account_state)
+             VALUES(a,'Synthetic TOTP Verifier','totp-016@example.invalid','synthetic','active');
+           INSERT INTO club.officer_authenticator_registry(id,account_id,factor_type,credential_ref,verified_at)
+             VALUES(credential,a,'totp','synthetic-credential-016',clock_timestamp());
+           IF NOT club.claim_totp_step(a,credential,1234) THEN
+             RAISE EXCEPTION 'First verified step rejected'; END IF;
+           IF club.claim_totp_step(a,credential,1234) THEN
+             RAISE EXCEPTION 'Replay of same step accepted'; END IF;
+           IF club.claim_totp_step(a,credential,1233) THEN
+             RAISE EXCEPTION 'Older step accepted'; END IF;
+           IF NOT club.claim_totp_step(a,credential,1235) THEN
+             RAISE EXCEPTION 'New step rejected'; END IF;
+           UPDATE club.committee_accounts SET account_state='suspended' WHERE id=a;
+           IF club.claim_totp_step(a,credential,1236) THEN
+             RAISE EXCEPTION 'Suspended account accepted'; END IF;
+           UPDATE club.committee_accounts SET account_state='active' WHERE id=a;
+           UPDATE club.officer_authenticator_registry SET revoked_at=clock_timestamp() WHERE id=credential;
+           IF club.claim_totp_step(a,credential,1236) THEN
+             RAISE EXCEPTION 'Revoked authenticator accepted'; END IF;
+           RAISE NOTICE 'PASS: monotonic TOTP steps, account and credential state';
+          END $$;
+          ROLLBACK;
+          DO $$ BEGIN
+            IF has_function_privilege('clubmgr','club.claim_totp_step(uuid,uuid,bigint)','EXECUTE') OR
+               has_table_privilege('clubmgr','club.officer_totp_replay_state','UPDATE') OR
+               has_function_privilege('public','club.claim_totp_step(uuid,uuid,bigint)','EXECUTE')
+             THEN RAISE EXCEPTION 'Untrusted caller has replay state access'; END IF;
+            RAISE NOTICE 'PASS: untrusted caller denied';
+          END $$;
+          SQL
+          pct exec 101 -- curl -fsS http://127.0.0.1:8765/healthz
+          pct exec 101 -- rm -f /tmp/club-016.sql
+          rm -f /tmp/club-016.sql
+          echo 'PASS: CT101 atomic TOTP replay defense deployed and tested'
+          REMOTE
