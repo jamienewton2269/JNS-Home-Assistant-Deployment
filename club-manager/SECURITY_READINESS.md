@@ -23,6 +23,15 @@ Evidence baseline: 2026-11-01.
 - **Evidence:** CT101 migration 015 and synthetic gate run https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/41630552335 (passed).
 - **Additional acceptance tests needed:** genuine WebAuthn challenge/origin/RP validation and signature counters; TOTP secret protection and replay rejection; phishing-resistant MFA where supported; lockout, recovery proofing, onboarding, device-loss drills, role revocation; independent persistent security-event audit; request expiration, concurrent approvals and external DBA access controls.
 
+
+## MFA integration milestone — 2026-11-07 (development)
+- Added isolated standard-library TOTP primitives in `club-manager/auth/club_mfa_core.py`: RFC 6238 SHA-1 six-digit authenticator codes, 30-second periods with one-step skew, constant-time comparisons, replay-step checks, cryptographically random secret generation and opaque session handles.
+- Unit tests include RFC vector, replay rejection, invalid code rejection, time skew and fail-closed privileged session checks. GitHub Actions: https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42365655216
+- Staged the isolated Python module on CT101 under `/opt/jns-club-manager/auth-staging/`; **not connected to running HTTP application**.
+- Migration `016_totp_replay_counter.sql` adds an atomic monotonic counter bound to an active named officer and enrolled/verified, unrevoked TOTP credential. It is callable only by `club_authz_service` NOLOGIN, not by prototype role. Rollback-only synthetic validation passed: https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42365727704
+- **Still blocking:** build and test WebAuthn RP/origin/challenge validation using a maintained library; secure TOTP secret encryption with keys outside PostgreSQL; trusted identity enrolment and MFA verification service; atomic session issuance; CSRF/HTTPS/browser cookies; login throttling and independently audited two-officer account recovery.
+- **Do not conflate cryptographic primitives or a privileged counter function with verified MFA sign-in.** No real officer identities, app login endpoints, or database write permissions have been enabled.
+
 ## Mandatory release gates — all must pass before real data
 1. **Identity and access:** replace one shared Basic Auth secret with individual named accounts, strong MFA for officers, RBAC per operation, secure sessions, revocation, and independent break-glass procedure. Include failed-login throttling.
 2. **Audit independence:** replicate signed, sequenced audit events to independently administered append-only storage outside CT101; anchor and periodically verify digests; privileged-operator tampering must trigger an alert. A DB trigger alone is insufficient.
