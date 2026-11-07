@@ -17,7 +17,7 @@ if __name__=='__main__':
  for host in ['auth-a','auth-b']:
   wait_auth(host,'uid=jamie,'+PEOPLE,D['jamie'])
   c=connect(host,'cn=reader,ou=Services,'+BASE,D['reader'])
-  r=c.search_s(PEOPLE,ldap.SCOPE_SUB,'(uid=jamie)',['userPassword','uid'])
+  r=c.search_s(PEOPLE,ldap.SCOPE_SUBTREE,'(uid=jamie)',['userPassword','uid'])
   check(host+' reader cannot retrieve password hashes','userPassword' not in r[0][1]);c.unbind_s()
   # Reset service must not alter the administrator or its own service credentials.
   c=connect(host,'cn=password-reset,ou=Services,'+BASE,D['reset'])
