@@ -11,7 +11,7 @@ from club_mfa_core import (
 
 class TestMFA(unittest.TestCase):
     def test_secret_has_160_bits(self):
-        self.assertEqual(len(base64.b32decode(new_totp_secret() + "====")), 20)
+        self.assertEqual(len(base64.b32decode(new_totp_secret())), 20)
 
     def test_totp_known_rfc6238_sha1_vector_truncated(self):
         secret = base64.b32encode(b"12345678901234567890").decode()
