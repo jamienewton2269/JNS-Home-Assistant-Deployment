@@ -1,0 +1,26 @@
+name: Club Manager - beta officer controller checks
+on:
+  push:
+    paths:
+      - club-manager/beta/officer_controller.py
+      - club-manager/tests/test_officer_controller.py
+      - .github/workflows/club-manager-beta-officer-controller.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/club-officer-controller"
+          "$RUNNER_TEMP/club-officer-controller/bin/python" -m pip install --disable-pip-version-check --quiet webauthn==3.0.1
+          "$RUNNER_TEMP/club-officer-controller/bin/python" -m py_compile club-manager/beta/officer_controller.py club-manager/tests/test_officer_controller.py
+          "$RUNNER_TEMP/club-officer-controller/bin/python" -m unittest discover -s club-manager/tests -p 'test_officer_controller.py' -v
+          echo 'PASS: isolated controller tests; officer HTTP routes are not enabled'
