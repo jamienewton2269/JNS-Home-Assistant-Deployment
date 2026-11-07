@@ -1,0 +1,86 @@
+name: Club Manager - officer API permission and session gate
+on:
+  push:
+    paths:
+      - club-manager/migrations/017_named_officer_api_session_gate.sql
+      - .github/workflows/club-manager-officer-api-gate.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: club-manager-ct101
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Deploy isolated API database gate and test synthetic sessions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'umask 077; cat > /tmp/club-017.sql' < club-manager/migrations/017_named_officer_api_session_gate.sql
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodea.home.arpa 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(hostname -s)" = nodea
+          test "$(pct config 101 | sed -n "s/^hostname: //p")" = club-manager-dev
+          pct push 101 /tmp/club-017.sql /tmp/club-017.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager -f /tmp/club-017.sql
+          pct exec 101 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager <<'SQL'
+          BEGIN;
+          DO $$
+          DECLARE officer uuid:=gen_random_uuid(); mfa uuid:=gen_random_uuid();
+                  other uuid:=gen_random_uuid();
+                  bearer text:='synthetic-very-long-random-token-for-only-rollback-test-000001';
+                  issued uuid;
+          BEGIN
+           INSERT INTO club.committee_accounts(id,display_name,email,created_by,account_state)
+            VALUES(officer,'Synthetic API Officer','api-officer@example.invalid','synthetic','active'),
+                  (other,'Synthetic API Other','api-other@example.invalid','synthetic','active');
+           INSERT INTO club.committee_permission_grants(account_id,permission_code,approved_by)
+            VALUES(officer,'members_view','synthetic-authoriser');
+           IF club.officer_session_authorized(bearer,'members_view') THEN
+             RAISE EXCEPTION 'Unknown bearer accepted'; END IF;
+           INSERT INTO club.officer_mfa_sessions(session_id,account_id,method,verified_at,expires_at)
+            VALUES(mfa,officer,'webauthn',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '10 minutes');
+           issued:=club.issue_officer_api_session(officer,mfa,public.digest(convert_to(bearer,'UTF8'),'sha256'));
+           IF NOT club.officer_session_authorized(bearer,'members_view') THEN
+             RAISE EXCEPTION 'Granted scope rejected'; END IF;
+           IF club.officer_session_authorized(bearer,'payments_view')
+             OR club.officer_session_authorized('wrong-'||bearer,'members_view') THEN
+             RAISE EXCEPTION 'Unassigned permission or invalid bearer accepted'; END IF;
+           IF club.api_members_for_officer(bearer) IS NULL
+             OR club.api_dashboard_for_officer(bearer) IS NULL THEN
+             RAISE EXCEPTION 'Safe API read failed'; END IF;
+           UPDATE club.committee_accounts SET account_state='suspended' WHERE id=officer;
+           IF club.officer_session_authorized(bearer,'members_view') THEN
+             RAISE EXCEPTION 'Suspended officer retained access'; END IF;
+           UPDATE club.committee_accounts SET account_state='active' WHERE id=officer;
+           UPDATE club.officer_mfa_sessions SET revoked_at=clock_timestamp() WHERE session_id=mfa;
+           IF club.officer_session_authorized(bearer,'members_view') THEN
+             RAISE EXCEPTION 'Revoked MFA retained access'; END IF;
+           UPDATE club.officer_api_sessions SET revoked_at=clock_timestamp() WHERE id=issued;
+           IF club.officer_session_authorized(bearer,'members_view') THEN
+             RAISE EXCEPTION 'Revoked API session retained access'; END IF;
+           RAISE NOTICE 'PASS: bearer/session/permission binding, safe reads, suspension and revocation';
+          END $$;
+          ROLLBACK;
+          DO $$ BEGIN
+           IF has_table_privilege('clubmgr','club.officer_api_sessions','SELECT')
+              OR has_function_privilege('clubmgr','club.api_members_for_officer(text)','EXECUTE')
+              OR has_function_privilege('clubmgr','club.issue_officer_api_session(uuid,uuid,bytea)','EXECUTE')
+              OR has_function_privilege('club_api_service','club.issue_officer_api_session(uuid,uuid,bytea)','EXECUTE')
+              OR NOT has_function_privilege('club_api_service','club.api_members_for_officer(text)','EXECUTE')
+           THEN RAISE EXCEPTION 'Incorrect API role boundary'; END IF;
+           RAISE NOTICE 'PASS: NOLOGIN API role is read-only and cannot mint sessions';
+          END $$;
+          SQL
+          pct exec 101 -- curl -fsS --max-time 5 http://127.0.0.1:8765/healthz
+          pct exec 101 -- rm -f /tmp/club-017.sql
+          rm -f /tmp/club-017.sql
+          echo 'PASS: CT101 isolated officer read API gate; existing HTTP routes remain locked'
+          REMOTE
