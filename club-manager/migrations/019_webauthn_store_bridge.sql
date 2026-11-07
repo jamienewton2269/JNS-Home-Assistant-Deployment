@@ -3,8 +3,13 @@ BEGIN;
 -- Store it for verification, tightly scoped to its officer and 5-minute expiry.
 ALTER TABLE club.officer_webauthn_challenges
  ADD COLUMN IF NOT EXISTS challenge_bytes bytea;
-ALTER TABLE club.officer_webauthn_challenges
- ADD CONSTRAINT challenge_bytes_length CHECK(challenge_bytes IS NULL OR octet_length(challenge_bytes) BETWEEN 32 AND 128);
+DO $ BEGIN
+ IF NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conname='challenge_bytes_length'
+   AND conrelid='club.officer_webauthn_challenges'::regclass) THEN
+  ALTER TABLE club.officer_webauthn_challenges ADD CONSTRAINT challenge_bytes_length
+   CHECK(challenge_bytes IS NULL OR octet_length(challenge_bytes) BETWEEN 32 AND 128);
+ END IF;
+END $;
 
 CREATE OR REPLACE FUNCTION club.start_webauthn_challenge(
  p_account uuid, p_purpose text, p_nonce bytea)
