@@ -1,0 +1,17 @@
+name: Identity directory provision
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/identity-provision.yml']
+permissions:
+  contents: read
+concurrency:
+  group: identity-deploy
+  cancel-in-progress: false
+jobs:
+  provision:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 identity/provision.py
