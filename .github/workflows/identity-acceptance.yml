@@ -1,0 +1,19 @@
+name: Identity acceptance
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/identity-acceptance.yml']
+permissions:
+  contents: read
+concurrency:
+  group: identity-deploy
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - run: python3 identity/verify.py
