@@ -1,0 +1,25 @@
+name: Club Manager - beta read adapter unit tests
+on:
+  push:
+    paths:
+      - club-manager/beta/read_api.py
+      - club-manager/tests/test_beta_read_api.py
+      - .github/workflows/club-manager-beta-read-adapter.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Exercise read-only bridge without database credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile club-manager/beta/read_api.py club-manager/tests/test_beta_read_api.py
+          python3 -m unittest discover -s club-manager/tests -p 'test_beta_read_api.py' -v
+          echo 'PASS: seven scoped read routes; no HTTP listener or login enabled'
