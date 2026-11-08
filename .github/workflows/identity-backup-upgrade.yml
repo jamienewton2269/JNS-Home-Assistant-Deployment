@@ -1,0 +1,42 @@
+name: Identity encrypted-backup completeness
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'identity/maintenance.py'
+      - '.github/workflows/identity-backup-upgrade.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: identity-deploy
+  cancel-in-progress: false
+jobs:
+  verify-and-deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Validate backup script
+        run: python3 -m py_compile identity/maintenance.py
+      - name: Update existing two identity guests and confirm off-host backups
+        shell: bash
+        run: |
+          set -euo pipefail
+          for spec in nodea.home.arpa:251:auth-a nodeb.home.arpa:252:auth-b; do
+            IFS=: read -r host ct name <<< "$spec"
+            remote="/tmp/identity-maintenance-$ct.py"
+            scp -q -o BatchMode=yes -o StrictHostKeyChecking=yes identity/maintenance.py "root@$host:$remote"
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "root@$host"               "pct push $ct $remote /root/identity/maintenance.py && rm -f $remote && pct exec $ct -- python3 -m py_compile /root/identity/maintenance.py && /usr/local/sbin/identity-backup $ct $name"
+            echo "PASS $name: maintained upstream configuration included in encrypted NAS archive"
+          done
+      - name: Verify isolated encrypted backup restoration on both nodes
+        shell: bash
+        run: |
+          set -euo pipefail
+          for spec in nodea.home.arpa:251 nodeb.home.arpa:252; do
+            IFS=: read -r host ct <<< "$spec"
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "root@$host"               "pct exec $ct -- python3 /root/identity/verify_backup.py"
+          done
