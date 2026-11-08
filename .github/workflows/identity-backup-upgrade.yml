@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'identity/maintenance.py'
+      - 'identity/verify_backup.py'
       - '.github/workflows/identity-backup-upgrade.yml'
   workflow_dispatch:
 permissions:
