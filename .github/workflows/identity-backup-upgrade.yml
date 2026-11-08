@@ -38,5 +38,8 @@ jobs:
           set -euo pipefail
           for spec in nodea.home.arpa:251 nodeb.home.arpa:252; do
             IFS=: read -r host ct <<< "$spec"
-            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "root@$host"               "pct exec $ct -- python3 /root/identity/verify_backup.py"
+            remote="/tmp/identity-verify-backup-$ct.py"
+            scp -q -o BatchMode=yes -o StrictHostKeyChecking=yes identity/verify_backup.py "root@$host:$remote"
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "root@$host" \
+              "pct push $ct $remote /root/identity/verify_backup.py && rm -f $remote && pct exec $ct -- python3 /root/identity/verify_backup.py"
           done
