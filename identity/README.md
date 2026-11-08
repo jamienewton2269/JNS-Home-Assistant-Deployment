@@ -131,6 +131,35 @@ bootstrap state and must be preserved separately for disaster recovery.
 A host cron job copies encrypted exports to the existing mounted WD-BACKUP NFS storage. It refuses to write if that mount is unavailable. An off-host copy and a restore drill must be verified before production cutover.
 Replication is not a substitute for backups.
 
+## Commissioning evidence (8 November 2026)
+
+- Directory and policy acceptance: GitHub Actions run 42368949263 (passed).
+- Failover, backup and actual email-token recovery: run 42369193073 (passed).
+- Linux pilot: unprivileged Debian 13 CT253; LDAP user/group NSS resolution,
+  PAM positive/negative login, home-directory creation and isolated one-server
+  client failover passed. Local root access is retained.
+- Fresh Debian 13 recovery drills in disposable CT254: encrypted WD NAS archive
+  decrypted, LDAP MDB restored, local LDAPS started with replication disabled,
+  internal-CA TLS hostname verification and directory-manager bind passed.
+  A further drill rendered the upstream LDAP Account Manager login and Self
+  Service Password pages over verified HTTPS on loopback-only ports; it did not
+  send mail or reset real user passwords.
+- Archive completeness deficiency found and corrected: recovery requires nginx
+  identity-rate.conf, web assets, PHP-FPM pool, LDAP defaults, upstream repository
+  source/key and related systemd service files. Deployment and expanded backup
+  restore validation passed: GitHub Actions run 42476513294.
+- CT254 and its staged recovery material were destroyed after testing.
+
+**Remaining before production migration:** arrange and verify independent,
+offline or separately controlled encrypted custody of the backup decryption
+key and recovery instructions. Do not put bootstrap.json, the key, CA private
+material or recovery tokens into GitHub, chat, ordinary shared folders or
+workflow logs. Recovery using the original protected key was proven; recovery
+of that key after *simultaneous* loss of all existing hosts is not yet proven.
+
+No existing mail, Proxmox, Home Assistant, router, DNS/DHCP or SSH
+authentication has been migrated by this project.
+
 ## Migration sequence
 
 1. Commission both guests and prove web, policy, ACL and replication checks.
