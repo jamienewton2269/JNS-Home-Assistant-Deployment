@@ -18,7 +18,24 @@ with tempfile.TemporaryDirectory(dir=R) as tmp:
  with (p/'directory.ldif').open('wb') as f:subprocess.run(['slapcat','-f','/etc/ldap/slapd-identity.conf'],stdout=f,stderr=subprocess.DEVNULL,check=True)
  with tarfile.open(p/'export.tar.gz','w:gz',dereference=True) as t:
   t.add(p/'directory.ldif',arcname='directory.ldif')
-  for source in ['/etc/ldap/slapd-identity.conf','/etc/ldap/identity','/var/lib/ldap-account-manager/config','/etc/self-service-password','/etc/nginx/sites-available/identity','/root/identity/bootstrap.json']:
+  # Complete operational configuration: not just the directory data.
+  # In particular nginx depends on identity-rate.conf and the site assets.
+  required=[
+   '/etc/ldap/slapd-identity.conf','/etc/ldap/identity','/etc/ldap/ldap.conf',
+   '/etc/default/slapd','/var/lib/ldap-account-manager/config',
+   '/etc/self-service-password','/etc/nginx/sites-available/identity',
+   '/etc/nginx/conf.d/identity-rate.conf','/var/www/identity',
+   '/root/identity/bootstrap.json','/usr/local/sbin/identity-password',
+   '/etc/apt/sources.list.d/ltb-project.sources',
+   '/usr/share/keyrings/ltb-project-debian-keyring.gpg',
+   '/etc/systemd/system/identity-health.service',
+   '/etc/systemd/system/identity-health.timer',
+   '/etc/systemd/system/identity-maintenance.service',
+   '/etc/systemd/system/identity-maintenance.timer']
+  php_pools=list(pathlib.Path('/etc/php').glob('*/fpm/pool.d/www.conf'))
+  if len(php_pools)!=1:raise RuntimeError('Expected exactly one PHP-FPM pool')
+  for source in required+[str(php_pools[0])]:
+   if not pathlib.Path(source).exists():raise FileNotFoundError(source)
    t.add(source,arcname=source.lstrip('/'))
  stamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
  run(['gpg','--batch','--yes','--pinentry-mode','loopback','--passphrase-file',str(p/'backup.key'),'--symmetric','--cipher-algo','AES256','--compress-algo','none','--output',str(backup/(stamp+'.tar.gz.gpg')),str(p/'export.tar.gz')])
