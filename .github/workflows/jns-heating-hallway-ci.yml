@@ -1,0 +1,29 @@
+name: JNS hallway heating and temperature trends offline tests
+on:
+  pull_request:
+    paths:
+      - 'gateway/heating_hallway/**'
+      - 'gateway/heating_presence/**'
+      - '.github/workflows/jns-heating-hallway-ci.yml'
+  workflow_dispatch:
+jobs:
+  safe-offline:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pure parsing dependencies
+        run: python -m pip install PyYAML==6.0.3 Jinja2==3.1.6
+      - name: Validate all Hallway, fireplace, dashboard and schedule tests
+        run: |
+          python -m unittest discover -s gateway/heating_hallway -p 'test_*.py' -v
+          python -m unittest discover -s gateway/heating_presence -p 'test_adaptive_warmup.py' -v
+      - name: Validate optional frontend timeline JavaScript
+        run: node --check gateway/heating_hallway/lovelace/jns-temperature-timeline-card.js
+      - name: Ensure no running remote-control deployment
+        run: |
+          ! grep -R -E '(sudo |ha core restart|qm stop|qm start|climate\.set_hvac_mode)' gateway/heating_hallway --include='*.py' --include='*.js'
