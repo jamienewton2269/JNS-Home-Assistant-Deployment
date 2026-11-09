@@ -15,5 +15,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate graph conversion semantics
         run: python3 -m unittest discover -s gateway/dashboard_graphs -p test_convert_graphs.py
-      - name: Migrate all chart displays with verified backups
-        run: python3 gateway/dashboard_graphs/deploy_offline.py --apply
+      - name: Verify applied charts and actual Core state
+        run: python3 gateway/dashboard_graphs/verify_deployment.py
