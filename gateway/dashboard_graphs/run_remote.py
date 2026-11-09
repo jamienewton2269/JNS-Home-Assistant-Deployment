@@ -4,7 +4,10 @@ from readiness_probe import ssh_host
 source=pathlib.Path(sys.argv[1]).read_bytes()
 code="exec(__import__('base64').b64decode('"+base64.b64encode(source).decode()+"'))"
 vm='905'
-args=['qm','guest','exec',vm,'--','docker','exec','homeassistant','python3','-c',code,*sys.argv[2:]]
+container='homeassistant'
+if '--guest-alarm' in sys.argv:
+ container='addon_local_jns_guest_alarm';sys.argv.remove('--guest-alarm')
+args=['qm','guest','exec',vm,'--','docker','exec',container,'python3','-c',code,*sys.argv[2:]]
 r=json.loads(ssh_host('nodeb',args));pid=r.get('pid')
 until=time.monotonic()+180
 while not r.get('exited') and 'exitcode' not in r:
