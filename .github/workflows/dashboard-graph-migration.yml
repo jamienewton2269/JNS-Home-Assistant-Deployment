@@ -10,8 +10,10 @@ concurrency:
 jobs:
   migrate:
     runs-on: [self-hosted, linux, x64, nodec]
-    timeout-minutes: 8
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect graph deployment prerequisites
-        run: python3 gateway/dashboard_graphs/run_remote.py gateway/dashboard_graphs/probe_addon.py --guest-alarm
+      - name: Validate graph conversion semantics
+        run: python3 -m unittest discover -s gateway/dashboard_graphs -p test_convert_graphs.py
+      - name: Stage and validate chart migration without live changes
+        run: python3 gateway/dashboard_graphs/deploy_offline.py
