@@ -10,17 +10,26 @@ Inventory registered YAML and storage dashboards, back up each changed configura
 
 Adoption of this standard does not indicate that live installation or migration has completed; track actual deployment and verification separately.
 
-## Verified live inventory — 6 November 2026
+## Deployment verified — 9 November 2026
 
-HA-General (VM905) has 40 graph cards in the inspected dashboard files:
+All 41 native graph cards found in the inspected HA-General dashboard files have been replaced by the already installed Statistics Graph Chart Card:
 
-| File | History | Statistics |
-| --- | ---: | ---: |
-| `dashboards/testing.yaml` | 13 | 2 |
-| `dashboards/jns_boiler_monitor.yaml` | 1 | 2 |
-| `.storage/lovelace.health_intelligence` | 21 | 0 |
-| `.storage/lovelace.dashboard_cctv` | 1 | 0 |
+| Dashboard file | Converted charts |
+| --- | ---: |
+| `dashboards/testing.yaml` | 15 |
+| `dashboards/jns_boiler_monitor.yaml` | 3 |
+| `dashboards/ai-diagnostics.yaml` | 1 |
+| `.storage/lovelace.health_intelligence` | 21 |
+| `.storage/lovelace.dashboard_cctv` | 1 |
 
-Live checks confirmed `/config/configuration.yaml`, `/config/www` and `/config/.storage` exist. `/config/custom_components/hacs` is absent. No live dashboard configurations were changed. HACS-managed installation of the chosen card and rendering verification remain pending. Access to Node A through the established Node C/Node B SSH route failed, so other HA instances have not been inventoried.
+The card and translations were already installed under `www/community/Statistics-Graph-Chart-Card/`. The earlier conclusion that HACS was unavailable based only on the traditional integration folder was incomplete; Jamie confirmed Marketplace ingress. No duplicate installation or new graph dependency was introduced.
 
-Inventory evidence: [successful scoped inventory](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42204187353).
+A missing frontend module resource was registered once at `/local/community/Statistics-Graph-Chart-Card/statistics-graph-chart-card.js`. Changes preserve entity references, time windows, daily/monthly change aggregation, controls, signed power direction and state timelines. Different numeric units use separate labelled chart pages. No template sensors or automation rules were changed.
+
+Six conversion tests passed. All proposed YAML structures were compared against the expected conversion before deployment; unrelated YAML text was preserved. Original and proposed configurations, hashes and guarded rollback scripts are retained on HA-General at `/config/.jns-backups/graph-card-42694708248`.
+
+Core was stopped before replacing storage-backed dashboards and restarted afterwards. The start command exceeded its management timeout; a separate read-only check confirmed that the container was running, all 41 converted graphs remained in place, and the exact installed card was served with HTTP 200 (1,486,985 bytes). The resource list contained one registration. Successful verification: [deployment audit](https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/42695567712).
+
+The cloud browser could not reach the internal Home Assistant address, so on-device appearance has not been visually verified. Refresh the dashboard or reopen the Companion app to load the new resource registration.
+
+This verified deployment covers HA-General's inspected dashboard files. Other Home Assistant instances and generated stock Energy/History panels were not migrated.
