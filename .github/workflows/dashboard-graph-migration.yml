@@ -14,4 +14,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Inspect graph deployment prerequisites
-        run: python3 gateway/dashboard_graphs/inspect.py
+        run: python3 gateway/dashboard_graphs/run_remote.py gateway/dashboard_graphs/probe_core.py
