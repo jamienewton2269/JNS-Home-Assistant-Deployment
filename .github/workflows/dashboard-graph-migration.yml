@@ -1,0 +1,17 @@
+name: Dashboard graph migration
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/dashboard_graphs/run.request']
+permissions: {contents: read}
+concurrency:
+  group: dashboard-graph-migration
+  cancel-in-progress: false
+jobs:
+  migrate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect graph deployment prerequisites
+        run: python3 gateway/dashboard_graphs/inspect.py
