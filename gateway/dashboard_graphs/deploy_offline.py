@@ -26,7 +26,7 @@ def main():
  try:
   r=guest(['ha','core','stop']);assert r.get('exitcode')==0,'Core stop failed'
   stopped=True;print('GRAPH_CORE_STOPPED',flush=True)
-  r=guest(['sh','-c','test "$(docker inspect -f \'{{.State.Running}}\' homeassistant)" = false && sh '+shlex.quote(stage+'/apply.sh')])
+  r=guest(['sh','-c','test -z "$(docker ps --filter name=^/homeassistant$ --format \'{{.Names}}\')" && sh '+shlex.quote(stage+'/apply.sh')])
   assert r.get('exitcode')==0 and 'GRAPH_FILES_APPLIED' in r.get('out-data',''),'Graph apply failed'
   applied=True;print('GRAPH_FILES_APPLIED',flush=True)
  finally:
@@ -39,7 +39,9 @@ def main():
 import pathlib,json,hashlib,yaml,urllib.request,sys,time
 R=pathlib.Path('/config');b=R/'.jns-backups'/('graph-card-'+sys.argv[1]);m=json.loads((b/'manifest.json').read_text());total=0
 for x in m['files']:
- p=R/x['path'];raw=p.read_bytes();assert hashlib.sha256(raw).hexdigest()==x['new_sha'],'Post-start file differs'
+ p=R/x['path'];raw=p.read_bytes();proposed=(b/'proposed'/str(m['files'].index(x))).read_bytes()
+ if p.parent.name=='.storage':assert json.loads(raw)==json.loads(proposed),'Post-start storage differs'
+ else:assert hashlib.sha256(raw).hexdigest()==x['new_sha'],'Post-start file differs'
  obj=json.loads(raw) if p.parent.name=='.storage' else yaml.safe_load(raw) if p.name!='configuration.yaml' else None
  if obj is not None:
   assert graph_count(obj,{'history-graph','statistics-graph'})==0
@@ -47,7 +49,12 @@ for x in m['files']:
 assert total>=sum(m['counts'].values())
 for _ in range(30):
  try:
-  with urllib.request.urlopen('http://127.0.0.1/local/community/Statistics-Graph-Chart-Card/statistics-graph-chart-card.js',timeout=3) as r:asset=r.read();assert r.status==200
+  for base in ('http://127.0.0.1','http://127.0.0.1:8123'):
+   try:
+    with urllib.request.urlopen(base+'/local/community/Statistics-Graph-Chart-Card/statistics-graph-chart-card.js',timeout=3) as r:asset=r.read();assert r.status==200
+    break
+   except Exception:continue
+  else:raise RuntimeError('Asset not reachable')
   assert hashlib.sha256(asset).hexdigest()==m['card_sha256'];break
  except Exception:time.sleep(2)
 else:raise RuntimeError('Graph resource not served after startup')
