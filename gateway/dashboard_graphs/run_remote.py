@@ -6,7 +6,7 @@ code="exec(__import__('base64').b64decode('"+base64.b64encode(source).decode()+"
 vm='905'
 container='homeassistant'
 if '--guest-alarm' in sys.argv:
- container='addon_local_jns_guest_alarm';sys.argv.remove('--guest-alarm')
+ container='app_local_jns_guest_alarm';sys.argv.remove('--guest-alarm')
 args=['qm','guest','exec',vm,'--','docker','exec',container,'python3','-c',code,*sys.argv[2:]]
 r=json.loads(ssh_host('nodeb',args));pid=r.get('pid')
 until=time.monotonic()+180
