@@ -10,6 +10,12 @@ Inventory registered YAML and storage dashboards, back up each changed configura
 
 Adoption of this standard does not indicate that live installation or migration has completed; track actual deployment and verification separately.
 
+## Mandatory rule for future graphs — 10 November 2026
+
+Every new editable Home Assistant dashboard chart must use `custom:statistics-graph-chart-card`. This also applies to dashboard templates, examples intended for deployment, and scripts or integrations that generate charts. Update any older generator before reusing it so it cannot restore native charts. Reuse the existing installed upstream card and its resource registration.
+
+The rule is also recorded in the repository's root `AGENTS.md` so future development sessions encounter it directly. It is an authoring requirement, not an automatic interceptor for charts added manually through the Home Assistant UI. Generated stock Energy/History panels remain outside this custom-card scope.
+
 ## Deployment verified — 9 November 2026
 
 All 41 native graph cards found in the inspected HA-General dashboard files have been replaced by the already installed Statistics Graph Chart Card:
