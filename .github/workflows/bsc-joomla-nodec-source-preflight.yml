@@ -1,0 +1,49 @@
+name: BSC Joomla source preflight (Node C, read-only)
+
+on:
+  push:
+    paths:
+      - .github/workflows/bsc-joomla-nodec-source-preflight.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bsc-joomla-source-preflight-nodec
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Verify source and safe migration prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          repo=/opt/bsc-joomla-membership
+          test -d "$repo/.git"
+          cd "$repo"
+          echo '=== Node C source identity ==='
+          git rev-parse --show-toplevel
+          git log -1 --format='%h %s'
+          echo '=== Working tree changes (names only) ==='
+          git status --short
+          echo '=== Required source files ==='
+          for f in sync/replica_contract.py krystal/SnapshotVerifier.php krystal/VerifiedImport.php plugins/system/bscmemberbridge/src/Service/MemberPortalAdapter.php; do
+            test -f "$f"
+            printf 'PRESENT %s\n' "$f"
+          done
+          echo '=== Existing remotes (names only, no credential URLs) ==='
+          git remote | sort
+          echo '=== Source count ==='
+          git ls-files | wc -l
+          echo '=== GitHub SSH connectivity preflight (no credentials printed) ==='
+          if ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=5 -T git@github.com </dev/null 2>&1 | grep -q 'successfully authenticated'; then
+            echo 'GITHUB_SSH_AUTHENTICATED'
+          else
+            echo 'GITHUB_SSH_NOT_VERIFIED'
+          fi
+          echo 'PREFLIGHT_FINISHED_NO_CHANGES'
