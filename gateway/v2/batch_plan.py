@@ -19,7 +19,7 @@ def plan(steps):
         sid, kind, deps = step["id"], step["kind"], step["after"]
         if not isinstance(sid, str) or not sid.isascii() or not sid.replace("_", "").isalnum() or not 1 <= len(sid) <= 40 or sid in names:
             raise BatchRejected("invalid_or_duplicate_id")
-        if not isinstance(kind, str) or kind not in KINDS or not isinstance(deps, list) or len(deps) > MAX_STEPS or any(not isinstance(d, str) for d in deps) or len(set(deps)) != len(deps):
+        if not isinstance(kind, str) or kind not in KINDS or not isinstance(deps, list) or len(deps) > MAX_STEPS or any(not isinstance(d, str) for d in deps) or (all(isinstance(d, str) for d in deps) and len(set(deps)) != len(deps)):
             raise BatchRejected("invalid_kind_or_dependencies")
         names.add(sid)
         ordered[sid] = step
