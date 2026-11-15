@@ -1,11 +1,6 @@
 name: Gateway Node C recovery preflight
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - audit/jns-remote-gateway-20261115
-    paths:
-      - .github/workflows/gateway-nodec-recovery-preflight.yml
 permissions:
   contents: read
 concurrency:
