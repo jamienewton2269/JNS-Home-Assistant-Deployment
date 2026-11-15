@@ -1,0 +1,48 @@
+name: Node C gateway capability verification
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/gateway-nodec-capabilities.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nodec-gateway-capabilities
+  cancel-in-progress: false
+jobs:
+  capabilities:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - name: Verify Node C gateway prerequisites without credentials
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          echo 'GATEWAY_CAPABILITIES_BEGIN'
+          for cmd in git python3 ssh bash; do
+            if command -v "$cmd" >/dev/null 2>&1; then
+              echo "tool_${cmd}=present"
+            else
+              echo "tool_${cmd}=missing"
+            fi
+          done
+          for directory in /opt/bsc-joomla-membership /opt/charmed-poc; do
+            case "$directory" in
+              /opt/bsc-joomla-membership) label=club_workspace ;;
+              /opt/charmed-poc) label=charmed_workspace ;;
+            esac
+            if test -d "$directory"; then
+              echo "${label}=present"
+            else
+              echo "${label}=absent"
+            fi
+          done
+          if command -v python3 >/dev/null 2>&1; then
+            python3 - <<'PY'
+          import json
+          print("python_json_parser=working" if json.loads('{"ready":true}')["ready"] else "python_json_parser=failed")
+          PY
+          fi
+          echo 'GATEWAY_CAPABILITIES_COMPLETE'
