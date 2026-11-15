@@ -14,7 +14,7 @@ class ValidationTests(unittest.TestCase):
 
     def test_duplicate_keys_rejected_by_field_count(self):
         # The strict schema must not be mistaken for authorization.
-        self.assertRaises(JobRejected, validate, '{"schema_version":2,"job_id":"bad","job_type":"health"}')
+        self.assertRaises(JobRejected, validate, '{"schema_version":2,"job_id":"20261115_test_01","job_type":"health","job_type":"build"}')
 
     def test_large(self):
         self.assertRaises(JobRejected, validate, "x" * 9000)
