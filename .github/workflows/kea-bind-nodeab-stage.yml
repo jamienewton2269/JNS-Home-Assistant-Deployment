@@ -1,4 +1,5 @@
 name: Stage Kea and BIND on Node A and B
+# Retrigger for verified gateway receipt collection.
 on:
   push:
     branches: [main]
