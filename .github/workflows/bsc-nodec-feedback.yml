@@ -1,0 +1,78 @@
+name: BSC Node C workspace diagnostic with GitHub feedback
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/bsc-nodec-feedback.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bsc-nodec-feedback
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+      - name: Check local development workspace and record results
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          report="$(mktemp)"
+          trap 'rm -f "$report"' EXIT
+          {
+            echo "Node C BSC workspace diagnostic"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "runner=nodec"
+            if test -d /opt/bsc-joomla-membership/.git; then
+              echo "source=present"
+              git -C /opt/bsc-joomla-membership log -1 --format='source_commit=%h'
+              if test -z "$(git -C /opt/bsc-joomla-membership status --porcelain)"; then
+                echo "worktree=clean"
+              else
+                echo "worktree=modified"
+              fi
+              if test -f /opt/bsc-joomla-membership/sync/replica_contract.py; then
+                echo "replica_contract=present"
+              else
+                echo "replica_contract=missing"
+              fi
+            else
+              echo "source=missing"
+            fi
+            for cmd in python3 php git ssh; do
+              if command -v "$cmd" >/dev/null 2>&1; then
+                echo "$cmd=present"
+              else
+                echo "$cmd=missing"
+              fi
+            done
+          } > "$report"
+          cat "$report"
+          mkdir -p gateway/receipts
+          cp "$report" gateway/receipts/bsc-nodec-workspace-latest.txt
+          git config user.name jns-nodec-feedback
+          git config user.email jns-nodec-feedback@users.noreply.github.com
+          git add gateway/receipts/bsc-nodec-workspace-latest.txt
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "diagnostics: record BSC Node C workspace status"
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then exit 0; fi
+            git fetch origin main
+            git reset --hard origin/main
+            cp "$report" gateway/receipts/bsc-nodec-workspace-latest.txt
+            git add gateway/receipts/bsc-nodec-workspace-latest.txt
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m "diagnostics: record BSC Node C workspace status"
+          done
+          exit 1
