@@ -1,0 +1,56 @@
+name: Node C existing executor preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/gateway-nodec-executor-preflight.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nodec-executor-preflight
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - name: Inspect existing executor availability (read only)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          {
+            echo '### Existing Node C executor preflight'
+            echo '| Capability | Result |'
+            echo '|---|---|'
+          } >> "$GITHUB_STEP_SUMMARY"
+          for cmd in git python3 ssh systemctl; do
+            if command -v "$cmd" >/dev/null 2>&1; then
+              result=present
+            else
+              result=missing
+            fi
+            echo "| ${cmd} | ${result} |" >> "$GITHUB_STEP_SUMMARY"
+          done
+          if command -v systemctl >/dev/null 2>&1; then
+            for service in actions.runner.service; do
+              if systemctl is-active --quiet "$service" 2>/dev/null; then
+                echo "| Runner service probe | Active |" >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "| Runner service probe | Service name unverified |" >> "$GITHUB_STEP_SUMMARY"
+              fi
+            done
+          fi
+          for path in /opt/bsc-joomla-membership /opt/charmed-poc; do
+            case "$path" in
+              /opt/bsc-joomla-membership) label=club ;;
+              /opt/charmed-poc) label=charmed ;;
+            esac
+            if test -d "$path"; then
+              echo "| ${label} workspace | Present |" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "| ${label} workspace | Absent |" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+          echo 'Read-only preflight completed; no executor operations submitted.'
