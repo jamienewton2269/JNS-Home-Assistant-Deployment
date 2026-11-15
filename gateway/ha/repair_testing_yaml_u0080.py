@@ -60,10 +60,18 @@ def main():
         removed = 1
     else:
         removed = original.count("\u0080")
-        if removed > 4:
-            raise RuntimeError("Too many U+0080 controls; manual examination needed")
+        positions = [i for i, char in enumerate(original) if ord(char) == 128]
+        print("U+0080 count:", removed, "character positions:", positions[:50])
         repaired_text = original.replace("\u0080", "")
         repaired = repaired_text.encode("utf-8")
+        if removed > 4:
+            try:
+                yaml.compose(repaired_text)
+                print("AUDIT: removing these controls yields parseable YAML")
+            except yaml.YAMLError as exc:
+                print("AUDIT: additional YAML errors after removing U+0080:",
+                      type(exc).__name__)
+            raise RuntimeError("Safety limit exceeded; diagnosis only, no changes")
 
     if removed == 0:
         yaml.compose(repaired_text)
