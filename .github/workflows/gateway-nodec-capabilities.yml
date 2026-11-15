@@ -21,11 +21,13 @@ jobs:
           set -Eeuo pipefail
           test "$(hostname -s)" = nodec
           echo 'GATEWAY_CAPABILITIES_BEGIN'
+          missing=0
           for cmd in git python3 ssh bash; do
             if command -v "$cmd" >/dev/null 2>&1; then
               echo "tool_${cmd}=present"
             else
               echo "tool_${cmd}=missing"
+              missing=1
             fi
           done
           for directory in /opt/bsc-joomla-membership /opt/charmed-poc; do
@@ -44,5 +46,9 @@ jobs:
           import json
           print("python_json_parser=working" if json.loads('{"ready":true}')["ready"] else "python_json_parser=failed")
           PY
+          fi
+          if test "$missing" -ne 0; then
+            echo 'GATEWAY_CAPABILITIES_FAILED: missing required tools' >&2
+            exit 1
           fi
           echo 'GATEWAY_CAPABILITIES_COMPLETE'
