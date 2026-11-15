@@ -1,0 +1,65 @@
+name: BSC Joomla source import to private review branch
+
+on:
+  push:
+    paths:
+      - .github/workflows/bsc-joomla-nodec-source-import.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bsc-joomla-source-import-nodec
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 8
+    steps:
+      - name: Guarded source import (no production deployment)
+        shell: bash
+        env:
+          GIT_TERMINAL_PROMPT: "0"
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          cd /opt/bsc-joomla-membership
+          test -d .git
+          test -f sync/replica_contract.py
+          test -f krystal/SnapshotVerifier.php
+          test -f krystal/VerifiedImport.php
+          test -f plugins/system/bscmemberbridge/src/Service/MemberPortalAdapter.php
+          test -z "$(git status --porcelain)" || { echo 'STOP: uncommitted changes'; exit 1; }
+          echo '=== Inspect tracked paths for forbidden secrets ==='
+          python3 - <<'PY'
+          import subprocess, pathlib, sys
+          names = subprocess.check_output(['git','ls-files','-z']).decode().split('\0')
+          bad=[]
+          for name in filter(None,names):
+              p=pathlib.PurePosixPath(name)
+              base=p.name.lower()
+              parts=[s.lower() for s in p.parts]
+              if (base in {'.env','id_rsa','id_ed25519','credentials.json','secrets.json','config.php','configuration.php','known_hosts'}
+                  or base.endswith(('.pem','.key','.p12','.pfx','.sqlite','.sqlite3','.db','.bak','.dump'))
+                  or any(s in {'.ssh','.secrets','node_modules','venv','.venv'} for s in parts)):
+                  bad.append(name)
+          if bad:
+              print('STOP: potentially sensitive tracked paths:', *bad, sep='\n')
+              sys.exit(1)
+          print('Tracked filename preflight passed; this is not a comprehensive secret scan')
+          PY
+          echo '=== Verify SSH identity without printing credentials ==='
+          export GIT_SSH_COMMAND='ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8'
+          destination='git@github.com:jamienewton2269/-BSC-Club-Manager.git'
+          git ls-remote "$destination" HEAD >/dev/null || { echo 'STOP: private target authentication unavailable'; exit 1; }
+          echo '=== Check remote review branch does not already exist ==='
+          if git ls-remote --exit-code --heads "$destination" nodec-source-import >/dev/null; then
+            echo 'STOP: review branch already exists; inspect before any update'
+            exit 1
+          fi
+          echo '=== Publish original history to new review branch only ==='
+          git push "$destination" HEAD:refs/heads/nodec-source-import
+          echo 'SOURCE_IMPORT_REVIEW_BRANCH_CREATED'
+          echo 'No main branch changes; no production deployment'
