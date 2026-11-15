@@ -12,6 +12,14 @@ MAX_BYTES = 8192
 class JobRejected(ValueError):
     pass
 
+def _unique_pairs(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise JobRejected("duplicate_key")
+        result[key] = value
+    return result
+
 def validate(payload):
     if isinstance(payload, bytes):
         if len(payload) > MAX_BYTES:
@@ -23,7 +31,7 @@ def validate(payload):
     if not isinstance(payload, str) or len(payload.encode("utf-8")) > MAX_BYTES:
         raise JobRejected("invalid_payload")
     try:
-        job = json.loads(payload)
+        job = json.loads(payload, object_pairs_hook=_unique_pairs)
     except (ValueError, TypeError):
         raise JobRejected("invalid_json") from None
     if not isinstance(job, dict) or set(job) != {"schema_version", "job_id", "job_type"}:
