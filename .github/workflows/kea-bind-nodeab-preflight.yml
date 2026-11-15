@@ -1,0 +1,46 @@
+name: Kea BIND Node A B deployment preflight
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea-bind-nodeab-preflight.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: kea-bind-nodeab-preflight
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Verify existing SSH path and service state without changes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          {
+            echo '### Kea/BIND Node A/B deployment readiness'
+            echo '| Target | SSH | Proxmox pct | DNS/DHCP containers |'
+            echo '|---|---|---|---|'
+          } >> "$GITHUB_STEP_SUMMARY"
+          for host in nodea nodeb; do
+            ssh_state=unavailable
+            pct_state=unknown
+            containers=unknown
+            if ssh -o BatchMode=yes -o ConnectTimeout=7 -o StrictHostKeyChecking=yes "$host" 'true' </dev/null >/dev/null 2>&1; then
+              ssh_state=ready
+              if ssh -o BatchMode=yes -o ConnectTimeout=7 -o StrictHostKeyChecking=yes "$host" 'command -v pct >/dev/null' </dev/null >/dev/null 2>&1; then
+                pct_state=present
+                containers=inspect_logs
+                for id in 247 248 249; do
+                  if ssh -o BatchMode=yes -o ConnectTimeout=7 -o StrictHostKeyChecking=yes "$host" "pct status $id" </dev/null 2>/dev/null | grep -q 'status: running'; then
+                    echo "host=$host ct=$id running"
+                  fi
+                done
+              fi
+            fi
+            echo "| $host | $ssh_state | $pct_state | $containers |" >> "$GITHUB_STEP_SUMMARY"
+            echo "host=$host ssh=$ssh_state pct=$pct_state"
+          done
+          echo 'Read-only preflight complete; no DNS/DHCP changes.'
