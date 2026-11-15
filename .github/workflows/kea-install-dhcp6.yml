@@ -1,0 +1,35 @@
+name: Install missing Kea DHCP6 packages safely
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea-install-dhcp6.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  install:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 15
+    steps:
+      - name: Install DHCP6 package on both production containers without starting DHCP
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            echo "=== $1 CT$2 ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=8 "$1" "pct exec $2 -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          if ! dpkg-query -W -f='\${Status}' kea-dhcp6-server 2>/dev/null | grep -qx 'install ok installed'; then
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -qq
+            apt-get install -y -qq kea-dhcp6-server
+          fi
+          systemctl stop kea-dhcp6-server || true
+          systemctl disable kea-dhcp6-server || true
+          dpkg-query -W kea-dhcp6-server
+          test "$(systemctl is-active kea-dhcp6-server || true)" != active
+          echo DHCP6_INSTALLED_INACTIVE
+          REMOTE
+          done
