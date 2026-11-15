@@ -50,51 +50,36 @@ def main():
     print("Testing dashboard bytes:", len(source))
     print("Original SHA256 prefix:", original_sha[:12])
 
+    # Repair is permitted only for the inspected, unchanged file.
+    if not original_sha.startswith("e0ab9171911c"):
+        raise RuntimeError("Live YAML checksum changed since audit; refusing replacement")
     try:
         original = source.decode("utf-8")
     except UnicodeDecodeError as ex:
-        if source[ex.start:ex.end] != b"\x80" or source.count(b"\x80") != 1:
-            raise RuntimeError("Unexpected invalid encoding; refusing automatic repair") from ex
-        repaired = source.replace(b"\x80", b"", 1)
-        repaired_text = repaired.decode("utf-8")
-        removed = 1
-    else:
-        removed = original.count("\u0080")
-        positions = [i for i, char in enumerate(original) if ord(char) == 128]
-        print("U+0080 count:", removed, "character positions:", positions[:50])
-        repaired_text = original.replace("\u0080", "")
-        repaired = repaired_text.encode("utf-8")
-        if removed > 4:
-            from collections import Counter
-            illegal = [(i, ord(char)) for i, char in enumerate(original)
-                       if ((ord(char) < 32 and char not in ("\t", "\n", "\r"))
-                           or (0x7f <= ord(char) < 0xa0 and ord(char) != 0x85))]
-            totals = Counter(hex(code) for _pos, code in illegal)
-            print("AUDIT invalid Unicode codepoint counts:", dict(totals))
-            print("AUDIT invalid character positions:", illegal[:85])
-            clean = "".join(char for char in original if
-                            ((ord(char) >= 32 and not 0x7f <= ord(char) < 0xa0)
-                             or char in ("\t", "\n", "\r", "\u0085")))
-            try:
-                docs = list(yaml.compose_all(clean))
-                print("AUDIT: all invalid controls stripped -> parses, docs:", len(docs),
-                      "characters_removed:", len(original)-len(clean))
-            except yaml.YAMLError as exc:
-                print("AUDIT: still invalid after control stripping:",
-                      type(exc).__name__, str(exc)[:200])
-            raise RuntimeError("Safety limit exceeded; diagnosis only, no changes")
+        raise RuntimeError("Unexpected UTF-8 corruption; no changes") from ex
 
-    if removed == 0:
-        yaml.compose(repaired_text)
-        print("No U+0080 found; dashboard YAML already valid. Nothing changed.")
-        return
-    if removed > 4:
-        raise RuntimeError("Refusing bulk change")
+    # The audit found 51 isolated C1 controls, in five known codepoints.
+    # Keep every other byte and every valid Unicode character unchanged.
+    invalid_codes = {0x80, 0x94, 0x97, 0x9A, 0x9F}
+    matches = [(index, ord(char)) for index, char in enumerate(original)
+               if ord(char) in invalid_codes]
+    other_invalid = [(index, ord(char)) for index, char in enumerate(original)
+                     if ((ord(char) < 32 and char not in ("\t", "\n", "\r"))
+                         or (0x7f <= ord(char) < 0xa0 and ord(char) != 0x85))
+                     and ord(char) not in invalid_codes]
+    if other_invalid or len(matches) != 51:
+        raise RuntimeError("Control characters differ from audit; no changes")
+    repaired_text = "".join(char for char in original
+                            if ord(char) not in invalid_codes)
+    repaired = repaired_text.encode("utf-8")
+    documents = list(yaml.compose_all(repaired_text))
+    if len(documents) != 1 or "views:" not in repaired_text:
+        raise RuntimeError("Expected Testing dashboard structure not found")
+    removed = len(matches)
     if len(repaired) >= len(source):
-        raise RuntimeError("No targeted bytes removed")
-    yaml.compose(repaired_text)
-    print("Removed invalid control character(s):", removed,
-          "; YAML structure parsed successfully")
+        raise RuntimeError("No targeted characters removed")
+    print("Removed exactly 51 audited invalid C1 codepoints; YAML parses.")
+    print("All valid Unicode and dashboard configuration retained.")
     stage = TARGET + ".u0080-repair-stage"
     backup = TARGET + ".pre-u0080-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + ".bak"
 
