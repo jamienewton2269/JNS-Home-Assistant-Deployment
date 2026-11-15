@@ -1,0 +1,12 @@
+=== JNS NODE C TRUSTED GATEWAY JOB ===
+job_id=20261115T185400Z-westminster-capabilities
+started=2026-11-15T18:54:48+00:00
+runner=nodec
+
+{
+  "state": "rejected",
+  "reason": "job_type is not allow-listed"
+}
+
+finished=2026-11-15T18:54:49+00:00
+exit_code=64
