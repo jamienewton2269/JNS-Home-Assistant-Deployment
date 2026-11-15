@@ -1,0 +1,8 @@
+{
+  "conclusion": "success",
+  "finished_at": "2026-11-15T19:59:22Z",
+  "head_sha": "641804bb0347e648e1fd085b58f7752926570392",
+  "run_id": 43755446143,
+  "run_url": "https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/43755446143",
+  "workflow": "Node C gateway capability verification"
+}
