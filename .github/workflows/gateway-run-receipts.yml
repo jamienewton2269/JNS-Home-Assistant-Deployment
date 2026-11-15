@@ -1,0 +1,67 @@
+name: Gateway run receipts
+on:
+  workflow_run:
+    workflows:
+      - Stage Kea and BIND on Node A and B
+      - Kea BIND Node A B deployment preflight
+      - Node C gateway capability verification
+      - Node C existing executor preflight
+      - Node C runner health (read only)
+    types: [completed]
+permissions:
+  contents: write
+concurrency:
+  group: gateway-run-receipts
+  cancel-in-progress: false
+jobs:
+  receipt:
+    if: ${{ github.event.workflow_run.head_repository.full_name == github.repository && github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Record sanitized workflow conclusion (no logs)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          FINISHED_AT: ${{ github.event.workflow_run.updated_at }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import base64, json, os, subprocess
+          names = {
+            'Stage Kea and BIND on Node A and B': 'kea-bind-stage',
+            'Kea BIND Node A B deployment preflight': 'kea-bind-preflight',
+            'Node C gateway capability verification': 'nodec-capabilities',
+            'Node C existing executor preflight': 'nodec-executor',
+            'Node C runner health (read only)': 'nodec-health',
+          }
+          name = os.environ['WORKFLOW']
+          if name not in names:
+              raise SystemExit('workflow not allowlisted')
+          receipt = {
+              'workflow': name,
+              'conclusion': os.environ['CONCLUSION'],
+              'run_id': int(os.environ['RUN_ID']),
+              'run_url': os.environ['RUN_URL'],
+              'head_sha': os.environ['HEAD_SHA'],
+              'finished_at': os.environ['FINISHED_AT'],
+          }
+          path = 'gateway/receipts/' + names[name] + '.json'
+          api = 'repos/' + os.environ['REPO'] + '/contents/' + path
+          payload = {
+              'message': 'gateway: record sanitized ' + names[name] + ' run result',
+              'content': base64.b64encode((json.dumps(receipt, indent=2, sort_keys=True) + '\n').encode()).decode(),
+              'branch': 'main',
+          }
+          current = subprocess.run(['gh', 'api', api, '--jq', '.sha'], text=True, capture_output=True)
+          if current.returncode == 0 and current.stdout.strip():
+              payload['sha'] = current.stdout.strip()
+          subprocess.run(['gh', 'api', '--method', 'PUT', api, '--input', '-'], input=json.dumps(payload), text=True, check=True)
+          print('Receipt published: ' + path + ' conclusion=' + receipt['conclusion'])
+          PY
