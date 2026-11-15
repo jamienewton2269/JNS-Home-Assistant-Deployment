@@ -1,0 +1,60 @@
+name: Sabrina bridge read-only diagnostics
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - name: Inspect bridge and MQTT reachability (no credentials or logs)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo "=== Node C bridge service ==="
+          if systemctl list-unit-files jns-shark-skegox-bridge.service --no-legend 2>/dev/null | grep -q jns-shark; then
+            systemctl show jns-shark-skegox-bridge.service --no-pager \
+              -p LoadState -p ActiveState -p SubState -p Result -p NRestarts \
+              -p ExecMainStatus -p ActiveEnterTimestamp -p InactiveEnterTimestamp
+          else
+            echo "Bridge service unit not found"
+          fi
+          echo "=== MQTT TCP reachability (no authentication) ==="
+          python3 - <<'PY'
+          import socket
+          for host in ("mqtt.home.arpa", "ct212.home.arpa"):
+              try:
+                  addresses = socket.getaddrinfo(host, 8883, type=socket.SOCK_STREAM)
+              except OSError:
+                  print(f"{host}: DNS unavailable")
+                  continue
+              try:
+                  with socket.create_connection(addresses[0][4], timeout=3):
+                      print(f"{host}: TLS MQTT port reachable")
+              except OSError:
+                  print(f"{host}: TLS MQTT port unreachable")
+          PY
+          echo "=== Journal error categories (counts only; no log lines) ==="
+          journalctl -u jns-shark-skegox-bridge.service --since '-2 hours' --no-pager -o cat 2>/dev/null | python3 -c '
+          import re,sys
+          patterns = {
+            "auth_or_token": r"auth|token|oauth|login|401|403|verification",
+            "rate_limited": r"429|rate.limit|too.many",
+            "mqtt_or_network": r"mqtt|connection|disconnect|timeout|dns|ssl|tls",
+            "exception": r"traceback|exception|error",
+          }
+          counts = {name:0 for name in patterns}
+          total = 0
+          for line in sys.stdin:
+              total += 1
+              for name, pattern in patterns.items():
+                  if re.search(pattern,line,re.I):
+                      counts[name] += 1
+          print("journal_lines:", total)
+          for name,count in counts.items():
+              print(f"{name}: {count}")
+          '
+          echo "Read-only inspection complete; no service restart or login attempted."
