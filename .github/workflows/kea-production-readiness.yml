@@ -2,7 +2,9 @@ name: Kea production readiness Node C
 on:
   push:
     branches: [main]
-    paths: ['.github/workflows/kea-production-readiness.yml']
+    paths:
+      - '.github/workflows/kea-production-readiness.yml'
+      - 'gateway/request.sh'
   workflow_dispatch:
 permissions:
   contents: read
