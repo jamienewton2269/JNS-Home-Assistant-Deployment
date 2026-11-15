@@ -53,16 +53,16 @@ def main():
     try:
         original = source.decode("utf-8")
     except UnicodeDecodeError as ex:
-        if source[ex.start:ex.end] != b"\\x80" or source.count(b"\\x80") != 1:
+        if source[ex.start:ex.end] != b"\x80" or source.count(b"\x80") != 1:
             raise RuntimeError("Unexpected invalid encoding; refusing automatic repair") from ex
-        repaired = source.replace(b"\\x80", b"", 1)
+        repaired = source.replace(b"\x80", b"", 1)
         repaired_text = repaired.decode("utf-8")
         removed = 1
     else:
-        removed = original.count("\\u0080")
+        removed = original.count("\u0080")
         if removed > 4:
             raise RuntimeError("Too many U+0080 controls; manual examination needed")
-        repaired_text = original.replace("\\u0080", "")
+        repaired_text = original.replace("\u0080", "")
         repaired = repaired_text.encode("utf-8")
 
     if removed == 0:
@@ -80,7 +80,7 @@ def main():
     backup = TARGET + ".pre-u0080-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + ".bak"
 
     remote("/bin/sh", "-c", "base64 -d > " + shlex.quote(stage),
-           stdin=base64.b64encode(repaired).decode("ascii") + "\\n")
+           stdin=base64.b64encode(repaired).decode("ascii") + "\n")
     if remote("/usr/bin/sha256sum", stage).split()[0] != digest(repaired):
         raise RuntimeError("Staged checksum mismatch; live file not replaced")
     if remote("/usr/bin/sha256sum", TARGET).split()[0] != original_sha:
