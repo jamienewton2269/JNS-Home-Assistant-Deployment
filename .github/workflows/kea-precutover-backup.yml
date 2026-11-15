@@ -1,0 +1,41 @@
+name: Kea pre-cutover backup and DHCP6 validation
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea-precutover-backup.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  backup:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - name: Back up live configuration and validate staged DHCP6
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            echo "=== $1 CT$2 ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=8 "$1" "pct exec $2 -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          dest=/root/kea-migration-backups/20261115-precutover
+          install -d -m 0700 "$dest"
+          for path in /etc/dnsmasq.conf /etc/dnsmasq.d /etc/kea /etc/bind /var/lib/misc/dnsmasq.leases; do
+            if test -e "$path"; then
+              tar -cpf "$dest/$(echo "$path" | tr / _).tar" "$path" 2>/dev/null || true
+            fi
+          done
+          echo "BACKUP_FILES:"
+          find "$dest" -maxdepth 1 -type f -printf '%f %s bytes\n'
+          echo "STAGED_DHCP6:"
+          find /root/kea-migration-staging -maxdepth 1 -iname '*dhcp6*' -printf '%f\n' 2>/dev/null || true
+          echo "NETWORK_CONFIGURATION:"
+          ip -br address show dev eth0
+          echo "DHCP_SERVER_CONFIG_DIRECTIVES:"
+          grep -hE '^(dhcp-range|dhcp-option|dhcp-authoritative|enable-ra|ra-param|server=|domain=|interface=|listen-address=)' /etc/dnsmasq.conf /etc/dnsmasq.d/* 2>/dev/null | head -65 || true
+          echo "PRE_CUTOVER_BACKUP_COMPLETE"
+          REMOTE
+          done
