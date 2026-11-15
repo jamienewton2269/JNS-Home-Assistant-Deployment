@@ -1,0 +1,30 @@
+name: Node C gateway request execution
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/gateway-nodec-request.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nodec-gateway-request
+  cancel-in-progress: false
+jobs:
+  request:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Execute pinned gateway/request.sh on Node C
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          mkdir -p /tmp/jns-gateway-request
+          curl --fail --silent --show-error --location --retry 2 \
+            "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA}/gateway/request.sh" \
+            -o /tmp/jns-gateway-request/request.sh
+          test -s /tmp/jns-gateway-request/request.sh
+          bash -n /tmp/jns-gateway-request/request.sh
+          bash /tmp/jns-gateway-request/request.sh
