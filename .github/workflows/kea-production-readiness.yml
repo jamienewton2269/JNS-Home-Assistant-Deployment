@@ -1,0 +1,25 @@
+name: Kea production readiness Node C
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea-production-readiness.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Inspect both production DNS and DHCP containers
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            host="$1"; ct="$2"
+            echo "=== ${host} CT${ct} ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" "pct status $ct; pct exec $ct -- sh -c 'hostname; for s in jns-dns kea-dhcp4-server kea-dhcp6-server kea-dhcp-ddns-server bind9 named; do printf \"%s: \" \"\$s\"; systemctl is-active \"\$s\" 2>/dev/null || true; done; for c in kea-dhcp4 kea-dhcp6 kea-dhcp-ddns named; do command -v \"\$c\" || true; done'" || echo "INSPECTION_FAILED: $host CT$ct"
+          done
+          echo 'READINESS_INSPECTION_COMPLETE'
