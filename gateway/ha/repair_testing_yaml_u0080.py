@@ -67,14 +67,14 @@ def main():
         if removed > 4:
             from collections import Counter
             illegal = [(i, ord(char)) for i, char in enumerate(original)
-                       if ((ord(char) < 32 and char not in ("\\t", "\\n", "\\r"))
+                       if ((ord(char) < 32 and char not in ("\t", "\n", "\r"))
                            or (0x7f <= ord(char) < 0xa0 and ord(char) != 0x85))]
             totals = Counter(hex(code) for _pos, code in illegal)
             print("AUDIT invalid Unicode codepoint counts:", dict(totals))
             print("AUDIT invalid character positions:", illegal[:85])
             clean = "".join(char for char in original if
                             ((ord(char) >= 32 and not 0x7f <= ord(char) < 0xa0)
-                             or char in ("\\t", "\\n", "\\r", "\\u0085")))
+                             or char in ("\t", "\n", "\r", "\u0085")))
             try:
                 docs = list(yaml.compose_all(clean))
                 print("AUDIT: all invalid controls stripped -> parses, docs:", len(docs),
