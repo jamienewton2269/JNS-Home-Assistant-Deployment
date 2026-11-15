@@ -21,12 +21,17 @@ jobs:
           set -Eeuo pipefail
           test "$(hostname -s)" = nodec
           echo 'GATEWAY_CAPABILITIES_BEGIN'
+          echo '### Node C gateway capability report' >> "$GITHUB_STEP_SUMMARY"
+          echo '| Check | Result |' >> "$GITHUB_STEP_SUMMARY"
+          echo '|---|---|' >> "$GITHUB_STEP_SUMMARY"
           missing=0
           for cmd in git python3 ssh bash; do
             if command -v "$cmd" >/dev/null 2>&1; then
               echo "tool_${cmd}=present"
+              echo "| ${cmd} | Present |" >> "$GITHUB_STEP_SUMMARY"
             else
               echo "tool_${cmd}=missing"
+              echo "| ${cmd} | Missing |" >> "$GITHUB_STEP_SUMMARY"
               missing=1
             fi
           done
@@ -37,8 +42,10 @@ jobs:
             esac
             if test -d "$directory"; then
               echo "${label}=present"
+              echo "| ${label} | Present |" >> "$GITHUB_STEP_SUMMARY"
             else
               echo "${label}=absent"
+              echo "| ${label} | Absent |" >> "$GITHUB_STEP_SUMMARY"
             fi
           done
           if command -v python3 >/dev/null 2>&1; then
