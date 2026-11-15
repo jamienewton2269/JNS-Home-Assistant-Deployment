@@ -1,0 +1,39 @@
+name: Node C runner health (read only)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/gateway-nodec-health.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nodec-runner-health
+  cancel-in-progress: false
+jobs:
+  nodec:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - name: Confirm runner is executing and check tools
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          echo "NODEC_RUNNER_HEALTH_START"
+          for tool in git python3 ssh; do
+            if command -v "$tool" >/dev/null 2>&1; then
+              echo "$tool=present"
+            else
+              echo "$tool=missing"
+            fi
+          done
+          for path in /opt/bsc-joomla-membership /opt/charmed-poc; do
+            if test -d "$path"; then
+              case "$path" in
+                */bsc-joomla-membership) echo "club_workspace=present" ;;
+                */charmed-poc) echo "charmed_workspace=present" ;;
+              esac
+            fi
+          done
+          echo "NODEC_RUNNER_HEALTH_COMPLETE"
