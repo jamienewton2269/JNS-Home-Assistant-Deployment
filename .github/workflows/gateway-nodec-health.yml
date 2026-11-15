@@ -37,3 +37,9 @@ jobs:
             fi
           done
           echo "NODEC_RUNNER_HEALTH_COMPLETE"
+          if test -d /opt/bsc-joomla-membership/.git; then
+            echo "BSC_SOURCE_GIT_PRESENT"
+            git -C /opt/bsc-joomla-membership log -1 --format="BSC_SOURCE_COMMIT=%h"
+          else
+            echo "BSC_SOURCE_GIT_MISSING"
+          fi
