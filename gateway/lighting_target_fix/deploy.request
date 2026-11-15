@@ -1,0 +1,8 @@
+approved=2026-11-15T17:41:00Z
+target=ha-general
+vmid=905
+add_dining_entity=light.livingroom_pendant
+dining_rank=9
+preserve_living_entity=light.0x5c0272fffe400903
+leave_disabled_legacy_sofa=light.snug_sofa_led
+backdoor_chain=no-change-confirmed-working
