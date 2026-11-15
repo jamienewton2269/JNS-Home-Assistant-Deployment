@@ -1,4 +1,5 @@
 name: Node C gateway capability verification
+# Receipt integration verification: completion is recorded by gateway-run-receipts.
 on:
   push:
     branches: [main]
