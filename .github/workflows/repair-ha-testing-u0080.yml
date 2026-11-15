@@ -1,0 +1,22 @@
+name: Repair HA-General Testing dashboard U+0080
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/repair-ha-testing-u0080.yml'
+      - 'gateway/ha/repair_testing_yaml_u0080.py'
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha-general-testing-yaml-repair
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate repair syntax
+        run: python3 -m py_compile gateway/ha/repair_testing_yaml_u0080.py
+      - name: Repair invalid character safely
+        run: python3 gateway/ha/repair_testing_yaml_u0080.py
