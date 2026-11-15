@@ -1,0 +1,8 @@
+{
+  "conclusion": "success",
+  "finished_at": "2026-11-15T20:00:17Z",
+  "head_sha": "a8aca943072d7a3929c51f82b1022aaa2981bca5",
+  "run_id": 43755504122,
+  "run_url": "https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/43755504122",
+  "workflow": "Stage Kea and BIND on Node A and B"
+}
