@@ -1,0 +1,50 @@
+name: Kea staged configuration validation
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea-stage-validation.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - name: Validate staged Kea and BIND without touching active services
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            host="$1"; ct="$2"
+            echo "=== VALIDATE $host CT$ct ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" "pct exec $ct -- bash -s" <<'REMOTE' || echo "VALIDATION_FAILED: $host CT$ct"
+          set -u
+          d=/root/kea-migration-staging
+          for pair in 'kea-dhcp4 kea-dhcp4.conf' 'kea-dhcp-ddns kea-dhcp-ddns.conf'; do
+            set -- $pair
+            if test -f "$d/$2"; then
+              echo "CHECK $2"
+              "$1" -t "$d/$2" 2>&1 | tail -15
+              echo "CHECK_EXIT=${PIPESTATUS[0]}"
+            else
+              echo "MISSING $d/$2"
+            fi
+          done
+          if test -f "$d/home.arpa.zone"; then
+            named-checkzone home.arpa "$d/home.arpa.zone" 2>&1 | tail -8
+            echo "ZONE_CHECK_EXIT=${PIPESTATUS[0]}"
+          fi
+          if test -f "$d/named-ddns-test.conf"; then
+            named-checkconf "$d/named-ddns-test.conf" 2>&1 | tail -8
+            echo "NAMED_CHECK_EXIT=${PIPESTATUS[0]}"
+          fi
+          echo "DHCP6_PACKAGE:"
+          dpkg-query -W kea-dhcp6-server 2>&1 || true
+          echo "ACTIVE_DNSMASQ_CONFIG_PATHS:"
+          systemctl cat jns-dns 2>/dev/null | grep -E 'ExecStart|EnvironmentFile' | sed -E 's/(password|secret|token)=[^ ]+/\\1=REDACTED/Ig' || true
+          echo "STAGED_VALIDATION_COMPLETE"
+          REMOTE
+          done
