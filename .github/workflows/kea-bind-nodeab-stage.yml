@@ -1,0 +1,49 @@
+name: Stage Kea and BIND on Node A and B
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea-bind-nodeab-stage.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: kea-bind-nodeab-stage
+  cancel-in-progress: false
+jobs:
+  stage:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 20
+    steps:
+      - name: Install Kea and BIND packages without starting services or replacing dnsmasq
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          for host in nodea nodeb; do
+            case "$host" in
+              nodea) ct=247 ;;
+              nodeb) ct=248 ;;
+            esac
+            echo "Staging $host CT$ct"
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 "$host" "pct status $ct | grep -q 'status: running'"
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 "$host" "pct exec $ct -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          test "$(id -u)" -eq 0
+          test -f /etc/debian_version
+          test -d /etc/dnsmasq.d || test -f /etc/dnsmasq.conf
+          export DEBIAN_FRONTEND=noninteractive
+          policy=/usr/sbin/policy-rc.d
+          if test -e "$policy"; then
+            echo 'Existing policy-rc.d detected: refusing to replace it' >&2
+            exit 1
+          fi
+          cleanup() { rm -f "$policy"; }
+          trap cleanup EXIT
+          printf '#!/bin/sh\nexit 101\n' > "$policy"
+          chmod 755 "$policy"
+          apt-get update
+          apt-get install -y --no-install-recommends kea-dhcp4-server bind9 bind9-utils dnsutils
+          dpkg-query -W -f='${Package} ${Status}\n' kea-dhcp4-server bind9
+          echo 'Packages installed. Existing dnsmasq remains authoritative; no cutover performed.'
+          REMOTE
+          done
