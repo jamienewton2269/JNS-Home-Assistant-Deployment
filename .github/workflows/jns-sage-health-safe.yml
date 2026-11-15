@@ -1,11 +1,6 @@
 name: SAGE runner safe health
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - audit/jns-remote-gateway-20261115
-    paths:
-      - '.github/workflows/jns-sage-health-safe.yml'
 permissions:
   contents: read
 concurrency:
