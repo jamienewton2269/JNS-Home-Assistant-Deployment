@@ -1,0 +1,14 @@
+name: JNS Lighting Entity Map Audit
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/lighting_target_audit/map.request']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 gateway/lighting_target_audit/map_audit.py
