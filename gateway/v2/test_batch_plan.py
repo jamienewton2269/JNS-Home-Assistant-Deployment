@@ -28,6 +28,12 @@ class BatchPlanTests(unittest.TestCase):
             {"id":"x","kind":"test","after":[]},
         ])
 
+    def test_malformed_dependency_rejected(self):
+        self.assertRaises(BatchRejected, plan, [{"id":"x","kind":"health","after":[{}]}])
+
+    def test_malformed_kind_rejected(self):
+        self.assertRaises(BatchRejected, plan, [{"id":"x","kind":[],"after":[]}])
+
     def test_empty(self):
         self.assertRaises(BatchRejected, plan, [])
 
