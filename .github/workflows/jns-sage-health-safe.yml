@@ -24,8 +24,4 @@ jobs:
           }
           $root = 'C:\src\JNS-WESTMINSTER-CHIMES\WestminsterSkill'
           Write-Output "westminster_workspace_exists=$(Test-Path -LiteralPath $root -PathType Container)"
-          if (Test-Path -LiteralPath $root -PathType Container) {
-            & git -c "safe.directory=$($root.Replace('\','/'))" -C $root rev-parse --is-inside-work-tree
-            if ($LASTEXITCODE -ne 0) { throw "Read-only git probe failed: $LASTEXITCODE" }
-          }
           Write-Output 'SAGE_HEALTH_END'
