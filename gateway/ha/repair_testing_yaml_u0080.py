@@ -65,12 +65,23 @@ def main():
         repaired_text = original.replace("\u0080", "")
         repaired = repaired_text.encode("utf-8")
         if removed > 4:
+            from collections import Counter
+            illegal = [(i, ord(char)) for i, char in enumerate(original)
+                       if ((ord(char) < 32 and char not in ("\\t", "\\n", "\\r"))
+                           or (0x7f <= ord(char) < 0xa0 and ord(char) != 0x85))]
+            totals = Counter(hex(code) for _pos, code in illegal)
+            print("AUDIT invalid Unicode codepoint counts:", dict(totals))
+            print("AUDIT invalid character positions:", illegal[:85])
+            clean = "".join(char for char in original if
+                            ((ord(char) >= 32 and not 0x7f <= ord(char) < 0xa0)
+                             or char in ("\\t", "\\n", "\\r", "\\u0085")))
             try:
-                yaml.compose(repaired_text)
-                print("AUDIT: removing these controls yields parseable YAML")
+                docs = list(yaml.compose_all(clean))
+                print("AUDIT: all invalid controls stripped -> parses, docs:", len(docs),
+                      "characters_removed:", len(original)-len(clean))
             except yaml.YAMLError as exc:
-                print("AUDIT: additional YAML errors after removing U+0080:",
-                      type(exc).__name__)
+                print("AUDIT: still invalid after control stripping:",
+                      type(exc).__name__, str(exc)[:200])
             raise RuntimeError("Safety limit exceeded; diagnosis only, no changes")
 
     if removed == 0:
