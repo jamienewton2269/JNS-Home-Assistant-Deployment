@@ -12,7 +12,7 @@ class ValidationTests(unittest.TestCase):
     def test_unexpected_command(self):
         self.assertRaises(JobRejected, validate, '{"schema_version":2,"job_id":"20261115_test_01","job_type":"health","command":"id"}')
 
-    def test_duplicate_keys_rejected_by_field_count(self):
+    def test_duplicate_keys_rejected(self):
         # The strict schema must not be mistaken for authorization.
         self.assertRaises(JobRejected, validate, '{"schema_version":2,"job_id":"20261115_test_01","job_type":"health","job_type":"build"}')
 
