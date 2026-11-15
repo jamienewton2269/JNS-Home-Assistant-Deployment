@@ -1,0 +1,20 @@
+name: JNS HA-General Dining Lux Target Fix
+on:
+  push:
+    branches: [main]
+    paths: ['gateway/lighting_target_fix/deploy.request']
+permissions:
+  contents: read
+concurrency:
+  group: jns-ha905-dining-lux-target
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile gateway/lighting_target_fix/patch.py gateway/lighting_target_fix/deploy.py
+          python3 gateway/lighting_target_fix/deploy.py
