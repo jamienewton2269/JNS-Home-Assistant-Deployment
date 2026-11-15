@@ -24,4 +24,10 @@ jobs:
             echo "=== ${host} CT${ct} ==="
             ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" "pct status $ct; pct exec $ct -- sh -c 'hostname; for s in jns-dns kea-dhcp4-server kea-dhcp6-server kea-dhcp-ddns-server bind9 named; do printf \"%s: \" \"\$s\"; systemctl is-active \"\$s\" 2>/dev/null || true; done; for c in kea-dhcp4 kea-dhcp6 kea-dhcp-ddns named; do command -v \"\$c\" || true; done'" || echo "INSPECTION_FAILED: $host CT$ct"
           done
+          echo '=== PRODUCTION CONFIGURATION INVENTORY ==='
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            echo "=== $1 CT$2 ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=8 "$1" "pct exec $2 -- sh -c 'dpkg-query -W kea-dhcp4-server kea-dhcp6-server kea-dhcp-ddns-server bind9 2>/dev/null || true; find /root/kea-migration-staging -maxdepth 2 -type f -printf \"%P\\n\" 2>/dev/null | head -40; ls -l /etc/kea/*.conf /etc/bind/named.conf 2>/dev/null || true; ss -lntup 2>/dev/null | grep -E \":(53|67|547|8000|8080)\\b\" | head -20 || true'" || echo "FAILED $1 CT$2"
+          done
           echo 'READINESS_INSPECTION_COMPLETE'
