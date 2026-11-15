@@ -1,0 +1,42 @@
+name: BSC Joomla offline validation (Node C)
+
+on:
+  push:
+    paths:
+      - .github/workflows/bsc-joomla-nodec-offline-tests.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bsc-joomla-offline-nodec
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: [self-hosted, nodec]
+    timeout-minutes: 12
+    steps:
+      - name: Validate existing BSC source without deploying
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(hostname -s)" = nodec
+          cd /opt/bsc-joomla-membership
+          test -f sync/replica_contract.py
+          test -f krystal/SnapshotVerifier.php
+          test -d tests
+          echo '=== Source commit ==='
+          git log -1 --format='%h %s'
+          echo '=== Python offline acceptance ==='
+          python3 -m unittest discover -s tests -q
+          echo '=== Whitespace validation ==='
+          git diff --check
+          echo '=== Optional local PHP syntax validation ==='
+          if command -v php >/dev/null 2>&1; then
+            find krystal plugins -type f -name '*.php' -print0 | xargs -0 -r -n 1 php -l
+          else
+            echo 'PHP CLI unavailable on Node C; PHP runtime acceptance remains pending'
+          fi
+          echo 'OFFLINE_VALIDATION_FINISHED_NO_DEPLOYMENT'
