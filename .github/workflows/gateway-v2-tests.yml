@@ -1,0 +1,27 @@
+name: Gateway v2 isolated tests
+on:
+  pull_request:
+    paths:
+      - 'gateway/v2/**'
+      - '.github/workflows/gateway-v2-tests.yml'
+  push:
+    branches:
+      - 'audit/jns-remote-gateway-20261115'
+    paths:
+      - 'gateway/v2/**'
+      - '.github/workflows/gateway-v2-tests.yml'
+permissions:
+  contents: read
+jobs:
+  validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Compile and test (no Node C runner, no secrets)
+        working-directory: gateway/v2
+        run: |
+          python3 -m compileall -q .
+          python3 -m unittest discover -v -p 'test_*.py'
