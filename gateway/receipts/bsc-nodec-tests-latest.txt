@@ -1,10 +1,25 @@
-run_id=43896822116
+run_id=43969394561
 run_attempt=1
 test_step_outcome=success
 source=/opt/bsc-joomla-membership
 /opt/bsc-joomla-membership/tests/test_gateway_tls_transport.py:78: DeprecationWarning: ssl.TLSVersion.TLSv1_1 is deprecated
   context.maximum_version=ssl.TLSVersion.TLSv1_1
 ----------------------------------------------------------------------
-Ran 144 tests in 5.919s
+Ran 144 tests in 7.425s
 
+OK (skipped=12)
+=== Skip detail ===
+test_simultaneous_identical_assertions_one_wins (test_gateway_ct101_http.GatewayCt101HttpTest.test_simultaneous_identical_assertions_one_wins) ... skipped 'explicit CT101 synthetic HTTP+DB opt-in required'
+test_valid_then_replay_over_http (test_gateway_ct101_http.GatewayCt101HttpTest.test_valid_then_replay_over_http) ... skipped 'explicit CT101 synthetic HTTP+DB opt-in required'
+test_cross_language_fixture_on_php_runtime (test_krystal_php_runner.KrystalPhpRunnerTests.test_cross_language_fixture_on_php_runtime) ... skipped 'PHP CLI not installed on this runner'
+test_validation_on_php_runtime (test_member_intake_php_runtime.MemberIntakeRuntimeTests.test_validation_on_php_runtime) ... skipped 'PHP CLI not installed on this runner'
+test_signed_envelope (test_php_python_interop.PhpPythonInterop.test_signed_envelope) ... skipped 'PHP not installed on test host'
+  test_malformed_envelopes_are_rejected_even_optimized (test_receiver_negative_cases.NegativeCases.test_malformed_envelopes_are_rejected_even_optimized) (item={}) ... skipped 'receiver runtime dependencies not installed locally'
+  test_malformed_envelopes_are_rejected_even_optimized (test_receiver_negative_cases.NegativeCases.test_malformed_envelopes_are_rejected_even_optimized) (item={'payload': {}, 'signature': ''}) ... skipped 'receiver runtime dependencies not installed locally'
+  test_malformed_envelopes_are_rejected_even_optimized (test_receiver_negative_cases.NegativeCases.test_malformed_envelopes_are_rejected_even_optimized) (item={'payload': {'iss': 'joomla-fictional-test-only', 'aud': 'club-manager-simulation', 'sub': 'a1000000-0000-4000-8000-000000000001', 'jti': 'not-a-uuid', 'iat': 0, 'exp': 1}, 'signature': '00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'}) ... skipped 'receiver runtime dependencies not installed locally'
+  test_malformed_envelopes_are_rejected_even_optimized (test_receiver_negative_cases.NegativeCases.test_malformed_envelopes_are_rejected_even_optimized) (item={'payload': {'iss': 'wrong', 'aud': 'club-manager-simulation', 'sub': 'a1000000-0000-4000-8000-000000000001', 'jti': 'f1000000-0000-4000-8000-000000000001', 'iat': 0, 'exp': 1}, 'signature': '00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'}) ... skipped 'receiver runtime dependencies not installed locally'
+test_one_accept_one_replay_rejection (test_receiver_real_db.RealDatabaseSignedFlow.test_one_accept_one_replay_rejection) ... skipped 'explicit CT101 synthetic DB opt-in required'
+test_valid_then_replay_and_tamper (test_receiver_signed_flow.SignedFlow.test_valid_then_replay_and_tamper) ... skipped 'CT101 receiver DB driver unavailable locally'
+test_php_runtime_preflight (test_synthetic_preflight.SyntheticPreflightTests.test_php_runtime_preflight) ... skipped 'PHP CLI unavailable'
+Ran 144 tests in 7.403s
 OK (skipped=12)
