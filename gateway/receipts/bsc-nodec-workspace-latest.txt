@@ -1,0 +1,11 @@
+Node C BSC workspace diagnostic
+run_id=43880971908
+runner=nodec
+source=present
+source_commit=90fd972
+worktree=clean
+replica_contract=present
+python3=present
+php=missing
+git=present
+ssh=present
