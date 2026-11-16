@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 6
     steps:
       - name: Recover existing Node C runner over authenticated LAN SSH
-        shell: powershell
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File "{0}"
         run: |
           $ErrorActionPreference = 'Stop'
           if (-not (Get-Command ssh -ErrorAction SilentlyContinue)) { throw 'OpenSSH client unavailable on SAGE runner' }
