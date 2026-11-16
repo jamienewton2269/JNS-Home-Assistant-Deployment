@@ -1,0 +1,48 @@
+name: Kea4 remove LXC run-lock mount dependency
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-ca-lxc-mount-fix.yml']
+permissions:
+  contents: read
+jobs:
+  repair:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          for spec in 'nodea 10.10.110.11 247 10.10.110.247' 'nodeb 10.10.110.12 248 10.10.110.248'; do
+            set -- $spec
+            echo "=== $1 CT$3 ==="
+            ssh -o HostName="$2" -o HostKeyAlias="$1.home.arpa" -o BatchMode=yes "$1" "pct exec $3 -- bash -s" <<REMOTE
+          set -Eeuo pipefail
+          install -d -o _kea -g _kea -m 0750 /run/kea
+          install -d -m 0755 /etc/systemd/system/kea-ctrl-agent.service.d
+          cat >/etc/systemd/system/kea-ctrl-agent.service.d/40-no-lock-mount.conf <<'EOF'
+          [Service]
+          RuntimeDirectory=
+          RuntimeDirectory=kea
+          RuntimeDirectoryMode=0750
+          EOF
+          python3 - <<'PY'
+          import json
+          p='/etc/kea/kea-ctrl-agent.conf'
+          try: c=json.load(open(p))
+          except Exception: c={'Control-agent':{}}
+          c['Control-agent'].update({'http-host':'$4','http-port':8000,'control-sockets':{'dhcp4':{'socket-type':'unix','socket-name':'/run/kea/kea4-ctrl-socket'}}})
+          with open(p,'w') as f: json.dump(c,f,indent=2)
+          PY
+          chown root:_kea /etc/kea/kea-ctrl-agent.conf
+          chmod 0640 /etc/kea/kea-ctrl-agent.conf
+          systemctl daemon-reload
+          systemctl show kea-ctrl-agent -p Requires -p RuntimeDirectory
+          if systemctl show kea-ctrl-agent -p Requires --value | grep -q run-lock.mount; then echo 'FAIL run-lock mount still required'; exit 1; fi
+          kea-ctrl-agent -t /etc/kea/kea-ctrl-agent.conf
+          systemctl restart kea-ctrl-agent
+          systemctl is-active --quiet kea-ctrl-agent
+          ss -lntp | grep ':8000 '
+          systemctl is-active jns-dns kea-dhcp6-server radvd || true
+          REMOTE
+          done
