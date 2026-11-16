@@ -1,0 +1,25 @@
+name: Kea CA Node B runtime fix
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-ca-nodeb-runtime-fix.yml']
+permissions:
+  contents: read
+jobs:
+  repair:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          ssh -o HostName=10.10.110.12 -o HostKeyAlias=nodeb.home.arpa -o BatchMode=yes nodeb 'pct exec 248 -- bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          install -d -o _kea -g _kea -m 0750 /run/kea
+          kea-ctrl-agent -t /etc/kea/kea-ctrl-agent.conf
+          systemctl daemon-reload
+          systemctl restart kea-ctrl-agent
+          systemctl is-active --quiet kea-ctrl-agent
+          echo NODEB_CA_ACTIVE
+          REMOTE
+          ssh -o HostName=10.10.110.11 -o HostKeyAlias=nodea.home.arpa -o BatchMode=yes nodea 'pct exec 247 -- systemctl is-active kea-ctrl-agent'
