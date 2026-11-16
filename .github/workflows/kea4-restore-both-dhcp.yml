@@ -1,0 +1,44 @@
+name: Restore and verify DHCP4 on both nodes after rollback
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-restore-both-dhcp.yml']
+permissions:
+  contents: read
+jobs:
+  restore:
+    runs-on: [self-hosted, linux, x64, nodec]
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          for spec in 'nodea 10.10.110.11 247 100' 'nodeb 10.10.110.12 248 200'; do
+            set -- $spec
+            echo "=== $1 ==="
+            ssh -o HostName="$2" -o HostKeyAlias="$1.home.arpa" -o BatchMode=yes "$1" "pct exec $3 -- bash -s" "$4" <<'REMOTE'
+          set -Eeuo pipefail
+          pool="$1"
+          python3 - "$pool" <<'PY'
+          from pathlib import Path
+          import sys
+          pool=sys.argv[1]
+          p=Path('/etc/dnsmasq.conf')
+          lines=[x for x in p.read_text().splitlines() if not x.startswith(('dhcp-range=','dhcp-option=','dhcp-leasefile='))]
+          lines += ['dhcp-leasefile=/var/lib/jnsdns/leases',
+          'dhcp-range=10.10.0.0,static,255.255.0.0,12h',
+          f'dhcp-range=10.10.{pool}.20,10.10.{pool}.240,255.255.0.0,12h',
+          'dhcp-option=option:router,10.10.254.254',
+          'dhcp-option=option:dns-server,10.10.110.247,10.10.110.248',
+          'dhcp-option=option:ntp-server,10.10.110.22,10.10.110.23',
+          'dhcp-option=option:domain-name,home.arpa',
+          'dhcp-option=option:domain-search,home.arpa']
+          p.write_text('\n'.join(lines)+'\n')
+          PY
+          dnsmasq --test -C /etc/dnsmasq.conf
+          systemctl restart jns-dns
+          sleep 2
+          systemctl is-active --quiet jns-dns
+          ss -lunp | grep ':67 '
+          echo DHCP4_DNS_RESTORED
+          REMOTE
+          done
