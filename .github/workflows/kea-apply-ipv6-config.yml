@@ -1,0 +1,55 @@
+name: Apply matching production Kea IPv6 configuration
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea-apply-ipv6-config.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  configure:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - name: Configure stateless DHCP6 on both nodes without disrupting existing RA and DNS
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            echo "=== $1 CT$2 ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=8 "$1" "pct exec $2 -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          install -d -m 0700 /root/kea-migration-staging
+          if test -e /etc/kea/kea-dhcp6.conf; then
+            cp -a -n /etc/kea/kea-dhcp6.conf /root/kea-migration-staging/kea-dhcp6.original.conf
+          fi
+          python3 - <<'PY'
+          import json,ipaddress,pathlib
+          prefix=ipaddress.IPv6Network('fda6:8b55:d590::/64')
+          addrs=[str(ipaddress.IPv6Address('fda6:8b55:d590::247')),str(ipaddress.IPv6Address('fda6:8b55:d590::248'))]
+          assert all(ipaddress.IPv6Address(a) in prefix for a in addrs)
+          config={'Dhcp6':{
+            'interfaces-config':{'interfaces':['eth0']},
+            'preferred-lifetime':3600,
+            'valid-lifetime':7200,
+            'renew-timer':1800,
+            'rebind-timer':3000,
+            'subnet6':[{'subnet':str(prefix),'id':1,'option-data':[
+              {'name':'dns-servers','data':', '.join(addrs)},
+              {'name':'domain-search','data':'home.arpa'}]}],
+            'lease-database':{'type':'memfile','persist':True,'name':'/var/lib/kea/kea-leases6.csv'}
+          }}
+          path=pathlib.Path('/root/kea-migration-staging/kea-dhcp6.conf')
+          path.write_text(json.dumps(config,indent=2)+'\n')
+          path.chmod(0o600)
+          print('STAGED',path,'stateless DHCP6 no address pools; existing radvd unchanged')
+          PY
+          kea-dhcp6 -t /root/kea-migration-staging/kea-dhcp6.conf 2>&1 | tail -15
+          install -m 0600 /root/kea-migration-staging/kea-dhcp6.conf /etc/kea/kea-dhcp6.conf
+          systemctl stop kea-dhcp6-server || true
+          systemctl disable kea-dhcp6-server || true
+          echo 'APPLIED_DHCP6_CONFIGURATION_INACTIVE'
+          REMOTE
+          done
