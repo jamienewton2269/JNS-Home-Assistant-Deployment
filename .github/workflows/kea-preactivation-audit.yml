@@ -1,0 +1,54 @@
+name: Kea preactivation audit both nodes
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea-preactivation-audit.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - name: Audit DHCP HA configuration and conflict-free activation requirements
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            echo "=== $1 CT$2 ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=8 "$1" "pct exec $2 -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          d=/root/kea-migration-staging
+          echo "KEA4_HA_AND_DDNS_SETTINGS:"
+          python3 - <<'PY'
+          import json
+          p='/root/kea-migration-staging/kea-dhcp4.conf'
+          with open(p) as f: c=json.load(f)['Dhcp4']
+          for k in ('interfaces-config','subnet4','dhcp-ddns','lease-database'):
+              if k in c:
+                  v=c[k]
+                  if k=='lease-database':
+                      v={a:b for a,b in v.items() if a in ('type','name')}
+                  if k=='subnet4':
+                      v=[{'subnet':s.get('subnet'),'pools':s.get('pools'),'option-data':[{'name':o.get('name'),'data':o.get('data')} for o in s.get('option-data',[])]} for s in v]
+                  print(k,repr(v)[:2200])
+          for h in c.get('hooks-libraries',[]):
+              print('hook',h.get('library'))
+              if 'ha' in h.get('library',''):
+                  p=h.get('parameters',{})
+                  print('ha_relationships',[(x.get('this-server-name'),x.get('mode'),[(y.get('name'),y.get('url'),y.get('role')) for y in x.get('peers',[])]) for x in p.get('high-availability',[])])
+          PY
+          echo "DHCP6_DEFAULT_CONFIG_TEST:"
+          if test -f /etc/kea/kea-dhcp6.conf; then
+            kea-dhcp6 -t /etc/kea/kea-dhcp6.conf 2>&1 | tail -10
+          fi
+          echo "DNSMASQ_DHCP_RELATED_CONFIG:"
+          grep -hE '^(dhcp-|enable-ra|ra-param|dhcp-script|dhcp-hostsfile|dhcp-leasefile)' /etc/dnsmasq.conf /etc/dnsmasq.d/* 2>/dev/null | head -55 || true
+          echo "STAGED_CONFIG_FILES:"
+          find "$d" -maxdepth 1 -name '*.conf' -printf '%f\n' | sort
+          echo "PREACTIVATION_AUDIT_COMPLETE"
+          REMOTE
+          done
