@@ -1,0 +1,27 @@
+name: JNS DNS DHCP emergency live inventory
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/jns-dns-live-inventory-20261116.yml']
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - shell: bash
+        run: |
+          set -u
+          for spec in 'nodea 10.10.110.11 247' 'nodeb 10.10.110.12 248'; do
+            set -- $spec
+            echo "=== $1 ==="
+            ssh -o ConnectTimeout=8 -o HostName="$2" -o HostKeyAlias="$1.home.arpa" -o BatchMode=yes "$1" "pct exec $3 -- bash -s" <<'REMOTE' || true
+          for svc in jns-dns kea-dhcp4-server kea-dhcp6-server kea-dhcp-ddns-server bind9 named radvd; do printf '%s: ' "$svc"; systemctl is-active "$svc" 2>/dev/null || true; done
+          echo LISTENERS; ss -lunpt | grep -E ':(53|67|547|53001|1053)\b' || true
+          echo PACKAGES; dpkg-query -W -f='${Package} ${Status}\n' 'bind9*' 'kea-*' 2>/dev/null | grep 'installed' || true
+          echo DNS_CONFIG; grep -E '^(port|dhcp-range|addn-hosts|conf-file|local|domain)=' /etc/dnsmasq.conf || true
+          echo KEA4_LOG; journalctl -u kea-dhcp4-server -n 10 --no-pager -o cat | tail -10
+          echo DNS_LOG; journalctl -u jns-dns -n 10 --no-pager -o cat | tail -10
+          REMOTE
+          done
