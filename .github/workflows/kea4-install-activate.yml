@@ -1,0 +1,93 @@
+name: Install imported Kea4 data and activate with rollback
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-install-activate.yml']
+permissions:
+  contents: read
+jobs:
+  activate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - name: Install and activate DHCP4 with DNS preservation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for spec in 'nodea 247' 'nodeb 248'; do
+            set -- $spec
+            echo "=== PREPARE $1 CT$2 ==="
+            ssh -o BatchMode=yes "$1" "pct exec $2 -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          test -f /root/kea-migration-staging/kea-dhcp4.imported.conf
+          test -f /root/kea-migration-staging/kea-leases4.imported.csv
+          kea-dhcp4 -t /root/kea-migration-staging/kea-dhcp4.imported.conf >/dev/null
+          install -d -m 0700 /root/kea-migration-backups/activate-20261116
+          cp -a /etc/dnsmasq.conf /root/kea-migration-backups/activate-20261116/
+          cp -a /etc/kea/kea-dhcp4.conf /root/kea-migration-backups/activate-20261116/kea-dhcp4.conf.old
+          cp -a /var/lib/jnsdns/leases /root/kea-migration-backups/activate-20261116/leases.dnsmasq
+          install -d -m 0755 /etc/systemd/system/kea-dhcp4-server.service.d
+          cat > /etc/systemd/system/kea-dhcp4-server.service.d/10-lxc-lockdir.conf <<'EOF'
+          [Service]
+          Environment="KEA_LOCKFILE_DIR=/run/kea"
+          RuntimeDirectory=
+          RuntimeDirectory=kea
+          EOF
+          install -o root -g _kea -m 0640 /root/kea-migration-staging/kea-dhcp4.imported.conf /etc/kea/kea-dhcp4.conf
+          install -o _kea -g _kea -m 0640 /root/kea-migration-staging/kea-leases4.imported.csv /var/lib/kea/kea-leases4.csv
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/etc/dnsmasq.conf')
+          data=p.read_text()
+          if 'port=53' not in data: raise SystemExit('dnsmasq DNS not confirmed')
+          lines=data.splitlines()
+          new=[]
+          for line in lines:
+           if line.strip().startswith(('dhcp-range=','dhcp-option=','dhcp-leasefile=','dhcp-host=','dhcp-authoritative','dhcp-script=','conf-file=/var/lib/jnsdns/releases/19/reservations.conf')):
+            new.append('# kea4 cutover disabled: '+line)
+           else: new.append(line)
+          new.insert(0,'# DHCP4 migrated to Kea; dnsmasq retains DNS only')
+          p.write_text('\n'.join(new)+'\n')
+          PY
+          dnsmasq --test -C /etc/dnsmasq.conf
+          systemctl daemon-reload
+          echo PREPARED
+          REMOTE
+          done
+          for spec in 'nodea 247' 'nodeb 248'; do
+            set -- $spec
+            echo "=== ACTIVATE $1 CT$2 ==="
+            if ! ssh -o BatchMode=yes "$1" "pct exec $2 -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          rollback() {
+            echo ROLLING_BACK_DHCP
+            systemctl stop kea-dhcp4-server || true
+            systemctl disable kea-dhcp4-server || true
+            cp /root/kea-migration-backups/activate-20261116/dnsmasq.conf /etc/dnsmasq.conf
+            systemctl restart jns-dns || true
+          }
+          trap rollback ERR
+          systemctl restart jns-dns
+          systemctl is-active --quiet jns-dns
+          if ss -lunp | grep -E ':(67) ' | grep -q dnsmasq; then echo DNSMASQ_DHCP_STILL_ACTIVE; exit 1; fi
+          systemctl start kea-dhcp4-server
+          sleep 3
+          systemctl is-active --quiet kea-dhcp4-server
+          ss -lunp | grep ':67 ' | grep kea-dhcp4
+          systemctl enable kea-dhcp4-server >/dev/null
+          echo KEA4_ACTIVE_DNSMASQ_DNS_ACTIVE
+          REMOTE
+            then
+              echo "FAILED activation on $1 CT$2; rolling back both nodes"
+              for rollback_spec in 'nodea 247' 'nodeb 248'; do
+                set -- $rollback_spec
+                ssh -o BatchMode=yes "$1" "pct exec $2 -- bash -s" <<'REMOTE' || true
+          systemctl stop kea-dhcp4-server || true
+          systemctl disable kea-dhcp4-server || true
+          cp /root/kea-migration-backups/activate-20261116/dnsmasq.conf /etc/dnsmasq.conf
+          systemctl restart jns-dns || true
+          REMOTE
+              done
+              exit 1
+            fi
+          done
