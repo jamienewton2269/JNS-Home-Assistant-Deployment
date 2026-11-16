@@ -1,0 +1,28 @@
+name: Diagnose Kea DHCP6 systemd dependencies
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea-dhcp6-dependency-diagnostics.yml']
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Inspect both CTs without changing services
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            echo "=== $1 CT$2 ==="
+            ssh -o BatchMode=yes "$1" "pct exec $2 -- bash -s" <<'REMOTE'
+          systemctl status kea-dhcp6-server --no-pager -l || true
+          systemctl list-dependencies kea-dhcp6-server --all --no-pager || true
+          systemctl cat kea-dhcp6-server || true
+          systemctl --failed --no-pager || true
+          journalctl -u kea-dhcp6-server -u kea-dhcp6-server.service -n 35 --no-pager || true
+          systemctl is-active jns-dns radvd || true
+          REMOTE
+          done
