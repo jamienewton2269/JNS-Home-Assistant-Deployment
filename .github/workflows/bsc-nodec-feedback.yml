@@ -36,8 +36,8 @@ jobs:
             echo "runner=nodec"
             if test -d /opt/bsc-joomla-membership/.git; then
               echo "source=present"
-              git -C /opt/bsc-joomla-membership log -1 --format='source_commit=%h'
-              if test -z "$(git -C /opt/bsc-joomla-membership status --porcelain)"; then
+              git -c safe.directory=/opt/bsc-joomla-membership -C /opt/bsc-joomla-membership log -1 --format='source_commit=%h'
+              if test -z "$(git -c safe.directory=/opt/bsc-joomla-membership -C /opt/bsc-joomla-membership status --porcelain)"; then
                 echo "worktree=clean"
               else
                 echo "worktree=modified"
