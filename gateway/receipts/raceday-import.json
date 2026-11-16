@@ -1,0 +1,8 @@
+{
+  "conclusion": "failure",
+  "finished_at": "2026-11-16T18:36:56Z",
+  "head_sha": "62518079699783ae15288dc825fea2344c606019",
+  "run_id": 43894269224,
+  "run_url": "https://github.com/jamienewton2269/JNS-Home-Assistant-Deployment/actions/runs/43894269224",
+  "workflow": "RaceDay Manager Node C private import"
+}
