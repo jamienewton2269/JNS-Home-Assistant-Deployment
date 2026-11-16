@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: bsc-joomla-offline-nodec
@@ -28,11 +28,17 @@ jobs:
           test -f krystal/SnapshotVerifier.php
           test -d tests
           echo '=== Source commit ==='
-          git log -1 --format='%h %s'
+          git -c safe.directory=/opt/bsc-joomla-membership log -1 --format='%h %s'
           echo '=== Python offline acceptance ==='
-          python3 -m unittest discover -s tests -q
+          set +e
+          python3 -m unittest discover -s tests -q > /tmp/bsc-nodec-tests-"$GITHUB_RUN_ID".log 2>&1
+          test_rc=$?
+          set -e
+          cat /tmp/bsc-nodec-tests-"$GITHUB_RUN_ID".log
+          echo "BSC_TEST_EXIT=$test_rc"
+          exit "$test_rc"
           echo '=== Whitespace validation ==='
-          git diff --check
+          git -c safe.directory=/opt/bsc-joomla-membership diff --check
           echo '=== Optional local PHP syntax validation ==='
           if command -v php >/dev/null 2>&1; then
             find krystal plugins -type f -name '*.php' -print0 | xargs -0 -r -n 1 php -l
