@@ -1,0 +1,40 @@
+name: Restore Node A DHCP after native HA rollback
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-nodea-restore-native-rollback.yml']
+permissions:
+  contents: read
+jobs:
+  restore:
+    runs-on: [self-hosted, linux, x64, nodec]
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          ssh -o HostName=10.10.110.11 -o HostKeyAlias=nodea.home.arpa -o BatchMode=yes nodea 'pct exec 247 -- bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          cp -a /etc/dnsmasq.conf /root/kea-migration-backups/20261116-guarded-cutover/dnsmasq.before-emergency
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/etc/dnsmasq.conf')
+          lines=p.read_text().splitlines()
+          lines=[x for x in lines if not x.startswith(('dhcp-range=','dhcp-option=','dhcp-leasefile='))]
+          lines += [
+          'dhcp-leasefile=/var/lib/jnsdns/leases',
+          'dhcp-range=10.10.0.0,static,255.255.0.0,12h',
+          'dhcp-range=10.10.100.20,10.10.100.240,255.255.0.0,12h',
+          'dhcp-option=option:router,10.10.254.254',
+          'dhcp-option=option:dns-server,10.10.110.247,10.10.110.248',
+          'dhcp-option=option:ntp-server,10.10.110.22,10.10.110.23',
+          'dhcp-option=option:domain-name,home.arpa',
+          'dhcp-option=option:domain-search,home.arpa']
+          p.write_text('\n'.join(lines)+'\n')
+          PY
+          dnsmasq --test -C /etc/dnsmasq.conf
+          systemctl restart jns-dns
+          sleep 2
+          systemctl is-active --quiet jns-dns
+          ss -lunp | grep ':67 '
+          echo NODEA_DHCP4_RESTORED
+          REMOTE
