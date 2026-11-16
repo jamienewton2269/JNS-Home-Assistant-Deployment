@@ -1,0 +1,35 @@
+name: Complete Kea CA repair on Node B
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-ca-nodeb-repair.yml']
+permissions:
+  contents: read
+jobs:
+  repair:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          tmp=$(mktemp)
+          trap 'rm -f "$tmp"' EXIT
+          ssh -o HostName=10.10.110.11 -o HostKeyAlias=nodea.home.arpa -o BatchMode=yes nodea 'pct exec 247 -- cat /etc/kea/kea-ctrl-agent.conf' > "$tmp"
+          python3 - "$tmp" <<'PY'
+          import json,sys
+          p=sys.argv[1];d=json.load(open(p));d['Control-agent']['http-host']='10.10.110.248'
+          open(p,'w').write(json.dumps(d,indent=2)+'\n')
+          PY
+          ssh -o HostName=10.10.110.12 -o HostKeyAlias=nodeb.home.arpa -o BatchMode=yes nodeb "pct exec 248 -- bash -c 'cat > /etc/kea/kea-ctrl-agent.conf'" < "$tmp"
+          ssh -o HostName=10.10.110.12 -o HostKeyAlias=nodeb.home.arpa -o BatchMode=yes nodeb 'pct exec 248 -- bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          chown root:_kea /etc/kea/kea-ctrl-agent.conf
+          chmod 0640 /etc/kea/kea-ctrl-agent.conf
+          kea-ctrl-agent -t /etc/kea/kea-ctrl-agent.conf
+          systemctl daemon-reload
+          systemctl restart kea-ctrl-agent
+          systemctl is-active --quiet kea-ctrl-agent
+          echo NODEB_CA_ACTIVE
+          REMOTE
+          ssh -o HostName=10.10.110.11 -o HostKeyAlias=nodea.home.arpa -o BatchMode=yes nodea 'pct exec 247 -- systemctl is-active kea-ctrl-agent'
