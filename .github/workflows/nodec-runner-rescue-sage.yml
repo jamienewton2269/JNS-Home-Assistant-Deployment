@@ -1,0 +1,58 @@
+name: Recover Node C Actions runner via SAGE
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/nodec-runner-rescue-sage.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nodec-runner-rescue-sage
+  cancel-in-progress: false
+jobs:
+  restore:
+    runs-on: [self-hosted, windows, x64, sage]
+    timeout-minutes: 6
+    steps:
+      - name: Recover existing Node C runner over authenticated LAN SSH
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (Get-Command ssh -ErrorAction SilentlyContinue)) { throw 'OpenSSH client unavailable on SAGE runner' }
+          Write-Output "SAGE_HOST=$env:COMPUTERNAME"
+          Write-Output "SAGE_ACCOUNT=$([Security.Principal.WindowsIdentity]::GetCurrent().Name)"
+          $script = @'
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec || { echo 'REFUSED: destination is not Node C'; exit 10; }
+          echo NODEC_SSH_AUTHENTICATED
+          echo "NODEC_TIME=$(date -u +%FT%TZ)"
+          echo "NODEC_UPTIME=$(uptime -p)"
+          mapfile -t services < <(systemctl list-unit-files --no-legend --no-pager 'actions.runner.*.service' | awk '$1 ~ /^actions[.]runner[.].*[.]service$/ {print $1}')
+          if (( ${#services[@]} != 1 )); then
+            echo "REFUSED: expected one GitHub Actions runner service, found ${#services[@]}"
+            ps -eo comm,args | grep '[R]unner.Listener' | cut -c1-180 || true
+            exit 11
+          fi
+          service="${services[0]}"
+          echo "RUNNER_UNIT=$service"
+          echo "RUNNER_BEFORE=$(systemctl is-active "$service" || true)"
+          if systemctl is-active --quiet "$service"; then
+            echo 'RUNNER_ALREADY_ACTIVE'
+            exit 0
+          fi
+          if ! sudo -n systemctl reset-failed "$service"; then
+            echo 'RECOVERY_BLOCKED: SSH identity has no noninteractive sudo privileges'
+            exit 12
+          fi
+          sudo -n systemctl restart "$service"
+          sleep 3
+          systemctl is-active --quiet "$service" || { echo 'RECOVERY_FAILED: service did not become active'; exit 13; }
+          echo 'NODEC_RUNNER_SERVICE_RECOVERED'
+          '@
+          $ok=$false
+          foreach ($hostName in @('nodec.home.arpa','nodec')) {
+            Write-Output "TRY_HOST=$hostName"
+            $script | & ssh -o BatchMode=yes -o ConnectTimeout=7 -o StrictHostKeyChecking=yes -o NumberOfPasswordPrompts=0 $hostName 'bash -s' 2>&1 | ForEach-Object { Write-Output "$_" }
+            if ($LASTEXITCODE -eq 0) { $ok=$true; break }
+          }
+          if (-not $ok) { throw 'Node C recovery not confirmed: SSH identity, networking or service permissions require attention' }
