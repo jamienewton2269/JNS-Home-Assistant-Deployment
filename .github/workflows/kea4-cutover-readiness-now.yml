@@ -1,0 +1,47 @@
+name: Kea4 immediate cutover readiness
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-cutover-readiness-now.yml']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            echo "=== $1 CT$2 ==="
+            ssh -o BatchMode=yes "$1" "pct exec $2 -- bash -s" <<'REMOTE'
+          set -u
+          echo '--- Kea4 staged validation'
+          kea-dhcp4 -t /root/kea-migration-staging/kea-dhcp4.conf 2>&1 | tail -12
+          echo '--- Kea4 config nonsecret summary'
+          python3 - <<'PY'
+          import json
+          c=json.load(open('/root/kea-migration-staging/kea-dhcp4.conf'))['Dhcp4']
+          print('interfaces',c.get('interfaces-config'))
+          print('subnets',[(s.get('subnet'),s.get('pools'),s.get('option-data')) for s in c.get('subnet4',[])])
+          print('global options',c.get('option-data'))
+          print('hooks',[(h.get('library'),list(h.get('parameters',{}))) for h in c.get('hooks-libraries',[])])
+          print('ddns',c.get('dhcp-ddns'))
+          PY
+          echo '--- unit status and override'
+          systemctl is-active kea-dhcp4-server jns-dns radvd || true
+          systemctl cat kea-dhcp4-server | head -55
+          echo '--- dnsmasq effective config excerpts'
+          grep -R -E '^(dhcp-range|dhcp-option|dhcp-host|dhcp-leasefile|interface=|except-interface=|port=|bind-interfaces|enable-ra)' /etc/dnsmasq.conf /etc/dnsmasq.d /etc/jnsdns 2>/dev/null | head -85 || true
+          echo '--- dnsmasq unit'
+          systemctl cat jns-dns | head -65
+          echo '--- ports'
+          ss -lunp | grep -E ':(53|67|68|547) ' || true
+          echo '--- lease count'
+          wc -l /var/lib/jnsdns/leases 2>/dev/null || true
+          echo '--- kea4 config ownership'
+          stat -c '%U:%G %a %n' /root/kea-migration-staging/kea-dhcp4.conf /etc/kea /etc/kea/kea-dhcp4.conf 2>/dev/null || true
+          REMOTE
+          done
