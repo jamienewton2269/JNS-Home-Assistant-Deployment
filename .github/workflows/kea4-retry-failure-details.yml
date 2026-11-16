@@ -1,0 +1,28 @@
+name: Diagnose Kea DHCP4 retry failure
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-retry-failure-details.yml']
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: [self-hosted, linux, x64, nodec]
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          for spec in 'nodea 10.10.110.11 247' 'nodeb 10.10.110.12 248'; do
+            set -- $spec
+            echo "=== $1 ==="
+            ssh -o HostName="$2" -o HostKeyAlias="$1.home.arpa" -o BatchMode=yes "$1" "pct exec $3 -- bash -s" <<'REMOTE'
+          echo KEA_ERRORS
+          journalctl -u kea-dhcp4-server --since '2026-11-16 14:28:30' -n 65 --no-pager -o cat | tail -65
+          echo SERVICES
+          for s in jns-dns kea-dhcp4-server kea-dhcp6-server kea-ctrl-agent; do echo "$s $(systemctl is-active "$s" || true)"; done
+          echo DNSMASQ_DHCP
+          grep '^dhcp-range=' /etc/dnsmasq.conf || true
+          echo SOCKETS
+          ss -lunp | grep -E ':(53|67|547) ' || true
+          REMOTE
+          done
