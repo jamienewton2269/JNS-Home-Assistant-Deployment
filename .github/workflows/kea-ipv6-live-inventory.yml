@@ -1,0 +1,38 @@
+name: Inventory production IPv6 settings for Kea
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea-ipv6-live-inventory.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - name: Inventory active IPv6 RA and DHCP6 settings on both nodes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            echo "=== $1 CT$2 ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=8 "$1" "pct exec $2 -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          echo 'IPv6 addresses:'
+          ip -6 -br addr show dev eth0
+          echo 'IPv6 routes:'
+          ip -6 route show | head -25
+          echo 'DNSMASQ IPv6 config directives:'
+          grep -hEi '^(enable-ra|ra-param|dhcp-range|dhcp-option|dhcp-host|interface|bind-|listen-address|domain|dhcp-leasefile)' /etc/dnsmasq.conf /etc/dnsmasq.d/* 2>/dev/null | head -100 || true
+          echo 'Existing IPv6 leases count:'
+          if test -f /var/lib/jnsdns/leases; then awk '$1>0 && $3 ~ /:/ {n++} END {print n+0}' /var/lib/jnsdns/leases; fi
+          echo 'IPv6 router advertisement processes:'
+          ps -eo comm | grep -E 'radvd|dnsmasq|kea-dhcp6' || true
+          echo 'IPv6 sysctl:'
+          sysctl net.ipv6.conf.eth0.accept_ra net.ipv6.conf.eth0.forwarding || true
+          echo 'INVENTORY_COMPLETE'
+          REMOTE
+          done
