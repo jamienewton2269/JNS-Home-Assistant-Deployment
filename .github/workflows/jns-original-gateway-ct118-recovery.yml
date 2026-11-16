@@ -1,0 +1,54 @@
+name: Inspect original JNS maintenance gateway CT118
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/jns-original-gateway-ct118-recovery.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, windows, x64, sage]
+    timeout-minutes: 5
+    steps:
+      - name: Verify original gateway and management reachability
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File "{0}"
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Write-Output 'JNS_ORIGINAL_GATEWAY_NETWORK_DIAGNOSTIC'
+          Write-Output "runner=$env:COMPUTERNAME"
+          foreach ($target in @(
+            @{name='CT118_HTTPS';host='10.10.10.18';port=8843},
+            @{name='CT118_SSH';host='10.10.10.18';port=22},
+            @{name='NODE_A_SSH';host='10.10.110.11';port=22},
+            @{name='NODE_C_SSH';host='nodec.home.arpa';port=22}
+          )) {
+            $client = New-Object System.Net.Sockets.TcpClient
+            try {
+              $result = $client.BeginConnect($target.host, $target.port, $null, $null)
+              $connected = $result.AsyncWaitHandle.WaitOne(3000)
+              if ($connected) { $client.EndConnect($result) }
+              Write-Output "$($target.name)=$([bool]$connected)"
+            } catch {
+              Write-Output "$($target.name)=false"
+            } finally {
+              $client.Close()
+            }
+          }
+          try {
+            $req = [System.Net.HttpWebRequest]::Create('https://10.10.10.18:8843/')
+            $req.Timeout = 5000
+            $req.Method = 'GET'
+            $req.AllowAutoRedirect = $false
+            $resp = $req.GetResponse()
+            Write-Output "CT118_HTTPS_STATUS=$([int]$resp.StatusCode)"
+            $resp.Close()
+          } catch [System.Net.WebException] {
+            if ($_.Exception.Response) {
+              Write-Output "CT118_HTTPS_STATUS=$([int]$_.Exception.Response.StatusCode)"
+              $_.Exception.Response.Close()
+            } else {
+              Write-Output "CT118_HTTPS_ERROR=$($_.Exception.Status)"
+            }
+          }
+          Write-Output 'NETWORK_DIAGNOSTIC_COMPLETE'
