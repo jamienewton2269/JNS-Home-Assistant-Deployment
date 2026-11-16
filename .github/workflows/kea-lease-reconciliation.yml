@@ -1,0 +1,51 @@
+name: Reconcile DHCP4 leases and reservations before cutover
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea-lease-reconciliation.yml']
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - name: Check lease import coverage without logging device identifiers
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            echo "=== $1 CT$2 ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=8 "$1" "pct exec $2 -- bash -s" <<'REMOTE'
+          python3 - <<'PY'
+          import csv,time,ipaddress,json,collections
+          now=int(time.time())
+          old=[]
+          for line in open('/var/lib/jnsdns/leases'):
+           a=line.split()
+           if len(a)>=4:
+            try:
+             expiry=int(a[0]); ip=ipaddress.ip_address(a[2])
+             old.append((expiry,str(ip),a[1].lower()))
+            except Exception: pass
+          path='/root/kea-migration-staging/kea-leases4.imported.csv'
+          with open(path,newline='') as f:
+           rows=list(csv.DictReader(f))
+          imported_ips={r.get('address','') for r in rows}
+          active=[x for x in old if x[0]==0 or x[0]>now]
+          missing=[x for x in active if x[1] not in imported_ips]
+          print('dnsmasq_total',len(old),'dnsmasq_unexpired',len(active),'kea_imported',len(rows),'active_not_imported',len(missing))
+          print('missing_by_range',dict(collections.Counter('100' if x[1].startswith('10.10.100.') else '200' if x[1].startswith('10.10.200.') else 'other' for x in missing)))
+          d=json.load(open('/root/kea-migration-staging/kea-dhcp4.imported.conf'))['Dhcp4']
+          reservations=d['subnet4'][0].get('reservations',[])
+          print('reservations',len(reservations),'unique_addresses',len({r.get('ip-address') for r in reservations}))
+          print('ha_mode',d['hooks-libraries'][0]['parameters']['high-availability'][0]['mode'])
+          print('ddns_enabled',d.get('dhcp-ddns',{}).get('enable-updates',False))
+          PY
+          echo 'KEA_CONTROL_AGENT_STAGE'
+          cat /root/kea-migration-staging/kea-ctrl-agent.conf | sed -E 's/(password|secret).*/[REDACTED]/I'
+          echo 'STAGED_ZONE_CHECK'
+          named-checkzone home.arpa /root/kea-migration-staging/home.arpa.zone 2>&1 | tail -4
+          REMOTE
+          done
