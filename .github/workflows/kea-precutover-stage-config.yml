@@ -1,0 +1,41 @@
+name: Stage verified Kea DHCP4 config without activating
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea-precutover-stage-config.yml']
+permissions:
+  contents: read
+jobs:
+  stage:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - name: Stage imported Kea4 and lease snapshot while retaining live dnsmasq
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            echo "=== $1 CT$2 ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=8 "$1" "pct exec $2 -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          kea-dhcp4 -t /root/kea-migration-staging/kea-dhcp4.imported.conf >/dev/null
+          python3 - <<'PY'
+          import json
+          d=json.load(open('/root/kea-migration-staging/kea-dhcp4.imported.conf'))['Dhcp4']
+          assert len(d['subnet4'][0]['reservations'])==43
+          assert d['hooks-libraries'][0]['parameters']['high-availability'][0]['mode']=='hot-standby'
+          assert d['interfaces-config']['interfaces']==['eth0']
+          PY
+          install -d -m 0700 /root/kea-migration-staging/cutover-ready
+          cp -a /root/kea-migration-staging/kea-dhcp4.imported.conf /root/kea-migration-staging/cutover-ready/kea-dhcp4.conf
+          cp -a /root/kea-migration-staging/kea-leases4.reconciled.csv /root/kea-migration-staging/cutover-ready/kea-leases4.csv
+          cp -a /root/kea-migration-staging/home.arpa.zone /root/kea-migration-staging/cutover-ready/home.arpa.zone
+          named-checkzone home.arpa /root/kea-migration-staging/cutover-ready/home.arpa.zone >/dev/null
+          echo STAGED_VALIDATED
+          echo "RESERVATIONS $(python3 -c 'import json;print(len(json.load(open("/root/kea-migration-staging/cutover-ready/kea-dhcp4.conf"))["Dhcp4"]["subnet4"][0]["reservations"]))')"
+          echo "LIVE_DNS $(systemctl is-active jns-dns)"
+          echo "LIVE_DHCP6 $(systemctl is-active kea-dhcp6-server)"
+          echo "KEA4 $(systemctl is-active kea-dhcp4-server || true)"
+          REMOTE
+          done
