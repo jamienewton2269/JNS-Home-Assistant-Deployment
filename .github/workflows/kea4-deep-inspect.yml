@@ -1,0 +1,37 @@
+name: Kea4 migration blocker deep inspection
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-deep-inspect.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          for spec in 'nodea 10.10.110.11 247' 'nodeb 10.10.110.12 248'; do
+            set -- $spec
+            echo "=== $1 ==="
+            ssh -o HostName="$2" -o HostKeyAlias="$1.home.arpa" -o BatchMode=yes "$1" "pct exec $3 -- bash -s" <<'REMOTE'
+          set -u
+          echo SYNC
+          sed -n '1,210p' /usr/local/sbin/jns-dns-sync
+          echo BUILDER
+          sed -n '1,130p' /usr/local/sbin/jns-dns-build-config
+          echo DNS_STAGING
+          cat /root/kea-migration-staging/kea-dhcp-ddns.conf
+          echo DDNS_SERVICE
+          systemctl cat kea-dhcp-ddns-server | head -60
+          echo DNS_AUTH_FILES
+          ls -l /etc/kea/kea-api-password /etc/kea/kea-dhcp-ddns.conf /etc/bind /etc/jnsdns 2>&1 | head -65
+          echo TESTS
+          command -v named || true
+          command -v nsupdate || true
+          echo RELEASE
+          readlink -f /var/lib/jnsdns/active
+          REMOTE
+          done
