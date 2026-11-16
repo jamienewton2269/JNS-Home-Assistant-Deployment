@@ -1,0 +1,32 @@
+name: Kea control agent Node A recovery and two-node verification
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-ca-nodea-recovery.yml']
+permissions:
+  contents: read
+jobs:
+  recover:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          for spec in 'nodea 10.10.110.11 247' 'nodeb 10.10.110.12 248'; do
+            set -- $spec
+            echo "=== $1 ==="
+            ssh -o HostName="$2" -o HostKeyAlias="$1.home.arpa" -o BatchMode=yes "$1" "pct exec $3 -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          install -d -o _kea -g _kea -m 0750 /run/kea
+          systemctl daemon-reload
+          systemctl reset-failed kea-ctrl-agent || true
+          systemctl restart kea-ctrl-agent
+          sleep 2
+          systemctl --no-pager --full status kea-ctrl-agent | tail -15 || true
+          systemctl is-active --quiet kea-ctrl-agent
+          systemctl is-active --quiet jns-dns
+          systemctl is-active --quiet kea-dhcp6-server
+          echo NODE_OK
+          REMOTE
+          done
