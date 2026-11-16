@@ -1,0 +1,36 @@
+name: Kea preserve hostname-only Sabrina reservation
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-sabrina-reservation.yml']
+permissions:
+  contents: read
+jobs:
+  stage:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          for spec in 'nodea 10.10.110.11 247' 'nodeb 10.10.110.12 248'; do
+            set -- $spec
+            echo "=== $1 ==="
+            ssh -o HostName="$2" -o HostKeyAlias="$1.home.arpa" -o BatchMode=yes "$1" "pct exec $3 -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json,pathlib
+          p=pathlib.Path('/root/kea-migration-staging/kea-dhcp4.imported.conf')
+          d=json.loads(p.read_text())
+          r=d['Dhcp4']['subnet4'][0]['reservations']
+          mac='64:82:14:d7:f9:0e'
+          assert not any(x.get('hw-address')==mac and x.get('ip-address') for x in r)
+          if not any(x.get('hw-address')==mac for x in r):
+           r.append({'hw-address':mac,'hostname':'sabrina'})
+          p.write_text(json.dumps(d,indent=2)+'\n')
+          print('reservation_count',len(r))
+          PY
+          kea-dhcp4 -t /root/kea-migration-staging/kea-dhcp4.imported.conf
+          echo STAGED_VALID
+          REMOTE
+          done
