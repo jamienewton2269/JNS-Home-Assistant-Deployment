@@ -2,6 +2,7 @@ name: Gateway run receipts
 on:
   workflow_run:
     workflows:
+      - RaceDay Manager Node C private import
       - Node C gateway request execution
       - Stage Kea and BIND on Node A and B
       - Kea BIND Node A B deployment preflight
@@ -36,6 +37,7 @@ jobs:
           python3 - <<'PY'
           import base64, json, os, subprocess
           names = {
+            'RaceDay Manager Node C private import': 'raceday-import',
             'Node C gateway request execution': 'gateway-request',
             'Stage Kea and BIND on Node A and B': 'kea-bind-stage',
             'Kea BIND Node A B deployment preflight': 'kea-bind-preflight',
