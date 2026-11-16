@@ -1,0 +1,66 @@
+name: Fix LXC Kea systemd dependency and start DHCP6
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea-fix-systemd-start.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fix:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - name: Fix failed run-lock mount dependency in LXC and start stateless DHCP6
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            echo "=== $1 CT$2 ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=8 "$1" "pct exec $2 -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          kea-dhcp6 -t /etc/kea/kea-dhcp6.conf >/dev/null
+          python3 - <<'PY'
+          import json
+          c=json.load(open('/etc/kea/kea-dhcp6.conf'))['Dhcp6']
+          assert c['interfaces-config']['interfaces']==['eth0']
+          assert c['subnet6'][0]['subnet']=='fda6:8b55:d590::/64'
+          assert not c['subnet6'][0].get('pools') and not c['subnet6'][0].get('pd-pools')
+          PY
+          install -d -m 0755 /run/lock
+          install -d -m 0750 /run/lock/kea
+          install -d -m 0755 /etc/systemd/system/kea-dhcp6-server.service.d
+          cat >/etc/systemd/system/kea-dhcp6-server.service.d/lxc-runtime.conf <<'OVERRIDE'
+          [Unit]
+          Requires=
+          Requires=sysinit.target
+          After=
+          After=network-online.target time-sync.target
+          [Service]
+          RuntimeDirectory=kea
+          Environment=KEA_LOCKFILE_DIR=/run/lock/kea
+          OVERRIDE
+          systemctl daemon-reload
+          echo 'UPDATED_DEPENDENCIES:'
+          systemctl show kea-dhcp6-server -p Requires -p After
+          if ! systemctl start kea-dhcp6-server; then
+            echo 'START_FAILED'
+            systemctl status kea-dhcp6-server --no-pager -l | tail -35 || true
+            journalctl -u kea-dhcp6-server -n 20 --no-pager || true
+            exit 1
+          fi
+          sleep 2
+          if ! systemctl is-active --quiet kea-dhcp6-server; then
+            echo 'SERVICE_NOT_ACTIVE'
+            exit 1
+          fi
+          echo 'SOCKETS:'
+          ss -lunp | grep ':547' || true
+          systemctl enable kea-dhcp6-server >/dev/null
+          echo 'KEA_DHCP6_ACTIVE'
+          echo 'EXISTING_DNS:'
+          systemctl is-active jns-dns || true
+          REMOTE
+          done
