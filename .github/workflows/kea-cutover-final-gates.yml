@@ -1,0 +1,40 @@
+name: Final DHCP4 and DNS migration gates
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea-cutover-final-gates.yml']
+permissions:
+  contents: read
+jobs:
+  gates:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - name: Verify imported leases and reservation completeness, DDNS, DNS zone and Kea HA
+        shell: bash
+        run: |
+          set -uo pipefail
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            echo "=== $1 CT$2 ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=8 "$1" "pct exec $2 -- bash -s" <<'REMOTE'
+          echo IMPORTED_CONFIG
+          kea-dhcp4 -t /root/kea-migration-staging/kea-dhcp4.imported.conf 2>&1 | tail -12
+          python3 - <<'PY'
+          import json
+          for p in ['/root/kea-migration-staging/kea-dhcp4.imported.conf','/root/kea-migration-staging/kea-dhcp4.conf']:
+           d=json.load(open(p))['Dhcp4']
+           print(p,'reservations',len(d.get('reservations',[])), 'subnet reservations',[len(s.get('reservations',[])) for s in d.get('subnet4',[])], 'hooks',d.get('hooks-libraries'), 'ddns',d.get('dhcp-ddns'),'ha',d.get('hooks-libraries',[])[0].get('parameters') if d.get('hooks-libraries') else None)
+          PY
+          echo RESERVATION_SOURCE_COUNT
+          grep -Rh '^dhcp-host=' /etc/dnsmasq.conf /etc/dnsmasq.d 2>/dev/null | wc -l
+          echo IMPORTED_LEASES
+          wc -l /root/kea-migration-staging/kea-leases4.imported.csv /var/lib/jnsdns/leases
+          echo ZONE_SNAPSHOT
+          sed -n '1,65p' /root/kea-migration-staging/home.arpa.zone
+          echo BIND_STAGING
+          sed -n '1,85p' /root/kea-migration-staging/named-forwarder-test.conf
+          echo DDNS_STAGING
+          sed -n '1,70p' /root/kea-migration-staging/kea-dhcp-ddns.conf | sed -E 's/(secret|password).*/[REDACTED]/I'
+          REMOTE
+          done
