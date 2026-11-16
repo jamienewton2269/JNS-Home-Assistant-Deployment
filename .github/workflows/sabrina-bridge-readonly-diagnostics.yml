@@ -1,6 +1,9 @@
 name: Sabrina bridge read-only diagnostics
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/sabrina-bridge-readonly-diagnostics.yml'
 
 permissions:
   contents: read
