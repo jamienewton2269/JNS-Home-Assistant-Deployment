@@ -1,0 +1,28 @@
+name: Restore Node A DHCPv4 after failed cutover
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-restore-nodea-dhcp.yml']
+permissions:
+  contents: read
+jobs:
+  restore:
+    runs-on: [self-hosted, linux, x64, nodec]
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          ssh -o HostName=10.10.110.11 -o HostKeyAlias=nodea.home.arpa -o BatchMode=yes nodea 'pct exec 247 -- bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          if ! grep -q '^dhcp-range=10.10.100.20' /etc/dnsmasq.conf; then
+            test -s /var/lib/jnsdns/active/dnsmasq.conf
+            grep -q '^dhcp-range=10.10.100.20' /var/lib/jnsdns/active/dnsmasq.conf
+            cp /var/lib/jnsdns/active/dnsmasq.conf /etc/dnsmasq.conf
+            dnsmasq --test -C /etc/dnsmasq.conf
+            systemctl restart jns-dns
+          fi
+          systemctl is-active --quiet jns-dns
+          grep '^dhcp-range=' /etc/dnsmasq.conf
+          ss -lunp | grep ':67 '
+          echo NODEA_DHCP4_RESTORED
+          REMOTE
