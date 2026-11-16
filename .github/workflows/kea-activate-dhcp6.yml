@@ -1,0 +1,53 @@
+name: Activate validated stateless Kea DHCP6 on both nodes
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea-activate-dhcp6.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  activate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - name: Activate DHCP6 with per-node automatic rollback on failed validation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            echo "=== $1 CT$2 ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=8 "$1" "pct exec $2 -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          kea-dhcp6 -t /etc/kea/kea-dhcp6.conf >/dev/null
+          python3 - <<'PY'
+          import json
+          c=json.load(open('/etc/kea/kea-dhcp6.conf'))['Dhcp6']
+          assert c['interfaces-config']['interfaces']==['eth0']
+          assert c['subnet6'][0]['subnet']=='fda6:8b55:d590::/64'
+          assert not c['subnet6'][0].get('pools')
+          assert not c['subnet6'][0].get('pd-pools')
+          opts={o['name']:o['data'] for o in c['subnet6'][0]['option-data']}
+          assert opts['domain-search']=='home.arpa'
+          assert 'fda6:8b55:d590::247' in opts['dns-servers']
+          assert 'fda6:8b55:d590::248' in opts['dns-servers']
+          PY
+          systemctl start kea-dhcp6-server
+          if ! systemctl is-active --quiet kea-dhcp6-server; then
+            systemctl stop kea-dhcp6-server || true
+            echo 'DHCP6_START_FAILED_ROLLED_BACK'
+            exit 1
+          fi
+          if ! ss -lunp | grep -E '(:547|]:547)' | grep -q kea-dhcp6; then
+            systemctl stop kea-dhcp6-server
+            echo 'DHCP6_SOCKET_CHECK_FAILED_ROLLED_BACK'
+            exit 1
+          fi
+          systemctl enable kea-dhcp6-server >/dev/null
+          echo 'DHCP6_ACTIVE_VALIDATED'
+          systemctl is-active jns-dns
+          systemctl is-active radvd
+          REMOTE
+          done
