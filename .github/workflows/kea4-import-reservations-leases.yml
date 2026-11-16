@@ -1,0 +1,91 @@
+name: Export and stage dnsmasq reservations and leases into Kea4
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-import-reservations-leases.yml']
+permissions:
+  contents: read
+jobs:
+  migrate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - name: Export and import securely without activating DHCP4
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          tmp=$(mktemp -d)
+          trap 'rm -rf "$tmp"' EXIT
+          for spec in 'nodea 247 a' 'nodeb 248 b'; do
+            set -- $spec
+            ssh -o BatchMode=yes "$1" "pct exec $2 -- cat /var/lib/jnsdns/releases/19/reservations.conf" > "$tmp/res-$3"
+            ssh -o BatchMode=yes "$1" "pct exec $2 -- cat /var/lib/jnsdns/leases" > "$tmp/leases-$3"
+            ssh -o BatchMode=yes "$1" "pct exec $2 -- cat /root/kea-migration-staging/kea-dhcp4.conf" > "$tmp/kea-$3"
+          done
+          python3 - "$tmp" <<'PY'
+          import sys,json,csv,ipaddress,time,collections,pathlib,re
+          p=pathlib.Path(sys.argv[1])
+          records={}
+          byip={}
+          for suffix in ('a','b'):
+            for raw in (p/('res-'+suffix)).read_text().splitlines():
+              line=raw.strip()
+              if not line or line.startswith('#'): continue
+              if not line.startswith('dhcp-host='): raise ValueError('unsupported reservation directive')
+              parts=line.split('=',1)[1].split(',')
+              mac=parts[0].lower()
+              if not re.fullmatch(r'(?:[0-9a-f]{2}:){5}[0-9a-f]{2}',mac): raise ValueError('unsupported reservation identifier')
+              ip=next((v for v in parts[1:] if re.fullmatch(r'10\.10\.\d+\.\d+',v)),None)
+              if ip is None:
+                print('SKIPPED_HOSTNAME_ONLY_RESERVATION',suffix)
+                continue
+              ipaddress.ip_address(ip)
+              hostname=next((v for v in parts[1:] if v!=ip and v!='infinite' and not v.endswith('h') and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]*',v)),None)
+              obj={'hw-address':mac,'ip-address':ip}
+              if hostname: obj['hostname']=hostname
+              if mac in records and records[mac]['ip-address']!=ip: raise ValueError('MAC maps to different IPs across servers')
+              if ip in byip and byip[ip]!=mac: raise ValueError('IP maps to different MACs')
+              records[mac]=obj
+              byip[ip]=mac
+          now=int(time.time())
+          leases={}
+          for suffix in ('a','b'):
+            for raw in (p/('leases-'+suffix)).read_text().splitlines():
+              fields=raw.split()
+              if not fields: continue
+              if len(fields)!=5: raise ValueError('unexpected dnsmasq lease format')
+              expiry,mac,ip,hostname,client_id=fields
+              ipaddress.ip_address(ip)
+              if not re.fullmatch(r'(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}',mac): raise ValueError('unexpected MAC format')
+              if int(expiry)==0 or int(expiry)<=now: continue
+              if ip in byip: continue
+              if not (ipaddress.ip_address(ip) in ipaddress.ip_network('10.10.100.20/32') or ip.startswith('10.10.100.') or ip.startswith('10.10.200.')): continue
+              if ip not in leases or int(expiry)>leases[ip][0]: leases[ip]=(int(expiry),mac,hostname,client_id)
+          # Preserve live dynamic leases, including those outside the two pools; reservations cover static addresses.
+          for suffix in ('a','b'):
+            c=json.loads((p/('kea-'+suffix)).read_text())
+            dh=c['Dhcp4']
+            if len(dh['subnet4'])!=1 or dh['subnet4'][0]['subnet']!='10.10.0.0/16': raise ValueError('unexpected subnet')
+            dh['subnet4'][0]['reservations']=sorted(records.values(),key=lambda r:ipaddress.ip_address(r['ip-address']))
+            (p/('config-'+suffix)).write_text(json.dumps(c,indent=2)+'\n')
+          header=['address','hwaddr','client_id','valid_lifetime','expire','subnet_id','fqdn_fwd','fqdn_rev','hostname','state','user_context','pool_id']
+          with (p/'leases-import.csv').open('w',newline='') as f:
+            w=csv.writer(f);w.writerow(header)
+            for ip,(expiry,mac,hostname,cid) in sorted(leases.items(),key=lambda x:ipaddress.ip_address(x[0])):
+              valid=min(43200,expiry-now)
+              if valid<=0: continue
+              # Kea client_id uses colon-delimited bytes; '*' means absent in dnsmasq.
+              client_id='' if cid=='*' else cid.lower()
+              w.writerow([ip,mac,client_id,valid,expiry,1,0,0,'' if hostname=='*' else hostname,0,'',0])
+          print('RESERVATIONS_IMPORTED',len(records),'DYNAMIC_LEASES_IMPORTED',len(leases))
+          PY
+          for spec in 'nodea 247 a' 'nodeb 248 b'; do
+            set -- $spec
+            echo "=== import $1 CT$2 ==="
+            ssh -o BatchMode=yes "$1" "pct exec $2 -- bash -c 'umask 077; mkdir -p /root/kea-migration-backups/import-20261116; cp -a /root/kea-migration-staging/kea-dhcp4.conf /root/kea-migration-backups/import-20261116/kea-dhcp4.conf.before; cp -a /var/lib/jnsdns/leases /root/kea-migration-backups/import-20261116/dnsmasq-leases.before; cp -a /var/lib/jnsdns/releases/19/reservations.conf /root/kea-migration-backups/import-20261116/reservations.conf.before'"
+            ssh -o BatchMode=yes "$1" "pct exec $2 -- bash -c 'cat > /root/kea-migration-staging/kea-dhcp4.imported.conf'" < "$tmp/config-$3"
+            ssh -o BatchMode=yes "$1" "pct exec $2 -- bash -c 'cat > /root/kea-migration-staging/kea-leases4.imported.csv'" < "$tmp/leases-import.csv"
+            ssh -o BatchMode=yes "$1" "pct exec $2 -- kea-dhcp4 -t /root/kea-migration-staging/kea-dhcp4.imported.conf" >/dev/null
+            echo "STAGED_AND_VALIDATED_$3"
+          done
