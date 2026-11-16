@@ -1,0 +1,10 @@
+run_id=43896822116
+run_attempt=1
+test_step_outcome=success
+source=/opt/bsc-joomla-membership
+/opt/bsc-joomla-membership/tests/test_gateway_tls_transport.py:78: DeprecationWarning: ssl.TLSVersion.TLSv1_1 is deprecated
+  context.maximum_version=ssl.TLSVersion.TLSv1_1
+----------------------------------------------------------------------
+Ran 144 tests in 5.919s
+
+OK (skipped=12)
