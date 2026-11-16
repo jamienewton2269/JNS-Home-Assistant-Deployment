@@ -36,14 +36,13 @@ jobs:
           git -c safe.directory=/opt/bsc-joomla-membership diff --check
           echo '=== Python offline acceptance ==='
           set +e
-          python3 -m unittest discover -s tests -q > "$RUNNER_TEMP/bsc-tests.log" 2>&1
+          python3 -m unittest discover -s tests -v > "$RUNNER_TEMP/bsc-tests.log" 2>&1
           test_rc=$?
           set -e
           cat "$RUNNER_TEMP/bsc-tests.log"
           echo "BSC_TEST_EXIT=$test_rc"
-          echo "=== Skipped-test reasons (verbose run) ==="
-          python3 -m unittest discover -s tests -v > "$RUNNER_TEMP/bsc-test-detail.log" 2>&1 || true
-          grep -E "skipped |^Ran |^FAILED|^OK " "$RUNNER_TEMP/bsc-test-detail.log" | tail -n 30 || true
+          echo "=== Skipped-test reasons ==="
+          grep -E "skipped |^Ran |^FAILED|^OK " "$RUNNER_TEMP/bsc-tests.log" | tail -n 30 || true
           echo '=== Optional PHP syntax checks ==='
           if command -v php >/dev/null 2>&1; then
             find krystal plugins -type f -name '*.php' -print0 | xargs -0 -r -n 1 php -l
@@ -66,10 +65,8 @@ jobs:
             echo "source=/opt/bsc-joomla-membership"
             if test -f "$RUNNER_TEMP/bsc-tests.log"; then
               tail -n 35 "$RUNNER_TEMP/bsc-tests.log"
-              if test -f "$RUNNER_TEMP/bsc-test-detail.log"; then
-                echo "=== Skip detail ==="
-                grep -E "skipped |^Ran |^FAILED|^OK " "$RUNNER_TEMP/bsc-test-detail.log" | tail -n 30 || true
-              fi
+              echo "=== Skip detail ==="
+              grep -E "skipped |^Ran |^FAILED|^OK " "$RUNNER_TEMP/bsc-tests.log" | tail -n 30 || true
             else
               echo "test_log=missing"
             fi
