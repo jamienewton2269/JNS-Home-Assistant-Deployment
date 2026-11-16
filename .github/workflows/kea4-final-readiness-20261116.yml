@@ -1,0 +1,34 @@
+name: Kea final cutover readiness exact config
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-final-readiness-20261116.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          for spec in 'nodea 10.10.110.11 247' 'nodeb 10.10.110.12 248'; do
+            set -- $spec
+            echo "=== $1 ==="
+            ssh -o HostName="$2" -o HostKeyAlias="$1.home.arpa" -o BatchMode=yes "$1" "pct exec $3 -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json,pathlib
+          for name in ('/etc/kea/kea-dhcp4.conf','/root/kea-migration-staging/kea-dhcp4.imported.conf'):
+           p=pathlib.Path(name)
+           d=json.loads(p.read_text())['Dhcp4']
+           print(name,'interfaces',d.get('interfaces-config'),'subnets',[(s.get('id'),s.get('subnet'),s.get('pools'),len(s.get('reservations',[]))) for s in d.get('subnet4',[])],'hooks',d.get('hooks-libraries'),'ha',d.get('high-availability'),'lease-db',d.get('lease-database'),'ddns',d.get('dhcp-ddns'))
+          PY
+          echo 'dnsmasq systemd:'; systemctl cat jns-dns | tail -30
+          echo 'kea dhcp4 systemd:'; systemctl cat kea-dhcp4-server | tail -35
+          echo 'DNS config:'; cat /var/lib/jnsdns/active/dnsmasq.conf
+          echo 'leases CSV:'; head -2 /var/lib/kea/kea-leases4.csv
+          echo 'dns peer hosts:'; head -4 /etc/jnsdns/dhcp-peers.hosts
+          echo 'service status:'; for s in jns-dns kea-dhcp6-server kea-dhcp4-server kea-ctrl-agent; do echo "$s $(systemctl is-active "$s" || true)"; done
+          REMOTE
+          done
