@@ -1,0 +1,36 @@
+name: Fix Kea CA runtime mode and verify both nodes
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-ca-runtime-mode.yml']
+permissions:
+  contents: read
+jobs:
+  fix:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          for spec in 'nodea 10.10.110.11 247' 'nodeb 10.10.110.12 248'; do
+            set -- $spec
+            echo "=== $1 ==="
+            ssh -o HostName="$2" -o HostKeyAlias="$1.home.arpa" -o BatchMode=yes "$1" "pct exec $3 -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          cat > /etc/systemd/system/kea-ctrl-agent.service.d/70-runtime-mode.conf <<'EOF'
+          [Service]
+          RuntimeDirectory=kea
+          RuntimeDirectoryMode=0750
+          EOF
+          systemctl daemon-reload
+          systemctl reset-failed kea-ctrl-agent || true
+          systemctl restart kea-ctrl-agent
+          sleep 1
+          systemctl is-active --quiet kea-ctrl-agent
+          systemctl is-active --quiet jns-dns
+          systemctl is-active --quiet kea-dhcp6-server
+          stat -c 'runtime=%a owner=%U' /run/kea
+          echo NODE_OK
+          REMOTE
+          done
