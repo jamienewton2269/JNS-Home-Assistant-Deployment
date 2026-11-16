@@ -1,11 +1,40 @@
-run_id=43969394561
+run_id=43982244690
 run_attempt=1
 test_step_outcome=success
 source=/opt/bsc-joomla-membership
-/opt/bsc-joomla-membership/tests/test_gateway_tls_transport.py:78: DeprecationWarning: ssl.TLSVersion.TLSv1_1 is deprecated
-  context.maximum_version=ssl.TLSVersion.TLSv1_1
+test_changed_data_requires_version_increment (test_replica_store.ReplicaStoreTests.test_changed_data_requires_version_increment) ... ok
+test_extra_sensitive_field_rejected (test_replica_store.ReplicaStoreTests.test_extra_sensitive_field_rejected) ... ok
+test_replay_rejected_without_mutation (test_replica_store.ReplicaStoreTests.test_replay_rejected_without_mutation) ... ok
+test_tampered_digest_rejected (test_replica_store.ReplicaStoreTests.test_tampered_digest_rejected) ... ok
+test_unapproved_removal_rejected (test_replica_store.ReplicaStoreTests.test_unapproved_removal_rejected) ... ok
+test_unchanged_data_may_advance_snapshot_sequence (test_replica_store.ReplicaStoreTests.test_unchanged_data_may_advance_snapshot_sequence) ... ok
+test_version_rollback_rejected (test_replica_store.ReplicaStoreTests.test_version_rollback_rejected) ... ok
+test_versioned_update (test_replica_store.ReplicaStoreTests.test_versioned_update) ... ok
+test_unicode_canonical_fixture (test_replica_unicode_fixture.UnicodeFixtureTests.test_unicode_canonical_fixture) ... ok
+test_future_snapshot_rejected (test_signed_snapshot.SignedSnapshotTests.test_future_snapshot_rejected) ... ok
+test_malformed_signature_rejected (test_signed_snapshot.SignedSnapshotTests.test_malformed_signature_rejected) ... ok
+test_modified_payload_rejected_without_write (test_signed_snapshot.SignedSnapshotTests.test_modified_payload_rejected_without_write) ... ok
+test_old_snapshot_rejected (test_signed_snapshot.SignedSnapshotTests.test_old_snapshot_rejected) ... ok
+test_replay_rejected_transactionally (test_signed_snapshot.SignedSnapshotTests.test_replay_rejected_transactionally) ... ok
+test_signed_snapshot_publishes (test_signed_snapshot.SignedSnapshotTests.test_signed_snapshot_publishes) ... ok
+test_unauthorised_extra_field_rejected (test_signed_snapshot.SignedSnapshotTests.test_unauthorised_extra_field_rejected) ... ok
+test_wrong_audience_rejected (test_signed_snapshot.SignedSnapshotTests.test_wrong_audience_rejected) ... ok
+test_wrong_key_rejected (test_signed_snapshot.SignedSnapshotTests.test_wrong_key_rejected) ... ok
+test_php_runtime_preflight (test_synthetic_preflight.SyntheticPreflightTests.test_php_runtime_preflight) ... skipped 'PHP CLI unavailable'
+test_read_only_cli_preflight_has_no_connection_or_writes (test_synthetic_preflight.SyntheticPreflightTests.test_read_only_cli_preflight_has_no_connection_or_writes) ... ok
+test_missing_certificate_material_is_not_ready (test_transport_preflight.TransportPreflightTests.test_missing_certificate_material_is_not_ready) ... ok
+test_rejects_credentials_in_url (test_transport_preflight.TransportPreflightTests.test_rejects_credentials_in_url) ... ok
+test_rejects_invalid_port (test_transport_preflight.TransportPreflightTests.test_rejects_invalid_port) ... ok
+test_rejects_ip_literal (test_transport_preflight.TransportPreflightTests.test_rejects_ip_literal) ... ok
+test_rejects_missing_authority (test_transport_preflight.TransportPreflightTests.test_rejects_missing_authority) ... ok
+test_rejects_plaintext (test_transport_preflight.TransportPreflightTests.test_rejects_plaintext) ... ok
+test_rejects_trailing_dot_hostname (test_transport_preflight.TransportPreflightTests.test_rejects_trailing_dot_hostname) ... ok
+test_rejects_url_query_parameters (test_transport_preflight.TransportPreflightTests.test_rejects_url_query_parameters) ... ok
+test_rejects_world_readable_key (test_transport_preflight.TransportPreflightTests.test_rejects_world_readable_key) ... ok
+test_rejects_wrong_endpoint_path (test_transport_preflight.TransportPreflightTests.test_rejects_wrong_endpoint_path) ... ok
+
 ----------------------------------------------------------------------
-Ran 144 tests in 7.425s
+Ran 144 tests in 7.455s
 
 OK (skipped=12)
 === Skip detail ===
@@ -21,5 +50,5 @@ test_signed_envelope (test_php_python_interop.PhpPythonInterop.test_signed_envel
 test_one_accept_one_replay_rejection (test_receiver_real_db.RealDatabaseSignedFlow.test_one_accept_one_replay_rejection) ... skipped 'explicit CT101 synthetic DB opt-in required'
 test_valid_then_replay_and_tamper (test_receiver_signed_flow.SignedFlow.test_valid_then_replay_and_tamper) ... skipped 'CT101 receiver DB driver unavailable locally'
 test_php_runtime_preflight (test_synthetic_preflight.SyntheticPreflightTests.test_php_runtime_preflight) ... skipped 'PHP CLI unavailable'
-Ran 144 tests in 7.403s
+Ran 144 tests in 7.455s
 OK (skipped=12)
