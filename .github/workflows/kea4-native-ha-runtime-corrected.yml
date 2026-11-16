@@ -1,0 +1,113 @@
+name: Kea DHCP4 native HA cutover runtime corrected
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-native-ha-runtime-corrected.yml']
+permissions:
+  contents: read
+concurrency:
+  group: jns-kea4-cutover
+  cancel-in-progress: false
+jobs:
+  cutover:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          sshcmd() {
+            local host="$1" ip="$2" ct="$3"; shift 3
+            ssh -o HostName="$ip" -o HostKeyAlias="$host.home.arpa" -o BatchMode=yes "$host" "pct exec $ct -- bash -s" "$@"
+          }
+          for spec in 'nodea 10.10.110.11 247' 'nodeb 10.10.110.12 248'; do
+            set -- $spec
+            echo "=== Stage $1 ==="
+            sshcmd "$1" "$2" "$3" <<'REMOTE'
+          set -Eeuo pipefail
+          stamp=20261116-native-ha-runtime-corrected
+          backup=/root/kea-migration-backups/$stamp
+          install -d -m 0700 "$backup"
+          cp -a /etc/dnsmasq.conf "$backup/dnsmasq.conf"
+          cp -a /etc/kea/kea-dhcp4.conf "$backup/kea-dhcp4.conf"
+          cp -a /var/lib/jnsdns/leases "$backup/dnsmasq.leases"
+          cp -a /var/lib/kea/kea-leases4.csv "$backup/kea.leases4.csv"
+          test -s /root/kea-migration-staging/kea-dhcp4.imported.conf
+          cp /root/kea-migration-staging/kea-dhcp4.imported.conf /etc/kea/kea-dhcp4.conf
+          chown root:_kea /etc/kea/kea-dhcp4.conf
+          chmod 0640 /etc/kea/kea-dhcp4.conf
+          python3 - <<'PY'
+          import json
+          d=json.load(open('/etc/kea/kea-dhcp4.conf'))['Dhcp4']
+          assert len(d['subnet4'][0]['reservations'])==44
+          assert len(d['subnet4'][0]['pools'])==2
+          assert any(r.get('hostname')=='sabrina' for r in d['subnet4'][0]['reservations'])
+          PY
+          kea-dhcp4 -t /etc/kea/kea-dhcp4.conf
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/etc/dnsmasq.conf')
+          lines=p.read_text().splitlines()
+          remove=('dhcp-range=','dhcp-option=','dhcp-host=','conf-file=','dhcp-leasefile=')
+          kept=[l for l in lines if not l.lstrip().startswith(remove)]
+          assert any(l.startswith('port=53') for l in kept)
+          assert any(l.startswith('addn-hosts=') for l in kept)
+          Path('/root/kea-migration-staging/dnsmasq.dns-only.conf').write_text('\n'.join(kept)+'\n')
+          PY
+          dnsmasq --test -C /root/kea-migration-staging/dnsmasq.dns-only.conf
+          systemctl is-active --quiet jns-dns
+          systemctl is-active --quiet kea-dhcp6-server
+          systemctl is-active --quiet kea-ctrl-agent
+          echo STAGE_VALID
+          REMOTE
+          done
+          # Preserve an immediately executable rollback for every cutover stage.
+          rollback() {
+            echo 'ROLLBACK: restore dnsmasq DHCP and stop Kea DHCP4 on both nodes'
+            for spec in 'nodea 10.10.110.11 247' 'nodeb 10.10.110.12 248'; do
+              set -- $spec
+              sshcmd "$1" "$2" "$3" <<'REMOTE' || true
+          systemctl disable --now kea-dhcp4-server || true
+          systemctl start kea-ctrl-agent || true
+          cp -a /root/kea-migration-backups/20261116-native-ha-runtime-corrected/dnsmasq.conf /etc/dnsmasq.conf
+          cp -a /root/kea-migration-backups/20261116-native-ha-runtime-corrected/kea-dhcp4.conf /etc/kea/kea-dhcp4.conf
+          systemctl restart jns-dns
+          systemctl is-active jns-dns
+          REMOTE
+            done
+          }
+          trap rollback ERR
+          for spec in 'nodea 10.10.110.11 247' 'nodeb 10.10.110.12 248'; do
+            set -- $spec
+            echo "=== Activate $1 ==="
+            sshcmd "$1" "$2" "$3" <<'REMOTE'
+          set -Eeuo pipefail
+          cp /root/kea-migration-staging/dnsmasq.dns-only.conf /etc/dnsmasq.conf
+          systemctl restart jns-dns
+          systemctl is-active --quiet jns-dns
+          systemctl stop kea-ctrl-agent
+          install -d -o _kea -g _kea -m 0750 /run/kea
+          chmod 0750 /run/kea
+          systemctl reset-failed kea-dhcp4-server || true
+          systemctl enable --now kea-dhcp4-server
+          sleep 3
+          systemctl is-active --quiet kea-dhcp4-server
+          systemctl is-active --quiet kea-dhcp6-server
+          ss -lunp | grep ':67 '
+          echo KEA_DHCP4_RUNNING
+          REMOTE
+          done
+          sleep 16
+          for spec in 'nodea 10.10.110.11 247' 'nodeb 10.10.110.12 248'; do
+            set -- $spec
+            sshcmd "$1" "$2" "$3" <<'REMOTE'
+          set -Eeuo pipefail
+          systemctl is-active --quiet kea-dhcp4-server
+          systemctl is-active --quiet jns-dns
+          systemctl is-active --quiet kea-dhcp6-server
+          ! grep -Eq '^[[:space:]]*(dhcp-range|dhcp-option|dhcp-host)=' /etc/dnsmasq.conf
+          echo CUTOVER_NODE_HEALTHY
+          REMOTE
+          done
+          trap - ERR
+          echo KEA_DHCP4_CUTOVER_COMPLETE
