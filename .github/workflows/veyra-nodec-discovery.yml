@@ -1,0 +1,22 @@
+name: VEYRA Node C safe discovery
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  discover:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Confirm runner and count VEYRA directories without exposing files
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Node C runner connected"
+          for base in /opt /srv /home /root; do
+            if [ -d "$base" ] && [ -r "$base" ]; then
+              count=$(find "$base" -maxdepth 4 -type d \( -iname '*veyra*' -o -iname '*signage*' \) -print 2>/dev/null | wc -l)
+              echo "$base: $count matching directories"
+            fi
+          done
+          echo "No files read, paths listed, secrets exported, or services changed."
