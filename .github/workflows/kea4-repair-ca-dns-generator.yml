@@ -1,0 +1,58 @@
+name: Repair Kea control agent and persistent dnsmasq DNS-only generator
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-repair-ca-dns-generator.yml']
+permissions:
+  contents: read
+jobs:
+  repair:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          for spec in 'nodea 10.10.110.11 247' 'nodeb 10.10.110.12 248'; do
+            set -- $spec
+            echo "=== Repair $1 ==="
+            ssh -o HostName="$2" -o HostKeyAlias="$1.home.arpa" -o BatchMode=yes "$1" "pct exec $3 -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          umask 077
+          install -d -m 0700 /root/kea-migration-backups/repair-20261116
+          cp -a /usr/local/sbin/jns-dns-build-config /root/kea-migration-backups/repair-20261116/jns-dns-build-config.before
+          cp -a /etc/kea/kea-ctrl-agent.conf /root/kea-migration-backups/repair-20261116/kea-ctrl-agent.conf.before
+          if [[ ! -s /etc/kea/kea-api-password ]]; then
+            openssl rand -hex 32 > /etc/kea/kea-api-password
+            chown root:_kea /etc/kea/kea-api-password
+            chmod 0640 /etc/kea/kea-api-password
+          fi
+          install -d -m 0755 /etc/systemd/system/kea-ctrl-agent.service.d
+          cat > /etc/systemd/system/kea-ctrl-agent.service.d/60-jns-lxc.conf <<'EOF'
+          [Unit]
+          Requires=
+          After=network-online.target
+          [Service]
+          Environment="KEA_LOCKFILE_DIR=/run/kea"
+          RuntimeDirectory=
+          RuntimeDirectory=kea
+          EOF
+          python3 - <<'PY'
+          import json,pathlib
+          p=pathlib.Path('/etc/kea/kea-ctrl-agent.conf')
+          d=json.loads(p.read_text())
+          ca=d['Control-agent']
+          ca['authentication']={'type':'basic','realm':'JNS Kea control','clients':[{'user':'kea-ha','password-file':'/etc/kea/kea-api-password'}]}
+          p.write_text(json.dumps(d,indent=2)+'\n')
+          p.chmod(0o640)
+          PY
+          kea-ctrl-agent -t /etc/kea/kea-ctrl-agent.conf
+          systemctl daemon-reload
+          systemctl reset-failed kea-ctrl-agent || true
+          systemctl restart kea-ctrl-agent
+          systemctl is-active --quiet kea-ctrl-agent
+          echo CA_ACTIVE
+          # Keep DNS generator unchanged until Kea is ready for actual DHCPv4 cutover.
+          echo DNS_GENERATOR_BACKED_UP
+          REMOTE
+          done
