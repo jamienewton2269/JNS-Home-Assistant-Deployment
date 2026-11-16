@@ -1,0 +1,52 @@
+name: Kea and BIND production cutover readiness
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea-cutover-live-readiness.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - name: Read-only production cutover checks
+        shell: bash
+        run: |
+          set -uo pipefail
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            echo "=== $1 CT$2 ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=8 "$1" "pct exec $2 -- bash -s" <<'REMOTE'
+          echo HOSTNAME; hostname
+          echo ACTIVE_SERVICES
+          for s in jns-dns kea-dhcp4-server kea-dhcp6-server kea-dhcp-ddns-server bind9 named radvd; do printf '%s ' "$s"; systemctl is-active "$s" 2>/dev/null || true; done
+          echo PORTS
+          ss -luntp | grep -E ':(53|67|547|8000|53001)\b' || true
+          echo STAGING_FILES
+          ls -l /root/kea-migration-staging /etc/kea /etc/bind 2>/dev/null | head -75
+          echo KEA4_VALIDATION
+          kea-dhcp4 -t /root/kea-migration-staging/kea-dhcp4.conf 2>&1 | tail -9
+          echo DHCP4_CONFIG_SUMMARY
+          python3 - <<'PY'
+          import json,os
+          for p in ['/root/kea-migration-staging/kea-dhcp4.conf','/etc/kea/kea-dhcp4.conf']:
+           try:
+            d=json.load(open(p))['Dhcp4']
+            print(p,'interfaces',d.get('interfaces-config'),'subnets',[(s.get('subnet'),s.get('pools'),s.get('option-data')) for s in d.get('subnet4',[])],'global_options',d.get('option-data'),'hooks',[(h.get('library')) for h in d.get('hooks-libraries',[])],'ddns',d.get('dhcp-ddns'),'lease_db',d.get('lease-database'))
+           except Exception as e: print(p,str(e))
+          PY
+          echo DNSMASQ_CONFIG_RELEVANT
+          grep -RhE '^(dhcp-|server=|address=|local=|domain=|interface=|listen-address=|port=|conf-dir=)' /etc/dnsmasq.conf /etc/dnsmasq.d 2>/dev/null | head -75
+          echo DNSMASQ_SERVICE_UNIT
+          systemctl cat jns-dns | head -85
+          echo LEASE_COUNT_AND_BACKUP
+          test -f /var/lib/jnsdns/leases && wc -l /var/lib/jnsdns/leases || true
+          find /root/kea-migration-backups -maxdepth 2 -type f 2>/dev/null | head -20
+          echo BIND_STAGING_CHECK
+          test -f /root/kea-migration-staging/named-ddns-test.conf && named-checkconf /root/kea-migration-staging/named-ddns-test.conf 2>&1 | head -15 || true
+          echo RADVD_FLAGS
+          grep -RE 'AdvManagedFlag|AdvOtherConfigFlag|RDNSS|prefix' /etc/radvd.conf /etc/radvd.conf.d 2>/dev/null | head -25 || true
+          REMOTE
+          done
