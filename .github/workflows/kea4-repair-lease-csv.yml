@@ -1,0 +1,36 @@
+name: Repair Kea DHCP4 lease CSV line endings
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-repair-lease-csv.yml']
+permissions:
+  contents: read
+jobs:
+  repair:
+    runs-on: [self-hosted, linux, x64, nodec]
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          for spec in 'nodea 10.10.110.11 247' 'nodeb 10.10.110.12 248'; do
+            set -- $spec
+            echo "=== $1 ==="
+            ssh -o HostName="$2" -o HostKeyAlias="$1.home.arpa" -o BatchMode=yes "$1" "pct exec $3 -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          cp -a /var/lib/kea/kea-leases4.csv /root/kea-migration-backups/20261116-guarded-cutover/kea-leases4.pre-csv-fix
+          python3 - <<'PY'
+          import csv,io,pathlib
+          p=pathlib.Path('/var/lib/kea/kea-leases4.csv')
+          raw=p.read_bytes()
+          assert raw.startswith(b'address,hwaddr,')
+          text=raw.decode('utf-8-sig').replace('\r\n','\n').replace('\r','\n')
+          rows=list(csv.reader(io.StringIO(text)))
+          assert rows[0][-1]=='pool_id',repr(rows[0])
+          assert all(len(row)==len(rows[0]) for row in rows)
+          p.write_bytes(('\n'.join(','.join(row) for row in rows)+'\n').encode())
+          print('CSV_VALID',len(rows)-1,'leases')
+          PY
+          chown _kea:_kea /var/lib/kea/kea-leases4.csv
+          chmod 0640 /var/lib/kea/kea-leases4.csv
+          REMOTE
+          done
