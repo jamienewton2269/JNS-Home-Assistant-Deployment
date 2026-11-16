@@ -1,0 +1,90 @@
+name: Activate Kea DHCP4 with dnsmasq DNS on both LAN nodes
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-simple-production-20261116.yml']
+permissions:
+  contents: read
+concurrency:
+  group: jns-kea4-cutover
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 15
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          for spec in 'nodea 10.10.110.11 247 100' 'nodeb 10.10.110.12 248 200'; do
+            set -- $spec
+            echo "=== DEPLOY $1 ==="
+            ssh -o HostName="$2" -o HostKeyAlias="$1.home.arpa" -o BatchMode=yes "$1" "pct exec $3 -- bash -s" "$4" <<'REMOTE'
+          set -Eeuo pipefail
+          pool="$1"
+          backup="/root/kea-migration-backups/20261116-simple-production"
+          install -d -m 0700 "$backup"
+          for f in /etc/dnsmasq.conf /etc/kea/kea-dhcp4.conf /var/lib/kea/kea-leases4.csv /usr/local/sbin/jns-dns-build-config; do
+            cp -a "$f" "$backup/$(basename "$f")" || true
+          done
+          # Kea HA hooks are deliberately deferred. Each node serves its own
+          # existing non-overlapping allocation pool on the same /16 subnet.
+          python3 - "$pool" <<'PY'
+          import json,sys,pathlib,csv,io
+          pool=sys.argv[1]
+          source=pathlib.Path('/root/kea-migration-staging/kea-dhcp4.imported.conf')
+          d=json.loads(source.read_text())
+          cfg=d['Dhcp4']
+          cfg.pop('hooks-libraries',None)
+          cfg.pop('high-availability',None)
+          subnet=cfg['subnet4'][0]
+          subnet['pools']=[{'pool':f'10.10.{pool}.20 - 10.10.{pool}.240'}]
+          assert len(subnet['reservations'])>=43
+          assert any(r.get('hostname')=='sabrina' for r in subnet['reservations'])
+          # Explicit DHCPv4 DNS names are derived from lease records below.
+          cfg.pop('dhcp-ddns',None)
+          pathlib.Path('/etc/kea/kea-dhcp4.conf').write_text(json.dumps(d,indent=2)+'\n')
+          p=pathlib.Path('/var/lib/kea/kea-leases4.csv')
+          raw=p.read_text().replace('\r\n','\n').replace('\r','\n')
+          rows=list(csv.reader(io.StringIO(raw)))
+          assert rows[0][:3]==['address','hwaddr','client_id']
+          assert len(rows)>1
+          p.write_text('\n'.join(','.join(row) for row in rows)+'\n')
+          PY
+          chown root:_kea /etc/kea/kea-dhcp4.conf
+          chmod 0640 /etc/kea/kea-dhcp4.conf
+          chown _kea:_kea /var/lib/kea/kea-leases4.csv
+          chmod 0640 /var/lib/kea/kea-leases4.csv
+          install -d -o _kea -g _kea -m 0750 /run/kea
+          kea-dhcp4 -t /etc/kea/kea-dhcp4.conf
+          # DNS stays on dnsmasq. Remove only DHCP4 configuration and
+          # preserve static hosts, upstream resolvers and IPv6 services.
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/etc/dnsmasq.conf')
+          lines=p.read_text().splitlines()
+          remove=('dhcp-range=','dhcp-option=','dhcp-host=','dhcp-leasefile=','conf-file=')
+          lines=[line for line in lines if not line.lstrip().startswith(remove)]
+          assert any(line.startswith('port=53') for line in lines)
+          assert any(line.startswith('addn-hosts=') for line in lines)
+          p.write_text('\n'.join(lines)+'\n')
+          PY
+          dnsmasq --test -C /etc/dnsmasq.conf
+          # Disable the revision-based config updater while transitioning;
+          # otherwise a future NAS revision could reactivate dnsmasq DHCP.
+          systemctl disable --now jns-dns-sync.timer || true
+          systemctl stop kea-ctrl-agent || true
+          systemctl disable kea-ctrl-agent || true
+          systemctl restart jns-dns
+          systemctl is-active --quiet jns-dns
+          systemctl reset-failed kea-dhcp4-server || true
+          systemctl enable --now kea-dhcp4-server
+          sleep 3
+          systemctl is-active --quiet kea-dhcp4-server
+          systemctl is-active --quiet kea-dhcp6-server
+          ss -lunp | grep ':67 '
+          ss -lunp | grep ':53 '
+          echo "KEA4_DNS_ACTIVE_NODE_$pool"
+          REMOTE
+          done
+          echo 'SIMPLE_KEA4_CUTOVER_FINISHED'
