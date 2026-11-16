@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: bsc-joomla-offline-nodec
@@ -19,7 +19,11 @@ jobs:
     runs-on: [self-hosted, linux, x64, nodec]
     timeout-minutes: 12
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Run isolated source acceptance tests (no deployment)
+        id: tests
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -32,9 +36,10 @@ jobs:
           git -c safe.directory=/opt/bsc-joomla-membership diff --check
           echo '=== Python offline acceptance ==='
           set +e
-          python3 -m unittest discover -s tests -q
+          python3 -m unittest discover -s tests -q > "$RUNNER_TEMP/bsc-tests.log" 2>&1
           test_rc=$?
           set -e
+          cat "$RUNNER_TEMP/bsc-tests.log"
           echo "BSC_TEST_EXIT=$test_rc"
           echo '=== Optional PHP syntax checks ==='
           if command -v php >/dev/null 2>&1; then
@@ -44,3 +49,35 @@ jobs:
           fi
           echo 'NO_DEPLOYMENT_PERFORMED'
           exit "$test_rc"
+      - name: Publish test receipt
+        if: always()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          mkdir -p gateway/receipts
+          {
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "test_step_outcome=${{ steps.tests.outcome }}"
+            echo "source=/opt/bsc-joomla-membership"
+            if test -f "$RUNNER_TEMP/bsc-tests.log"; then
+              tail -n 35 "$RUNNER_TEMP/bsc-tests.log"
+            else
+              echo "test_log=missing"
+            fi
+          } > gateway/receipts/bsc-nodec-tests-latest.txt
+          git config user.name jns-nodec-tests
+          git config user.email jns-nodec-tests@users.noreply.github.com
+          git add gateway/receipts/bsc-nodec-tests-latest.txt
+          git diff --cached --quiet && exit 0
+          git commit -m "diagnostics: publish BSC Node C test receipt"
+          for attempt in 1 2 3; do
+            git push origin HEAD:main && exit 0
+            git fetch origin main
+            git reset --hard origin/main
+            git add gateway/receipts/bsc-nodec-tests-latest.txt
+            git diff --cached --quiet && exit 0
+            git commit -m "diagnostics: publish BSC Node C test receipt"
+          done
+          exit 1
