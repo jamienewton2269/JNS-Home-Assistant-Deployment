@@ -1,0 +1,50 @@
+name: Start and verify Kea DHCP6 on both nodes
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea-dhcp6-start-verify-v3.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  start:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - name: Start services and report actual state independently
+        shell: bash
+        run: |
+          set -uo pipefail
+          test "$(hostname -s)" = nodec || exit 1
+          failures=0
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            echo "=== $1 CT$2 ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=8 "$1" "pct exec $2 -- bash -s" <<'REMOTE' || failures=$((failures+1))
+          set -u
+          echo CONFIG_CHECK
+          kea-dhcp6 -t /etc/kea/kea-dhcp6.conf >/dev/null 2>&1 || exit 1
+          echo BEFORE
+          systemctl is-active kea-dhcp6-server || true
+          systemctl show kea-dhcp6-server -p Requires -p RuntimeDirectory
+          echo START
+          systemctl start kea-dhcp6-server || true
+          sleep 2
+          echo STATUS
+          systemctl status kea-dhcp6-server --no-pager -l | tail -35 || true
+          echo JOURNAL
+          journalctl -u kea-dhcp6-server -n 25 --no-pager || true
+          echo SOCKET
+          ss -lunp | grep ':547' || true
+          if systemctl is-active --quiet kea-dhcp6-server && ss -lunp | grep ':547' | grep -q kea-dhcp6; then
+            systemctl enable kea-dhcp6-server >/dev/null 2>&1 || true
+            echo 'RESULT=ACTIVE_AND_LISTENING'
+          else
+            echo 'RESULT=NOT_RUNNING'
+            exit 1
+          fi
+          echo 'DNS_SERVICE:'
+          systemctl is-active jns-dns || true
+          REMOTE
+          done
+          exit "$failures"
