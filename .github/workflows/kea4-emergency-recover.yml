@@ -1,0 +1,39 @@
+name: Emergency restore DNS and DHCP after cutover failure
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-emergency-recover.yml']
+permissions:
+  contents: read
+jobs:
+  recover:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - shell: bash
+        run: |
+          set +e
+          echo '=== runner SSH and DNS ==='
+          getent hosts nodea.home.arpa nodeb.home.arpa || true
+          ip route || true
+          cat /etc/ssh/config ~/.ssh/config 2>/dev/null | grep -A7 -E '^Host (nodea|nodeb)' || true
+          for target in nodea nodeb; do
+            ct=247; [ "$target" = nodeb ] && ct=248
+            echo "=== recover $target CT$ct ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=8 "$target" "pct exec $ct -- bash -s" <<'REMOTE'
+          set -x
+          systemctl stop kea-dhcp4-server || true
+          systemctl disable kea-dhcp4-server || true
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/etc/dnsmasq.conf')
+          s=p.read_text()
+          s='\n'.join(line.replace('# kea4 cutover disabled: ','',1) if line.startswith('# kea4 cutover disabled: ') else line for line in s.splitlines())+'\n'
+          p.write_text(s)
+          PY
+          dnsmasq --test -C /etc/dnsmasq.conf
+          systemctl restart jns-dns
+          systemctl is-active jns-dns
+          ss -lunp | grep -E ':(53|67) '
+          REMOTE
+          done
