@@ -27,19 +27,19 @@ jobs:
           test -d "$repo/.git"
           cd "$repo"
           echo '=== Node C source identity ==='
-          git rev-parse --show-toplevel
-          git log -1 --format='%h %s'
+          git -c safe.directory=/opt/bsc-joomla-membership rev-parse --show-toplevel
+          git -c safe.directory=/opt/bsc-joomla-membership log -1 --format='%h %s'
           echo '=== Working tree changes (names only) ==='
-          git status --short
+          git -c safe.directory=/opt/bsc-joomla-membership status --short
           echo '=== Required source files ==='
           for f in sync/replica_contract.py krystal/SnapshotVerifier.php krystal/VerifiedImport.php plugins/system/bscmemberbridge/src/Service/MemberPortalAdapter.php; do
             test -f "$f"
             printf 'PRESENT %s\n' "$f"
           done
           echo '=== Existing remotes (names only, no credential URLs) ==='
-          git remote | sort
+          git -c safe.directory=/opt/bsc-joomla-membership remote | sort
           echo '=== Source count ==='
-          git ls-files | wc -l
+          git -c safe.directory=/opt/bsc-joomla-membership ls-files | wc -l
           echo '=== GitHub SSH connectivity preflight (no credentials printed) ==='
           if ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=5 -T git@github.com </dev/null 2>&1 | grep -q 'successfully authenticated'; then
             echo 'GITHUB_SSH_AUTHENTICATED'
