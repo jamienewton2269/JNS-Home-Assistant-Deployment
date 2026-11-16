@@ -1,0 +1,49 @@
+name: Fix Kea DHCP6 implicit runtime mount and activate
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea-dhcp6-lxc-runtime-fix-v2.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fix:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - name: Remove implicit run-lock mount dependency and verify Kea DHCP6
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            echo "=== $1 CT$2 ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=8 "$1" "pct exec $2 -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          kea-dhcp6 -t /etc/kea/kea-dhcp6.conf >/dev/null
+          install -d -m 0755 /etc/systemd/system/kea-dhcp6-server.service.d
+          cat >/etc/systemd/system/kea-dhcp6-server.service.d/lxc-runtime.conf <<'OVERRIDE'
+          [Service]
+          RuntimeDirectory=
+          RuntimeDirectory=kea
+          Environment=KEA_LOCKFILE_DIR=/run/kea
+          OVERRIDE
+          systemctl daemon-reload
+          echo 'DEPENDENCIES:'
+          systemctl show kea-dhcp6-server -p Requires -p After -p RuntimeDirectory
+          if systemctl show kea-dhcp6-server -p Requires | grep -q 'run-lock.mount'; then
+            echo 'STILL_HAS_BAD_DEPENDENCY'
+            exit 1
+          fi
+          systemctl reset-failed kea-dhcp6-server || true
+          systemctl start kea-dhcp6-server
+          sleep 2
+          systemctl is-active --quiet kea-dhcp6-server
+          ss -lunp | grep ':547'
+          systemctl enable kea-dhcp6-server >/dev/null
+          echo 'KEA_DHCP6_ACTIVE'
+          echo 'DNS_STATUS:'
+          systemctl is-active jns-dns
+          REMOTE
+          done
