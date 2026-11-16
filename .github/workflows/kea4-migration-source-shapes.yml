@@ -1,0 +1,35 @@
+name: Inspect DHCP reservation and lease formats
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-migration-source-shapes.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            echo "=== $1 CT$2 ==="
+            ssh -o BatchMode=yes "$1" "pct exec $2 -- bash -s" <<'REMOTE'
+          python3 - <<'PY'
+          from collections import Counter
+          from pathlib import Path
+          import re
+          p=Path('/var/lib/jnsdns/releases/19/reservations.conf')
+          lines=[x.strip() for x in p.read_text().splitlines() if x.strip() and not x.lstrip().startswith('#')]
+          print('reservation lines',len(lines),'prefix counts',dict(Counter(x.split('=')[0] for x in lines)))
+          print('reservation shapes',dict(Counter((len(x.split(',')),tuple('MAC' if re.fullmatch(r'(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}',v) else 'IP' if re.fullmatch(r'\d+\.\d+\.\d+\.\d+',v) else 'TAG' if ':' in v else 'OTHER' for v in x.partition('=')[2].split(','))) for x in lines)))
+          p=Path('/var/lib/jnsdns/leases')
+          ls=[x.split() for x in p.read_text().splitlines() if x.strip()]
+          print('lease rows',len(ls),'field counts',dict(Counter(len(x) for x in ls)))
+          print('lease expiry zero count',sum(x[0]=='0' for x in ls))
+          print('lease ip overlap with pools',sum(x[2].startswith(('10.10.100.','10.10.200.')) for x in ls))
+          PY
+          REMOTE
+          done
