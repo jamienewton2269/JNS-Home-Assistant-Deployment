@@ -1,0 +1,112 @@
+name: RaceDay Manager Node C private import
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/raceday-nodec-import.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect-and-import:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 20
+    steps:
+      - name: Discover existing RaceDay Manager checkout and run existing tests
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RACEDAY_REPO_CREATOR_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          python3 - <<'PY'
+          import os, pathlib, subprocess, json
+          roots=['/opt','/srv','/home','/root']
+          matches=[]
+          for root in roots:
+              if not os.path.isdir(root): continue
+              for base, dirs, files in os.walk(root):
+                  depth=base[len(root):].count(os.sep)
+                  if depth>=4: dirs[:]=[]
+                  dirs[:]=[d for d in dirs if d not in ('.git','node_modules','.venv','venv','__pycache__','build','dist')]
+                  if any(term in os.path.basename(base).lower().replace('-','').replace('_','') for term in ('racedaymanager','racemanager')):
+                      matches.append(base)
+                      dirs[:]=[]
+          print('RACEDAY_CANDIDATES='+json.dumps(matches[:20]))
+          with open('/tmp/raceday-candidates.json','w') as f: json.dump(matches,f)
+          PY
+          python3 - <<'PY'
+          import json,os,subprocess,pathlib
+          matches=json.load(open('/tmp/raceday-candidates.json'))
+          valid=[p for p in matches if os.path.isfile(os.path.join(p,'pyproject.toml')) or os.path.isfile(os.path.join(p,'package.json')) or os.path.isfile(os.path.join(p,'requirements.txt')) or os.path.isdir(os.path.join(p,'.git'))]
+          if len(valid)!=1:
+              print('IMPORT_BLOCKED: expected exactly one identifiable existing project; found',len(valid))
+              raise SystemExit(2)
+          p=valid[0]
+          print('PROJECT_PATH='+p)
+          print('TOP_LEVEL_FILES='+json.dumps(sorted(os.listdir(p))[:70]))
+          subprocess.run(['git','-C',p,'status','--short'],check=False)
+          # Never automatically publish local secrets, databases, keys, caches or credentials.
+          blocked={'.env','.env.local','.env.production','secrets','credentials','private','data','database','db','storage','backups','backup','node_modules','.venv','venv','__pycache__','dist','build'}
+          bad=[]
+          for root,dirs,files in os.walk(p):
+              dirs[:]=[d for d in dirs if d not in ('.git',*blocked)]
+              for name in files:
+                  rel=os.path.relpath(os.path.join(root,name),p)
+                  if name.startswith('.env') or name.lower().endswith(('.db','.sqlite','.sqlite3','.pem','.key','.p12','.pfx','.jks','.keystore','.bak','.zip','.tar','.gz')):
+                      bad.append(rel)
+          print('EXCLUDED_SENSITIVE_FILE_COUNT='+str(len(bad)))
+          if os.path.isfile(os.path.join(p,'pyproject.toml')) and os.path.isdir(os.path.join(p,'tests')):
+              print('RUNNING_EXISTING_PYTHON_TESTS')
+              subprocess.run(['python3','-m','pytest','-q',os.path.join(p,'tests')],cwd=p,check=True)
+          elif os.path.isfile(os.path.join(p,'package.json')):
+              import json as j
+              package=j.load(open(os.path.join(p,'package.json')))
+              if 'test' in package.get('scripts',{}):
+                  print('RUNNING_EXISTING_NPM_TESTS')
+                  subprocess.run(['npm','test','--','--runInBand'],cwd=p,check=True)
+              else: print('NO_DECLARED_NPM_TEST')
+          else: print('NO_AUTOMATIC_TEST_COMMAND_DETECTED')
+          with open('/tmp/raceday-project-path','w') as f:f.write(p)
+          PY
+      - name: Create private GitHub repository and import existing source when authorised
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RACEDAY_REPO_CREATOR_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          if test -z "${GH_TOKEN:-}"; then
+            echo 'IMPORT_BLOCKED: RACEDAY_REPO_CREATOR_TOKEN secret is absent; source has not been published'
+            exit 3
+          fi
+          command -v gh >/dev/null
+          p="$(cat /tmp/raceday-project-path)"
+          owner=jamienewton2269
+          name=Sailing-UK-RaceDay-Manager
+          if gh api "repos/$owner/$name" >/dev/null 2>&1; then
+            test "$(gh api "repos/$owner/$name" --jq '.private')" = true || { echo 'IMPORT_BLOCKED: target is not private'; exit 4; }
+            echo 'Existing private target found'
+          else
+            gh api --method POST user/repos -f name="$name" -F private=true -f description='Sailing-UK RaceDay Manager' >/dev/null
+          fi
+          stage="$(mktemp -d)"
+          trap 'rm -rf "$stage"' EXIT
+          python3 - "$p" "$stage" <<'PY'
+          import os,sys,shutil,pathlib
+          source,target=sys.argv[1:]
+          ignored={'.git','node_modules','.venv','venv','__pycache__','dist','build','secrets','credentials','private','data','database','db','storage','backups','backup','.pytest_cache','.mypy_cache'}
+          def ignore(path,names):
+              return {n for n in names if n in ignored or n.startswith('.env') or n.lower().endswith(('.db','.sqlite','.sqlite3','.pem','.key','.p12','.pfx','.jks','.keystore','.bak','.zip','.tar','.gz'))}
+          shutil.copytree(source,target,dirs_exist_ok=True,ignore=ignore,symlinks=False)
+          with open(os.path.join(target,'.gitignore'),'a') as f:
+              f.write('\n.env*\n*.db\n*.sqlite*\n*.pem\n*.key\n*.p12\n*.pfx\n*.jks\n*.keystore\nsecrets/\ncredentials/\nprivate/\ndata/\ndatabase/\ndb/\nstorage/\nbackups/\nbackup/\n')
+          PY
+          cd "$stage"
+          git init -q
+          git config user.name "Node C RaceDay Import"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          test -n "$(git ls-files)" || { echo 'IMPORT_BLOCKED: no source files'; exit 5; }
+          git commit -qm "Import existing Node C RaceDay Manager development (sanitised)"
+          git branch -M main
+          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" push "https://github.com/$owner/$name.git" main
+          echo 'PRIVATE_IMPORT_COMPLETE: https://github.com/jamienewton2269/Sailing-UK-RaceDay-Manager'
