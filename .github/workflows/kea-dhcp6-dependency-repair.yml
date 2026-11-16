@@ -1,0 +1,45 @@
+name: Repair Kea DHCP6 startup dependency and activate
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea-dhcp6-dependency-repair.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  repair:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - name: Diagnose systemd dependencies and start safe DHCP6 on both nodes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            echo "=== $1 CT$2 ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=8 "$1" "pct exec $2 -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          echo 'UNIT_DEPENDENCIES:'
+          systemctl cat kea-dhcp6-server.service | head -100
+          echo 'FAILED_DEPENDENCIES:'
+          systemctl --failed --no-pager --plain || true
+          echo 'JOURNAL:'
+          journalctl -u kea-dhcp6-server -n 18 --no-pager || true
+          echo 'SERVICE_DEPENDENCY_STATUS:'
+          systemctl show kea-dhcp6-server -p Requires -p Wants -p After -p ExecStart -p FragmentPath
+          echo 'KEA6_CONFIG_CHECK:'
+          kea-dhcp6 -t /etc/kea/kea-dhcp6.conf 2>&1 | tail -6
+          echo 'SAFE_START_ATTEMPT:'
+          if systemctl start kea-dhcp6-server; then
+            echo 'SERVICE_STARTED'
+            systemctl is-active kea-dhcp6-server
+            ss -lunp | grep ':547' || true
+            systemctl enable kea-dhcp6-server >/dev/null
+          else
+            echo 'SERVICE_FAILED_LEAVING_EXISTING_DNS_UNTOUCHED'
+            systemctl status kea-dhcp6-server --no-pager -l | tail -25 || true
+          fi
+          REMOTE
+          done
