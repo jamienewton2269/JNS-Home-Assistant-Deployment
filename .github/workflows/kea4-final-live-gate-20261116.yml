@@ -1,0 +1,47 @@
+name: Kea4 final live DNS and DDNS gate
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-final-live-gate-20261116.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          for spec in 'nodea 10.10.110.11 247' 'nodeb 10.10.110.12 248'; do
+            set -- $spec
+            echo "===== $1 ====="
+            ssh -o HostName="$2" -o HostKeyAlias="$1.home.arpa" -o BatchMode=yes "$1" "pct exec $3 -- bash -s" <<'REMOTE'
+          set -u
+          echo '--- Kea config DDNS and reservation summary'
+          python3 - <<'PY'
+          import json,os
+          p='/etc/kea/kea-dhcp4.conf'
+          d=json.load(open(p))['Dhcp4']
+          for k in ('dhcp-ddns','ddns-send-updates','ddns-qualifying-suffix','lease-database','interfaces-config','hooks-libraries','subnet4'):
+           v=d.get(k)
+           if k=='subnet4' and v:
+            v=[{'subnet':x.get('subnet'),'pools':x.get('pools'),'reservations':len(x.get('reservations',[])),'hostname_only':[r for r in x.get('reservations',[]) if 'ip-address' not in r]} for x in v]
+           print(k,str(v)[:2500])
+          print('CA password file nonempty',os.path.isfile('/etc/kea/kea-api-password') and os.path.getsize('/etc/kea/kea-api-password')>0)
+          PY
+          echo '--- dnsmasq effective config DHCP and DNS'
+          grep -nE '^(dhcp-|conf-|server=|domain=|expand-hosts|addn-hosts|hostsdir|port=|interface=|bind-)' /etc/dnsmasq.conf | head -70
+          echo '--- dnsmasq service unit'
+          systemctl cat jns-dns | head -70
+          echo '--- DDNS integrations'
+          systemctl list-unit-files --no-pager | grep -Ei 'dns|kea|lease|ddns|import|sync' | head -70
+          grep -RIlE 'kea-leases4|kea-dhcp4|dhcp-script|dhcp-leasefile' /usr/local/bin /usr/local/sbin /etc/systemd/system 2>/dev/null | head -45
+          echo '--- active listeners'
+          ss -lunp | grep -E ':(53|67|547) ' || true
+          echo '--- staged data'
+          ls -l /root/kea-migration-staging/kea-* /var/lib/kea/kea-leases4.csv 2>/dev/null || true
+          echo '--- statuses'
+          systemctl is-active jns-dns kea-dhcp4-server kea-dhcp6-server radvd || true
+          REMOTE
+          done
