@@ -1,0 +1,61 @@
+name: Kea4 repair CA dependency and inspect live cutover gates
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-ca-dependency-gates.yml']
+permissions:
+  contents: read
+jobs:
+  repair:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          for spec in 'nodea 10.10.110.11 247 10.10.110.247' 'nodeb 10.10.110.12 248 10.10.110.248'; do
+            set -- $spec
+            echo "=== $1 CT$3 ==="
+            ssh -o HostName="$2" -o HostKeyAlias="$1.home.arpa" -o BatchMode=yes "$1" "pct exec $3 -- bash -s" <<REMOTE
+          set -Eeuo pipefail
+          test "\$(systemctl is-active jns-dns)" = active
+          mkdir -p /root/kea-migration-backups/ca-dependency-20261116
+          cp -a /etc/systemd/system/kea-ctrl-agent.service.d /root/kea-migration-backups/ca-dependency-20261116/ 2>/dev/null || true
+          install -d -o _kea -g _kea -m 0750 /run/kea
+          install -d -m 0755 /etc/systemd/system/kea-ctrl-agent.service.d
+          cat >/etc/systemd/system/kea-ctrl-agent.service.d/30-independent.conf <<'EOF'
+          [Unit]
+          Requires=
+          After=network-online.target
+          [Service]
+          RuntimeDirectory=kea
+          RuntimeDirectoryMode=0750
+          EOF
+          python3 - <<'PY'
+          import json
+          p='/etc/kea/kea-ctrl-agent.conf'
+          try: c=json.load(open(p))
+          except Exception: c={'Control-agent':{}}
+          c['Control-agent']['http-host']='$4'
+          c['Control-agent']['http-port']=8000
+          c['Control-agent']['control-sockets']={'dhcp4':{'socket-type':'unix','socket-name':'/run/kea/kea4-ctrl-socket'}}
+          with open(p,'w') as f: json.dump(c,f,indent=2)
+          PY
+          chown root:_kea /etc/kea/kea-ctrl-agent.conf
+          chmod 0640 /etc/kea/kea-ctrl-agent.conf
+          kea-ctrl-agent -t /etc/kea/kea-ctrl-agent.conf
+          systemctl daemon-reload
+          echo '--- unit dependencies'
+          systemctl show kea-ctrl-agent -p Requires -p After -p ConditionResult
+          systemctl restart kea-ctrl-agent || { systemctl status kea-ctrl-agent --no-pager; journalctl -u kea-ctrl-agent -n 30 --no-pager; exit 1; }
+          systemctl is-active --quiet kea-ctrl-agent
+          echo '--- CA listening'
+          ss -lntp | grep ':8000 '
+          echo '--- Kea4 staged'
+          kea-dhcp4 -t /etc/kea/kea-dhcp4.conf 2>&1 | tail -5
+          echo '--- effective dnsmasq config'
+          systemctl cat jns-dns | head -45
+          echo '--- status'
+          systemctl is-active jns-dns kea-dhcp4-server kea-dhcp6-server kea-ctrl-agent radvd || true
+          REMOTE
+          done
