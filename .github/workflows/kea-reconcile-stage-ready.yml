@@ -1,0 +1,72 @@
+name: Reconcile leases and stage Kea DHCP4 cutover
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea-reconcile-stage-ready.yml']
+permissions:
+  contents: read
+jobs:
+  reconcile:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - name: Reconcile active leases with reservations and stage safe Kea4 configuration
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            echo "=== $1 CT$2 ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=8 "$1" "pct exec $2 -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import csv,json,ipaddress,time,collections,os,shutil
+          root='/root/kea-migration-staging'
+          config=json.load(open(root+'/kea-dhcp4.imported.conf'))
+          d=config['Dhcp4']; subnet=d['subnet4'][0]
+          reservations=subnet.get('reservations',[])
+          reserved={r['ip-address'] for r in reservations if 'ip-address' in r}
+          now=int(time.time())
+          leases=[]
+          for line in open('/var/lib/jnsdns/leases'):
+           a=line.split()
+           if len(a)<4: continue
+           try: expiry=int(a[0]); ip=str(ipaddress.IPv4Address(a[2]))
+           except (ValueError,IndexError): continue
+           if expiry!=0 and expiry<=now: continue
+           leases.append((expiry,ip,a[1].lower(),a[3]))
+          print('ACTIVE_LEASES',len(leases),'RESERVATIONS',len(reserved),'ACTIVE_RESERVED',sum(ip in reserved for _,ip,_,_ in leases),'ACTIVE_UNRESERVED',sum(ip not in reserved for _,ip,_,_ in leases))
+          poolnets=[]
+          for pool in subnet.get('pools',[]):
+           lo,hi=[ipaddress.IPv4Address(s.strip()) for s in pool['pool'].split('-')]
+           poolnets.append((int(lo),int(hi)))
+          inpool=lambda ip:any(a<=int(ipaddress.IPv4Address(ip))<=b for a,b in poolnets)
+          print('ACTIVE_OUTSIDE_POOLS',sum(not inpool(ip) for _,ip,_,_ in leases))
+          source=root+'/kea-leases4.imported.csv'
+          with open(source,newline='') as f:
+           rdr=csv.DictReader(f); fields=rdr.fieldnames; imported=list(rdr)
+          print('KEA_CSV_COLUMNS',','.join(fields))
+          existing={r['address'] for r in imported}
+          additions=[]
+          for expiry,ip,mac,hostname in leases:
+           if ip in existing or ip in reserved or not inpool(ip): continue
+           if not fields or not {'address','hwaddr','valid_lifetime','expire'}.issubset(fields): raise SystemExit('Unsupported lease CSV schema')
+           row={k:'' for k in fields}
+           row.update({'address':ip,'hwaddr':mac,'client_id':'','valid_lifetime':str(43200 if expiry==0 else max(1,expiry-now)),'expire':str(now+43200 if expiry==0 else expiry),'subnet_id':str(subnet['id']),'fqdn_fwd':'0','fqdn_rev':'0','hostname':hostname if hostname!='*' else '','state':'0','user_context':'','pool_id':'0'})
+           additions.append(row)
+          print('NEW_DYNAMIC_LEASES',len(additions))
+          dest=root+'/kea-leases4.reconciled.csv'
+          with open(dest,'w',newline='') as f:
+           w=csv.DictWriter(f,fieldnames=fields,extrasaction='ignore');w.writeheader();w.writerows(imported+additions)
+          os.chmod(dest,0o600)
+          print('RECONCILED_TOTAL',len(imported+additions))
+          print('DYNAMIC_POOL_RESERVED_CONFLICTS',sum(inpool(ip) for ip in reserved))
+          print('HA_ROLE',d['hooks-libraries'][0]['parameters']['high-availability'][0]['this-server-name'])
+          print('DNS_UPDATES_ENABLED',d.get('dhcp-ddns',{}).get('enable-updates',False))
+          PY
+          kea-dhcp4 -t /root/kea-migration-staging/kea-dhcp4.imported.conf >/dev/null
+          named-checkzone home.arpa /root/kea-migration-staging/home.arpa.zone | tail -2
+          echo 'LIVE_SERVICE_STATE'
+          systemctl is-active jns-dns kea-dhcp6-server || true
+          REMOTE
+          done
