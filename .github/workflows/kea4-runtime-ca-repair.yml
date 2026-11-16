@@ -1,0 +1,63 @@
+name: Kea4 repair runtime and control agent without DHCP cutover
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-runtime-ca-repair.yml']
+permissions:
+  contents: read
+jobs:
+  repair:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 10
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          for spec in 'nodea 10.10.110.11 247 10.10.110.247' 'nodeb 10.10.110.12 248 10.10.110.248'; do
+            set -- $spec
+            echo "=== $1 CT$3 ==="
+            ssh -o HostName="$2" -o HostKeyAlias="$1.home.arpa" -o BatchMode=yes "$1" "pct exec $3 -- bash -s" <<REMOTE
+          set -Eeuo pipefail
+          test "\$(systemctl is-active jns-dns)" = active
+          test "\$(systemctl is-active kea-dhcp4-server || true)" != active
+          mkdir -p /root/kea-migration-backups/runtime-ca-20261116
+          cp -a /etc/kea/kea-ctrl-agent.conf /root/kea-migration-backups/runtime-ca-20261116/
+          install -d -o _kea -g _kea -m 0750 /run/kea
+          install -d -m 0755 /etc/systemd/system/kea-dhcp4-server.service.d /etc/systemd/system/kea-ctrl-agent.service.d
+          cat >/etc/systemd/system/kea-dhcp4-server.service.d/20-kea-runtime.conf <<'EOF'
+          [Service]
+          RuntimeDirectory=kea
+          RuntimeDirectoryMode=0750
+          EOF
+          cat >/etc/systemd/system/kea-ctrl-agent.service.d/20-kea-runtime.conf <<'EOF'
+          [Service]
+          RuntimeDirectory=kea lock/kea
+          RuntimeDirectoryMode=0750
+          EOF
+          cat >/etc/kea/kea-ctrl-agent.conf <<'EOF'
+          {
+            "Control-agent": {
+              "http-host": "$4",
+              "http-port": 8000,
+              "control-sockets": {
+                "dhcp4": {
+                  "socket-type": "unix",
+                  "socket-name": "/run/kea/kea4-ctrl-socket"
+                }
+              }
+            }
+          }
+          EOF
+          chown root:_kea /etc/kea/kea-ctrl-agent.conf
+          chmod 0640 /etc/kea/kea-ctrl-agent.conf
+          kea-ctrl-agent -t /etc/kea/kea-ctrl-agent.conf
+          kea-dhcp4 -t /etc/kea/kea-dhcp4.conf
+          systemctl daemon-reload
+          systemctl restart kea-ctrl-agent
+          systemctl is-active --quiet kea-ctrl-agent
+          ss -lntp | grep ':8000 '
+          stat -c '%U:%G %a %n' /run/kea /etc/kea/kea-ctrl-agent.conf
+          echo '--- DHCP4 intentionally not started until coordinated cutover'
+          systemctl is-active jns-dns kea-dhcp6-server radvd || true
+          REMOTE
+          done
