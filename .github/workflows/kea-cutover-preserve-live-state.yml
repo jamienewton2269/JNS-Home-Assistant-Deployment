@@ -1,0 +1,39 @@
+name: Preserve live DNS and DHCP state before cutover
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea-cutover-preserve-live-state.yml']
+permissions:
+  contents: read
+jobs:
+  preserve:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - name: Back up live leases and DNS state and stage imported DHCP4 configuration
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            echo "=== $1 CT$2 ==="
+            ssh -o BatchMode=yes -o ConnectTimeout=8 "$1" "pct exec $2 -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          dest="/root/kea-migration-backups/cutover-$(date -u +%Y%m%dT%H%M%SZ)"
+          install -d -m 0700 "$dest"
+          cp -a /var/lib/jnsdns/leases "$dest/dnsmasq-leases"
+          cp -a /etc/dnsmasq.conf "$dest/dnsmasq.conf"
+          cp -a /etc/dnsmasq.d "$dest/dnsmasq.d"
+          cp -a /etc/kea "$dest/kea"
+          cp -a /etc/bind "$dest/bind"
+          cp -a /root/kea-migration-staging/home.arpa.zone "$dest/home.arpa.staged.zone"
+          cp -a /root/kea-migration-staging/kea-dhcp4.imported.conf "$dest/kea-dhcp4.imported.conf"
+          kea-dhcp4 -t /root/kea-migration-staging/kea-dhcp4.imported.conf >/dev/null
+          echo "BACKUP_COMPLETE $(basename "$dest")"
+          echo "KEA4_IMPORTED_CONFIG_VALID"
+          echo "DNSMASQ_LEASE_ROWS $(wc -l </var/lib/jnsdns/leases)"
+          echo "KEA_IMPORTED_LEASE_ROWS $(wc -l </root/kea-migration-staging/kea-leases4.imported.csv)"
+          echo "ACTIVE_DNS $(systemctl is-active jns-dns)"
+          echo "ACTIVE_DHCP6 $(systemctl is-active kea-dhcp6-server)"
+          REMOTE
+          done
