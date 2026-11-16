@@ -1,0 +1,37 @@
+name: Finish disabling legacy NAS sync on both DNS nodes
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-disable-nas-sync-final.yml']
+permissions:
+  contents: read
+jobs:
+  disable:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 7
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          for spec in 'nodea 10.10.110.11 247' 'nodeb 10.10.110.12 248'; do
+            set -- $spec
+            echo "=== $1 ==="
+            ssh -o HostName="$2" -o HostKeyAlias="$1.home.arpa" -o BatchMode=yes "$1" "pct exec $3 -- bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          backup=/root/kea-migration-backups/20261116-nas-retirement
+          install -d -m 0700 "$backup"
+          cp -an /var/lib/jnsdns/active "$backup/active-link" || true
+          cp -an /var/lib/jnsdns/releases/19 "$backup/release-19"
+          cp -an /usr/local/sbin/jns-dns-sync "$backup/jns-dns-sync"
+          cp -an /usr/local/sbin/jns-dns-build-config "$backup/jns-dns-build-config"
+          cp -an /etc/jnsdns "$backup/jnsdns"
+          cp -an /var/lib/jnsdns/leases "$backup/leases"
+          dnsmasq --test -C /var/lib/jnsdns/active/dnsmasq.conf
+          systemctl disable --now jns-dns-sync.timer
+          systemctl stop jns-dns-sync.service || true
+          systemctl is-active --quiet jns-dns
+          systemctl is-active --quiet kea-dhcp6-server
+          test "$(systemctl is-enabled jns-dns-sync.timer 2>/dev/null || true)" != enabled
+          echo NAS_SYNC_DISABLED_DNS_DHCP6_ACTIVE
+          REMOTE
+          done
