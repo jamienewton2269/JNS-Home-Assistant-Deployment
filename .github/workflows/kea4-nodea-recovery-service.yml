@@ -1,0 +1,21 @@
+name: Restore Node A DHCP service and capture status
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-nodea-recovery-service.yml']
+permissions:
+  contents: read
+jobs:
+  recover:
+    runs-on: [self-hosted, linux, x64, nodec]
+    steps:
+      - shell: bash
+        run: |
+          ssh -o HostName=10.10.110.11 -o HostKeyAlias=nodea.home.arpa -o BatchMode=yes nodea 'pct exec 247 -- bash -s' <<'REMOTE'
+          systemctl restart jns-dns
+          sleep 2
+          systemctl --no-pager --full status jns-dns | tail -25
+          journalctl -u jns-dns -n 22 --no-pager -o cat | tail -22
+          ss -lunp | grep -E ':67 |:53 ' || true
+          grep '^dhcp-range=' /etc/dnsmasq.conf
+          REMOTE
