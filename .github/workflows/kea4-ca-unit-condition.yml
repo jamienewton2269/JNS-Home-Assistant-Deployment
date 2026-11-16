@@ -1,0 +1,25 @@
+name: Kea4 CA unit condition diagnostic
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-ca-unit-condition.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          for spec in 'nodea 10.10.110.11 247' 'nodeb 10.10.110.12 248'; do
+            set -- $spec
+            ssh -o HostName="$2" -o HostKeyAlias="$1.home.arpa" -o BatchMode=yes "$1" "pct exec $3 -- bash -s" <<'REMOTE'
+          set -u
+          systemctl cat kea-ctrl-agent
+          systemctl show kea-ctrl-agent -p Conditions -p ConditionResult -p AssertResult -p Result -p ExecCondition -p Requires -p RuntimeDirectory
+          systemctl status kea-ctrl-agent --no-pager || true
+          journalctl -u kea-ctrl-agent -n 30 --no-pager || true
+          systemctl is-active jns-dns kea-dhcp6-server radvd || true
+          REMOTE
+          done
