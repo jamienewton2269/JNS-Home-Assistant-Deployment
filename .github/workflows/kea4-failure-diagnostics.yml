@@ -1,0 +1,38 @@
+name: Diagnose Kea4 cutover failure without service changes
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-failure-diagnostics.yml']
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          for spec in 'nodea 10.10.110.11 247' 'nodeb 10.10.110.12 248'; do
+            set -- $spec
+            echo "=== $1 CT$3 ==="
+            ssh -o HostName="$2" -o HostKeyAlias="$1.home.arpa" -o BatchMode=yes "$1" "pct exec $3 -- bash -s" <<'REMOTE'
+          echo '--- Kea4 journal'
+          journalctl -u kea-dhcp4-server --since '2026-11-16 13:05:00' --no-pager -n 55 || true
+          echo '--- Kea4 config effective lease DB and HA'
+          python3 - <<'PY'
+          import json
+          c=json.load(open('/etc/kea/kea-dhcp4.conf'))['Dhcp4']
+          print('lease-database',c.get('lease-database'))
+          print('control-socket',c.get('control-socket'))
+          print('reservations',sum(len(x.get('reservations',[])) for x in c.get('subnet4',[])))
+          PY
+          echo '--- HA control agent'
+          systemctl is-active kea-ctrl-agent || true
+          ss -lntp | grep ':8000 ' || true
+          echo '--- leases'
+          wc -l /var/lib/kea/kea-leases4.csv || true
+          echo '--- dnsmasq DHCP'
+          ss -lunp | grep -E ':67 ' || true
+          REMOTE
+          done
