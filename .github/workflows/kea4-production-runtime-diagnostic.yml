@@ -1,0 +1,52 @@
+name: Kea4 production runtime diagnostic
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-production-runtime-diagnostic.yml']
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          for spec in 'nodea 10.10.110.11 247' 'nodeb 10.10.110.12 248'; do
+            set -- $spec
+            echo "=== $1 CT$3 ==="
+            ssh -o HostName="$2" -o HostKeyAlias="$1.home.arpa" -o BatchMode=yes "$1" "pct exec $3 -- bash -s" <<'REMOTE'
+          set -u
+          echo '--- service identities / runtime'
+          systemctl show kea-dhcp4-server kea-ctrl-agent -p User -p Group -p RuntimeDirectory -p RuntimeDirectoryMode -p ExecStart
+          stat -c '%U:%G %a %n' /run /run/kea /var/lib/kea /var/lib/kea/kea-leases4.csv /etc/kea/kea-dhcp4.conf 2>&1 || true
+          echo '--- control agent config'
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          for f in ['/etc/kea/kea-dhcp4.conf','/etc/kea/kea-ctrl-agent.conf']:
+           try:
+            c=json.loads(Path(f).read_text())
+            v=c.get('Dhcp4',c.get('Control-agent',{}))
+            print(f,'keys',list(v),'HA parameters',[(x.get('library'),x.get('parameters')) for x in v.get('hooks-libraries',[])],'control-sockets',v.get('control-sockets'),'http-host',v.get('http-host'),'http-port',v.get('http-port'))
+           except Exception as e: print(f,str(e))
+          PY
+          echo '--- dnsmasq included files and DHCP directives'
+          grep -RnsE '^[[:space:]]*(conf-dir|conf-file|dhcp-|enable-ra|ra-param|port=|interface=)' /etc/dnsmasq.conf /etc/dnsmasq.d /etc/jnsdns /var/lib/jnsdns 2>/dev/null | head -150 || true
+          echo '--- hostname only reservation'
+          grep -RnsE 'dhcp-host=' /etc/dnsmasq.conf /etc/dnsmasq.d /etc/jnsdns /var/lib/jnsdns 2>/dev/null | tail -55 || true
+          echo '--- csv header and field counts'
+          python3 - <<'PY'
+          import csv
+          p='/var/lib/kea/kea-leases4.csv'
+          with open(p,newline='') as f:
+           rows=list(csv.reader(f))
+          print('header',rows[0] if rows else [])
+          print('rows',len(rows)-1,'field-counts',[len(x) for x in rows])
+          PY
+          echo '--- services / ports / ipv6'
+          systemctl is-active jns-dns kea-dhcp4-server kea-dhcp6-server kea-ctrl-agent radvd || true
+          ss -lunpt | grep -E ':(53|67|547|8000) ' || true
+          REMOTE
+          done
