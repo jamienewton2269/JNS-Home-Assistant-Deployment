@@ -1,0 +1,44 @@
+name: Check lease reservation and DDNS blockers
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/kea4-cutover-blockers.yml']
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          for target in 'nodea 247' 'nodeb 248'; do
+            set -- $target
+            echo "=== $1 CT$2 ==="
+            ssh -o BatchMode=yes "$1" "pct exec $2 -- bash -s" <<'REMOTE'
+          set -u
+          echo '--- dnsmasq config paths'
+          grep -E '^(conf-dir|conf-file|dhcp-hostsfile|dhcp-optsfile|addn-hosts|hostsdir|dhcp-script|dhcp-ignore|dhcp-authoritative|dhcp-range|enable-ra)' /etc/dnsmasq.conf || true
+          echo '--- dnsmasq config files and reservation counts'
+          find /etc/dnsmasq.d /etc/jnsdns -maxdepth 3 -type f -printf '%p %s bytes\n' 2>/dev/null | head -55 || true
+          grep -R -E -c '^(dhcp-host|dhcp-range|dhcp-script|dhcp-leasefile)' /etc/dnsmasq.conf /etc/dnsmasq.d /etc/jnsdns 2>/dev/null | head -30 || true
+          echo '--- lease format and IPs, no MACs'
+          awk '{print NF,$3}' /var/lib/jnsdns/leases | head -30
+          echo '--- Kea staging HA settings'
+          python3 - <<'PY'
+          import json
+          c=json.load(open('/root/kea-migration-staging/kea-dhcp4.conf'))['Dhcp4']
+          for h in c.get('hooks-libraries',[]):
+           if 'high-availability' in h.get('parameters',{}):
+            for x in h['parameters']['high-availability']:
+             print('mode',x.get('mode'),'this-server-name',x.get('this-server-name'),'peers',[(p.get('name'),p.get('url'),p.get('role')) for p in x.get('peers',[])])
+          print('reservations-count',sum(len(x.get('reservations',[])) for x in c.get('subnet4',[])))
+          print('ddns',c.get('dhcp-ddns'))
+          PY
+          echo '--- Kea DHCP4 existing lease rows'
+          wc -l /var/lib/kea/kea-leases4.csv 2>/dev/null || true
+          echo '--- DDNS services'
+          systemctl is-active kea-dhcp-ddns-server bind9 named 2>/dev/null || true
+          REMOTE
+          done
