@@ -110,3 +110,11 @@ Digital race-control functions: signed and timestamped preparation/start/postpon
 Fairness and safety: test clock skew, OS background restrictions, muted phones, battery saver, weak signal and six-yacht packet loss; show clear degraded/unconfirmed state and define start-validity policy in event rules. No unsupported promise of guaranteed simultaneous signals. Club-configurable Sailing Instructions / Notice of Race must explicitly define official digital signals, effective times, failure procedures and permissible rules modifications. For regulated events, verify governing-rule compatibility rather than assuming digital signals automatically supersede required physical signals.
 
 Architecture: Manager-controlled or delegated signed OOD phone; either can be digital race-control authority. Prevent split-brain controller commands and provide explicit authority handover. Offline preconfigured fixed starts may proceed by policy, but dynamic changes require a working communications path.
+
+
+## Inclusive club operating modes — 2026-11-17
+**Correction:** Digital-first is the product innovation objective, NOT a mandatory operating policy. Clubs must be able to adopt RaceDay Manager without abandoning committee boats, flags or traditional race signals. Offer three equally supported modes at club level, overrideable per race:
+1. **Traditional + digital ancillary:** committee-boat signals remain authoritative; app countdowns, alerts, maps, timing, handicaps and results are explicitly supplementary. A digital discrepancy must not silently supersede official physical signals.
+2. **Hybrid:** physical and electronic race control are both used, with a clearly configured authoritative source per signal type and explicit discrepancy/failure rules in event sailing instructions.
+3. **Fully digital:** electronic signals are authoritative under the club's published procedures; no committee boat needed. Can use manager or delegated on-water OOD controller.
+Keep one shared race engine, telemetry, results, provisioning, OBS and course model across modes. Provide clear UI labels showing the official signal source, race-specific selection, gradual adoption, and easy reversal. Do not disable useful features for traditional clubs. Governing rules and sailing instructions must support the selected procedures.
