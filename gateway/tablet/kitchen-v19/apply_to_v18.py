@@ -210,13 +210,45 @@ def main():
 
     private void showStagedPinDialog() {
         if (alarmPinDialog != null) return;
-        // UI only. No PIN is collected or transmitted before server-side
-        // authenticated, rate-limited controls have been implemented.
+        // Keypad visual only; no PIN is collected or checked without a secure backend.
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(18, 12, 18, 12);
+        TextView explanatory = new TextView(this);
+        explanatory.setText("Alarm PIN controls are not enabled yet.");
+        explanatory.setGravity(Gravity.CENTER);
+        panel.addView(explanatory);
+        String[][] keys = {
+            {"1", "2", "3"}, {"4", "5", "6"},
+            {"7", "8", "9"}, {"", "0", ""}
+        };
+        for (int i = 0; i < keys.length; ++i) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            for (int j = 0; j < keys[i].length; ++j) {
+                Button key = new Button(this);
+                key.setText(keys[i][j]);
+                key.setEnabled(false);
+                row.addView(key, new LinearLayout.LayoutParams(0, 54, 1f));
+            }
+            panel.addView(row);
+        }
+        Button armHome = new Button(this);
+        armHome.setText("ARM HOME (UNAVAILABLE)");
+        armHome.setEnabled(false);
+        panel.addView(armHome);
+        Button disarm = new Button(this);
+        disarm.setText("DISARM (UNAVAILABLE)");
+        disarm.setEnabled(false);
+        panel.addView(disarm);
         alarmPinDialog = new AlertDialog.Builder(this)
-            .setTitle("House alarm PIN - test screen")
-            .setMessage("Local PIN control is not yet enabled.\\\\n"
-                       + "The guest portal cannot currently arm or disarm.")
-            .setPositiveButton("Close", null)
+            .setTitle("House alarm - keypad preview")
+            .setView(panel)
+            .setPositiveButton("Close", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int which) {
+                    alarmPinDialog = null;
+                }
+            })
             .create();
         alarmPinDialog.show();
     }
