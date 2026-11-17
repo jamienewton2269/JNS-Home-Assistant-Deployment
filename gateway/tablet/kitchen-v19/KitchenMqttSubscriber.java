@@ -1,6 +1,8 @@
 package uk.jns.hikvisiontalk;
 
 import android.os.Handler;
+import android.os.Build;
+import org.conscrypt.Conscrypt;
 import android.os.Looper;
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
 import org.eclipse.paho.client.mqttv3.IMqttToken;
@@ -147,7 +149,16 @@ public final class KitchenMqttSubscriber implements MqttCallbackExtended {
         TrustManagerFactory tm = TrustManagerFactory.getInstance(
             TrustManagerFactory.getDefaultAlgorithm());
         tm.init(store);
-        SSLContext ctx = SSLContext.getInstance("TLSv1.2");
+        // Android 4.0/4.0.4 may not implement TLSv1.2 in its OS provider.
+        // Bundle Conscrypt for API <16, retaining pinned CA and hostname checks.
+        // Fail closed if the provider cannot initialize: never downgrade MQTT.
+        SSLContext ctx;
+        if (Build.VERSION.SDK_INT < 16) {
+            if (!Conscrypt.isAvailable()) throw new IOException("Bundled TLS provider unavailable");
+            ctx = SSLContext.getInstance("TLSv1.2", Conscrypt.newProvider());
+        } else {
+            ctx = SSLContext.getInstance("TLSv1.2");
+        }
         ctx.init(null, tm.getTrustManagers(), null);
         return ctx;
     }
