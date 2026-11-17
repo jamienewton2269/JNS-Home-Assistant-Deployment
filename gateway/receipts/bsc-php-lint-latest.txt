@@ -1,0 +1,23 @@
+run_id=44143533360
+php_lint_step=success
+PHP 8.3.6 (cli) (built: Oct 19 2026 15:16:58) (NTS)
+Copyright (c) The PHP Group
+No syntax errors detected in php-source/krystal/test-mysql-concurrent-worker.php
+No syntax errors detected in php-source/krystal/TransactionalImporter.php
+No syntax errors detected in php-source/krystal/test-mysql-importer.php
+No syntax errors detected in php-source/krystal/test-mysql-intake.php
+No syntax errors detected in php-source/krystal/test-member-intake.php
+No syntax errors detected in php-source/krystal/test-synthetic-verifier.php
+No syntax errors detected in php-source/krystal/SnapshotVerifier.php
+No syntax errors detected in php-source/krystal/MemberChangeIntake.php
+No syntax errors detected in php-source/krystal/test-portal-adapter-synthetic.php
+No syntax errors detected in php-source/krystal/VerifiedImport.php
+No syntax errors detected in php-source/krystal/preflight-synthetic.php
+No syntax errors detected in php-source/plugins/system/bscmemberbridge/services/provider.php
+No syntax errors detected in php-source/plugins/system/bscmemberbridge/src/Extension/Bscmemberbridge.php
+No syntax errors detected in php-source/plugins/system/bscmemberbridge/src/Service/SyntheticExchangeClient.php
+No syntax errors detected in php-source/plugins/system/bscmemberbridge/src/Service/MemberPortalAdapter.php
+No syntax errors detected in php-source/plugins/system/bscmemberbridge/src/Service/AssertionSigner.php
+PHP_SYNTAX_PASS_COUNT=16
+PHP_SYNTAX_FAIL_COUNT=0
+NO_DEPLOYMENT_NO_DATABASE_ACCESS
