@@ -1,0 +1,39 @@
+name: Gateway Node C recovery preflight
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: gateway-nodec-recovery-preflight
+  cancel-in-progress: false
+jobs:
+  preflight:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - name: Runner capability summary without secrets
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo "GATEWAY_PREFLIGHT_BEGIN"
+          printf 'runner_nodec=%s\n' "$(test "$(hostname -s)" = nodec && echo yes || echo no)"
+          for binary in git python3 ssh pwsh jq; do
+            if command -v "$binary" >/dev/null 2>&1; then
+              echo "tool_${binary}=available"
+            else
+              echo "tool_${binary}=missing"
+            fi
+          done
+          for directory in /opt/bsc-joomla-membership /opt/charmed-poc /opt/jns-gateway; do
+            case "$directory" in
+              /opt/bsc-joomla-membership) label=clubmanager ;;
+              /opt/charmed-poc) label=charmed ;;
+              /opt/jns-gateway) label=gateway ;;
+            esac
+            if test -d "$directory"; then
+              echo "workspace_${label}=present"
+            else
+              echo "workspace_${label}=absent"
+            fi
+          done
+          echo "GATEWAY_PREFLIGHT_END"

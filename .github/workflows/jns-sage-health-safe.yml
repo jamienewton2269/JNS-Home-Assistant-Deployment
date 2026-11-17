@@ -1,0 +1,27 @@
+name: SAGE runner safe health
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sage-runner-health
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: [self-hosted, windows, x64, sage]
+    timeout-minutes: 3
+    steps:
+      - name: Check service context without reading user credentials
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Write-Output 'SAGE_HEALTH_BEGIN'
+          Write-Output "host_is_sage=$($env:COMPUTERNAME -ieq 'SAGE')"
+          Write-Output "service_identity=$([Security.Principal.WindowsIdentity]::GetCurrent().Name)"
+          foreach ($tool in @('git','python','npm','ask')) {
+            $found = [bool](Get-Command $tool -ErrorAction SilentlyContinue)
+            Write-Output "tool_$($tool)=$found"
+          }
+          $root = 'C:\src\JNS-WESTMINSTER-CHIMES\WestminsterSkill'
+          Write-Output "westminster_workspace_exists=$(Test-Path -LiteralPath $root -PathType Container)"
+          Write-Output 'SAGE_HEALTH_END'
