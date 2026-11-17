@@ -1,6 +1,6 @@
 # JNS Hikvision Talk – Kitchen Tablet v1.9 MQTT and alarm-safe display (staged)
 
-**Status: implementation starter validated; NOT installed, no APK built/published.**
+**Status: complete v1.9/build 10 APK compiled and signed in the isolated SAGE staging directory on 17 November 2026; NOT installed or published. Security/device QA outstanding.**
 
 ## Existing production preserved
 - Package `com.frontdoor.hikvisiontalk`, release **1.8 / versionCode 9**, Node C `/opt/jns-apk-updates/releases/com.frontdoor.hikvisiontalk`.
@@ -44,6 +44,21 @@ Fresh `armed_away` event takes precedence over any prior listening session; stop
 - **Portal verified:** currently returns HTTP 200 over HTTPS on the LAN and still **does not** allow guest enrollment or alarm disarm (POST 405). QR display can therefore be tested without enabling alarm control.
 - **Known TLS problem:** the portal currently presents a certificate valid for `ha.jnsystems.xyz` only, whereas the QR uses `ha-general.home.arpa`. Modern phone browsers will flag the hostname mismatch. **Do not instruct guests to ignore certificate errors.** Set up a correct trusted HTTPS name and rebuild the QR asset before declaring scanning production-ready. The public `ha.jnsystems.xyz:8449` path does not currently reach this LAN portal; do not change public DNS or HA external access as a shortcut.
 - **NOT YET LIVE:** the latest editable Android application source and signing material have not been recovered from SAGE. This standalone class/QR asset is staged in the draft PR; **no APK was rebuilt or published** and production version remains 1.8/build 9.
+
+## Actual Android build and signing milestone — 17 Nov 2026
+
+- Original v1.8/build 9 source **recovered from SAGE**, under \`C:\Users\jnewt\Documents\JNS\HikvisionTalkV5\HikvisionTalkAndroid4_V3_FFmpeg\`. Do not confuse this with the older v1.2 source under Documents/andriodprojects.
+- Isolated complete staging project: \`C:\Users\jnewt\Documents\JNS\HikvisionTalkV19-MQTT-Staging\`. Existing v1.8 source left untouched.
+- Generated Java integration with \`apply_to_v18.py\`: real \`MainActivity\` now enforces camera/video masking and incoming-audio stop on Armed Away; MQTT setup fields in \`SettingsActivity\`; original FFmpeg C++ compiled intact.
+- Verified CA from MQTT CT212; pinned to app raw resource. Actual Paho Java 1.2.5 JAR included and checked with SHA-256 \`59914287adac506a28d5e8172eed262a22605f3df4d426b9d92f41dae2448185\`.
+- Gradle 4.6 / Android Gradle Plugin 3.2.1 / Java 8 / SDK 28 / NDK r17c **debug build successful**. Release build successful with \`-x lintVitalRelease\` because old lint dependency \`org.codehaus.groovy:groovy-all:2.4.12\` was unavailable during this build. This lint skip remains an outstanding QA gate, not a safety pass.
+- Signed through a **staged copy** of the existing private JNS release-signing procedure. Signed \`HikvisionTalk-V10-1.9-release.apk\` is retained under the staging project's \`app/build/outputs/apk/release/\`, 7,810,139 bytes, SHA-256 \`efbb8cf32c6d9d14b418ea4d9f41a115488bf02b1400631dcdc9e5d1ba0f6db1\`.
+- Production v1.8 APK certificate fingerprint = staged v1.9 certificate fingerprint: \`05838617d0c1de908476c75ec27aff7bffff57751440f0aa8d46964720bfe91f\` (SHA-256), verified with Android \`apksigner\`. v1 and v2 signatures verify.
+- Existing Node C update manifest **still advertises v1.8/build 9**. NO deploy or update install was performed.
+- **Critical compatibility gate:** kitchen Scroll Excel 2 tablet was previously reported as Android 4.0.4 (API 15), but is not currently attached to SAGE ADB; only Samsung SM-A715F is attached. Android platform's built-in TLSv1.2 support starts with API 16. Current certificate-verified Paho adapter is intentionally fail-closed on API15. Do not deploy this build until a secure TLS1.2 transport is demonstrated on the real tablet—never fall back to plaintext Mosquitto.
+- **QR test only:** static QR asset is scannable, but landing page URL \`https://ha-general.home.arpa:8449/\` has a certificate-name mismatch with existing Let's Encrypt \`ha.jnsystems.xyz\` cert. QR is therefore not yet usable in a normal browser without warnings. Do not instruct guests to bypass browser TLS warnings.
+- Existing guest portal v0.1.3 is a staging-only landing page (POST 405), with NO arm/disarm authority. Visible numeric keypad is deliberately disabled; no PIN is collected/transmitted. Separate authenticated server-side guest enrolment/PIN backend remains outstanding.
+- Paho APK contains \`META-INF/services/org.eclipse.paho.client.mqttv3.spi.NetworkModuleFactory\`, triggering an Android \`apksigner\` informational warning that the entry is not covered by legacy JAR v1 signatures; assess update-channel artifact integrity for old API15 before enabling installation.
 
 ## Integration work before shipping APK
 
