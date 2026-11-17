@@ -121,6 +121,7 @@ public final class GuestQrScreensaver extends FrameLayout {
         content.setTranslationX(0f);
         content.setTranslationY(0f);
         setVisibility(View.VISIBLE);
+        setKeepScreenOn(true); // active screensaver remains scannable while away
         ui.postDelayed(shift, MOVE_INTERVAL_MS);
     }
 
@@ -128,6 +129,7 @@ public final class GuestQrScreensaver extends FrameLayout {
     public void leaveAwayScreensaver() {
         active = false;
         ui.removeCallbacks(shift);
+        setKeepScreenOn(false);
         setVisibility(View.GONE);
     }
 
