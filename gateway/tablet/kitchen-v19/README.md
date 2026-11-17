@@ -36,8 +36,8 @@ Fresh `armed_away` event takes precedence over any prior listening session; stop
 
 ## Integration work before shipping APK
 
-1. Recover **latest** SAGE source and existing signing/build tooling; determine concrete callbacks for video `hideAndStopCamera()`, display/QR screen, and already-working incoming audio. The `DisplayPolicy.java` in this folder is tested reusable logic, not integrated into that app.
-2. Implement Android 4-compatible MQTT subscriber (Paho Java or similar) with trusted internal CA, TLSv1.2 explicitly enabled where supported, strict `mqtt-infra-a.home.arpa` certificate hostname validation, unique per-device ID, dedicated **read-only ACL** for exactly two topics. Never embed credentials in distributable APK; provide supervised local pairing. Fail closed if TLSv1.2/hostname validation is unavailable.
+1. Recover **latest** SAGE source and existing signing/build tooling; determine concrete callbacks for video `hideAndStopCamera()`, display/QR screen, and already-working incoming audio. The `DisplayPolicy.java` in this folder is tested reusable logic; the `KitchenMqttSubscriber.java` adapter is supplied as unintegrated source pending a real Android 4 build/runtime test.
+2. Integrate the staged `KitchenMqttSubscriber.java` Android MQTT adapter with trusted internal CA, TLSv1.2 explicitly enabled where supported, strict `mqtt-infra-a.home.arpa` certificate hostname validation, unique per-device ID, dedicated **read-only ACL** for exactly two topics. Never embed credentials in distributable APK; provide supervised local pairing. Fail closed if TLSv1.2/hostname validation is unavailable.
 3. Integrate `DisplayPolicy` on Android UI thread, with opaque full-screen privacy cover **above** native SurfaceView and audio decoder, `FLAG_SECURE`, no live video on away mode even after screen wake, pause/resume or doorbell.
 4. Finalize guest passkey service and rate-limited local PIN authorisation **separately**; no client-side alarm code checking, no anonymous disarm endpoint.
 5. Stage/backup/validate Home Assistant package, add dedicated read-only broker identity, reload automations at a quiet period; verify retained state, fresh heartbeat, privacy race tests and MQTT interruption behaviour before marking enabled.
@@ -53,4 +53,4 @@ javac --release 8 -d build DisplayPolicy.java DisplayPolicyTest.java
 java -cp build DisplayPolicyTest
 ```
 
-The above confirms screen priorities and corner-PIN launcher only. No network, MQTT, camera, PIN authorization, real APK or end-to-end alarm control is covered by these unit tests.
+The suite exercises 19 privacy/listening assertions. It confirms screen priorities and corner-PIN launcher only. No network, MQTT, camera, PIN authorization, real APK or end-to-end alarm control is covered by these unit tests.
