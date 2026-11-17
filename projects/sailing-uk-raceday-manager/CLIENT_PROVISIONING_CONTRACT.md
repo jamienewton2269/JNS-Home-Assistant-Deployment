@@ -68,3 +68,17 @@ All values are placeholders. Do not embed credentials in this JSON. Signed or au
 **Acceptance tests:** Generate six invitations in one batch; remotely redeem on six simulated devices; verify unique yacht binding, app-link fallback, duplicate/replayed/expired invitations rejected, wrong yacht rejected, reissue/revocation, lost network and cached configuration, readiness dashboard status, QR and remote invitations both using the same provisioning API.
 
 **Sequencing:** Complete both manager-side invitation delivery modes and simulated-client tests before resuming Android and telemetry receiver development. Apple client support follows Android, reusing the same contract.
+
+
+## Offline-capable self-contained invitations — corrected decision (2026-11-17)
+**Correction to earlier contract:** Remote pre-race configuration MUST NOT require the phone to reach the manager at invitation-import time. A club laptop can generate self-contained signed, expiring configuration payloads and email/share them while it has connectivity, then run offline. In-person QR and remote email/deep link/attachment use the same canonical payload schema and import verifier.
+
+Payload includes club/event/race/yacht assignment, UTC start time, permitted telemetry/video options, endpoint names, configuration revision, issue/expiry times, unique invitation ID, and issuer signature/key ID. Avoid embedding permanent secrets or unrestricted broker credentials. For long payloads, use a .raceday-invite attachment or a deep link with encoded payload; QR size constraints may require a compact payload or a local retrieval option.
+
+Mobile app verifies trusted issuer public key, signature, expiry (subject to device-clock trust), expected audience and schema, previews assignment, then imports and caches configuration offline. Provide encryption when payload contains private information; a separate passcode or device-public-key wrapping is needed to keep encryption meaningful when the link/attachment is forwarded. Emailing an encrypted package with its decryption key in the same link offers no protection against possession of that link.
+
+**Critical security limitation:** Offline import alone cannot globally enforce single use, revoke an invitation, or prove which physical phone redeemed it. First connection to telemetry/video receiver MUST validate device identity, allowed yacht and invitation status against an authorised issuance ledger or equivalent signed capability policy. A receiver disconnected from the manager needs an up-to-date signed authorisation snapshot or an explicit short-lived capability acceptance policy. A stolen or forwarded invitation must not grant indefinite receiver access.
+
+Add tests: offline import from email attachment and deep link, QR import, invalid signature, expired/clock skew, replay across devices, changed assignment, no network, and first-connect receiver authorisation. The previously proposed online redemption/approval path remains an OPTIONAL enhanced mode, not a prerequisite for night-before provisioning.
+
+**Operational distinction:** An entirely offline laptop cannot send email while disconnected; it can generate packages offline for later sending from a connected device, or send them while temporarily online before returning offline.
