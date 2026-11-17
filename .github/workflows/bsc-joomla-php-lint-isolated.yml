@@ -79,6 +79,26 @@ jobs:
           } | tee -a "$RUNNER_TEMP/bsc-php-lint.txt"
           test "$count" -gt 0
           test "$failures" -eq 0
+      - name: Execute isolated PHP synthetic security fixtures
+        id: fixtures
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cd php-source/krystal
+          {
+            echo "=== Synthetic snapshot verifier ==="
+            php test-synthetic-verifier.php
+            echo "=== Synthetic member intake ==="
+            php test-member-intake.php
+            echo "=== Synthetic Joomla portal adapter ==="
+            php test-portal-adapter-synthetic.php
+            echo "PHP_SYNTHETIC_FIXTURES_PASS"
+          } > "$RUNNER_TEMP/bsc-php-fixtures.txt" 2>&1 || {
+            rc=$?
+            cat "$RUNNER_TEMP/bsc-php-fixtures.txt"
+            exit "$rc"
+          }
+          cat "$RUNNER_TEMP/bsc-php-fixtures.txt"
       - name: Publish PHP syntax receipt
         if: always()
         shell: bash
@@ -88,10 +108,15 @@ jobs:
           {
             echo "run_id=$GITHUB_RUN_ID"
             echo "php_lint_step=${{ steps.lint.outcome }}"
+            echo "php_fixtures_step=${{ steps.fixtures.outcome }}"
             if test -f "$RUNNER_TEMP/bsc-php-lint.txt"; then
               tail -n 35 "$RUNNER_TEMP/bsc-php-lint.txt"
             else
               echo "PHP_LINT_NOT_EXECUTED"
+            fi
+            if test -f "$RUNNER_TEMP/bsc-php-fixtures.txt"; then
+              echo "=== Synthetic fixture output ==="
+              tail -n 45 "$RUNNER_TEMP/bsc-php-fixtures.txt"
             fi
           } > gateway/receipts/bsc-php-lint-latest.txt
           git config user.name "github-actions[bot]"
