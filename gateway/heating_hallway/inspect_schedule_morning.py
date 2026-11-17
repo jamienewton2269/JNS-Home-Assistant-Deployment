@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Inspect VM905 heating settings without writing or printing credentials."""
-import base64, json, subprocess, time
+import base64, json, subprocess, time, shlex
 INSPECT=r'''
 import pathlib,yaml,sqlite3,datetime,json,hashlib
 r=pathlib.Path("/config")
@@ -37,13 +37,13 @@ def run_guest(code):
           'exec(__import__("base64").b64decode("'+encoded+'"))']
     prefix=["ssh","-T","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes","-o","HostKeyAlias=nodeb.home.arpa",
             "-o","ConnectTimeout=6","root@10.10.110.12"]
-    p=subprocess.run(prefix+argv,capture_output=True,text=True,timeout=35)
+    p=subprocess.run(prefix+[shlex.join(argv)],capture_output=True,text=True,timeout=35)
     if p.returncode:raise RuntimeError("Trusted guest connection unavailable: "+p.stderr[:200])
     j=json.loads(p.stdout)
     for i in range(50):
         if j.get("exited"):break
         time.sleep(1.2)
-        p=subprocess.run(prefix+["qm","guest","exec-status","905",str(j["pid"])],
+        p=subprocess.run(prefix+[shlex.join(["qm","guest","exec-status","905",str(j["pid"])])],
                          capture_output=True,text=True,timeout=20)
         if p.returncode:raise RuntimeError("Guest exec status unavailable")
         j=json.loads(p.stdout)
