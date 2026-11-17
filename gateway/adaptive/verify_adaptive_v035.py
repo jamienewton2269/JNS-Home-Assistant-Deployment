@@ -25,6 +25,15 @@ for name in names:
         print("VERIFIED",name,repr(record["state"])[:85])
 services=[s for s in req("/services") if s["domain"]=="adaptive_intelligence"]
 print("ADAPTIVE_SERVICES",sorted(services[0]["services"]) if services else [])
+for source in ("sensor.adaptive_intelligence_lighting_habit_early_patterns",
+               "sensor.adaptive_intelligence_lighting_habit_candidates"):
+    for row in states.get(source,{}).get("attributes",{}).get("patterns",[])[:12]:
+        print("HABIT_PATTERN",json.dumps({
+            "entity":row.get("entity"),"action":row.get("action"),
+            "typical_time":row.get("typical_time"),"day_class":row.get("day_class"),
+            "distinct_days":row.get("distinct_days"),"span_days":row.get("span_days"),
+            "confidence":row.get("confidence")
+        },sort_keys=True))
 if missing or not services:raise RuntimeError("Adaptive integration not fully registered")
 print("V035_LIVE_VERIFIED")
 '''
