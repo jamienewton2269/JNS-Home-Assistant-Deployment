@@ -11,7 +11,7 @@ HOST=["ssh","-T","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes",
 ROOT="/mnt/data/supervisor/homeassistant/packages"
 PATH=ROOT+"/jns_heating_predictive_schedule.yaml"
 EXPECTED="82b15336bfcd1f7895094fbaead1a455fa59140fc04c3ad99a28e92fd534f5fc"
-BACKUP=PATH+".pre-morning-priority-20261117.bak"
+BACKUP=PATH+".pre-morning-priority-20261117-v2.bak"
 STAGE=PATH+".morning-priority-stage"
 
 def run_guest(args,stdin=None,timeout=150):
@@ -20,7 +20,7 @@ def run_guest(args,stdin=None,timeout=150):
         q+=["--pass-stdin","1"]
     q+=["--"]+args
     r=subprocess.run(HOST+[shlex.join(q)],input=stdin,text=True,
-                     capture_output=True,timeout=20)
+                     capture_output=True,timeout=max(30,timeout+20))
     if r.returncode:
         raise RuntimeError("Node B transport failed: "+r.stderr[:250])
     try:j=json.loads(r.stdout)
