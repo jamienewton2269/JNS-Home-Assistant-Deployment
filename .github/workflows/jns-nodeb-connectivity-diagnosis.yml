@@ -10,23 +10,20 @@ jobs:
     runs-on: [self-hosted, linux, x64, nodec]
     timeout-minutes: 3
     steps:
-      - name: Inspect non-sensitive local DNS and management routes
+      - name: Inspect known Proxmox management addresses without changing network configuration
         shell: bash
         run: |
           set +e
-          echo "HOSTNAME=$(hostname -s)"
-          echo "=== resolver ==="
-          getent ahostsv4 nodeb.home.arpa | head -4
-          getent ahostsv4 nodeb | head -4
-          echo "=== DNS configuration ==="
-          resolvectl status 2>/dev/null | grep -E 'DNS Servers:|DNS Domain:|Current DNS Server:' | head -18
-          echo "=== NIC ==="
-          ip -4 -brief addr show | head -12
-          echo "=== routes ==="
-          ip -4 route | head -12
-          echo "=== known nodeb host aliases ==="
-          grep -Ei '(^|[[:space:]])nodeb([.[:space:]]|$)' /etc/hosts 2>/dev/null || true
-          echo "=== SSH host lookup ==="
-          ssh -G nodeb 2>/dev/null | grep -E '^(hostname|user|port|proxyjump) ' | head -8
-          echo "=== management lookup ==="
-          for t in nodeb.home.arpa nodeb; do timeout 4 ssh -o BatchMode=yes -o ConnectTimeout=3 root@"$t" 'hostname -s' 2>&1 | head -2; done
+          echo '=== resolver ==='
+          cat /etc/resolv.conf | grep -E '^(nameserver|search)' | head -8
+          echo '=== known Proxmox cluster nodes ==='
+          grep -E -i 'ring[0-9]_addr|name:|nodeid:' /etc/pve/corosync.conf 2>/dev/null | head -35
+          echo '=== ipv4 neighbours ==='
+          ip -4 neigh show | head -45
+          echo '=== ssh known host names (no keys) ==='
+          ssh-keygen -F nodeb.home.arpa 2>/dev/null | grep '^# Host' | head -3
+          echo '=== local hosts ==='
+          grep -Ei 'nodea|nodeb|nodec|proxmox' /etc/hosts 2>/dev/null | head -15
+          echo '=== local management inventory files ==='
+          find /etc/jns -maxdepth 2 -type f -iname '*host*' -o -iname '*node*' 2>/dev/null | head -15
+          exit 0
