@@ -42,6 +42,8 @@ def run_guest(code):
     j=json.loads(p.stdout)
     for i in range(50):
         if j.get("exited"):break
+        if not isinstance(j.get("pid"), int):
+            raise RuntimeError("Guest response: "+repr({"keys":list(j),"exitcode":j.get("exitcode"),"error":str(j.get("err-data",""))[:250],"output":str(j.get("out-data",""))[:250]}))
         time.sleep(1.2)
         p=subprocess.run(prefix+[shlex.join(["qm","guest","exec-status","905",str(j["pid"])])],
                          capture_output=True,text=True,timeout=20)
