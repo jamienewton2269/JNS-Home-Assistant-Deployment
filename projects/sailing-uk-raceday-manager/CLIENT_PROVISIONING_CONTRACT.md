@@ -51,3 +51,20 @@ All values are placeholders. Do not embed credentials in this JSON. Signed or au
 
 ## Development gate
 **Do not resume Android telemetry ingestion, MQTT receiver integration or new video receiver work** until a manager-side provisioning API and simulated-client tests pass. Existing preliminary MediaMTX receiver is preserved. Apple support follows tested Android provisioning.
+
+
+## Two equally supported deployment paths — 2026-11-17 decision
+
+**A. In-person pairing (QR):** Race officer creates a single-use, expiring QR invitation for a yacht. Competitor scans it on Android, confirms race/yacht, completes secure device registration and receives configuration. Keep this for on-site registration, late entries and replacement devices.
+
+**B. Remote pre-race provisioning (night before):** Race officer prepares tomorrow's race and assignments, then generates per-yacht, per-competitor expiring invitation links. Deliver via email or copy/share via a messaging application. A link opens the installed Android app (verified HTTPS app link); if not installed, show an installation guide and then resume onboarding. App confirms the club, event, race and yacht, generates device keypair, registers with the manager and downloads scoped configuration. An invitation is not a long-lived credential and must not by itself permit unreviewed yacht reassignment. For clubs requiring officer approval, the invitation is a pending request until approved; for pre-approved entries, officer authorisation occurs at invitation issuance with strict one-device/one-use limits.
+
+**Manager readiness dashboard:** Show invited / opened / registered / configured / ready / expired / revoked / needs attention, per yacht and device; last configuration revision acknowledgement; last contact and device capability checks. Provide resend, revoke, reissue and replacement-phone controls.
+
+**Race-day validation:** Device checks for config changes, assigned yacht, GPS permissions, power and connection; can continue with a previously authenticated, cached configuration when offline. Do not promise that an unpaired phone can first register offline. Any race start changes must use versioned config, acknowledgement and explicit timing safeguards.
+
+**Security:** HTTPS deep links, high-entropy opaque invitation, short expiry, single use, bind device key at registration, prevent link previews or email scanners from consuming tokens merely by GET, rate-limit redemption, officer audit trail, avoid PII in URLs, avoid exposing credentials in QR or email. For remote pairing, use a reachable trusted HTTPS manager endpoint or a securely operated relay; offline-only managers cannot directly provision phones over the internet. No mandatory central Sailing-UK service for local operation.
+
+**Acceptance tests:** Generate six invitations in one batch; remotely redeem on six simulated devices; verify unique yacht binding, app-link fallback, duplicate/replayed/expired invitations rejected, wrong yacht rejected, reissue/revocation, lost network and cached configuration, readiness dashboard status, QR and remote invitations both using the same provisioning API.
+
+**Sequencing:** Complete both manager-side invitation delivery modes and simulated-client tests before resuming Android and telemetry receiver development. Apple client support follows Android, reusing the same contract.
