@@ -1,21 +1,21 @@
-run_id=44177402308
+run_id=44178302019
 php_lint_step=success
 php_fixtures_step=failure
 PHP 8.3.6 (cli) (built: Oct 19 2026 15:16:58) (NTS)
 Copyright (c) The PHP Group
-No syntax errors detected in php-source/krystal/test-portal-adapter-synthetic.php
-No syntax errors detected in php-source/krystal/test-synthetic-verifier.php
 No syntax errors detected in php-source/krystal/test-mysql-concurrent-worker.php
-No syntax errors detected in php-source/krystal/test-member-intake.php
-No syntax errors detected in php-source/krystal/test-mysql-importer.php
-No syntax errors detected in php-source/krystal/SnapshotVerifier.php
-No syntax errors detected in php-source/krystal/VerifiedImport.php
-No syntax errors detected in php-source/krystal/MemberChangeIntake.php
-No syntax errors detected in php-source/krystal/test-mysql-intake.php
 No syntax errors detected in php-source/krystal/TransactionalImporter.php
+No syntax errors detected in php-source/krystal/test-mysql-importer.php
+No syntax errors detected in php-source/krystal/test-mysql-intake.php
+No syntax errors detected in php-source/krystal/test-member-intake.php
+No syntax errors detected in php-source/krystal/test-synthetic-verifier.php
+No syntax errors detected in php-source/krystal/SnapshotVerifier.php
+No syntax errors detected in php-source/krystal/MemberChangeIntake.php
+No syntax errors detected in php-source/krystal/test-portal-adapter-synthetic.php
+No syntax errors detected in php-source/krystal/VerifiedImport.php
 No syntax errors detected in php-source/krystal/preflight-synthetic.php
-No syntax errors detected in php-source/tests/interop_emit.php
 No syntax errors detected in php-source/tests/test_signer.php
+No syntax errors detected in php-source/tests/interop_emit.php
 No syntax errors detected in php-source/plugins/system/bscmemberbridge/services/provider.php
 No syntax errors detected in php-source/plugins/system/bscmemberbridge/src/Extension/Bscmemberbridge.php
 No syntax errors detected in php-source/plugins/system/bscmemberbridge/src/Service/SyntheticExchangeClient.php
@@ -24,6 +24,245 @@ No syntax errors detected in php-source/plugins/system/bscmemberbridge/src/Servi
 PHP_SYNTAX_PASS_COUNT=18
 PHP_SYNTAX_FAIL_COUNT=0
 NO_DEPLOYMENT_NO_DATABASE_ACCESS
+=== Test prerequisites ===
+=== Synthetic verifier test source ===
+<?php
+declare(strict_types=1);
+/**
+ * CLI-only cross-language smoke test; does not accept web requests.
+ * php krystal/test-synthetic-verifier.php krystal/synthetic-unicode-fixture.json
+ */
+if (PHP_SAPI !== 'cli') {
+    exit(2);
+}
+require_once __DIR__ . '/SnapshotVerifier.php';
+if (!extension_loaded('sodium') || !extension_loaded('mbstring')) {
+    fwrite(STDERR, "Required PHP extensions missing\n");
+    exit(2);
+}
+$path = $argv[1] ?? '';
+if (!is_file($path)) {
+    fwrite(STDERR, "Synthetic fixture missing\n");
+    exit(2);
+}
+try {
+    $fixture = json_decode(file_get_contents($path), true, 64, JSON_THROW_ON_ERROR);
+    $key = hex2bin($fixture['public_key_hex']);
+    $now = new DateTimeImmutable($fixture['now']);
+    $raw = json_encode($fixture['envelope'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+    $accepted = BscSnapshotVerifier::verify($raw, $key, $now);
+    if (BscSnapshotVerifier::verifiedDigest($accepted) !== $fixture['expected_digest']) {
+        throw new RuntimeException('Python/PHP canonical digest mismatch');
+    }
+    if (($accepted['members'][0]['display_name'] ?? '') !== 'Zoë O’Connor 🚣') {
+        throw new RuntimeException('Unexpected fixture content');
+    }
+    $modified = $fixture['envelope'];
+    $modified['payload']['members'][0]['display_name'] = 'Mallory';
+    $rejected = false;
+    try {
+        BscSnapshotVerifier::verify(json_encode($modified, JSON_THROW_ON_ERROR), $key, $now);
+    } catch (RuntimeException $e) {
+        $rejected = true;
+    }
+    if (!$rejected) {
+        throw new RuntimeException('Tampering accepted');
+    }
+    // Duplicate keys are forbidden even if the effective decoded payload
+    // still matches a correctly signed snapshot.
+    $duplicates = [
+        preg_replace('/^\{/', '{"issuer":"bsc-clubmanager-ct101",', $raw, 1),
+        str_replace('"payload":{', '"payload":{"schema":1,', $raw),
+        str_replace('"members":[{', '"members":[{"display_name":"Impostor",', $raw),
+        str_replace('"issuer":', '"\\u0069ssuer":', preg_replace('/^\{/', '{"issuer":"bsc-clubmanager-ct101",', $raw, 1)),
+    ];
+    foreach ($duplicates as $duplicate) {
+        if (!is_string($duplicate) || $duplicate === $raw) {
+            throw new RuntimeException('Duplicate test fixture not constructed');
+        }
+        try {
+            BscSnapshotVerifier::verify($duplicate, $key, $now);
+            throw new RuntimeException('Duplicate JSON key accepted');
+        } catch (RuntimeException $e) {
+            if ($e->getMessage() === 'Duplicate JSON key accepted') {
+                throw $e;
+            }
+        }
+    }
+    // Reject malformed collection shapes even if a malicious issuer signs them.
+    // A signature alone must not turn a JSON object into an acceptable member list.
+    $malformed = $fixture['envelope'];
+    $malformed['payload']['members'] = ['unexpected' => $accepted['members'][0]];
+    try {
+        BscSnapshotVerifier::verify(json_encode($malformed, JSON_THROW_ON_ERROR), $key, $now);
+        throw new RuntimeException('Object-shaped members accepted');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage() === 'Object-shaped members accepted') {
+            throw $e;
+        }
+    }
+    // A JSON object is never an array, including when it has no keys.
+    $emptyObject = $fixture['envelope'];
+    $emptyObject['payload']['members'] = new stdClass();
+    try {
+        BscSnapshotVerifier::verify(json_encode($emptyObject, JSON_THROW_ON_ERROR), $key, $now);
+        throw new RuntimeException('Empty object members accepted');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage() === 'Empty object members accepted') {
+            throw $e;
+        }
+    }
+    echo "PHP_CROSS_LANGUAGE_FIXTURE_OK\n";
+} catch (Throwable $e) {
+    fwrite(STDERR, "PHP_CROSS_LANGUAGE_FIXTURE_FAILED\n");
+    exit(1);
+}
+=== Portal adapter test source ===
+<?php
+declare(strict_types=1);
+/** CLI-only Joomla contract stub: not a real Joomla runtime test. */
+namespace Joomla\CMS\Application {
+    interface CMSApplicationInterface {
+        public function getIdentity();
+        public function getInput();
+    }
+}
+namespace Joomla\CMS\Session {
+    final class Session {
+        public static bool $tokenValid = true;
+        public static function checkToken(string $method): bool {
+            return $method === 'post' && self::$tokenValid;
+        }
+    }
+}
+namespace {
+    if (PHP_SAPI !== 'cli' || getenv('BSC_TEST_DISPOSABLE_ACK') !== 'YES_DISPOSABLE_DATABASE') {
+        throw new \RuntimeException('Disposable CLI acceptance only');
+    }
+    $schema = getenv('BSC_TEST_EXPECTED_SCHEMA');
+    $dsn = getenv('BSC_TEST_MYSQL_DSN');
+    if (!is_string($schema) || !preg_match('/^bsc_synthetic_[a-z0-9_]+$/D', $schema)
+        || !is_string($dsn) || !str_starts_with($dsn, 'mysql:')) {
+        throw new \RuntimeException('Synthetic schema required');
+    }
+    define('_JEXEC', 1);
+    require_once __DIR__ . '/MemberChangeIntake.php';
+    require_once __DIR__ . '/../plugins/system/bscmemberbridge/src/Service/MemberPortalAdapter.php';
+    $db = new \PDO($dsn, getenv('BSC_TEST_MYSQL_USER'), getenv('BSC_TEST_MYSQL_PASSWORD'), [
+        \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+        \PDO::ATTR_EMULATE_PREPARES => false,
+    ]);
+    if ($db->query('SELECT DATABASE()')->fetchColumn() !== $schema) {
+        throw new \RuntimeException('Wrong database');
+    }
+    foreach (['bsc_member_replica', 'bsc_member_access_grants', 'bsc_member_change_requests', 'bsc_member_request_locks'] as $table) {
+        if ((int)$db->query("SELECT COUNT(*) FROM $table")->fetchColumn() !== 0) {
+            throw new \RuntimeException('Database not empty');
+        }
+    }
+    $member = 'a1000000-0000-4000-8000-000000000001';
+    $db->prepare('INSERT INTO bsc_member_replica (member_id,record_version,display_name,membership_number,membership_category,membership_status,subscription_status) VALUES (?,1,?,?,?,?,?)')
+        ->execute([$member, 'Synthetic Member', 'SYNTH-PORTAL', 'individual', 'active', 'paid']);
+    $db->prepare("INSERT INTO bsc_member_access_grants (joomla_user_id,member_id,role,active) VALUES (?,?,?,1)")
+        ->execute([900001, $member, 'self']);
+    $db->prepare("INSERT INTO bsc_member_access_grants (joomla_user_id,member_id,role,active) VALUES (?,?,?,1)")
+        ->execute([900002, $member, 'household']);
+    $app = new class implements \Joomla\CMS\Application\CMSApplicationInterface {
+        public int $id = 900001;
+        public string $method = 'GET';
+        public function getIdentity() { return (object)['id'=>$this->id,'guest'=>$this->id === 0]; }
+        public function getInput() { return new class($this->method) {
+            public function __construct(private string $method) {}
+            public function getMethod() { return $this->method; }
+        }; }
+    };
+    $adapter = \BSC\Plugin\System\Bscmemberbridge\Service\MemberPortalAdapter::class;
+    if (count($adapter::listOwnRecords($app, $db)) !== 1) {
+        throw new \RuntimeException('Self view failed');
+    }
+    $app->id = 900002;
+    $rows = $adapter::listOwnRecords($app, $db);
+    if (count($rows) !== 1 || $rows[0]['role'] !== 'household') {
+        throw new \RuntimeException('Household view failed');
+    }
+    // Household access permits viewing, never submitting edits.
+    $app->method = 'POST';
+    $householdEdit = ['request_id'=>'a3000000-0000-4000-8000-000000000202',
+        'member_id'=>$member,'base_version'=>1,'changes'=>['boat_name'=>'Denied Yacht']];
+    try {
+        $adapter::submitOwnChange($app, $db, $householdEdit);
+        throw new \RuntimeException('Household edit accepted');
+    } catch (\RuntimeException $e) {
+        if ($e->getMessage() !== 'Self-member permission required') { throw $e; }
+    }
+    $app->method = 'GET';
+    // Revoking the grant must remove the row from the portal immediately.
+    $db->prepare('UPDATE bsc_member_access_grants SET active=0 WHERE joomla_user_id=?')
+        ->execute([900002]);
+    if ($adapter::listOwnRecords($app, $db) !== []) {
+        throw new \RuntimeException('Revoked household grant still visible');
+    }
+    $db->prepare('UPDATE bsc_member_access_grants SET active=1 WHERE joomla_user_id=?')
+        ->execute([900002]);
+    $app->id = 900003;
+    if ($adapter::listOwnRecords($app, $db) !== []) {
+        throw new \RuntimeException('Unauthorised view leaked data');
+    }
+    $app->id = 0;
+    try {
+        $adapter::listOwnRecords($app, $db);
+        throw new \RuntimeException('Guest view accepted');
+    } catch (\RuntimeException $e) {
+        if ($e->getMessage() !== 'Member login required') { throw $e; }
+    }
+    // A revoked self grant must block both the view and a proposed edit.
+    $app->id = 900001;
+    $db->prepare('UPDATE bsc_member_access_grants SET active=0 WHERE joomla_user_id=?')
+        ->execute([900001]);
+    if ($adapter::listOwnRecords($app, $db) !== []) {
+        throw new \RuntimeException('Revoked self grant still visible');
+    }
+    $app->method = 'POST';
+    $revokedEdit = ['request_id'=>'a3000000-0000-4000-8000-000000000203',
+        'member_id'=>$member,'base_version'=>1,'changes'=>['boat_name'=>'Revoked Yacht']];
+    try {
+        $adapter::submitOwnChange($app, $db, $revokedEdit);
+        throw new \RuntimeException('Revoked self edit accepted');
+    } catch (\RuntimeException $e) {
+        if ($e->getMessage() !== 'Self-member permission required') { throw $e; }
+    }
+    // Every rejected mutation must leave the request queue untouched.
+    if ((int)$db->query('SELECT COUNT(*) FROM bsc_member_change_requests')->fetchColumn() !== 0) {
+        throw new \RuntimeException('Rejected mutation persisted');
+    }
+    $db->prepare('UPDATE bsc_member_access_grants SET active=1 WHERE joomla_user_id=?')
+        ->execute([900001]);
+    $app->method = 'GET';
+    $app->id = 900001;
+    $request = ['request_id'=>'a3000000-0000-4000-8000-000000000201',
+        'member_id'=>$member,'base_version'=>1,'changes'=>['boat_name'=>'Synthetic Yacht']];
+    try {
+        $adapter::submitOwnChange($app, $db, $request);
+=== Tracked fixture file inventory ===
+php-source/krystal/MemberChangeIntake.php
+php-source/krystal/SnapshotVerifier.php
+php-source/krystal/TransactionalImporter.php
+php-source/krystal/VerifiedImport.php
+php-source/krystal/preflight-synthetic.php
+php-source/krystal/synthetic-unicode-fixture.json
+php-source/krystal/test-member-intake.php
+php-source/krystal/test-mysql-concurrent-worker.php
+php-source/krystal/test-mysql-importer.php
+php-source/krystal/test-mysql-intake.php
+php-source/krystal/test-portal-adapter-synthetic.php
+php-source/krystal/test-synthetic-verifier.php
+php-source/plugins/system/bscmemberbridge/services/provider.php
+php-source/plugins/system/bscmemberbridge/src/Extension/Bscmemberbridge.php
+php-source/plugins/system/bscmemberbridge/src/Service/AssertionSigner.php
+php-source/plugins/system/bscmemberbridge/src/Service/MemberPortalAdapter.php
+php-source/plugins/system/bscmemberbridge/src/Service/SyntheticExchangeClient.php
+php-source/tests/interop_emit.php
+php-source/tests/test_signer.php
 === Synthetic fixture output ===
 === test-synthetic-verifier.php ===
 Synthetic fixture missing
