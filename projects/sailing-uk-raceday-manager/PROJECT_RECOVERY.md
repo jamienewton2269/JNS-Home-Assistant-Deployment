@@ -37,3 +37,8 @@ Previous chat reported local ZIP prototypes v0.1–v0.6 with Python/SQLite, six-
 
 ## Immediate resume instruction
 Inspect the actual repositories and local packages; report what exists and is tested; preserve code; continue RaceDay Manager user profiles and client provisioning contract first. Keep mobile/telemetry development paused until manager-driven pairing/configuration works. Do not claim completion without tests.
+
+## Official product line (approved 2026-11-17)
+> **RaceDay Manager modernises club racing without forcing clubs to abandon their traditions.**
+
+Use this exact wording as the primary product tagline in RaceDay Manager branding, welcome/about screens, project README and future marketing. Do not change wording without approval. Support traditional ancillary, hybrid and fully digital race-control modes.
