@@ -4,6 +4,7 @@ import android.os.Handler;
 import android.os.Looper;
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
 import org.eclipse.paho.client.mqttv3.IMqttToken;
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
 import org.eclipse.paho.client.mqttv3.MqttCallbackExtended;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
@@ -103,7 +104,7 @@ public final class KitchenMqttSubscriber implements MqttCallbackExtended {
         privacyLock();
     }
 
-    public void deliveryComplete(IMqttToken token) { /* read-only */ }
+    public void deliveryComplete(IMqttDeliveryToken token) { /* read-only */ }
 
     public void messageArrived(String topic, MqttMessage message) {
         final long receivedMs = System.currentTimeMillis();
