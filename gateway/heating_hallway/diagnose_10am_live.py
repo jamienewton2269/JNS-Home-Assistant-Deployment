@@ -52,12 +52,18 @@ for entity in specific:
 print("AUDIT_COMPLETE")
 '''
 encoded=base64.b64encode(inside.encode()).decode()
-args=["ssh","-T","-o","BatchMode=yes","-o","ConnectTimeout=12","root@nodeb.home.arpa",
-      "qm guest exec 905 -- docker exec homeassistant python3 -c 'exec(__import__(\"base64\").b64decode(\""+encoded+"\"))'"]
-p=subprocess.run(args,capture_output=True,text=True,timeout=110)
-if p.returncode:
-    raise RuntimeError("Node B/guest diagnostic transport failed: "+p.stderr[:300])
-obj=json.loads(p.stdout)
-if obj.get("exitcode")!=0:raise RuntimeError("Guest audit failed: "+obj.get("err-data","")[:1200])
-if obj.get("out-truncated"):print("WARNING audit output truncated")
-print(obj.get("out-data",""))
+import time
+sys.path.insert(0,"gateway/arrival_lighting")
+from readiness_probe import ssh_host
+pycmd="exec(__import__('base64').b64decode('"+encoded+"'))"
+out=json.loads(ssh_host("nodeb",["qm","guest","exec","905","--",
+                                "docker","exec","homeassistant","python3","-c",pycmd]))
+for _ in range(45):
+    if out.get("exited"): break
+    if not isinstance(out.get("pid"),int): raise RuntimeError("Guest diagnostic process has no PID")
+    time.sleep(2)
+    out=json.loads(ssh_host("nodeb",["qm","guest","exec-status","905",str(out["pid"])]))
+if not out.get("exited"):raise RuntimeError("Guest diagnostic timed out")
+if out.get("exitcode")!=0:raise RuntimeError("Guest audit failed: "+out.get("err-data","")[:700])
+if out.get("out-truncated"):print("WARNING audit output truncated")
+print(out.get("out-data",""))
