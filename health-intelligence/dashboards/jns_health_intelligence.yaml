@@ -1,0 +1,111 @@
+# JNS Health Intelligence v0.1 - standalone YAML Lovelace dashboard
+# PLACEHOLDER entities below are intentionally not connected to live data.
+# Replace with confirmed Android Companion / Health Connect entity IDs before activation.
+title: JNS Health Intelligence
+# Profile A / Profile B are deliberately anonymised in this public repo.
+# Install-time private mapping assigns the confirmed owners.
+views:
+  - title: Overview
+    path: overview
+    icon: mdi:heart-pulse
+    cards:
+      - type: markdown
+        content: |
+          # JNS Health Intelligence
+          **Observation dashboard** · Source readings may be delayed.
+          
+          Not a medical device or emergency monitoring system. No reading should be considered current without its source timestamp.
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: entities
+            title: Profile A · Cardiovascular
+            show_header_toggle: false
+            entities:
+              - entity: sensor.jns_health_profile_a_heart_rate
+                name: Heart rate
+                secondary_info: last-updated
+              - entity: sensor.jns_health_profile_a_resting_heart_rate
+                name: Resting heart rate
+                secondary_info: last-updated
+              - entity: sensor.jns_health_profile_a_oxygen_saturation
+                name: Blood oxygen
+                secondary_info: last-updated
+          - type: entities
+            title: Profile B · Cardiovascular
+            show_header_toggle: false
+            entities:
+              - entity: sensor.jns_health_profile_b_heart_rate
+                name: Heart rate
+                secondary_info: last-updated
+              - entity: sensor.jns_health_profile_b_resting_heart_rate
+                name: Resting heart rate
+                secondary_info: last-updated
+              - entity: sensor.jns_health_profile_b_oxygen_saturation
+                name: Blood oxygen
+                secondary_info: last-updated
+      - type: history-graph
+        title: Heart rate · last 24 hours
+        hours_to_show: 24
+        entities:
+          - entity: sensor.jns_health_profile_a_heart_rate
+            name: Profile A
+          - entity: sensor.jns_health_profile_b_heart_rate
+            name: Profile B
+      - type: markdown
+        content: |
+          ### Acquisition
+          Check each sensor's *last updated* timestamp. Home Assistant Companion and watch sync are not continuous.
+  - title: Profile A
+    path: person-a
+    icon: mdi:account-heart
+    cards:
+      - type: entities
+        title: Recovery and activity
+        entities:
+          - entity: sensor.jns_health_profile_a_heart_rate
+          - entity: sensor.jns_health_profile_a_hrv
+          - entity: sensor.jns_health_profile_a_oxygen_saturation
+          - entity: sensor.jns_health_profile_a_steps
+          - entity: sensor.jns_health_profile_a_sleep_duration
+      - type: history-graph
+        title: Recovery trends · 7 days
+        hours_to_show: 168
+        entities:
+          - sensor.jns_health_profile_a_resting_heart_rate
+          - sensor.jns_health_profile_a_hrv
+  - title: Profile B
+    path: person-b
+    icon: mdi:account-heart-outline
+    cards:
+      - type: entities
+        title: Recovery and activity
+        entities:
+          - entity: sensor.jns_health_profile_b_heart_rate
+          - entity: sensor.jns_health_profile_b_hrv
+          - entity: sensor.jns_health_profile_b_oxygen_saturation
+          - entity: sensor.jns_health_profile_b_steps
+          - entity: sensor.jns_health_profile_b_sleep_duration
+      - type: history-graph
+        title: Recovery trends · 7 days
+        hours_to_show: 168
+        entities:
+          - sensor.jns_health_profile_b_resting_heart_rate
+          - sensor.jns_health_profile_b_hrv
+  - title: History
+    path: history
+    icon: mdi:chart-timeline-variant
+    cards:
+      - type: history-graph
+        title: Resting heart rate · 7 days
+        hours_to_show: 168
+        entities:
+          - sensor.jns_health_profile_a_resting_heart_rate
+          - sensor.jns_health_profile_b_resting_heart_rate
+      - type: history-graph
+        title: Sleep duration · 7 days
+        hours_to_show: 168
+        entities:
+          - sensor.jns_health_profile_a_sleep_duration
+          - sensor.jns_health_profile_b_sleep_duration
