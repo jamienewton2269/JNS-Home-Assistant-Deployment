@@ -10,20 +10,7 @@ jobs:
     runs-on: [self-hosted, linux, x64, nodec]
     timeout-minutes: 3
     steps:
-      - name: Inspect known Proxmox management addresses without changing network configuration
-        shell: bash
+      - name: Verify reachable Node B management address against trusted SSH host key
         run: |
-          set +e
-          echo '=== resolver ==='
-          cat /etc/resolv.conf | grep -E '^(nameserver|search)' | head -8
-          echo '=== known Proxmox cluster nodes ==='
-          grep -E -i 'ring[0-9]_addr|name:|nodeid:' /etc/pve/corosync.conf 2>/dev/null | head -35
-          echo '=== ipv4 neighbours ==='
-          ip -4 neigh show | head -45
-          echo '=== ssh known host names (no keys) ==='
-          ssh-keygen -F nodeb.home.arpa 2>/dev/null | grep '^# Host' | head -3
-          echo '=== local hosts ==='
-          grep -Ei 'nodea|nodeb|nodec|proxmox' /etc/hosts 2>/dev/null | head -15
-          echo '=== local management inventory files ==='
-          find /etc/jns -maxdepth 2 -type f -iname '*host*' -o -iname '*node*' 2>/dev/null | head -15
-          exit 0
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o HostKeyAlias=nodeb.home.arpa -o ConnectTimeout=5 root@10.10.110.12 'test "$(hostname -s)" = "nodeb" && echo NODEB_IDENTITY_VERIFIED'
