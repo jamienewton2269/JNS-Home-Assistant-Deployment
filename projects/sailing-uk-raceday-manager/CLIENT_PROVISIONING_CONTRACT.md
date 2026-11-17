@@ -82,3 +82,13 @@ Mobile app verifies trusted issuer public key, signature, expiry (subject to dev
 Add tests: offline import from email attachment and deep link, QR import, invalid signature, expired/clock skew, replay across devices, changed assignment, no network, and first-connect receiver authorisation. The previously proposed online redemption/approval path remains an OPTIONAL enhanced mode, not a prerequisite for night-before provisioning.
 
 **Operational distinction:** An entirely offline laptop cannot send email while disconnected; it can generate packages offline for later sending from a connected device, or send them while temporarily online before returning offline.
+
+
+## Race-start authority and connectivity — 2026-11-17 correction
+**Do not claim RaceDay Manager can run a dynamically synchronised event completely offline.** Offline preparation/import of configuration is distinct from live start control. Implement two selectable start-control modes:
+- **Manager-controlled (default):** connected RaceDay Manager is the race-control authority, distributes authoritative UTC start time, postponement, cancellation, recall and configuration revisions to all clients. Each client schedules its own countdown and local sound from the absolute UTC target after clock calibration, not message arrival time.
+- **Delegated on-water controller (optional):** an officer nominates one mobile client and RaceDay Manager issues a signed, event/race-scoped, expiring controller-authorisation credential. This client may publish signed race-control commands to the other clients over an available and tested communications channel (internet, suitable local Wi-Fi or peer-to-peer transport). It does not become a general RaceDay Manager administrator. Define command sequence numbers, acknowledgements, replay protection, audit trail, conflict prevention and an explicit handover/revocation process. Never allow simultaneous conflicting authoritative controllers.
+
+Offline-imported night-before invitations may include the provisional start time; a fixed start can run locally with accurate clocks, but phones cannot receive live changes without connectivity. Losing the live command channel must be prominently indicated. Controller authority does not itself supply communications between yachts.
+
+**Testing gate:** simulate six yachts with differing clock offsets, latency, packet loss, controller dropout, postponement and reconnection; measure local start-sound skew and command acknowledgements. No claim of official start reliability until field measurements meet the club's accepted tolerance (previously discussed around 2 seconds).
