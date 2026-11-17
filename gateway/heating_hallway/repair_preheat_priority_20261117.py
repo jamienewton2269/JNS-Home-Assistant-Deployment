@@ -113,10 +113,14 @@ def main():
     assert len(after["automation"])==len(before["automation"])
     d=next(a for a in after["automation"] if a.get("id")=="jns_heating_alarm_predictive_target_v1")
     template=next(v["variables"]["desired"] for v in d["actions"] if "variables" in v and "desired" in v["variables"])
-    expected=["jns_heating_automatic_override", "alarm == 'armed_away'",
-              "alarm not in ['disarmed', 'armed_home']", "jns_heating_manual_setpoint_hold",
-              "jns_fireplace_override_safe", "240 <= minutes_now",
-              "minutes_now | int >= 600", "general_bedtime_mode"]
+    expected=["{% if is_state('input_boolean.jns_heating_automatic_override'",
+              "{% elif alarm == 'armed_away' %}",
+              "{% elif alarm not in ['disarmed', 'armed_home'] %}",
+              "{% elif is_state('input_boolean.jns_heating_manual_setpoint_hold'",
+              "{% elif is_state('binary_sensor.jns_fireplace_override_safe'",
+              "{% elif 240 <= minutes_now",
+              "{% elif minutes_now | int >= 600",
+              "{% elif is_state('input_boolean.general_bedtime_mode'"]
     indices=[template.index(a) for a in expected]
     if indices!=sorted(indices):
         raise RuntimeError("Heating priority regression")
