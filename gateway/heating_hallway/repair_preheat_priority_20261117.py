@@ -11,7 +11,7 @@ HOST=["ssh","-T","-o","BatchMode=yes","-o","StrictHostKeyChecking=yes",
 ROOT="/mnt/data/supervisor/homeassistant/packages"
 PATH=ROOT+"/jns_heating_predictive_schedule.yaml"
 EXPECTED="82b15336bfcd1f7895094fbaead1a455fa59140fc04c3ad99a28e92fd534f5fc"
-BACKUP=PATH+".pre-morning-priority-20261117-v2.bak"
+BACKUP=PATH+".pre-morning-priority-20261117-v3.bak"
 STAGE=PATH+".morning-priority-stage"
 
 def run_guest(args,stdin=None,timeout=150):
@@ -138,15 +138,32 @@ def main():
     print("BACKUP_CREATED",BACKUP)
     print("PRIORITY_VALIDATED: manual > alarm > fireplace > morning comfort > bedtime")
     print("MODEL_VALIDATED: require five actual hallway cycles and plausible heating time")
-    print("HA_CORE_CHECK_START")
+    print("HA_CORE_CHECK_START",flush=True)
+    marker="/tmp/jns_preheat_20261117_check.exit"
+    log="/tmp/jns_preheat_20261117_check.log"
     try:
-        check=run_guest(["/bin/sh","-c","ha core check"],timeout=240)
-        print("HA_CORE_CHECK_SUCCESS",check[-240:])
+        task=("rm -f "+shlex.quote(marker)+" "+shlex.quote(log)+
+              "; (ha core check > "+shlex.quote(log)+
+              " 2>&1; echo $? > "+shlex.quote(marker)+
+              ") </dev/null >/dev/null 2>&1 &")
+        guest_shell(task)
+        result=None
+        for attempt in range(135):
+            check=guest_shell("if test -f "+shlex.quote(marker)+
+                              "; then cat "+shlex.quote(marker)+
+                              "; else echo PENDING; fi").strip()
+            if check!="PENDING":
+                result=check
+                break
+            time.sleep(2)
+        if result!="0":
+            raise RuntimeError("Home Assistant configuration validation incomplete/failed; status="+str(result))
+        print("HA_CORE_CHECK_SUCCESS",flush=True)
     except Exception:
         guest_shell("cp -p "+shlex.quote(BACKUP)+" "+shlex.quote(PATH))
-        print("CONFIG_FAILED_ROLLED_BACK")
+        print("CONFIG_FAILED_ROLLED_BACK",flush=True)
         raise
-    print("SCHEDULE_READY_FOR_RESTART")
+    print("SCHEDULE_READY_FOR_RESTART",flush=True)
 if __name__=="__main__":
     try:main()
     except Exception as e:print("REPAIR_FAILED",type(e).__name__,str(e)[:280]);sys.exit(1)
