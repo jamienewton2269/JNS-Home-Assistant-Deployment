@@ -5,7 +5,7 @@
 ## Existing production preserved
 - Package `com.frontdoor.hikvisiontalk`, release **1.8 / versionCode 9**, Node C `/opt/jns-apk-updates/releases/com.frontdoor.hikvisiontalk`.
 - Node C publisher: `/opt/jns-apk-updates/publish.py`, HTTPS updater on `https://nodec.home.arpa:8766` (existing published manifest still contains historical HTTP URL; verify/update client path before next release).
-- Editable Android 4 application source was last kept on SAGE, `H:\CurrentProjects\Cameras\HikvisionTalk\current\`; not found on Nodes A/B/C or in the GitHub deployment repository. Do not rebuild from APK without original signing key/source.
+- Editable Android 4 application source was last kept on SAGE, `H:\CurrentProjects\Cameras\HikvisionTalk\current`; not found on Nodes A/B/C or in the GitHub deployment repository. Do not rebuild from APK without original signing key/source.
 - Broker: `mqtt-infra-a.home.arpa:8883`, TLS, custom JNS root CA, username/password and ACL; **no** 1883/1885 fallback. Current SSL server SAN includes `mqtt-infra-a.home.arpa`.
 - Home Assistant now one instance, VM905 on Node B. Alarm entity: `alarm_control_panel.house_alarm`. Doorbell topic already published: `jns/security/doorbell/press`, `pressed`, QoS 1, NOT retained. Do not duplicate its producer.
 
@@ -47,18 +47,18 @@ Fresh `armed_away` event takes precedence over any prior listening session; stop
 
 ## Actual Android build and signing milestone — 17 Nov 2026
 
-- Original v1.8/build 9 source **recovered from SAGE**, under \`C:\Users\jnewt\Documents\JNS\HikvisionTalkV5\HikvisionTalkAndroid4_V3_FFmpeg\`. Do not confuse this with the older v1.2 source under Documents/andriodprojects.
-- Isolated complete staging project: \`C:\Users\jnewt\Documents\JNS\HikvisionTalkV19-MQTT-Staging\`. Existing v1.8 source left untouched.
-- Generated Java integration with \`apply_to_v18.py\`: real \`MainActivity\` now enforces camera/video masking and incoming-audio stop on Armed Away; MQTT setup fields in \`SettingsActivity\`; original FFmpeg C++ compiled intact.
-- Verified CA from MQTT CT212; pinned to app raw resource. Actual Paho Java 1.2.5 JAR included and checked with SHA-256 \`59914287adac506a28d5e8172eed262a22605f3df4d426b9d92f41dae2448185\`.
-- Gradle 4.6 / Android Gradle Plugin 3.2.1 / Java 8 / SDK 28 / NDK r17c **debug build successful**. Release build successful with \`-x lintVitalRelease\` because old lint dependency \`org.codehaus.groovy:groovy-all:2.4.12\` was unavailable during this build. This lint skip remains an outstanding QA gate, not a safety pass.
-- Signed through a **staged copy** of the existing private JNS release-signing procedure. Signed \`HikvisionTalk-V10-1.9-release.apk\` is retained under the staging project's \`app/build/outputs/apk/release/\`, 7,810,139 bytes, SHA-256 \`efbb8cf32c6d9d14b418ea4d9f41a115488bf02b1400631dcdc9e5d1ba0f6db1\`.
-- Production v1.8 APK certificate fingerprint = staged v1.9 certificate fingerprint: \`05838617d0c1de908476c75ec27aff7bffff57751440f0aa8d46964720bfe91f\` (SHA-256), verified with Android \`apksigner\`. v1 and v2 signatures verify.
+- Original v1.8/build 9 source **recovered from SAGE**, under `C:\Users\jnewt\Documents\JNS\HikvisionTalkV5\HikvisionTalkAndroid4_V3_FFmpeg`. Do not confuse this with the older v1.2 source under Documents/andriodprojects.
+- Isolated complete staging project: `C:\Users\jnewt\Documents\JNS\HikvisionTalkV19-MQTT-Staging`. Existing v1.8 source left untouched.
+- Generated Java integration with `apply_to_v18.py`: real `MainActivity` now enforces camera/video masking and incoming-audio stop on Armed Away; MQTT setup fields in `SettingsActivity`; original FFmpeg C++ compiled intact.
+- Verified CA from MQTT CT212; pinned to app raw resource. Actual Paho Java 1.2.5 JAR included and checked with SHA-256 `59914287adac506a28d5e8172eed262a22605f3df4d426b9d92f41dae2448185`.
+- Gradle 4.6 / Android Gradle Plugin 3.2.1 / Java 8 / SDK 28 / NDK r17c **debug build successful**. Release build successful with `-x lintVitalRelease` because old lint dependency `org.codehaus.groovy:groovy-all:2.4.12` was unavailable during this build. This lint skip remains an outstanding QA gate, not a safety pass.
+- Signed through a **staged copy** of the existing private JNS release-signing procedure. Signed `HikvisionTalk-V10-1.9-release.apk` is retained under the staging project's `app/build/outputs/apk/release/`, 7,810,139 bytes, SHA-256 `efbb8cf32c6d9d14b418ea4d9f41a115488bf02b1400631dcdc9e5d1ba0f6db1`.
+- Production v1.8 APK certificate fingerprint = staged v1.9 certificate fingerprint: `05838617d0c1de908476c75ec27aff7bffff57751440f0aa8d46964720bfe91f` (SHA-256), verified with Android `apksigner`. v1 and v2 signatures verify.
 - Existing Node C update manifest **still advertises v1.8/build 9**. NO deploy or update install was performed.
 - **Critical compatibility gate:** kitchen Scroll Excel 2 tablet was previously reported as Android 4.0.4 (API 15), but is not currently attached to SAGE ADB; only Samsung SM-A715F is attached. Android platform's built-in TLSv1.2 support starts with API 16. Current certificate-verified Paho adapter is intentionally fail-closed on API15. Do not deploy this build until a secure TLS1.2 transport is demonstrated on the real tablet—never fall back to plaintext Mosquitto.
-- **QR test only:** static QR asset is scannable, but landing page URL \`https://ha-general.home.arpa:8449/\` has a certificate-name mismatch with existing Let's Encrypt \`ha.jnsystems.xyz\` cert. QR is therefore not yet usable in a normal browser without warnings. Do not instruct guests to bypass browser TLS warnings.
+- **QR test only:** static QR asset is scannable, but landing page URL `https://ha-general.home.arpa:8449/` has a certificate-name mismatch with existing Let's Encrypt `ha.jnsystems.xyz` cert. QR is therefore not yet usable in a normal browser without warnings. Do not instruct guests to bypass browser TLS warnings.
 - Existing guest portal v0.1.3 is a staging-only landing page (POST 405), with NO arm/disarm authority. Visible numeric keypad is deliberately disabled; no PIN is collected/transmitted. Separate authenticated server-side guest enrolment/PIN backend remains outstanding.
-- Paho APK contains \`META-INF/services/org.eclipse.paho.client.mqttv3.spi.NetworkModuleFactory\`, triggering an Android \`apksigner\` informational warning that the entry is not covered by legacy JAR v1 signatures; assess update-channel artifact integrity for old API15 before enabling installation.
+- Paho APK contains `META-INF/services/org.eclipse.paho.client.mqttv3.spi.NetworkModuleFactory`, triggering an Android `apksigner` informational warning that the entry is not covered by legacy JAR v1 signatures; assess update-channel artifact integrity for old API15 before enabling installation.
 
 ## Integration work before shipping APK
 
