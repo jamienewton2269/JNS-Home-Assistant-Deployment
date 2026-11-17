@@ -1,19 +1,19 @@
 $ErrorActionPreference='Continue'
 $root='C:\src\JNS-WESTMINSTER-CHIMES\WestminsterSkill'
-Write-Output '=== WESTMINSTER AMAZON DEPLOYMENT READINESS ==='
-Write-Output "identity=$([Security.Principal.WindowsIdentity]::GetCurrent().Name)"
-Write-Output "project_present=$(Test-Path -LiteralPath $root)"
-foreach($name in @('ask','aws','git','npm','node')) {
- $c=Get-Command $name -ErrorAction SilentlyContinue
- Write-Output "tool_$($name)_available=$([bool]$c)"
+Write-Output '=== WESTMINSTER FEATURE INVENTORY (NO SOURCE OR SECRETS) ==='
+$py=Join-Path $root 'lambda\lambda_function.py'
+$model=Join-Path $root 'skill-package\interactionModels\custom\en-GB.json'
+$src=[IO.File]::ReadAllText($py)
+$m=Get-Content -LiteralPath $model -Raw | ConvertFrom-Json
+$intentNames=@($m.interactionModel.languageModel.intents | ForEach-Object {$_.name})
+Write-Output "intent_count=$($intentNames.Count)"
+foreach($term in @('TestConnectionIntent','AudioPlayer','SSML','<audio','westminster','christmas','quiet','schedule','LaunchRequest')) {
+ Write-Output ("source_contains_"+($term -replace '[^a-zA-Z0-9]','_')+"="+$src.Contains($term))
 }
-$askPath='C:\Users\jnewt\AppData\Roaming\npm\ask.cmd'
-try {Write-Output "user_ask_accessible=$(Test-Path -LiteralPath $askPath -ErrorAction Stop)"} catch {Write-Output 'user_ask_accessible=false'}
-try {
- $remote=(& git -c "safe.directory=C:/src/JNS-WESTMINSTER-CHIMES/WestminsterSkill" -C $root remote get-url origin 2>$null)
- if($LASTEXITCODE -eq 0 -and $remote -match '^https://git-codecommit[.]us-east-1[.]amazonaws[.]com/') {Write-Output 'amazon_codecommit_remote_configured=true'} else {Write-Output 'amazon_codecommit_remote_configured=false'}
-} catch {Write-Output 'amazon_codecommit_remote_configured=false'}
-foreach($rel in @('skill-package\skill.json','skill-package\interactionModels\custom\en-GB.json','lambda\lambda_function.py','lambda\requirements.txt')) {
- Write-Output "source_$($rel.Replace('\','_'))=$(Test-Path -LiteralPath (Join-Path $root $rel))"
-}
-Write-Output 'READINESS_CHECK_FINISHED_NO_DEPLOYMENT'
+Write-Output "source_line_count=$(($src -split '`n').Count)"
+Write-Output "requirements_present=$(Test-Path (Join-Path $root 'lambda\requirements.txt'))"
+$audioExt=@('.mp3','.wav','.ogg','.m4a')
+$audio=@(Get-ChildItem -LiteralPath $root -File -Recurse -ErrorAction SilentlyContinue | Where-Object {$audioExt -contains $_.Extension.ToLowerInvariant()})
+Write-Output "bundled_audio_count=$($audio.Count)"
+Write-Output "bundled_audio_total_bytes=$(($audio | Measure-Object -Property Length -Sum).Sum)"
+Write-Output 'INVENTORY_FINISHED_NO_DEPLOYMENT'
