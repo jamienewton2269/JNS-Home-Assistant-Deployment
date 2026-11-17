@@ -1,0 +1,28 @@
+# JNS Kitchen Tablet v1.9 candidate - Home Assistant VM905 package
+# Stage only. Do not activate until existing app source and secured tablet client ready.
+# Existing doorbell MQTT publisher remains authoritative, unchanged.
+automation:
+  - id: jns_kitchen_tablet_alarm_mqtt_state_v1
+    alias: "JNS Kitchen Tablet - publish current alarm state"
+    description: >-
+      Security-first retained MQTT state: publish on alarm changes, HA start,
+      and every 5 seconds. Android client expires stale messages after 15s.
+    mode: restart
+    triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: state
+        entity_id: alarm_control_panel.house_alarm
+      - trigger: time_pattern
+        seconds: "/5"
+    actions:
+      - action: mqtt.publish
+        data:
+          topic: jns/tablet/kitchen/alarm/state
+          qos: 1
+          retain: true
+          payload: >-
+            {{ {'v': 1,
+                'state': states('alarm_control_panel.house_alarm'),
+                'ts_ms': (as_timestamp(now()) * 1000) | int}
+               | tojson }}
