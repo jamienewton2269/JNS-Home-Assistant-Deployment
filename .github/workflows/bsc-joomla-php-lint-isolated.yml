@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   stage-source:
@@ -48,20 +48,56 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
       - uses: actions/download-artifact@v4
         with:
           name: bsc-php-source-only
           path: php-source
       - name: Verify PHP source syntax without deployment
+        id: lint
         shell: bash
         run: |
           set -Eeuo pipefail
-          php -v | head -n 2
+          set +e
+          php -v | head -n 2 > "$RUNNER_TEMP/bsc-php-lint.txt" 2>&1
           count=0
+          failures=0
           while IFS= read -r -d '' file; do
-            php -l "$file"
-            count=$((count + 1))
+            if php -l "$file" >> "$RUNNER_TEMP/bsc-php-lint.txt" 2>&1; then
+              count=$((count + 1))
+            else
+              failures=$((failures + 1))
+            fi
           done < <(find php-source -type f -name '*.php' -print0)
+          set -e
+          {
+            echo "PHP_SYNTAX_PASS_COUNT=$count"
+            echo "PHP_SYNTAX_FAIL_COUNT=$failures"
+            echo "NO_DEPLOYMENT_NO_DATABASE_ACCESS"
+          } | tee -a "$RUNNER_TEMP/bsc-php-lint.txt"
           test "$count" -gt 0
-          echo "PHP_SYNTAX_PASS_COUNT=$count"
-          echo "NO_DEPLOYMENT_NO_DATABASE_ACCESS"
+          test "$failures" -eq 0
+      - name: Publish PHP syntax receipt
+        if: always()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p gateway/receipts
+          {
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "php_lint_step=${{ steps.lint.outcome }}"
+            if test -f "$RUNNER_TEMP/bsc-php-lint.txt"; then
+              tail -n 35 "$RUNNER_TEMP/bsc-php-lint.txt"
+            else
+              echo "PHP_LINT_NOT_EXECUTED"
+            fi
+          } > gateway/receipts/bsc-php-lint-latest.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gateway/receipts/bsc-php-lint-latest.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "Record isolated BSC PHP syntax results"
+            git push origin HEAD:main
+          fi
