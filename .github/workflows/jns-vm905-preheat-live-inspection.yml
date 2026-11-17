@@ -1,0 +1,16 @@
+name: JNS VM905 Preheat Live Inspection
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-vm905-preheat-live-inspection.yml'
+      - 'gateway/heating_hallway/inspect_schedule_morning.py'
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m py_compile gateway/heating_hallway/inspect_schedule_morning.py
+      - run: python3 gateway/heating_hallway/inspect_schedule_morning.py
