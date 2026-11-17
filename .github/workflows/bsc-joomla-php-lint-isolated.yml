@@ -23,10 +23,10 @@ jobs:
           cd /opt/bsc-joomla-membership
           test -z "$(git -c safe.directory="$PWD" status --porcelain)"
           mkdir -p "$RUNNER_TEMP/bsc-php-source"
-          git -c safe.directory="$PWD" ls-files -z -- krystal plugins |
+          git -c safe.directory="$PWD" ls-files -z -- krystal plugins tests |
             while IFS= read -r -d '' file; do
               case "$file" in
-                *.php)
+                *.php|*.json)
                   test -f "$file"
                   mkdir -p "$RUNNER_TEMP/bsc-php-source/$(dirname "$file")"
                   cp -- "$file" "$RUNNER_TEMP/bsc-php-source/$file"
