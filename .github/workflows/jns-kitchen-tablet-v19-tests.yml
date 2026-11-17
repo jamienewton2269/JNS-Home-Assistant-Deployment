@@ -1,0 +1,74 @@
+name: JNS Kitchen Tablet v1.9 policy tests
+on:
+  pull_request:
+    paths:
+      - 'gateway/tablet/kitchen-v19/**'
+      - '.github/workflows/jns-kitchen-tablet-v19-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  java-policy:
+    name: Fail-closed screen and doorbell policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Compile Java 7-compatible policy and run assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=gateway/tablet/kitchen-v19
+          mkdir -p build
+          javac --release 7 -d build "$SRC/DisplayPolicy.java" "$SRC/DisplayPolicyTest.java"
+          java -cp build DisplayPolicyTest
+      - name: Compile against Android SDK and verified Eclipse Paho dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=gateway/tablet/kitchen-v19
+          curl --fail --location --silent --show-error https://repo.maven.apache.org/maven2/org/eclipse/paho/org.eclipse.paho.client.mqttv3/1.2.5/org.eclipse.paho.client.mqttv3-1.2.5.jar --output build/paho.jar
+          echo '59914287adac506a28d5e8172eed262a22605f3df4d426b9d92f41dae2448185  build/paho.jar' | sha256sum -c -
+          ANDROID_JAR="$(find "$ANDROID_HOME/platforms" -name android.jar | sort -V | tail -1)"
+          test -s "$ANDROID_JAR"
+          curl --fail --location --silent --show-error https://repo.maven.apache.org/maven2/org/conscrypt/conscrypt-android/2.5.3/conscrypt-android-2.5.3.aar --output build/conscrypt.aar
+          echo '551ae4e301c571760d1791e647db6ed1dcb10d34dcae7aa12b67f220f2ce98d1  build/conscrypt.aar' | sha256sum -c -
+          unzip -p build/conscrypt.aar classes.jar > build/conscrypt.jar
+          javac --release 7 -cp "$ANDROID_JAR:build/paho.jar:build/conscrypt.jar" -d build "$SRC/DisplayPolicy.java" "$SRC/KitchenMqttSubscriber.java" "$SRC/GuestQrScreensaver.java"
+          echo "PASS: real Paho callbacks and Android UI class compile"
+
+      - name: Verify staged MQTT package and privacy properties
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('gateway/tablet/kitchen-v19')
+          text = (p / 'jns_kitchen_tablet_mqtt.yaml').read_text()
+          assert 'jns/tablet/kitchen/alarm/state' in text
+          assert 'jns/security/doorbell/press' not in text, 'Do not duplicate existing publisher'
+          assert 'retain: true' in text and 'qos: 1' in text
+          assert 'seconds: "/5"' in text
+          java = (p / 'KitchenMqttSubscriber.java').read_text()
+          assert 'mqtt-infra-a.home.arpa' in java and '8883' in java
+          assert 'jns/security/doorbell/press' in java
+          assert 'TLSv1.2' in java and 'HostnameVerifier' in java
+          assert 'setAutomaticReconnect(true)' in java
+          assert 'setPassword(password)' in java and 'jns/tablet/kitchen/alarm/state' in java
+          assert 'readwrite' not in java and 'topic: write' not in java
+          screen = (p / 'GuestQrScreensaver.java').read_text()
+          assert 'TEST ACCESS ONLY' in screen
+          assert 'setKeepScreenOn(true)' in screen and 'setKeepScreenOn(false)' in screen
+          assert 'new FrameLayout.LayoutParams' in screen
+          qr = p / 'res/drawable-nodpi/jns_guest_portal_qr.png'
+          assert qr.read_bytes().startswith(b'\x89PNG\r\n\x1a\n')
+          assert len(qr.read_bytes()) > 100
+          print('PASS: MQTT publisher, TLS configuration, read-only subscriptions, QR screensaver resources')
+          PY

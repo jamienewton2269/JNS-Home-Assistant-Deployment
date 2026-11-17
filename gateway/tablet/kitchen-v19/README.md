@@ -1,0 +1,101 @@
+# JNS Hikvision Talk – Kitchen Tablet v1.9 MQTT and alarm-safe display (staged)
+
+**Status: complete v1.9/build 10 APK compiled and signed in the isolated SAGE staging directory on 17 November 2026; NOT installed or published. Security/device QA outstanding.**
+
+## Existing production preserved
+- Package `com.frontdoor.hikvisiontalk`, release **1.8 / versionCode 9**, Node C `/opt/jns-apk-updates/releases/com.frontdoor.hikvisiontalk`.
+- Node C publisher: `/opt/jns-apk-updates/publish.py`, HTTPS updater on `https://nodec.home.arpa:8766` (existing published manifest still contains historical HTTP URL; verify/update client path before next release).
+- Editable Android 4 application source was last kept on SAGE, `H:\CurrentProjects\Cameras\HikvisionTalk\current`; not found on Nodes A/B/C or in the GitHub deployment repository. Do not rebuild from APK without original signing key/source.
+- Broker: `mqtt-infra-a.home.arpa:8883`, TLS, custom JNS root CA, username/password and ACL; **no** 1883/1885 fallback. Current SSL server SAN includes `mqtt-infra-a.home.arpa`.
+- Home Assistant now one instance, VM905 on Node B. Alarm entity: `alarm_control_panel.house_alarm`. Doorbell topic already published: `jns/security/doorbell/press`, `pressed`, QoS 1, NOT retained. Do not duplicate its producer.
+
+## State contract
+
+New **staged** HA package `jns_kitchen_tablet_mqtt.yaml` publishes retained QoS 1 JSON to `jns/tablet/kitchen/alarm/state` whenever alarm changes / HA starts / every 5 seconds:
+
+```json
+{"v":1,"state":"armed_away","ts_ms":1795000000000}
+```
+
+App must check sender timestamp within last 15 s, connected MQTT over certificate-verified TLS, and monitor local monotonic freshness. **Any missing/unrecognized/stale/unknown/pending/arming/triggered state forces PRIVACY_LOCK.** On disconnection immediately stop video and audio and cover the video surface; don't continue showing the last decoded video frame.
+
+## Screens and doorbell
+
+| Verified current alarm state | Default tablet display | Doorbell event |
+|---|---|---|
+| `disarmed` | Front-door live camera | Start incoming camera **speaker** audio up to 45 s; never open tablet microphone |
+| `armed_home` | Front-door live camera | Same as above; manual push-to-talk remains separate |
+| `armed_away` | Opaque full-screen **guest QR** only, no video thumbnail or decoded-frame bleed-through | **Ignore autoplay video AND incoming audio**, no override |
+| `arming`, `pending`, `triggered`, unavailable/unknown/stale | Opaque privacy lock | Ignore autoplay |
+
+Fresh `armed_away` event takes precedence over any prior listening session; stop audio and native stream before switching screens. Ignore retained doorbell events and debounce QoS1 duplicates. Use a five-second update heartbeat and fifteen-second client expiry to limit stale exposure when HA fails (network failure detection should lock sooner). Suppress notifications revealing video preview on away mode.
+
+**QR privacy:** currently `app_local_jns_guest_alarm` v0.1.3 on VM905 (LAN HTTPS port 8449) is a **staging landing page** only: it returns `405` for all POST requests. It cannot enroll passkeys or operate the alarm yet. The QR must contain only the authenticated service URL (no PIN, token, alarm state, magic disarm link or secret in the QR). Do not advertise functional guest disarm until enrollment and server-side authorization are implemented.
+
+**Hidden keypad:** on away display, three taps in the top-right hidden corner within 1.8 s show a local PIN overlay for up to 30 s; hide on timeout/away exit. This is only a hidden launcher, **not authentication**. Entered PIN must be verified by a rate-limited, authenticated server-side HTTPS endpoint, never hard-coded into APK or sent to MQTT. Permit only `disarmed` or `armed_home` after server authorization. Never add MQTT alarm-control write permissions to tablet credentials. Both QR and keypad must avoid storing or revealing an alarm PIN on the screen.
+
+## Armed Away QR screensaver (test-only stage)
+
+- **Trigger:** a fresh, authenticated MQTT alarm state of `armed_away` changes the default kitchen display to an opaque, full-screen QR screensaver immediately. It is **not** dependent on inactivity; after the alarm is disarmed or set to armed home, the normal front-door view is restored.
+- **Privacy priority:** disable the existing RTSP decoder and incoming audio, clear any last video frame, and cover the native Android `SurfaceView` before showing the screensaver. A front-doorbell press must never override Armed Away; unknown/expired state shows opaque privacy-lock instead of camera or QR.
+- **Appearance:** near-black background, central scannable white QR, modest title and **TEST ACCESS ONLY** caption. Shift the content by up to 12 dp every 45 seconds to reduce fixed-pixel burn-in. Do not show alarm armed/disarmed indicator or camera thumbnail in this mode.
+- **QR resource:** `res/drawable-nodpi/jns_guest_portal_qr.png` generated by `generate_guest_qr.py`. It was decoded and verified to contain **only** `https://ha-general.home.arpa:8449/` — no password, account, token, PIN, or alarm status.
+- **View class:** `GuestQrScreensaver.java`, Java 7/API14-compatible Android `FrameLayout`; the host Activity provides the QR `Bitmap`, connects the secret top-right corner callback to `DisplayPolicy.onSecretCornerTap()`, and calls `enterAwayScreensaver()/leaveAwayScreensaver()` in accordance with the policy.
+- **Portal verified:** currently returns HTTP 200 over HTTPS on the LAN and still **does not** allow guest enrollment or alarm disarm (POST 405). QR display can therefore be tested without enabling alarm control.
+- **Known TLS problem:** the portal currently presents a certificate valid for `ha.jnsystems.xyz` only, whereas the QR uses `ha-general.home.arpa`. Modern phone browsers will flag the hostname mismatch. **Do not instruct guests to ignore certificate errors.** Set up a correct trusted HTTPS name and rebuild the QR asset before declaring scanning production-ready. The public `ha.jnsystems.xyz:8449` path does not currently reach this LAN portal; do not change public DNS or HA external access as a shortcut.
+- **NOT YET LIVE:** the latest editable Android application source and signing material have not been recovered from SAGE. This standalone class/QR asset is staged in the draft PR; **no APK was rebuilt or published** and production version remains 1.8/build 9.
+
+## Server-side activation and Android 4 TLS — 17 Nov 2026, evening
+
+**Server-side LIVE and verified** (without changing doorbell or existing broker listener):
+
+- CT212 existing Mosquitto remains the sole broker, `mqtt-infra-a.home.arpa:8883`, verified certificate, no plaintext 1883/1885 listeners. A dedicated `jns_kitchen_tablet` account was added to the existing password file with **read-only** ACL access to exactly `jns/tablet/kitchen/alarm/state` and `jns/security/doorbell/press`. Root-only credential retained at `/etc/mosquitto/jns-shark/kitchen-tablet.credential` **inside CT212 only**. Never commit credentials or include them in APK.
+- Broker ACL and password files were backed up under `/etc/mosquitto/jns-shark/kitchen-tablet-before-20261117T202619Z/`. Broker HUP reload succeeded; existing HA, Zigbee2MQTT, Sabrina connections confirmed.
+- Home Assistant VM905: `/config/packages/jns_kitchen_tablet_mqtt.yaml` installed, Core configuration validated and controlled Core restart completed. Entity registry now includes `automation.jns_kitchen_tablet_publish_current_alarm_state` (unique ID `jns_kitchen_tablet_alarm_mqtt_state_v1`).
+- **End-to-end live publisher test** from CT212 using dedicated tablet credentials and broker CA: retained MQTT JSON schema valid; consecutive payload timestamps advanced **4999 ms** after 6 seconds, latest received payload age **1.8 sec**. No simulated alarm state was published.
+- Existing doorbell automation was not edited. HA log reports three pre-existing duplicate automation IDs (including `1792512302559` for one doorbell publisher); independent issue, should be audited without blindly deleting production automations.
+
+**Android 4 app compatibility work complete as a build, not device QA**:
+
+- `KitchenMqttSubscriber.java` now selects bundled Conscrypt TLSv1.2 provider on API14–15; verified Android AAR `org.conscrypt:conscrypt-android:2.5.3`, ARMv7 `libconscrypt_jni.so`, minSdk 9, artifact SHA256 `551ae4e301c571760d1791e647db6ed1dcb10d34dcae7aa12b67f220f2ce98d1`. The original OS provider is used for API16+.
+- CA-chain validation, peer hostname verification, TLSv1.2-only requirement and read-only MQTT ACL remain enforced. No plaintext fallback or second broker.
+- Built full legacy Android Java + FFmpeg **release successfully** on SAGE staging source with Gradle 4.6, Android SDK 28, NDK r17c, Java 8. Signed with the original JNS release certificate. `HikvisionTalk-V10-1.9-release.apk` (latest staging revision) is **8,604,924 bytes**, SHA256 `f7a63d7793f9abf4d6ebcd3f687df797b37329f5d1d743cf8c414ad1a79836b4`, signatures v1 and v2 verify, signer SHA256 `05838617d0c1de908476c75ec27aff7bffff57751440f0aa8d46964720bfe91f`. Contains `libconscrypt_jni.so` and existing ARMv7 FFmpeg libraries.
+- Security review caught a watchdog lifecycle edge case: the old camera-disconnect action cleared all Handler callbacks. The staged integration now immediately re-arms the independent MQTT 15-second expiry watchdog. Verified reproducible source patch and rebuilt/resigned APK; latest SHA above.
+- **NOT yet published:** kitchen Android 4 tablet is not attached to SAGE ADB (only Samsung SM-A715F is currently connected). Real-device TLS1.2 + MQTT read-only subscribe and native camera privacy testing are mandatory before replacing Node C's production v1.8/build9 manifest. Guest QR browser certificate hostname and non-operational PIN backend remain separate gates.
+- Release build bypasses the old `lintVitalRelease` task because 2017-era Groovy dependency cannot be fetched; release lint should be resolved/replaced before final production certification.
+
+## Actual Android build and signing milestone — 17 Nov 2026
+
+- Original v1.8/build 9 source **recovered from SAGE**, under `C:\Users\jnewt\Documents\JNS\HikvisionTalkV5\HikvisionTalkAndroid4_V3_FFmpeg`. Do not confuse this with the older v1.2 source under Documents/andriodprojects.
+- Isolated complete staging project: `C:\Users\jnewt\Documents\JNS\HikvisionTalkV19-MQTT-Staging`. Existing v1.8 source left untouched.
+- Generated Java integration with `apply_to_v18.py`: real `MainActivity` now enforces camera/video masking and incoming-audio stop on Armed Away; MQTT setup fields in `SettingsActivity`; original FFmpeg C++ compiled intact.
+- Verified CA from MQTT CT212; pinned to app raw resource. Actual Paho Java 1.2.5 JAR included and checked with SHA-256 `59914287adac506a28d5e8172eed262a22605f3df4d426b9d92f41dae2448185`.
+- Gradle 4.6 / Android Gradle Plugin 3.2.1 / Java 8 / SDK 28 / NDK r17c **debug build successful**. Release build successful with `-x lintVitalRelease` because old lint dependency `org.codehaus.groovy:groovy-all:2.4.12` was unavailable during this build. This lint skip remains an outstanding QA gate, not a safety pass.
+- Signed through a **staged copy** of the existing private JNS release-signing procedure. Signed `HikvisionTalk-V10-1.9-release.apk` is retained under the staging project's `app/build/outputs/apk/release/`, 7,810,139 bytes, SHA-256 `efbb8cf32c6d9d14b418ea4d9f41a115488bf02b1400631dcdc9e5d1ba0f6db1`.
+- Production v1.8 APK certificate fingerprint = staged v1.9 certificate fingerprint: `05838617d0c1de908476c75ec27aff7bffff57751440f0aa8d46964720bfe91f` (SHA-256), verified with Android `apksigner`. v1 and v2 signatures verify.
+- Existing Node C update manifest **still advertises v1.8/build 9**. NO deploy or update install was performed.
+- **Critical compatibility gate:** kitchen Scroll Excel 2 tablet was previously reported as Android 4.0.4 (API 15), but is not currently attached to SAGE ADB; only Samsung SM-A715F is attached. Android platform's built-in TLSv1.2 support starts with API 16. Current certificate-verified Paho adapter is intentionally fail-closed on API15. Do not deploy this build until a secure TLS1.2 transport is demonstrated on the real tablet—never fall back to plaintext Mosquitto.
+- **QR test only:** static QR asset is scannable, but landing page URL `https://ha-general.home.arpa:8449/` has a certificate-name mismatch with existing Let's Encrypt `ha.jnsystems.xyz` cert. QR is therefore not yet usable in a normal browser without warnings. Do not instruct guests to bypass browser TLS warnings.
+- Existing guest portal v0.1.3 is a staging-only landing page (POST 405), with NO arm/disarm authority. Visible numeric keypad is deliberately disabled; no PIN is collected/transmitted. Separate authenticated server-side guest enrolment/PIN backend remains outstanding.
+- Paho APK contains `META-INF/services/org.eclipse.paho.client.mqttv3.spi.NetworkModuleFactory`, triggering an Android `apksigner` informational warning that the entry is not covered by legacy JAR v1 signatures; assess update-channel artifact integrity for old API15 before enabling installation.
+
+## Integration work before shipping APK
+
+1. Recover **latest** SAGE source and existing signing/build tooling; determine concrete callbacks for video `hideAndStopCamera()`, display/QR screen, and already-working incoming audio. The `DisplayPolicy.java` in this folder is tested reusable logic; the `KitchenMqttSubscriber.java` adapter is supplied as unintegrated source pending a real Android 4 build/runtime test.
+2. Integrate the staged `KitchenMqttSubscriber.java` Android MQTT adapter with trusted internal CA, TLSv1.2 explicitly enabled where supported, strict `mqtt-infra-a.home.arpa` certificate hostname validation, unique per-device ID, dedicated **read-only ACL** for exactly two topics. Never embed credentials in distributable APK; provide supervised local pairing. Fail closed if TLSv1.2/hostname validation is unavailable.
+3. Integrate `DisplayPolicy` on Android UI thread, with opaque full-screen privacy cover **above** native SurfaceView and audio decoder, `FLAG_SECURE`, no live video on away mode even after screen wake, pause/resume or doorbell.
+4. Finalize guest passkey service and rate-limited local PIN authorisation **separately**; no client-side alarm code checking, no anonymous disarm endpoint.
+5. Stage/backup/validate Home Assistant package, add dedicated read-only broker identity, reload automations at a quiet period; verify retained state, fresh heartbeat, privacy race tests and MQTT interruption behaviour before marking enabled.
+6. Build signed update with same package/signature, **versionCode > 9**, smoke-test on an Android 4 test unit, then atomically publish through Node C publisher. Check TLS update URL mismatch in current `latest.json` before releasing.
+
+## Local tests
+
+JDK8+ may compile the Java 7-compatible policy and test harness without Android:
+
+```sh
+mkdir -p build
+javac --release 8 -d build DisplayPolicy.java DisplayPolicyTest.java
+java -cp build DisplayPolicyTest
+```
+
+The suite exercises 19 privacy/listening assertions. It confirms screen priorities and corner-PIN launcher only. No network, MQTT, camera, PIN authorization, real APK or end-to-end alarm control is covered by these unit tests.
