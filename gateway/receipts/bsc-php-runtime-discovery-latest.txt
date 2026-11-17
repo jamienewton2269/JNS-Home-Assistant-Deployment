@@ -1,0 +1,10 @@
+run_id=44134939314
+source_commit=90fd972
+source_clean=yes
+php=missing
+docker=missing
+podman=missing
+nerdctl=missing
+php_files=16
+test_files=37
+NO_INSTALL_NO_DEPLOYMENT_NO_NETWORK
