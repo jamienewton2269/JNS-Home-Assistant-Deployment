@@ -36,6 +36,6 @@ public final class DisplayPolicyTest {
     p.onConnected();p.onAlarmState("disarmed",now+60000,now+60000);ok(d.video);
     p.checkExpiry(now+110000);ok(!d.video && !d.audio && d.locked);
     p.onAlarmState("arming",now+111000,now+111000);ok(d.locked && !d.video);
-    System.out.println("PASS: 16 kitchen privacy/listening assertions");
+    System.out.println("PASS: 19 kitchen privacy/listening assertions");
   }
 }
