@@ -1,0 +1,19 @@
+name: Node C Restore LAN DNS
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-nodec-restore-lan-dns.yml'
+      - 'gateway/nodec/restore_lan_dns.py'
+permissions: {contents: read}
+concurrency:
+  group: jns-nodec-resolver-repair
+  cancel-in-progress: false
+jobs:
+  restore:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m py_compile gateway/nodec/restore_lan_dns.py
+      - run: python3 gateway/nodec/restore_lan_dns.py
