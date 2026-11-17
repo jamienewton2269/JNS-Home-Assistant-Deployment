@@ -1,0 +1,16 @@
+name: Adaptive Lighting Evidence Preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-adaptive-lighting-preflight.yml'
+      - 'gateway/adaptive/lighting_evidence_preflight.py'
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m py_compile gateway/adaptive/lighting_evidence_preflight.py
+      - run: python3 gateway/adaptive/lighting_evidence_preflight.py
