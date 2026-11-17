@@ -68,9 +68,12 @@ def main():
     daytime="""            {% elif minutes_now | int >= 600 and minutes_now | int < 1140 %}
               {{ user_target }}
 """
-    if bedtime not in desired or fireplace not in desired or daytime not in desired:
-        raise RuntimeError("Live schedule does not match expected morning branches")
-    if not (desired.index(bedtime)<desired.index(fireplace)<desired.index(daytime)):
+    markers=("is_state('input_boolean.general_bedtime_mode','on')",
+             "is_state('binary_sensor.jns_fireplace_override_safe','on')",
+             "minutes_now | int >= 600 and minutes_now | int < 1140")
+    if not all(marker in desired for marker in markers):
+        raise RuntimeError("Live schedule lacks one of the expected branches")
+    if not (desired.index(markers[0])<desired.index(markers[1])<desired.index(markers[2])):
         raise RuntimeError("Unexpected original priority order")
     fixed=change_once(raw,bedtime,"","bedtime removal")
     fixed=change_once(fixed,daytime,daytime+bedtime,"morning priority insertion")
