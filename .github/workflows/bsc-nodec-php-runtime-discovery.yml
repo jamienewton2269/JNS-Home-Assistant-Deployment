@@ -15,6 +15,9 @@ jobs:
     runs-on: [self-hosted, linux, x64, nodec]
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
       - name: Check isolated PHP test options without changing host
         shell: bash
         run: |
