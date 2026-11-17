@@ -295,8 +295,8 @@ def main():
     # Re-schedule the independent security watchdog immediately; otherwise
     # an old user-initiated camera disconnect can prevent 15s MQTT expiry.
     main = replace_once(main,
-        "        rtspWanted = false;\\n        replyListening = false;\\n        handler.removeCallbacksAndMessages(null);\\n        releasePlayer();",
-        "        rtspWanted = false;\\n        replyListening = false;\\n        handler.removeCallbacksAndMessages(null);\\n        handler.post(alarmMqttTick); // never stop security expiry watchdog\\n        releasePlayer();",
+        "        rtspWanted = false;\n        replyListening = false;\n        handler.removeCallbacksAndMessages(null);\n        releasePlayer();",
+        "        rtspWanted = false;\n        replyListening = false;\n        handler.removeCallbacksAndMessages(null);\n        handler.post(alarmMqttTick); // never stop security expiry watchdog\n        releasePlayer();",
         "preserve security watchdog after user camera disconnect")
     main = replace_once(main,
         "        if (!rtspWanted || destroyed || rtspConnecting || !surface.getHolder().getSurface().isValid()) return;",
