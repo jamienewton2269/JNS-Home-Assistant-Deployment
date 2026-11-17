@@ -1,0 +1,44 @@
+name: BSC Node C isolated PHP runtime discovery
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/bsc-nodec-php-runtime-discovery.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Check isolated PHP test options without changing host
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          source_dir=/opt/bsc-joomla-membership
+          test -d "$source_dir/.git"
+          test -f "$source_dir/krystal/SnapshotVerifier.php"
+          {
+            echo "source_commit=$(git -c safe.directory="$source_dir" -C "$source_dir" rev-parse --short HEAD)"
+            echo "source_clean=$(test -z "$(git -c safe.directory="$source_dir" -C "$source_dir" status --porcelain)" && echo yes || echo no)"
+            for bin in php docker podman nerdctl; do
+              if command -v "$bin" >/dev/null 2>&1; then
+                echo "$bin=available"
+              else
+                echo "$bin=missing"
+              fi
+            done
+            echo "php_files=$(find "$source_dir/krystal" "$source_dir/plugins" -type f -name '*.php' | wc -l)"
+            echo "test_files=$(find "$source_dir/tests" -maxdepth 1 -type f -name 'test_*.py' | wc -l)"
+            echo "NO_INSTALL_NO_DEPLOYMENT_NO_NETWORK"
+          } | tee "$RUNNER_TEMP/bsc-php-discovery.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bsc-php-runtime-discovery
+          path: ${{ runner.temp }}/bsc-php-discovery.txt
+          retention-days: 14
