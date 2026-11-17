@@ -38,7 +38,10 @@ jobs:
           echo '59914287adac506a28d5e8172eed262a22605f3df4d426b9d92f41dae2448185  build/paho.jar' | sha256sum -c -
           ANDROID_JAR="$(find "$ANDROID_HOME/platforms" -name android.jar | sort -V | tail -1)"
           test -s "$ANDROID_JAR"
-          javac --release 7 -cp "$ANDROID_JAR:build/paho.jar" -d build "$SRC/DisplayPolicy.java" "$SRC/KitchenMqttSubscriber.java" "$SRC/GuestQrScreensaver.java"
+          curl --fail --location --silent --show-error https://repo.maven.apache.org/maven2/org/conscrypt/conscrypt-android/2.5.3/conscrypt-android-2.5.3.aar --output build/conscrypt.aar
+          echo '551ae4e301c571760d1791e647db6ed1dcb10d34dcae7aa12b67f220f2ce98d1  build/conscrypt.aar' | sha256sum -c -
+          unzip -p build/conscrypt.aar classes.jar > build/conscrypt.jar
+          javac --release 7 -cp "$ANDROID_JAR:build/paho.jar:build/conscrypt.jar" -d build "$SRC/DisplayPolicy.java" "$SRC/KitchenMqttSubscriber.java" "$SRC/GuestQrScreensaver.java"
           echo "PASS: real Paho callbacks and Android UI class compile"
 
       - name: Verify staged MQTT package and privacy properties
