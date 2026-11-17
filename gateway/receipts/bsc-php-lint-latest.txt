@@ -1,6 +1,6 @@
-run_id=44165073367
+run_id=44175837920
 php_lint_step=success
-php_fixtures_step=success
+php_fixtures_step=failure
 PHP 8.3.6 (cli) (built: Oct 19 2026 15:16:58) (NTS)
 Copyright (c) The PHP Group
 No syntax errors detected in php-source/krystal/test-mysql-concurrent-worker.php
@@ -23,13 +23,17 @@ PHP_SYNTAX_PASS_COUNT=16
 PHP_SYNTAX_FAIL_COUNT=0
 NO_DEPLOYMENT_NO_DATABASE_ACCESS
 === Synthetic fixture output ===
-=== Synthetic snapshot verifier ===
+=== test-synthetic-verifier.php ===
 Synthetic fixture missing
-=== Synthetic member intake ===
+SCRIPT_EXIT_test-synthetic-verifier.php=2
+=== test-member-intake.php ===
 PHP_MEMBER_INTAKE_VALIDATION_OK
-=== Synthetic Joomla portal adapter ===
+SCRIPT_EXIT_test-member-intake.php=0
+=== test-portal-adapter-synthetic.php ===
 PHP Fatal error:  Uncaught RuntimeException: Disposable CLI acceptance only in /home/runner/work/JNS-Home-Assistant-Deployment/JNS-Home-Assistant-Deployment/php-source/krystal/test-portal-adapter-synthetic.php:20
 Stack trace:
 #0 {main}
   thrown in /home/runner/work/JNS-Home-Assistant-Deployment/JNS-Home-Assistant-Deployment/php-source/krystal/test-portal-adapter-synthetic.php on line 20
-PHP_SYNTHETIC_FIXTURES_PASS
+SCRIPT_EXIT_test-portal-adapter-synthetic.php=255
+MISSING_FIXTURE_DETECTED
+PHP_SYNTHETIC_FAILURE_COUNT=3
