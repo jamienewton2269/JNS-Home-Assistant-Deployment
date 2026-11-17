@@ -371,7 +371,7 @@ def main():
         "new versionName")
     build = replace_once(build,
         "dependencies {\n}",
-        "dependencies {\n    implementation files('libs/org.eclipse.paho.client.mqttv3-1.2.5.jar')\n}",
+        "dependencies {\n    implementation files('libs/org.eclipse.paho.client.mqttv3-1.2.5.jar')\n    implementation 'org.conscrypt:conscrypt-android:2.5.3'\n}",
         "Paho local jar")
     # Everything passed anchor validation; now write into the staging COPY only.
     activity.write_text(main, encoding="utf-8")
