@@ -38,4 +38,7 @@ jobs:
           done
           echo '=== current DNS lookup ==='
           getent ahostsv4 github.com | head -3
+          echo '=== authorised write routes ==='
+          sudo -n true >/dev/null 2>&1 && echo 'SUDO_NOPASSWD_AVAILABLE' || echo 'SUDO_NOPASSWD_UNAVAILABLE'
+          timeout 6 ssh -o BatchMode=yes -o ConnectTimeout=4 -o StrictHostKeyChecking=accept-new root@10.10.110.13 'hostname -s; id -u' 2>&1 | tail -4
           echo 'PREFLIGHT_DONE'
