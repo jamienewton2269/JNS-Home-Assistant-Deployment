@@ -1,0 +1,19 @@
+name: JNS HA-General Preheat Morning Priority Repair
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-preheat-morning-repair.yml'
+      - 'gateway/heating_hallway/repair_preheat_priority_20261117.py'
+permissions: {contents: read}
+concurrency:
+  group: jns-ha-general-heating-schedule-repair
+  cancel-in-progress: false
+jobs:
+  apply:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m py_compile gateway/heating_hallway/repair_preheat_priority_20261117.py
+      - run: python3 gateway/heating_hallway/repair_preheat_priority_20261117.py
