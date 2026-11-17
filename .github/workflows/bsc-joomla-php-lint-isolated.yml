@@ -1,0 +1,67 @@
+name: BSC Joomla PHP syntax validation (isolated)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/bsc-joomla-php-lint-isolated.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stage-source:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Export tracked PHP source only from clean Node C checkout
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          cd /opt/bsc-joomla-membership
+          test -z "$(git -c safe.directory="$PWD" status --porcelain)"
+          mkdir -p "$RUNNER_TEMP/bsc-php-source"
+          git -c safe.directory="$PWD" ls-files -z -- krystal plugins |
+            while IFS= read -r -d '' file; do
+              case "$file" in
+                *.php)
+                  test -f "$file"
+                  mkdir -p "$RUNNER_TEMP/bsc-php-source/$(dirname "$file")"
+                  cp -- "$file" "$RUNNER_TEMP/bsc-php-source/$file"
+                  ;;
+              esac
+            done
+          count=$(find "$RUNNER_TEMP/bsc-php-source" -name '*.php' -type f | wc -l)
+          test "$count" -gt 0
+          echo "Tracked PHP files exported: $count"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bsc-php-source-only
+          path: ${{ runner.temp }}/bsc-php-source/
+          retention-days: 1
+          if-no-files-found: error
+
+  php-lint:
+    needs: stage-source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: bsc-php-source-only
+          path: php-source
+      - name: Verify PHP source syntax without deployment
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          php -v | head -n 2
+          count=0
+          while IFS= read -r -d '' file; do
+            php -l "$file"
+            count=$((count + 1))
+          done < <(find php-source -type f -name '*.php' -print0)
+          test "$count" -gt 0
+          echo "PHP_SYNTAX_PASS_COUNT=$count"
+          echo "NO_DEPLOYMENT_NO_DATABASE_ACCESS"
