@@ -1,0 +1,32 @@
+name: JNS Node C to Node B Connectivity Diagnosis
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-nodeb-connectivity-diagnosis.yml'
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - name: Inspect non-sensitive local DNS and management routes
+        shell: bash
+        run: |
+          set +e
+          echo "HOSTNAME=$(hostname -s)"
+          echo "=== resolver ==="
+          getent ahostsv4 nodeb.home.arpa | head -4
+          getent ahostsv4 nodeb | head -4
+          echo "=== DNS configuration ==="
+          resolvectl status 2>/dev/null | grep -E 'DNS Servers:|DNS Domain:|Current DNS Server:' | head -18
+          echo "=== NIC ==="
+          ip -4 -brief addr show | head -12
+          echo "=== routes ==="
+          ip -4 route | head -12
+          echo "=== known nodeb host aliases ==="
+          grep -Ei '(^|[[:space:]])nodeb([.[:space:]]|$)' /etc/hosts 2>/dev/null || true
+          echo "=== SSH host lookup ==="
+          ssh -G nodeb 2>/dev/null | grep -E '^(hostname|user|port|proxyjump) ' | head -8
+          echo "=== management lookup ==="
+          for t in nodeb.home.arpa nodeb; do timeout 4 ssh -o BatchMode=yes -o ConnectTimeout=3 root@"$t" 'hostname -s' 2>&1 | head -2; done
