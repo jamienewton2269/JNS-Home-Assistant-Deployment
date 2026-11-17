@@ -117,7 +117,16 @@ jobs:
             echo "MISSING_FIXTURE_DETECTED" | tee -a "$RUNNER_TEMP/bsc-php-fixtures.txt"
             failures=$((failures + 1))
           fi
+          if ! grep -qx 'PHP_CROSS_LANGUAGE_FIXTURE_OK' "$RUNNER_TEMP/bsc-php-fixtures.txt"; then
+            echo "MISSING_SIGNED_SNAPSHOT_SUCCESS_MARKER" | tee -a "$RUNNER_TEMP/bsc-php-fixtures.txt"
+            failures=$((failures + 1))
+          fi
+          if ! grep -qx 'PHP_MEMBER_INTAKE_VALIDATION_OK' "$RUNNER_TEMP/bsc-php-fixtures.txt"; then
+            echo "MISSING_MEMBER_INTAKE_SUCCESS_MARKER" | tee -a "$RUNNER_TEMP/bsc-php-fixtures.txt"
+            failures=$((failures + 1))
+          fi
           echo "PORTAL_ADAPTER_TEST=NOT_RUN_REQUIRES_DISPOSABLE_MYSQL" | tee -a "$RUNNER_TEMP/bsc-php-fixtures.txt"
+          echo "TRANSACTIONAL_IMPORTER_TEST=NOT_RUN_REQUIRES_DISPOSABLE_MYSQL" | tee -a "$RUNNER_TEMP/bsc-php-fixtures.txt"
           cat "$RUNNER_TEMP/bsc-php-fixtures.txt"
           echo "PHP_SYNTHETIC_FAILURE_COUNT=$failures" | tee -a "$RUNNER_TEMP/bsc-php-fixtures.txt"
           test "$failures" -eq 0
