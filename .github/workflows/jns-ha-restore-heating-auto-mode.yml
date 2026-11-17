@@ -1,0 +1,19 @@
+name: JNS Restore Scheduled Heating after Validated Preheat Fix
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-restore-heating-auto-mode.yml'
+      - 'gateway/heating_hallway/restore_normal_automode.py'
+permissions: {contents: read}
+concurrency:
+  group: jns-ha-general-heating-schedule-repair
+  cancel-in-progress: false
+jobs:
+  restore:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m py_compile gateway/heating_hallway/restore_normal_automode.py
+      - run: python3 gateway/heating_hallway/restore_normal_automode.py
