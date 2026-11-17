@@ -63,7 +63,7 @@ def main():
     sh("cp -a "+shlex.quote(COMP)+" "+shlex.quote(SAVE+"/integration")+
        " && cp -p "+shlex.quote(DASH)+" "+shlex.quote(SAVE+"/ai-diagnostics.yaml")+
        " && if test -f "+shlex.quote(HISTORY)+
-       "; then cp -p "+shlex.quote(HISTORY)+" "+shlex.quote(SAVE+"/history.pre-compaction"); fi")
+       "; then cp -p "+shlex.quote(HISTORY)+" "+shlex.quote(SAVE+"/history.pre-compaction")+"; fi")
     print("BACKUP_COMPLETE including pre-compaction history",flush=True)
 
     def rollback():
