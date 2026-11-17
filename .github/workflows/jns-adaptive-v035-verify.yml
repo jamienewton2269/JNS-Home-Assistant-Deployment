@@ -1,0 +1,16 @@
+name: Verify Adaptive Intelligence v0.3.5 Live
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-adaptive-v035-verify.yml'
+      - 'gateway/adaptive/verify_adaptive_v035.py'
+permissions: {contents: read}
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m py_compile gateway/adaptive/verify_adaptive_v035.py
+      - run: python3 gateway/adaptive/verify_adaptive_v035.py
