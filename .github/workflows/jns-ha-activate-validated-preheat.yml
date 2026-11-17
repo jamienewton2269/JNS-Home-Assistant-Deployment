@@ -1,0 +1,19 @@
+name: JNS HA-General Activate Validated Heating Preheat Fix
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-activate-validated-preheat.yml'
+      - 'gateway/heating_hallway/activate_validated_preheat.py'
+permissions: {contents: read}
+concurrency:
+  group: jns-ha-general-heating-schedule-repair
+  cancel-in-progress: false
+jobs:
+  activate:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m py_compile gateway/heating_hallway/activate_validated_preheat.py
+      - run: python3 gateway/heating_hallway/activate_validated_preheat.py
