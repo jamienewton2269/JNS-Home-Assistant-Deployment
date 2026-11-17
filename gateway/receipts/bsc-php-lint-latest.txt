@@ -1,21 +1,21 @@
-run_id=44178302019
+run_id=44195672193
 php_lint_step=success
-php_fixtures_step=failure
+php_fixtures_step=success
 PHP 8.3.6 (cli) (built: Oct 19 2026 15:16:58) (NTS)
 Copyright (c) The PHP Group
-No syntax errors detected in php-source/krystal/test-mysql-concurrent-worker.php
-No syntax errors detected in php-source/krystal/TransactionalImporter.php
-No syntax errors detected in php-source/krystal/test-mysql-importer.php
-No syntax errors detected in php-source/krystal/test-mysql-intake.php
-No syntax errors detected in php-source/krystal/test-member-intake.php
-No syntax errors detected in php-source/krystal/test-synthetic-verifier.php
-No syntax errors detected in php-source/krystal/SnapshotVerifier.php
-No syntax errors detected in php-source/krystal/MemberChangeIntake.php
 No syntax errors detected in php-source/krystal/test-portal-adapter-synthetic.php
+No syntax errors detected in php-source/krystal/test-synthetic-verifier.php
+No syntax errors detected in php-source/krystal/test-mysql-concurrent-worker.php
+No syntax errors detected in php-source/krystal/test-member-intake.php
+No syntax errors detected in php-source/krystal/test-mysql-importer.php
+No syntax errors detected in php-source/krystal/SnapshotVerifier.php
 No syntax errors detected in php-source/krystal/VerifiedImport.php
+No syntax errors detected in php-source/krystal/MemberChangeIntake.php
+No syntax errors detected in php-source/krystal/test-mysql-intake.php
+No syntax errors detected in php-source/krystal/TransactionalImporter.php
 No syntax errors detected in php-source/krystal/preflight-synthetic.php
-No syntax errors detected in php-source/tests/test_signer.php
 No syntax errors detected in php-source/tests/interop_emit.php
+No syntax errors detected in php-source/tests/test_signer.php
 No syntax errors detected in php-source/plugins/system/bscmemberbridge/services/provider.php
 No syntax errors detected in php-source/plugins/system/bscmemberbridge/src/Extension/Bscmemberbridge.php
 No syntax errors detected in php-source/plugins/system/bscmemberbridge/src/Service/SyntheticExchangeClient.php
@@ -265,16 +265,10 @@ php-source/tests/interop_emit.php
 php-source/tests/test_signer.php
 === Synthetic fixture output ===
 === test-synthetic-verifier.php ===
-Synthetic fixture missing
-SCRIPT_EXIT_test-synthetic-verifier.php=2
+PHP_CROSS_LANGUAGE_FIXTURE_OK
+SCRIPT_EXIT_test-synthetic-verifier.php=0
 === test-member-intake.php ===
 PHP_MEMBER_INTAKE_VALIDATION_OK
 SCRIPT_EXIT_test-member-intake.php=0
-=== test-portal-adapter-synthetic.php ===
-PHP Fatal error:  Uncaught RuntimeException: Disposable CLI acceptance only in /home/runner/work/JNS-Home-Assistant-Deployment/JNS-Home-Assistant-Deployment/php-source/krystal/test-portal-adapter-synthetic.php:20
-Stack trace:
-#0 {main}
-  thrown in /home/runner/work/JNS-Home-Assistant-Deployment/JNS-Home-Assistant-Deployment/php-source/krystal/test-portal-adapter-synthetic.php on line 20
-SCRIPT_EXIT_test-portal-adapter-synthetic.php=255
-MISSING_FIXTURE_DETECTED
-PHP_SYNTHETIC_FAILURE_COUNT=3
+PORTAL_ADAPTER_TEST=NOT_RUN_REQUIRES_DISPOSABLE_MYSQL
+PHP_SYNTHETIC_FAILURE_COUNT=0
