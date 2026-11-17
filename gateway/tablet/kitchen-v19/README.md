@@ -45,6 +45,24 @@ Fresh `armed_away` event takes precedence over any prior listening session; stop
 - **Known TLS problem:** the portal currently presents a certificate valid for `ha.jnsystems.xyz` only, whereas the QR uses `ha-general.home.arpa`. Modern phone browsers will flag the hostname mismatch. **Do not instruct guests to ignore certificate errors.** Set up a correct trusted HTTPS name and rebuild the QR asset before declaring scanning production-ready. The public `ha.jnsystems.xyz:8449` path does not currently reach this LAN portal; do not change public DNS or HA external access as a shortcut.
 - **NOT YET LIVE:** the latest editable Android application source and signing material have not been recovered from SAGE. This standalone class/QR asset is staged in the draft PR; **no APK was rebuilt or published** and production version remains 1.8/build 9.
 
+## Server-side activation and Android 4 TLS — 17 Nov 2026, evening
+
+**Server-side LIVE and verified** (without changing doorbell or existing broker listener):
+
+- CT212 existing Mosquitto remains the sole broker, `mqtt-infra-a.home.arpa:8883`, verified certificate, no plaintext 1883/1885 listeners. A dedicated `jns_kitchen_tablet` account was added to the existing password file with **read-only** ACL access to exactly `jns/tablet/kitchen/alarm/state` and `jns/security/doorbell/press`. Root-only credential retained at `/etc/mosquitto/jns-shark/kitchen-tablet.credential` **inside CT212 only**. Never commit credentials or include them in APK.
+- Broker ACL and password files were backed up under `/etc/mosquitto/jns-shark/kitchen-tablet-before-20261117T202619Z/`. Broker HUP reload succeeded; existing HA, Zigbee2MQTT, Sabrina connections confirmed.
+- Home Assistant VM905: `/config/packages/jns_kitchen_tablet_mqtt.yaml` installed, Core configuration validated and controlled Core restart completed. Entity registry now includes `automation.jns_kitchen_tablet_publish_current_alarm_state` (unique ID `jns_kitchen_tablet_alarm_mqtt_state_v1`).
+- **End-to-end live publisher test** from CT212 using dedicated tablet credentials and broker CA: retained MQTT JSON schema valid; consecutive payload timestamps advanced **4999 ms** after 6 seconds, latest received payload age **1.8 sec**. No simulated alarm state was published.
+- Existing doorbell automation was not edited. HA log reports three pre-existing duplicate automation IDs (including `1792512302559` for one doorbell publisher); independent issue, should be audited without blindly deleting production automations.
+
+**Android 4 app compatibility work complete as a build, not device QA**:
+
+- `KitchenMqttSubscriber.java` now selects bundled Conscrypt TLSv1.2 provider on API14–15; verified Android AAR `org.conscrypt:conscrypt-android:2.5.3`, ARMv7 `libconscrypt_jni.so`, minSdk 9, artifact SHA256 `551ae4e301c571760d1791e647db6ed1dcb10d34dcae7aa12b67f220f2ce98d1`. The original OS provider is used for API16+.
+- CA-chain validation, peer hostname verification, TLSv1.2-only requirement and read-only MQTT ACL remain enforced. No plaintext fallback or second broker.
+- Built full legacy Android Java + FFmpeg **release successfully** on SAGE staging source with Gradle 4.6, Android SDK 28, NDK r17c, Java 8. Signed with the original JNS release certificate. `HikvisionTalk-V10-1.9-release.apk` (latest staging revision) is **8,604,924 bytes**, SHA256 `d427e3d106935929da9728104483f7b0b18c5deca8d7199e9d047b0249a9d7b3`, signatures v1 and v2 verify, signer SHA256 `05838617d0c1de908476c75ec27aff7bffff57751440f0aa8d46964720bfe91f`. Contains `libconscrypt_jni.so` and existing ARMv7 FFmpeg libraries.
+- **NOT yet published:** kitchen Android 4 tablet is not attached to SAGE ADB (only Samsung SM-A715F is currently connected). Real-device TLS1.2 + MQTT read-only subscribe and native camera privacy testing are mandatory before replacing Node C's production v1.8/build9 manifest. Guest QR browser certificate hostname and non-operational PIN backend remain separate gates.
+- Release build bypasses the old `lintVitalRelease` task because 2017-era Groovy dependency cannot be fetched; release lint should be resolved/replaced before final production certification.
+
 ## Actual Android build and signing milestone — 17 Nov 2026
 
 - Original v1.8/build 9 source **recovered from SAGE**, under `C:\Users\jnewt\Documents\JNS\HikvisionTalkV5\HikvisionTalkAndroid4_V3_FFmpeg`. Do not confuse this with the older v1.2 source under Documents/andriodprojects.
