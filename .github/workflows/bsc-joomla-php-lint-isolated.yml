@@ -79,6 +79,18 @@ jobs:
           } | tee -a "$RUNNER_TEMP/bsc-php-lint.txt"
           test "$count" -gt 0
           test "$failures" -eq 0
+      - name: Diagnose synthetic test prerequisites from source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          {
+            echo "=== Synthetic verifier test source ==="
+            sed -n '1,125p' php-source/krystal/test-synthetic-verifier.php
+            echo "=== Portal adapter test source ==="
+            sed -n '1,125p' php-source/krystal/test-portal-adapter-synthetic.php
+            echo "=== Tracked fixture file inventory ==="
+            find php-source -type f | sort
+          } > "$RUNNER_TEMP/bsc-php-prerequisites.txt"
       - name: Execute isolated PHP synthetic security fixtures
         id: fixtures
         shell: bash
@@ -118,6 +130,10 @@ jobs:
               tail -n 35 "$RUNNER_TEMP/bsc-php-lint.txt"
             else
               echo "PHP_LINT_NOT_EXECUTED"
+            fi
+            if test -f "$RUNNER_TEMP/bsc-php-prerequisites.txt"; then
+              echo "=== Test prerequisites ==="
+              head -n 265 "$RUNNER_TEMP/bsc-php-prerequisites.txt"
             fi
             if test -f "$RUNNER_TEMP/bsc-php-fixtures.txt"; then
               echo "=== Synthetic fixture output ==="
