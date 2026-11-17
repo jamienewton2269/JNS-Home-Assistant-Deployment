@@ -1,0 +1,16 @@
+name: JNS Verify HA-General Heating Schedule After Restart
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-ha-verify-heating-after-restart.yml'
+      - 'gateway/heating_hallway/verify_heating_after_restart.py'
+permissions: {contents: read}
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m py_compile gateway/heating_hallway/verify_heating_after_restart.py
+      - run: python3 gateway/heating_hallway/verify_heating_after_restart.py
