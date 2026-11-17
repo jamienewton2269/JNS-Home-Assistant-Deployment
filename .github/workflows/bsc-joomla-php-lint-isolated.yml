@@ -99,9 +99,13 @@ jobs:
           cd php-source/krystal
           : > "$RUNNER_TEMP/bsc-php-fixtures.txt"
           failures=0
-          for script in test-synthetic-verifier.php test-member-intake.php test-portal-adapter-synthetic.php; do
+          for script in test-synthetic-verifier.php test-member-intake.php; do
             echo "=== $script ===" | tee -a "$RUNNER_TEMP/bsc-php-fixtures.txt"
-            if php "$script" >> "$RUNNER_TEMP/bsc-php-fixtures.txt" 2>&1; then
+            args=()
+            if test "$script" = test-synthetic-verifier.php; then
+              args=(synthetic-unicode-fixture.json)
+            fi
+            if php "$script" "${args[@]}" >> "$RUNNER_TEMP/bsc-php-fixtures.txt" 2>&1; then
               echo "SCRIPT_EXIT_$script=0" | tee -a "$RUNNER_TEMP/bsc-php-fixtures.txt"
             else
               rc=$?
@@ -113,6 +117,7 @@ jobs:
             echo "MISSING_FIXTURE_DETECTED" | tee -a "$RUNNER_TEMP/bsc-php-fixtures.txt"
             failures=$((failures + 1))
           fi
+          echo "PORTAL_ADAPTER_TEST=NOT_RUN_REQUIRES_DISPOSABLE_MYSQL" | tee -a "$RUNNER_TEMP/bsc-php-fixtures.txt"
           cat "$RUNNER_TEMP/bsc-php-fixtures.txt"
           echo "PHP_SYNTHETIC_FAILURE_COUNT=$failures" | tee -a "$RUNNER_TEMP/bsc-php-fixtures.txt"
           test "$failures" -eq 0
