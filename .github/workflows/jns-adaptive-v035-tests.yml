@@ -1,0 +1,32 @@
+name: Adaptive Intelligence v0.3.5 Acceptance Tests
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-adaptive-v035-tests.yml'
+permissions: {contents: read}
+jobs:
+  test:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - name: Clone integration source read-only
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/jns-adaptive-v035-ci
+          git clone -q --depth 1 https://github.com/jamienewton2269/adaptive-intelligence.git /tmp/jns-adaptive-v035-ci
+      - name: Test source and dashboard without Home Assistant changes
+        run: |
+          set -euo pipefail
+          cd /tmp/jns-adaptive-v035-ci
+          python3 -m unittest discover -s tests -v
+          python3 -m compileall -q custom_components/adaptive_intelligence
+          python3 - <<'PY'
+          import json,yaml
+          m=json.load(open("custom_components/adaptive_intelligence/manifest.json"))
+          assert m["version"]=="0.3.5"
+          d=yaml.safe_load(open("dashboard/ai-diagnostics.yaml"))
+          assert "Lighting Habits" in [v["title"] for v in d["views"]]
+          print("V035_TESTS_AND_DASHBOARD_VALID")
+          PY
+          node --check dashboard/adaptive-explain-card.js
