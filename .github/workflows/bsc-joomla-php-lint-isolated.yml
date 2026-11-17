@@ -85,20 +85,25 @@ jobs:
         run: |
           set -Eeuo pipefail
           cd php-source/krystal
-          {
-            echo "=== Synthetic snapshot verifier ==="
-            php test-synthetic-verifier.php
-            echo "=== Synthetic member intake ==="
-            php test-member-intake.php
-            echo "=== Synthetic Joomla portal adapter ==="
-            php test-portal-adapter-synthetic.php
-            echo "PHP_SYNTHETIC_FIXTURES_PASS"
-          } > "$RUNNER_TEMP/bsc-php-fixtures.txt" 2>&1 || {
-            rc=$?
-            cat "$RUNNER_TEMP/bsc-php-fixtures.txt"
-            exit "$rc"
-          }
+          : > "$RUNNER_TEMP/bsc-php-fixtures.txt"
+          failures=0
+          for script in test-synthetic-verifier.php test-member-intake.php test-portal-adapter-synthetic.php; do
+            echo "=== $script ===" | tee -a "$RUNNER_TEMP/bsc-php-fixtures.txt"
+            if php "$script" >> "$RUNNER_TEMP/bsc-php-fixtures.txt" 2>&1; then
+              echo "SCRIPT_EXIT_$script=0" | tee -a "$RUNNER_TEMP/bsc-php-fixtures.txt"
+            else
+              rc=$?
+              echo "SCRIPT_EXIT_$script=$rc" | tee -a "$RUNNER_TEMP/bsc-php-fixtures.txt"
+              failures=$((failures + 1))
+            fi
+          done
+          if grep -q 'Synthetic fixture missing' "$RUNNER_TEMP/bsc-php-fixtures.txt"; then
+            echo "MISSING_FIXTURE_DETECTED" | tee -a "$RUNNER_TEMP/bsc-php-fixtures.txt"
+            failures=$((failures + 1))
+          fi
           cat "$RUNNER_TEMP/bsc-php-fixtures.txt"
+          echo "PHP_SYNTHETIC_FAILURE_COUNT=$failures" | tee -a "$RUNNER_TEMP/bsc-php-fixtures.txt"
+          test "$failures" -eq 0
       - name: Publish PHP syntax receipt
         if: always()
         shell: bash
