@@ -1,0 +1,41 @@
+name: Node C DNS Preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jns-nodec-dns-preflight.yml'
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 3
+    steps:
+      - name: Inspect resolver ownership and verify LAN DNS candidates
+        shell: bash
+        run: |
+          set +e
+          echo '=== resolv.conf owner ==='
+          ls -l /etc/resolv.conf
+          readlink -f /etc/resolv.conf
+          stat -c '%U:%G %a %n' /etc/resolv.conf
+          sed -n '1,18p' /etc/resolv.conf
+          echo '=== network manager config ==='
+          test -e /etc/network/interfaces && sed -n '1,110p' /etc/network/interfaces
+          systemctl is-enabled systemd-resolved 2>/dev/null || true
+          systemctl is-active systemd-resolved 2>/dev/null || true
+          command -v resolvectl || true
+          command -v dig || true
+          echo '=== local dns candidates ==='
+          for ip in 10.10.110.248 10.10.110.249 10.10.110.247; do
+            echo "--- DNS $ip ---"
+            for name in nodeb.home.arpa ha-general.home.arpa github.com; do
+              if command -v dig >/dev/null 2>&1; then
+                dig +time=2 +tries=1 +short @"$ip" "$name" A | head -5
+              else
+                timeout 4 nslookup "$name" "$ip" 2>&1 | tail -7
+              fi
+            done
+          done
+          echo '=== current DNS lookup ==='
+          getent ahostsv4 github.com | head -3
+          echo 'PREFLIGHT_DONE'
