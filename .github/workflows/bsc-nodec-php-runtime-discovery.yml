@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   inspect:
@@ -42,3 +42,26 @@ jobs:
           name: bsc-php-runtime-discovery
           path: ${{ runner.temp }}/bsc-php-discovery.txt
           retention-days: 14
+
+      - name: Publish compact diagnostic receipt
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p gateway/receipts
+          {
+            echo "run_id=$GITHUB_RUN_ID"
+            cat "$RUNNER_TEMP/bsc-php-discovery.txt"
+          } > gateway/receipts/bsc-php-runtime-discovery-latest.txt
+          git add gateway/receipts/bsc-php-runtime-discovery-latest.txt
+          if ! git diff --cached --quiet; then
+            for attempt in 1 2 3; do
+              git commit -m "Record BSC PHP runtime availability on Node C" || true
+              if git push origin HEAD:main; then exit 0; fi
+              git fetch origin main
+              git reset --soft origin/main
+            done
+            exit 1
+          fi
