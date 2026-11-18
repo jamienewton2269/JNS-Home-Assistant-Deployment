@@ -1,21 +1,21 @@
-run_id=44204088062
+run_id=44263132751
 php_lint_step=success
 php_fixtures_step=success
 PHP 8.3.6 (cli) (built: Oct 19 2026 15:16:58) (NTS)
 Copyright (c) The PHP Group
-No syntax errors detected in php-source/krystal/test-portal-adapter-synthetic.php
-No syntax errors detected in php-source/krystal/test-synthetic-verifier.php
 No syntax errors detected in php-source/krystal/test-mysql-concurrent-worker.php
-No syntax errors detected in php-source/krystal/test-member-intake.php
-No syntax errors detected in php-source/krystal/test-mysql-importer.php
-No syntax errors detected in php-source/krystal/SnapshotVerifier.php
-No syntax errors detected in php-source/krystal/VerifiedImport.php
-No syntax errors detected in php-source/krystal/MemberChangeIntake.php
-No syntax errors detected in php-source/krystal/test-mysql-intake.php
 No syntax errors detected in php-source/krystal/TransactionalImporter.php
+No syntax errors detected in php-source/krystal/test-mysql-importer.php
+No syntax errors detected in php-source/krystal/test-mysql-intake.php
+No syntax errors detected in php-source/krystal/test-member-intake.php
+No syntax errors detected in php-source/krystal/test-synthetic-verifier.php
+No syntax errors detected in php-source/krystal/SnapshotVerifier.php
+No syntax errors detected in php-source/krystal/MemberChangeIntake.php
+No syntax errors detected in php-source/krystal/test-portal-adapter-synthetic.php
+No syntax errors detected in php-source/krystal/VerifiedImport.php
 No syntax errors detected in php-source/krystal/preflight-synthetic.php
-No syntax errors detected in php-source/tests/interop_emit.php
 No syntax errors detected in php-source/tests/test_signer.php
+No syntax errors detected in php-source/tests/interop_emit.php
 No syntax errors detected in php-source/plugins/system/bscmemberbridge/services/provider.php
 No syntax errors detected in php-source/plugins/system/bscmemberbridge/src/Extension/Bscmemberbridge.php
 No syntax errors detected in php-source/plugins/system/bscmemberbridge/src/Service/SyntheticExchangeClient.php
@@ -243,12 +243,37 @@ namespace {
         'member_id'=>$member,'base_version'=>1,'changes'=>['boat_name'=>'Synthetic Yacht']];
     try {
         $adapter::submitOwnChange($app, $db, $request);
+=== Database setup references ===
+php-source/krystal/test-mysql-concurrent-worker.php:8:if (!is_string($schema) || !preg_match('/^bsc_synthetic_[a-z0-9_]+$/D', $schema)
+php-source/krystal/test-mysql-concurrent-worker.php:13:$db = new PDO(getenv('BSC_TEST_MYSQL_DSN'), getenv('BSC_TEST_MYSQL_USER'),
+php-source/krystal/test-mysql-concurrent-worker.php:14:    getenv('BSC_TEST_MYSQL_PASSWORD'), [
+php-source/krystal/test-mysql-importer.php:9:$dsn = getenv('BSC_TEST_MYSQL_DSN');
+php-source/krystal/test-mysql-importer.php:12:    || !is_string($schema) || !preg_match('/^bsc_synthetic_[a-z0-9_]+$/D', $schema)) {
+php-source/krystal/test-mysql-importer.php:15:$db = new PDO($dsn, getenv('BSC_TEST_MYSQL_USER'), getenv('BSC_TEST_MYSQL_PASSWORD'), [
+php-source/krystal/test-mysql-intake.php:5: * Usage: BSC_TEST_MYSQL_DSN='mysql:host=...;dbname=bsc_synthetic_test' \
+php-source/krystal/test-mysql-intake.php:6: *        BSC_TEST_MYSQL_USER='...' BSC_TEST_MYSQL_PASSWORD='...' php test-mysql-intake.php
+php-source/krystal/test-mysql-intake.php:14:$dsn = getenv('BSC_TEST_MYSQL_DSN');
+php-source/krystal/test-mysql-intake.php:15:$user = getenv('BSC_TEST_MYSQL_USER');
+php-source/krystal/test-mysql-intake.php:16:$password = getenv('BSC_TEST_MYSQL_PASSWORD');
+php-source/krystal/test-mysql-intake.php:21:    || !str_starts_with($expectedSchema, 'bsc_synthetic_')
+php-source/krystal/test-mysql-intake.php:45:// manually create a fresh disposable database using schema-synthetic.sql.
+php-source/krystal/schema-synthetic.sql:3:CREATE TABLE bsc_replica_state (
+php-source/krystal/schema-synthetic.sql:11:CREATE TABLE bsc_member_replica (
+php-source/krystal/schema-synthetic.sql:24:CREATE TABLE bsc_member_change_requests (
+php-source/krystal/schema-synthetic.sql:45:CREATE TABLE bsc_member_access_grants (
+php-source/krystal/schema-synthetic.sql:59:CREATE TABLE bsc_member_request_locks (
+php-source/krystal/test-portal-adapter-synthetic.php:23:    $dsn = getenv('BSC_TEST_MYSQL_DSN');
+php-source/krystal/test-portal-adapter-synthetic.php:24:    if (!is_string($schema) || !preg_match('/^bsc_synthetic_[a-z0-9_]+$/D', $schema)
+php-source/krystal/test-portal-adapter-synthetic.php:31:    $db = new \PDO($dsn, getenv('BSC_TEST_MYSQL_USER'), getenv('BSC_TEST_MYSQL_PASSWORD'), [
+=== Tracked SQL files ===
+php-source/krystal/schema-synthetic.sql
 === Tracked fixture file inventory ===
 php-source/krystal/MemberChangeIntake.php
 php-source/krystal/SnapshotVerifier.php
 php-source/krystal/TransactionalImporter.php
 php-source/krystal/VerifiedImport.php
 php-source/krystal/preflight-synthetic.php
+php-source/krystal/schema-synthetic.sql
 php-source/krystal/synthetic-unicode-fixture.json
 php-source/krystal/test-member-intake.php
 php-source/krystal/test-mysql-concurrent-worker.php
