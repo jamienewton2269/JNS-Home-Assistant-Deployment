@@ -1,0 +1,20 @@
+'use strict';
+const q=s=>document.querySelector(s), status=q('#status'); const gbp=n=>'£'+(Number(n)/100).toFixed(2);
+const money=v=>{if(!/^\d+(\.\d{1,2})?$/.test(String(v)))throw Error('Enter a non-negative GBP amount with up to two decimals');return String(Math.round(Number(v)*100))};
+async function api(path,method='GET',payload){const r=await fetch('/sim/payments/'+path,{method,credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},body:payload?JSON.stringify(payload):undefined});const b=await r.json().catch(()=>({error:'Operation unavailable'}));if(!r.ok)throw Error(b.error||'Rejected');return b}
+function choice(selector,entries){const n=q(selector), prior=n.value;n.replaceChildren();for(const e of entries){const o=document.createElement('option');o.value=e.id;o.textContent=e.label;n.append(o)}if([...n.options].some(o=>o.value===prior))n.value=prior}
+function tbl(headers,rows){const t=document.createElement('table');t.className='test-table';const h=document.createElement('tr');for(const s of headers){const th=document.createElement('th');th.textContent=s;h.append(th)}t.append(h);for(const row of rows){const tr=document.createElement('tr');for(const v of row){const td=document.createElement('td');td.textContent=v??'';tr.append(td)}t.append(tr)}return t}
+async function load(){const [d,w]=await Promise.all([api('state'),fetch('/sim/api/state',{credentials:'same-origin',cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Officer session unavailable');return r.json()})]);
+choice('#fee-member',w.members.map(m=>({id:m.id,label:m.name})));
+choice('#fee-booking',[{id:'',label:'Independent fee'},...w.bookings.filter(b=>b.status==='approved').map(b=>({id:b.id,label:b.location+' | '+b.member+' | '+gbp(b.total_pence)}))]);
+choice('#provider-fee',d.fees.filter(f=>f.state==='issued'||f.state==='part_paid').map(f=>({id:f.id,label:f.member+' | '+f.description+' | '+gbp(f.amount_pence)})));
+choice('#provider-code',d.providers.map(p=>({id:p.code,label:p.name})));
+choice('#pending-receipts',d.receipts.filter(r=>r.state==='awaiting_settlement').map(r=>({id:r.id,label:r.provider+' | '+r.external_event_id+' | '+gbp(r.gross_pence)})));
+q('#fees').replaceChildren(tbl(['Member','Description','Issued','Reconciled','Outstanding','Status'],d.fees.map(f=>[f.member,f.description,gbp(f.amount_pence),gbp(f.reconciled_pence),gbp(f.amount_pence-f.reconciled_pence),f.state])));
+q('#receipts').replaceChildren(tbl(['Provider','Transaction','Gross','Provider fee','Bank net','Reconciliation'],d.receipts.map(r=>[r.provider,r.external_event_id,gbp(r.gross_pence),gbp(r.provider_fee_pence),r.bank_net_pence===null?'—':gbp(r.bank_net_pence),r.state])));
+status.textContent='Ready — synthetic provider simulation; no real charges or provider connectivity.'}
+async function submit(type,data){status.textContent='Processing synthetic transaction…';try{const r=await api(type,'POST',data);await load();status.textContent='Recorded in simulation database: '+(r.id||r.matched||'done')}catch(e){status.textContent=e.message}}
+q('#fee-form').addEventListener('submit',e=>{e.preventDefault();try{const x=Object.fromEntries(new FormData(e.target));submit('issue',{member_id:x.member_id,booking_id:x.booking_id||null,description:x.description,amount_pence:money(x.amount_pounds)})}catch(err){status.textContent=err.message}});
+q('#provider-form').addEventListener('submit',e=>{e.preventDefault();try{const x=Object.fromEntries(new FormData(e.target));submit('provider',{fee_id:x.fee_id,provider:x.provider,external_event_id:x.external_event_id,gross_pence:money(x.gross_pounds),provider_fee_pence:money(x.provider_fee_pounds)})}catch(err){status.textContent=err.message}});
+q('#reconcile-form').addEventListener('submit',e=>{e.preventDefault();try{const x=Object.fromEntries(new FormData(e.target));submit('reconcile',{receipt_id:x.receipt_id,payout_ref:x.payout_ref,bank_net_pence:money(x.bank_net_pounds)})}catch(err){status.textContent=err.message}});
+load().catch(e=>{status.textContent=e.message});

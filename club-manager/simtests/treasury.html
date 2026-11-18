@@ -1,0 +1,35 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Club Manager | Simulated Treasurer</title>
+<link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/sim/workflow.css">
+<script src="/sim/treasury.js" defer></script></head>
+<body><main><header><span class="brand"><img class="brand-mark" src="/assets/sailing-uk-logo-static.png" alt=""> Club Manager</span><span class="pill">SIMULATED TREASURER — NO REAL MONEY</span></header>
+<article><div class="heading"><h1>Treasurer acceptance testing</h1><a href="/sim/payments">Payment reconciliation</a></div>
+<p>Generate a local mock checkout link, or test a provider-style refund or dispute event. No email, real payment link, bank feed or processor connection occurs.</p>
+<p id="status" role="status">Loading synthetic ledger…</p>
+<div class="test-grid">
+<section><h2>Mock member checkout link</h2><form id="checkout-form">
+<label>Outstanding fee<select name="fee_id" id="checkout-fees" required></select></label>
+<label>Simulated provider<select name="provider" id="checkout-provider" required></select></label>
+<button>Generate 30-minute test link</button></form>
+<p><a id="checkout-link" target="_blank" rel="noreferrer noopener"></a></p></section>
+<section><h2>Refund or dispute event</h2><form id="adjust-form">
+<label>Reconciled provider receipt<select name="receipt_id" id="adjust-receipts" required></select></label>
+<label>Event type<select name="event_type"><option value="refund">Refund</option><option value="dispute_open">Dispute opened</option><option value="dispute_resolved">Dispute resolved</option></select></label>
+<label>Unique provider event ID<input name="event_id" maxlength="100" required placeholder="SIM-REFUND-001"></label>
+<label>Refund amount (£); zero for dispute<input name="pounds" type="number" step="0.01" min="0" required value="0.00"></label>
+<button>Record simulated event</button></form></section>
+</div>
+<h2>Provider-style JSON event import</h2>
+<p class="note">Paste synthetic provider events only. This is a manually simulated import, not a signed webhook. All events in one import either commit together or are rolled back together. Maximum 20 events.</p>
+<form id="import-form"><label>JSON array of simulated payment events
+<textarea id="import-json" rows="5" style="width:100%;background:#e9f2f6;color:#102434;padding:12px;border-radius:8px" required placeholder='[{"fee_id":"...","provider":"stripe","external_event_id":"SIM-0001","gross_pence":"1000","provider_fee_pence":"30","currency":"GBP"}]'></textarea></label>
+<button>Import synthetic events</button></form>
+<h2>Simulated payout settlement import</h2>
+<form id="settlement-import-form"><label>JSON array of simulated bank/provider payout lines, max 20
+<textarea id="settlement-import-json" rows="5" style="width:100%;background:#e9f2f6;color:#102434;padding:12px;border-radius:8px" required placeholder='[{"receipt_id":"...","payout_ref":"SIM-SETTLEMENT-1","bank_net_pence":"970","currency":"GBP"}]'></textarea></label>
+<button>Reconcile imported settlement lines</button></form>
+<h2>Reconciliation summary</h2><div id="summary"></div>
+<h2>Fee ledger</h2><div id="fees" class="test-scroll"></div>
+<h2>Provider events, exceptions and adjustments</h2><div id="adjustments" class="test-scroll"></div>
+<p class="note">Every entry is synthetic. A refund reopens the affected member balance. A dispute is an exception for investigation, not proof that a bank chargeback occurred.</p>
+</article></main></body></html>

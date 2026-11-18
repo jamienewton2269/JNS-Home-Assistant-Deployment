@@ -1,0 +1,20 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Club Manager | Additional tenders</title><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/sim/workflow.css">
+<script src="/sim/tenders.js" defer></script></head>
+<body><main><header><span class="brand"><img class="brand-mark" src="/assets/sailing-uk-logo-static.png" alt=""> Club Manager</span><span class="pill">SYNTHETIC — ADDITIONAL TENDERS</span></header>
+<article><h1>Additional tenders for Full sailing members</h1><p>Allocate one or more named tenders to eligible Full members. Annual tender prices are controlled separately by Finance, with duplicate annual charges prevented.</p>
+<p id="status" role="status">Loading tender records…</p>
+<div class="test-grid">
+<section><h2>Member officer — allocate tender</h2><form id="allocate">
+<label>Full sailing member<select name="member_id" id="member" required></select></label>
+<label>Tender description / identification<input name="label" required maxlength="100" placeholder="Tender A / registration"></label>
+<button>Allocate tender</button></form></section>
+<section><h2>Finance-controlled annual price</h2>
+<p>Annual tender rates are maintained separately by ITAdmin2 in the <a href="/sim/finance">Finance tariff screen</a>.</p>
+<div id="rates"></div></section>
+<section><h2>Treasurer — generate annual tender fees</h2><form id="invoice">
+<label>Financial year<input name="year" type="number" min="2026" required></label>
+<button>Generate outstanding tender charges</button></form><p class="note">Only charged once per tender and year. No invoice is generated until Finance has set a rate.</p></section>
+</div><h2>Allocated tenders</h2><div id="tenders" class="test-scroll"></div><h2>Annual tender charge register</h2><div id="charges" class="test-scroll"></div>
+<p class="note">ITAdmin1 manages tender allocation and billing tests. ITAdmin2 controls the annual tender tariff. All records and amounts here are synthetic.</p>
+<a href="/beta">Return to officer dashboard</a></article></main></body></html>

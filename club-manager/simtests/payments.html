@@ -1,0 +1,32 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Club Manager | Fee and provider reconciliation testing</title>
+<link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/sim/workflow.css"><script src="/sim/payments.js" defer></script>
+</head><body><main>
+<header><span class="brand"><img class="brand-mark" src="/assets/sailing-uk-logo-static.png" alt=""> Club Manager</span><span class="pill">SIMULATED PAYMENTS — NO LIVE TRANSACTIONS</span></header>
+<article>
+<div class="heading"><h1>Fee requests and payment reconciliation</h1><a href="/sim/treasury">Treasurer testing</a> | <a href="/sim/workflow">Member and mooring testing</a></div>
+<p>Three separate stages: issue a fee, receive a simulated provider event, then match the provider settlement with the simulated bank amount. Only the final matching settlement reduces the outstanding balance.</p>
+<p id="status" role="status">Loading payment simulation…</p>
+<div class="test-grid">
+<section><h2>1. Issue fee request</h2><form id="fee-form">
+<label>Member<select name="member_id" id="fee-member"></select></label>
+<label>Approved amenity booking (optional)<select name="booking_id" id="fee-booking"><option value="">Independent fee</option></select></label>
+<label>Fee description<input name="description" required maxlength="180" value="Synthetic club fee request"></label>
+<label>Amount (£)<input name="amount_pounds" type="number" required min=".01" step=".01"></label>
+<button>Issue synthetic fee</button></form></section>
+<section><h2>2. Simulate provider payment</h2><form id="provider-form">
+<label>Fee request<select name="fee_id" id="provider-fee"></select></label>
+<label>Provider<select name="provider" id="provider-code"></select></label>
+<label>Unique provider transaction ID<input name="external_event_id" required maxlength="100" placeholder="SIM-STRIPE-0001"></label>
+<label>Gross payment (£)<input name="gross_pounds" type="number" min=".01" step=".01" required></label>
+<label>Provider fee (£)<input name="provider_fee_pounds" type="number" min="0" step=".01" value="0.00" required></label>
+<button>Record simulated provider event</button></form></section>
+<section><h2>3. Reconcile provider settlement</h2><form id="reconcile-form">
+<label>Unreconciled provider event<select name="receipt_id" id="pending-receipts"></select></label>
+<label>Unique payout reference<input name="payout_ref" maxlength="100" required placeholder="SIM-PAYOUT-0001"></label>
+<label>Bank net amount (£)<input name="bank_net_pounds" type="number" min="0" step=".01" required></label>
+<button>Match settlement</button></form></section>
+</div>
+<h2>Issued fees</h2><div id="fees" class="test-scroll"></div>
+<h2>Provider transactions and settlement checks</h2><div id="receipts" class="test-scroll"></div>
+<p class="note">Provider fee is a deduction from the gross paid by the member. An unmatched bank payout is flagged as an exception rather than marking the member's fee paid. Every event here is synthetic and stored only in the simulation database.</p>
+</article></main></body></html>

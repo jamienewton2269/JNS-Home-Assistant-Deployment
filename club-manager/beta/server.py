@@ -48,7 +48,7 @@ def allow_auth_attempt(account_id):
         _ATTEMPTS.setdefault(key, []).append(now)
         return True
 ASSETS = {"/login": ("login.html", "text/html"), "/assets/style.css": ("style.css", "text/css"),
-          "/assets/browser.js": ("browser.js", "text/javascript"), "/beta": ("beta.html", "text/html")}
+          "/assets/browser.js": ("browser.js", "text/javascript"), "/assets/club-sail-outline.svg": ("club-sail-outline.svg", "image/svg+xml"), "/assets/sailing-uk-logo-static.png": ("sailing-uk-logo-static.png", "image/png"), "/enrol": ("enrol.html", "text/html"), "/beta": ("beta.html", "text/html")}
 
 def validate_origin(origin):
     p = urlsplit(origin)
@@ -68,7 +68,7 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def send_body(self, status, payload, mime="application/json", cookie=None):
-        data = payload.encode("utf-8") if isinstance(payload, str) else json.dumps(payload).encode("utf-8")
+        data = payload if isinstance(payload, bytes) else (payload.encode("utf-8") if isinstance(payload, str) else json.dumps(payload).encode("utf-8"))
         self.send_response(status)
         self.send_header("Content-Type", mime + "; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
@@ -77,7 +77,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Content-Security-Policy",
-            "default-src 'none'; script-src 'self'; style-src 'self'; "
+            "default-src 'none'; img-src 'self'; script-src 'self'; style-src 'self'; "
             "connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'")
         if cookie:
             self.send_header("Set-Cookie", cookie)
@@ -91,13 +91,21 @@ class Handler(BaseHTTPRequestHandler):
         return self.headers.get("Host","") == self.expected_host
 
     def do_GET(self):
-        if self.path == "/healthz":
+        # Browsers and chat applications can add tracking/query parameters.
+        # Match only the parsed path; never treat query text as part of a route.
+        parsed = urlsplit(self.path)
+        path = parsed.path
+        # API endpoints do not accept query parameters: avoid ambiguous
+        # authorization semantics and accidental future filtering.
+        if path.startswith("/api/") and parsed.query:
+            return self.deny(400, "Unexpected query parameters")
+        if path == "/healthz":
             self.send_body(200, {"status":"ok","environment":"private-synthetic-beta","bind":"loopback"})
             return
         if not self.host_ok():
             return self.deny(421, "Unexpected host")
-        if self.path in ASSETS:
-            if self.path == "/beta":
+        if path in ASSETS:
+            if path == "/beta":
                 try:
                     self.controller.read("/api/v1/dashboard", self.headers.get("Cookie",""))
                 except Exception:
@@ -106,16 +114,16 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_header("Cache-Control","no-store")
                     self.end_headers()
                     return
-            filename, mime = ASSETS[self.path]
+            filename, mime = ASSETS[path]
             try:
-                content = (HERE / "static" / filename).read_text(encoding="utf-8")
+                content = (HERE / "static" / filename).read_bytes() if filename.endswith(".png") else (HERE / "static" / filename).read_text(encoding="utf-8")
                 return self.send_body(200, content, mime)
             except OSError:
                 return self.deny(503, "Asset unavailable")
-        if self.path not in READ_ROUTES:
+        if path not in READ_ROUTES:
             return self.deny(404, "Unknown route")
         try:
-            data = self.controller.read(self.path, self.headers.get("Cookie",""))
+            data = self.controller.read(path, self.headers.get("Cookie",""))
             return self.send_body(200, data)
         except PermissionError:
             return self.deny(401, "Named officer passkey session required")
@@ -127,7 +135,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self.host_ok() or self.headers.get("Origin") != self.expected_origin:
             return self.deny(403, "Browser origin rejected")
-        if self.path not in ("/auth/webauthn/begin", "/auth/webauthn/complete", "/auth/logout"):
+        if self.path not in ("/auth/webauthn/begin", "/auth/webauthn/complete", "/auth/webauthn/enrol/begin", "/auth/webauthn/enrol/complete", "/auth/logout"):
             return self.deny(404, "Unknown operation")
         if self.headers.get("Content-Type","").split(";")[0].strip().lower() != "application/json":
             return self.deny(415, "JSON required")
@@ -144,6 +152,22 @@ class Handler(BaseHTTPRequestHandler):
             officer_id = UUID(body["officer_id"])
             if not allow_auth_attempt(officer_id):
                 return self.deny(429, "Too many authentication attempts")
+            if self.path == "/auth/webauthn/enrol/begin":
+                # No public registration: database validates independently approved
+                # two-officer recovery authorisation before issuing a challenge.
+                name = body.get("name")
+                display_name = body.get("display_name")
+                if not (isinstance(name,str) and isinstance(display_name,str)
+                        and 1 <= len(name) <= 100 and 1 <= len(display_name) <= 100):
+                    raise ValueError("Invalid officer label")
+                cid, options = self.controller.flow.begin_enrolment(officer_id, name, display_name)
+                return self.send_body(200, {"challenge_id":str(cid),"options":json.loads(options)})
+            if self.path == "/auth/webauthn/enrol/complete":
+                cid = UUID(body["challenge_id"])
+                if not isinstance(body["response"],dict):
+                    raise ValueError("Invalid attestation")
+                self.controller.flow.finish_enrolment(officer_id,cid,body["response"])
+                return self.send_body(200, {"enrolled":True})
             if self.path.endswith("/begin"):
                 cid, options = self.controller.begin_passkey(officer_id)
                 return self.send_body(200, {"challenge_id":str(cid),"options":json.loads(options)})
@@ -168,6 +192,8 @@ def main():
     origin = os.environ["CLUB_BETA_ORIGIN"]
     rp, canonical = validate_origin(origin)
     import psycopg2
+    from psycopg2.extras import register_uuid
+    register_uuid()
     # Peer authentication is required. The legacy clubmgr role is never used.
     db = lambda: psycopg2.connect("dbname=club_manager user=clubbeta")
     Handler.controller = OfficerController(WebAuthnFlow(rp, canonical, PostgreSQLWebAuthnStore(db)),

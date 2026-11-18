@@ -1,0 +1,18 @@
+
+.test-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:18px}
+.test-grid section{padding:18px;border:1px solid #42657b;border-radius:12px;background:#0f2235}
+.test-grid form{margin:12px 0;max-width:none;display:grid;gap:12px}
+.test-grid label{font-size:.9rem}
+.test-grid input,.test-grid select{background:#e9f2f6;color:#102434;border:0;border-radius:7px;padding:10px;font:inherit;width:100%}
+.test-grid button{width:max-content}
+.test-table{width:100%;border-collapse:collapse;font-size:.88rem}
+.test-table th,.test-table td{text-align:left;padding:8px;border-bottom:1px solid #34546b}
+.test-scroll{overflow-x:auto}
+.note{color:#8ce2e2;font-size:.9rem}
+a{color:#8ce2e2}
+
+.stay-options{display:flex;flex-wrap:wrap;gap:8px;border:1px solid #42657b;border-radius:9px;padding:11px;margin:4px 0}
+.stay-options legend{padding:0 5px;font-size:.9rem}
+.stay-options label{display:inline-flex;align-items:center;gap:4px;border:1px solid #45677c;border-radius:8px;padding:6px 8px;white-space:nowrap;cursor:pointer}
+.stay-options input[type=radio]{width:auto;margin:0;accent-color:#16becb}
+.stay-options label:has(input:checked){background:#145567;border-color:#24c4ce}

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Club Manager — YBM Trailer Inspections</title>
+<link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/sim/workflow.css"><script src="/sim/ybm.js" defer></script></head>
+<body><main><header><span class="brand"><img class="brand-mark" src="/assets/sailing-uk-logo-static.png" alt=""> Club Manager</span><span class="pill">SYNTHETIC YBM INSPECTIONS</span></header>
+<article><h1>Trailer registrations and YBM inspections</h1>
+<p>Scan a dated QR label to identify the asset and review its last inspection. Ownership and payment information is protected by officer login; inspection does not imply payment.</p>
+<p id="status" role="status">Loading…</p>
+<div class="test-grid"><section><h2>Issue dated QR label</h2>
+<form id="label-form"><label>Registered asset<select name="registration" id="registration" required></select></label><button>Generate QR label</button></form><div id="printed-label"></div></section>
+<section><h2>Record trailer inspection</h2>
+<form id="inspect-form"><label>Trailer<select name="registration" id="trailer" required></select></label>
+<label>Result<select name="outcome"><option value="pass">Pass</option><option value="attention">Action required</option><option value="unsafe">Unsafe — do not use</option></select></label>
+<label>Findings and actions<textarea name="notes" maxlength="1000" rows="3"></textarea></label>
+<label>Next inspection due<input name="next_due" type="date"></label>
+<button>Record YBM inspection</button></form></section></div>
+<h2>Registered trailers</h2><div id="assets" class="test-scroll"></div>
+<h2>Inspection history</h2><div id="history" class="test-scroll"></div>
+<p class="note">ITAdmin1 temporarily exercises the YBM permission in simulation. Live club sign-off requires an independent authorised YBM identity.</p>
+<a href="/sim/insurance">Insurance renewal reports</a> | <a href="/beta">Officer dashboard</a></article></main></body></html>

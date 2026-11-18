@@ -1,0 +1,33 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Club Manager | Finance tariffs</title>
+<link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/sim/workflow.css"><script src="/sim/finance.js" defer></script></head>
+<body><main><header><span class="brand"><img class="brand-mark" src="/assets/sailing-uk-logo-static.png" alt=""> Club Manager</span><span class="pill">FINANCE OFFICER — SYNTHETIC TARIFFS</span></header>
+<article><div class="heading"><h1>Membership and mooring tariffs</h1><a href="/beta">Officer dashboard</a></div>
+<p>This panel requires the separate Finance tariff permission. Booking officers cannot modify prices. All amounts are synthetic and changes are audited.</p>
+<p id="status" role="status">Loading approved test prices…</p>
+<div class="test-grid">
+<section><h2>Amenity mooring — weekly rate</h2><form id="amenity-form">
+<label>Rate effective from<input type="date" name="effective_from" required></label>
+<label>Charge per week (£)<input type="number" name="pounds" min="0" step="0.01" required></label>
+<button>Save prospective weekly rate</button></form>
+<div id="amenity-history" class="test-scroll"></div></section>
+<section><h2>Individual amenity mooring rates</h2>
+<form id="location-form">
+<label>Amenity mooring<select name="location_id" id="finance-location" required></select></label>
+<label>Effective from<input type="date" name="effective_from" required></label>
+<label>Charge per week (£)<input type="number" name="pounds" min="0" step="0.01" required></label>
+<button>Save mooring-specific tariff</button></form><div id="location-history" class="test-scroll"></div></section>
+<section><h2>Additional tenders — annual charge</h2><form id="tender-form">
+<label>Financial year<input name="financial_year" type="number" min="2026" max="2100" required></label>
+<label>Fixed annual tender charge (£)<input name="pounds" type="number" min="0" step="0.01" required></label>
+<button>Save annual tender tariff</button></form>
+<p class="note">The fixed charge applies per allocated tender, not once per member. Membership officers cannot edit it.</p></section>
+<section><h2>Annual membership fees</h2><form id="membership-form">
+<label>Financial year<input type="number" name="financial_year" min="2026" max="2100" required></label>
+<label>Member category<select name="category"><option>Full</option><option>Family</option><option>Junior</option><option>Social</option><option>Honorary</option></select></label>
+<label>Annual membership fee (£)<input type="number" name="pounds" min="0" step="0.01" required></label>
+<button>Save financial-year fee</button></form>
+<div id="membership-history" class="test-scroll"></div></section>
+</div>
+<p class="note">Existing booking charges retain their quoted amounts when tariff rates change. An individual amenity mooring rate overrides the default weekly rate for that mooring from its effective date.</p>
+</article></main></body></html>

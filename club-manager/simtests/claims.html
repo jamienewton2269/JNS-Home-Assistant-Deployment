@@ -1,0 +1,22 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Club Manager | GC insurance evidence authorisation</title>
+<link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/sim/workflow.css">
+<script src="/sim/claims.js" defer></script></head>
+<body><main><header><span class="brand"><img class="brand-mark" src="/assets/sailing-uk-logo-static.png" alt=""> Club Manager</span><span class="pill">SIMULATION — NO DOCUMENT ACCESS</span></header>
+<article><h1>General Committee — insurance evidence requests</h1>
+<p>This is a security rehearsal only. Two distinct, independently authenticated officers must approve a claims request within 24 hours. Approval is not document release: the evidence vault and independent decryption process remain disabled.</p>
+<p id="status" role="status">Loading claims authorisations…</p>
+<div class="test-grid">
+<section><h2>Request claims evidence</h2><form id="request-form">
+<label>Insurance evidence ID<input name="insurance_id" placeholder="UUID from sealed insurance register" required maxlength="36"></label>
+<label>Claim reference<input name="reference" required minlength="6" maxlength="120"></label>
+<label>Reason for exceptional access<textarea name="reason" required minlength="20" maxlength="1500" rows="4"></textarea></label>
+<button>Request GC authorisation</button></form></section>
+<section><h2>Approve an existing request</h2>
+<form id="approve-form"><label>Pending request<select id="request-id" name="request_id" required></select></label>
+<button>Record this officer's approval</button></form>
+<p class="note">An officer can approve only once. Two distinct approvals are required. No PDF download or decryption API exists.</p></section>
+</div>
+<h2>Claims authorisation register</h2><div id="claims" class="test-scroll"></div>
+<a href="/sim/insurance">Insurance reports</a> | <a href="/beta">Officer dashboard</a>
+</article></main></body></html>
