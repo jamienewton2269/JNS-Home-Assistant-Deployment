@@ -1,0 +1,18 @@
+name: BSC restricted reference export policy tests
+on:
+  push:
+    paths:
+      - club-manager/reference_replica_policy.py
+      - club-manager/tests/test_reference_replica_policy.py
+      - .github/workflows/bsc-reference-policy-tests.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  privacy-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test fail-closed reference export
+        run: python3 -m unittest discover -s club-manager/tests -p test_reference_replica_policy.py -v
