@@ -1,0 +1,59 @@
+name: Import Node C BSC Joomla bridge to review branch
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+      - name: Import tracked source without modifying Node C
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          src=/opt/bsc-joomla-membership
+          expected=90fd97240b7045d946e32af04fe56357d465ef69
+          test -d "$src/.git"
+          test "$(git -c safe.directory="$src" -C "$src" rev-parse HEAD)" = "$expected"
+          test -z "$(git -c safe.directory="$src" -C "$src" status --porcelain)"
+          test ! -e joomla-bridge
+          branch=bsc/joomla-bridge-review
+          git fetch origin main
+          git switch -c "$branch" origin/main
+          mkdir -p joomla-bridge
+          # Export only explicitly tracked, non-secret application source.
+          git -c safe.directory="$src" -C "$src" ls-files -z |
+          while IFS= read -r -d '' file; do
+            case "$file" in
+              .gitignore|README.md|*.py|*.php|*.sql|*.json|*.md|*.xml|*.txt|*.yml|*.yaml)
+                case "$file" in
+                  *secret*|*credential*|*private*key*|*.env*|*token*|*password*|*id_rsa*|*.pem|*.p12|*.pfx)
+                    echo "REVIEW_REQUIRED_FILENAME: $file"; exit 5 ;;
+                esac
+                test -f "$src/$file"
+                test ! -L "$src/$file"
+                test "$(stat -c %s "$src/$file")" -le 262144
+                mkdir -p "joomla-bridge/$(dirname "$file")"
+                cp -- "$src/$file" "joomla-bridge/$file"
+                ;;
+              *) echo "REVIEW_REQUIRED_UNSUPPORTED: $file"; exit 6 ;;
+            esac
+          done
+          # Never publish source until a bounded scan for common secret material passes.
+          if grep -RIEin '(BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|password[[:space:]]*=[[:space:]]*["\x27][^"\x27]{8}|(api[_-]?key|access[_-]?token)[[:space:]]*=[[:space:]]*["\x27][^"\x27]{12})' joomla-bridge; then
+            echo "Potential secret material detected; refusing push"
+            exit 7
+          fi
+          test "$(find joomla-bridge -type f -name '*.php' | wc -l)" -eq 18
+          test "$(find joomla-bridge -type f -name '*.sql' | wc -l)" -eq 1
+          git add joomla-bridge
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m "Import verified Node C Joomla bridge source for consolidation review"
+          git push origin "$branch"
