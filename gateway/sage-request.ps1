@@ -1,25 +1,13 @@
 $ErrorActionPreference='Continue'
-$root='C:\src\JNS-WESTMINSTER-CHIMES\WestminsterSkill'
-Write-Output '=== ALEXA HOSTED RESOURCE TYPE INSPECTION ==='
-$p=Join-Path $root 'ask-resources.json'
-try {
- $j=Get-Content -LiteralPath $p -Raw | ConvertFrom-Json
- $profile=$j.profiles.'jns-westminster'
- Write-Output "profile_present=$([bool]$profile)"
- foreach($prop in $profile.PSObject.Properties) {
-  Write-Output "profile_key=$($prop.Name)"
-  if($prop.Value -is [pscustomobject]) {
-   Write-Output "nested_keys_$($prop.Name)=$(($prop.Value.PSObject.Properties.Name) -join ',')"
-   foreach($sub in $prop.Value.PSObject.Properties) {
-    if($sub.Value -is [pscustomobject]) {Write-Output "nested_keys_$($prop.Name)_$($sub.Name)=$(($sub.Value.PSObject.Properties.Name) -join ',')"}
-   }
-  }
+$root='C:\src\JNS-WESTMINSTER-CHIMES'
+Write-Output '=== WESTMINSTER AUDIO ASSET DISCOVERY ==='
+$roots=@('C:\src\JNS-WESTMINSTER-CHIMES','C:\src\JNS-SHIP-BELLS','C:\src\JNS-Home-Assistant-Deployment')
+foreach($dir in $roots) {
+ Write-Output "directory_present_$([IO.Path]::GetFileName($dir))=$(Test-Path -LiteralPath $dir)"
+ if(Test-Path -LiteralPath $dir) {
+  $audio=@(Get-ChildItem -LiteralPath $dir -File -Recurse -ErrorAction SilentlyContinue | Where-Object {$_.Extension.ToLowerInvariant() -in @('.mp3','.wav','.ogg','.flac','.m4a')})
+  Write-Output "audio_count_$([IO.Path]::GetFileName($dir))=$($audio.Count)"
+  $audio | Select-Object -First 30 | ForEach-Object {Write-Output "audio_name=$($_.Name) bytes=$($_.Length)"}
  }
-} catch {Write-Output "resource_error_type=$($_.Exception.GetType().Name)"}
-Write-Output '=== MEDIA DEPENDENCY CAPABILITY ==='
-$py=Join-Path $root 'lambda\lambda_function.py'
-$src=[IO.File]::ReadAllText($py)
-foreach($term in @('get_s3_presigned_url','s3','bucket','audio','<audio','AudioPlayer','ssml','mp3')) {
- Write-Output ("handler_has_"+($term -replace '[^a-zA-Z0-9]','_')+"="+$src.Contains($term))
 }
-Write-Output 'RESOURCE_INSPECTION_FINISHED'
+Write-Output 'AUDIO_DISCOVERY_COMPLETE'
