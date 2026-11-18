@@ -165,3 +165,53 @@ jobs:
             git commit -m "Record isolated BSC PHP syntax results"
             git push origin HEAD:main
           fi
+
+  mysql-acceptance:
+    needs: stage-source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: synthetic_ci_only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -psynthetic_ci_only"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: bsc-php-source-only
+          path: php-source
+      - name: Install isolated PHP MySQL driver
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y php8.3-mysql mysql-client
+          php -r 'exit(extension_loaded("pdo_mysql") ? 0 : 1);'
+      - name: Run disposable MySQL acceptance cases
+        shell: bash
+        env:
+          MYSQL_PWD: synthetic_ci_only
+          BSC_TEST_DISPOSABLE_ACK: YES_DISPOSABLE_DATABASE
+          BSC_TEST_MYSQL_USER: root
+          BSC_TEST_MYSQL_PASSWORD: synthetic_ci_only
+        run: |
+          set -Eeuo pipefail
+          cd php-source/krystal
+          for case in test-mysql-intake.php test-mysql-importer.php test-portal-adapter-synthetic.php; do
+            schema="bsc_synthetic_${case//[^a-z0-9]/_}"
+            export BSC_TEST_EXPECTED_SCHEMA="$schema"
+            export BSC_TEST_MYSQL_DSN="mysql:host=127.0.0.1;port=3306;dbname=$schema;charset=utf8mb4"
+            mysql -h 127.0.0.1 -uroot -e "CREATE DATABASE \`$schema\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+            mysql -h 127.0.0.1 -uroot "$schema" < schema-synthetic.sql
+            echo "Running $case against isolated $schema"
+            php "$case"
+            mysql -h 127.0.0.1 -uroot -e "DROP DATABASE \`$schema\`;"
+          done
+          echo "DISPOSABLE_MYSQL_ACCEPTANCE_OK"
