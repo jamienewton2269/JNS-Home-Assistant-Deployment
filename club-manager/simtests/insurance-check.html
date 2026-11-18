@@ -1,0 +1,19 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Club Manager | Insurance Document Preflight</title>
+<link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/sim/workflow.css">
+<script src="/sim/insurance/check.js" defer></script></head>
+<body><main><header><span class="brand"><img class="brand-mark" src="/assets/sailing-uk-logo-static.png" alt=""> Club Manager</span><span class="pill">SIMULATION — NO FILES STORED</span></header>
+<article><h1>Policy PDF preflight checks</h1>
+<p>Test automatic document consistency checks before the private evidence vault is commissioned. This form does not store, email or publish the PDF. The original is never returned by the application.</p>
+<p id="status" role="status">Choose a synthetic policy PDF (maximum 512 KiB).</p>
+<form id="preflight">
+<label>Policy PDF<input name="document" type="file" accept=".pdf,application/pdf" required></label>
+<label>Vessel name<input name="vessel_name" value="SYNTH Sea Finch" required></label>
+<label>Insurer<input name="insurer" value="Sample Marine Insurance" required></label>
+<label>Policy reference<input name="policy_ref" value="SIM-POLICY-100" required></label>
+<label>Cover starts<input name="cover_from" type="date" required></label>
+<label>Cover ends<input name="cover_until" type="date" required></label>
+<button>Check PDF (no storage)</button></form>
+<h2>Verification results</h2><div id="results"></div>
+<p class="note">Matching text is not independent confirmation of valid insurance. Files requiring manual review are not marked insured. This service remains staging-only until an approved encrypted document vault and claim release process are established.</p>
+<a href="/sim/insurance">YBM insurance report</a></article></main></body></html>
