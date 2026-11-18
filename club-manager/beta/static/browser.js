@@ -27,6 +27,30 @@ async function login(e){
   location.assign('/beta');
  }catch(e){status.textContent='Sign-in failed. Check the enrolled security key and try again.';}
 }
+async function enrol(e){
+ e.preventDefault();const status=$('#status');
+ status.textContent='Checking independent officer approvals…';
+ try{
+  if(!window.PublicKeyCredential||!navigator.credentials)throw Error('HTTPS passkey browser required');
+  const officer_id=$('#officer').value.trim();
+  const begin=await post('/auth/webauthn/enrol/begin',{officer_id,name:$('#officer-name').value.trim(),display_name:$('#display-name').value.trim()});
+  const options=begin.options;let credential;
+  if(PublicKeyCredential.parseCreationOptionsFromJSON)
+    credential=await navigator.credentials.create({publicKey:PublicKeyCredential.parseCreationOptionsFromJSON(options)});
+  else{
+    options.challenge=from64(options.challenge);
+    options.user.id=from64(options.user.id);
+    options.excludeCredentials=(options.excludeCredentials||[]).map(x=>({...x,id:from64(x.id)}));
+    credential=await navigator.credentials.create({publicKey:options});
+  }
+  const response=credential.toJSON?credential.toJSON():{id:credential.id,rawId:b64u(credential.rawId),type:credential.type,response:{
+    clientDataJSON:b64u(credential.response.clientDataJSON),attestationObject:b64u(credential.response.attestationObject),
+    transports:credential.response.getTransports?credential.response.getTransports():[]}};
+  await post('/auth/webauthn/enrol/complete',{officer_id,challenge_id:begin.challenge_id,response});
+  status.textContent='Passkey registered. You may now sign in.';
+ }catch(err){status.textContent='Enrolment not completed. Confirm both independent approvals and use your assigned officer ID.';}
+}
+if($('#enrol'))$('#enrol').addEventListener('submit',enrol);
 const routes={dashboard:'/api/v1/dashboard',members:'/api/v1/members',moorings:'/api/v1/moorings',clubhouse:'/api/v1/clubhouse',renewals:'/api/v1/renewals',committee:'/api/v1/committee',security:'/api/v1/security'};
 
 const currency=pence=>'£'+(Number(pence||0)/100).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});
