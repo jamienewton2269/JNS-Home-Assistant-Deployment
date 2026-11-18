@@ -1,19 +1,17 @@
 $ErrorActionPreference='Continue'
 $root='C:\src\JNS-WESTMINSTER-CHIMES\WestminsterSkill'
-Write-Output '=== WESTMINSTER FEATURE INVENTORY (NO SOURCE OR SECRETS) ==='
-$py=Join-Path $root 'lambda\lambda_function.py'
-$model=Join-Path $root 'skill-package\interactionModels\custom\en-GB.json'
-$src=[IO.File]::ReadAllText($py)
-$m=Get-Content -LiteralPath $model -Raw | ConvertFrom-Json
-$intentNames=@($m.interactionModel.languageModel.intents | ForEach-Object {$_.name})
-Write-Output "intent_count=$($intentNames.Count)"
-foreach($term in @('TestConnectionIntent','AudioPlayer','SSML','<audio','westminster','christmas','quiet','schedule','LaunchRequest')) {
- Write-Output ("source_contains_"+($term -replace '[^a-zA-Z0-9]','_')+"="+$src.Contains($term))
+Write-Output '=== WESTMINSTER AUDIO BUILD READINESS ==='
+foreach($n in @('ffmpeg','ffprobe','sox','python','pip','git')) {
+ $c=Get-Command $n -ErrorAction SilentlyContinue
+ Write-Output "tool_$($n)_available=$([bool]$c)"
 }
-Write-Output "source_line_count=$(($src -split '`n').Count)"
-Write-Output "requirements_present=$(Test-Path (Join-Path $root 'lambda\requirements.txt'))"
-$audioExt=@('.mp3','.wav','.ogg','.m4a')
-$audio=@(Get-ChildItem -LiteralPath $root -File -Recurse -ErrorAction SilentlyContinue | Where-Object {$audioExt -contains $_.Extension.ToLowerInvariant()})
-Write-Output "bundled_audio_count=$($audio.Count)"
-Write-Output "bundled_audio_total_bytes=$(($audio | Measure-Object -Property Length -Sum).Sum)"
-Write-Output 'INVENTORY_FINISHED_NO_DEPLOYMENT'
+& python -c 'import importlib.util;print("numpy_available="+str(importlib.util.find_spec("numpy") is not None));print("pydub_available="+str(importlib.util.find_spec("pydub") is not None))' 2>&1 | ForEach-Object {Write-Output "$_"}
+Write-Output '=== ALEXA HOSTED PROJECT FILES ==='
+foreach($rel in @('ask-resources.json','.ask\ask-states.json','skill-package\skill.json','lambda\lambda_function.py','lambda\requirements.txt')) {
+ Write-Output "present_$($rel.Replace('\','_').Replace('.','_'))=$(Test-Path (Join-Path $root $rel))"
+}
+Write-Output '=== AMAZON DEPLOYMENT ACCESS METHODS ==='
+foreach($p in @('C:\Program Files\Amazon\AWSCLIV2\aws.exe','C:\Users\jnewt\AppData\Roaming\npm\ask.cmd')) {
+ try { $item=Get-Item -LiteralPath $p -ErrorAction Stop; Write-Output "path_$($item.Name)_accessible=true" } catch {Write-Output "path_$([IO.Path]::GetFileName($p))_accessible=false"}
+}
+Write-Output 'AUDIO_READINESS_FINISHED'
