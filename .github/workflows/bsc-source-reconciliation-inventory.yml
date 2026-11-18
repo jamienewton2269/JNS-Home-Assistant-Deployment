@@ -1,0 +1,73 @@
+name: BSC Club Manager source reconciliation inventory
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/bsc-source-reconciliation-inventory.yml
+
+permissions:
+  contents: write
+
+jobs:
+  inventory:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Inventory development source without changing it
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          src=/opt/bsc-joomla-membership
+          test -d "$src/.git"
+          {
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "inventory_timestamp_utc=$(date -u +%FT%TZ)"
+            echo "source_path=$src"
+            echo "source_commit=$(git -c safe.directory="$src" -C "$src" rev-parse HEAD)"
+            echo "source_remote_urls_redacted=yes"
+            echo "source_branch=$(git -c safe.directory="$src" -C "$src" branch --show-current)"
+            echo "source_dirty=$(test -z "$(git -c safe.directory="$src" -C "$src" status --porcelain)" && echo no || echo yes)"
+            echo "=== tracked source paths (no contents) ==="
+            git -c safe.directory="$src" -C "$src" ls-files | grep -E '(^|/)(app\.py|requirements[^/]*|pyproject\.toml|.*\.sql|.*\.php|Dockerfile|compose[^/]*|README[^/]*|.*\.yml|.*\.yaml)$|(^|/)(migrations|sync|plugins|krystal|tests|web|templates|static)/' | head -n 500 || true
+            echo "=== tracked source counts ==="
+            git -c safe.directory="$src" -C "$src" ls-files | awk '
+              /\.py$/ {py++} /\.php$/ {php++} /\.sql$/ {sql++}
+              /\.html$/ {html++} /\.js$/ {js++}
+              END {print "python="py+0, "php="php+0, "sql="sql+0, "html="html+0, "js="js+0}'
+            echo "=== source root tracked files ==="
+            git -c safe.directory="$src" -C "$src" ls-files | grep -v / | head -n 80 || true
+            echo "=== CT101 presence (read-only Proxmox metadata) ==="
+            if command -v pct >/dev/null 2>&1; then
+              pct status 101 2>&1 || true
+              pct config 101 2>/dev/null | grep -E '^(hostname|ostype|unprivileged|rootfs):' || true
+            else
+              echo "pct_unavailable_on_runner"
+            fi
+            echo "NO_SECRETS_NO_DATABASE_READ_NO_DEPLOYMENT"
+          } > "$RUNNER_TEMP/bsc-reconciliation-inventory.txt"
+          cat "$RUNNER_TEMP/bsc-reconciliation-inventory.txt"
+      - name: Publish immutable run artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bsc-source-reconciliation-inventory
+          path: ${{ runner.temp }}/bsc-reconciliation-inventory.txt
+          retention-days: 30
+      - name: Publish latest inventory receipt
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p gateway/receipts
+          cp "$RUNNER_TEMP/bsc-reconciliation-inventory.txt" gateway/receipts/bsc-reconciliation-inventory-latest.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gateway/receipts/bsc-reconciliation-inventory-latest.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "Record BSC source reconciliation inventory"
+            git push origin HEAD:main
+          fi
