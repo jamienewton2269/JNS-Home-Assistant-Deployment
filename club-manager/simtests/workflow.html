@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Club Manager | Simulated workflows</title>
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="stylesheet" href="/sim/workflow.css">
+<script src="/sim/workflow.js" defer></script></head>
+<body><main>
+<header><span class="brand"><img class="brand-mark" src="/assets/sailing-uk-logo-static.png" alt=""> Club Manager</span><span class="pill">TEST DATA ONLY — SIMULATION</span></header>
+<article>
+<div class="heading"><h1>Member and amenity mooring testing</h1><a href="/sim/payments">Fee requests & reconciliation</a> | <a href="/beta">Return to administration</a></div>
+<p>This is a simulation-only workflow. No live members, invoices or payments. Amenity requests are charged in complete seven-day blocks, rounded up. Approval prevents conflicting bookings.</p>
+<p id="status" role="status">Loading synthetic records…</p>
+<div class="test-grid">
+<section><h2>1. Create test member</h2><form id="member-form">
+<label>Member name<input name="name" maxlength="120" required placeholder="Sample Member Echo"></label>
+<label>Email<input name="email" type="email" maxlength="200" required placeholder="echo@members.invalid"></label>
+<label>Membership category<select name="category"><option>Full</option><option>Family</option><option>Junior</option><option>Social</option></select></label>
+<button type="submit">Create synthetic member</button></form></section>
+<section><h2>2. Pricing (Finance controlled)</h2>
+<p>The booking officer cannot edit membership or mooring tariffs. Those are maintained by the authorised Finance officer.</p>
+<p><strong>Current weekly amenity rate:</strong> <span id="current-rate">Loading…</span></p>
+<p id="rate-summary"></p>
+<p class="note">Tariff editing requires ITAdmin2 (Finance). ITAdmin1 may only quote and book using the stored rate.</p></section>
+<section><h2>3. Request amenity mooring</h2><form id="request-form">
+<label>Member<select name="member_id" required id="member-choice"></select></label>
+<label>Amenity mooring<select name="location_id" required id="location-choice"></select></label>
+<label>Arrival <small>(defaults to current local time)</small><input name="starts" id="arrival-time" type="datetime-local" required></label>
+<fieldset class="stay-options"><legend>Proposed stay (choose one)</legend>
+<label><input type="radio" name="stay_duration" value="1" checked> 1 week</label>
+<label><input type="radio" name="stay_duration" value="2"> 2 weeks</label>
+<label><input type="radio" name="stay_duration" value="3"> 3 weeks</label>
+<label><input type="radio" name="stay_duration" value="4"> 4 weeks</label>
+<label><input type="radio" name="stay_duration" value="custom"> Custom</label>
+</fieldset>
+<label>Proposed departure<input name="ends" id="departure-time" type="datetime-local" required></label>
+<p id="booking-quote" class="note">Estimated booking cost will appear here.</p>
+<button type="submit">Submit pending request</button></form></section>
+</div>
+<h2>4. Review requests and allocations</h2>
+<p class="note">Approve a pending request to allocate the amenity mooring for its requested dates. Conflicting approved periods are rejected by PostgreSQL.</p>
+<div id="bookings" class="test-scroll"></div>
+<h2>Test members</h2><div id="members" class="test-scroll"></div>
+</article></main></body></html>
