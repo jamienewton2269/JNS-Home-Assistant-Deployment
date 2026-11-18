@@ -1,17 +1,27 @@
 $ErrorActionPreference='Continue'
 $root='C:\src\JNS-WESTMINSTER-CHIMES\WestminsterSkill'
-Write-Output '=== WESTMINSTER AUDIO BUILD READINESS ==='
-foreach($n in @('ffmpeg','ffprobe','sox','python','pip','git')) {
- $c=Get-Command $n -ErrorAction SilentlyContinue
- Write-Output "tool_$($n)_available=$([bool]$c)"
+Write-Output '=== ALEXA HOSTED MEDIA CONFIGURATION CHECK ==='
+foreach($rel in @('ask-resources.json','.ask\ask-states.json','skill-package\skill.json')) {
+ $p=Join-Path $root $rel
+ try {
+  $json=Get-Content -LiteralPath $p -Raw | ConvertFrom-Json
+  Write-Output "file=$rel valid_json=true"
+  if($rel -eq 'ask-resources.json') {
+   Write-Output "resource_keys=$(($json.PSObject.Properties.Name) -join ',')"
+   foreach($prop in $json.PSObject.Properties) {
+    Write-Output "resource_$($prop.Name)_keys=$(($prop.Value.PSObject.Properties.Name) -join ',')"
+   }
+  }
+  if($rel -eq 'skill-package\skill.json') {
+   Write-Output "manifest_keys=$(($json.manifest.PSObject.Properties.Name) -join ',')"
+  }
+ } catch {Write-Output "file=$rel valid_json=false error_type=$($_.Exception.GetType().Name)"}
 }
-& python -c 'import importlib.util;print("numpy_available="+str(importlib.util.find_spec("numpy") is not None));print("pydub_available="+str(importlib.util.find_spec("pydub") is not None))' 2>&1 | ForEach-Object {Write-Output "$_"}
-Write-Output '=== ALEXA HOSTED PROJECT FILES ==='
-foreach($rel in @('ask-resources.json','.ask\ask-states.json','skill-package\skill.json','lambda\lambda_function.py','lambda\requirements.txt')) {
- Write-Output "present_$($rel.Replace('\','_').Replace('.','_'))=$(Test-Path (Join-Path $root $rel))"
+Write-Output '=== AUDIO FILE LOCATIONS (NAMES ONLY) ==='
+foreach($d in @('lambda','skill-package','assets','media')) {
+ $p=Join-Path $root $d
+ if(Test-Path $p) {
+  Get-ChildItem -LiteralPath $p -Recurse -File -ErrorAction SilentlyContinue | Where-Object {$_.Extension -in @('.mp3','.wav','.ogg')} | Select-Object -First 20 | ForEach-Object {Write-Output "audio=$($_.Name) size=$($_.Length)"}
+ }
 }
-Write-Output '=== AMAZON DEPLOYMENT ACCESS METHODS ==='
-foreach($p in @('C:\Program Files\Amazon\AWSCLIV2\aws.exe','C:\Users\jnewt\AppData\Roaming\npm\ask.cmd')) {
- try { $item=Get-Item -LiteralPath $p -ErrorAction Stop; Write-Output "path_$($item.Name)_accessible=true" } catch {Write-Output "path_$([IO.Path]::GetFileName($p))_accessible=false"}
-}
-Write-Output 'AUDIO_READINESS_FINISHED'
+Write-Output 'MEDIA_CONFIGURATION_CHECK_FINISHED'
