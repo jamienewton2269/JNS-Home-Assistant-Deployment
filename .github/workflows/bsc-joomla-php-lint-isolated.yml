@@ -26,7 +26,7 @@ jobs:
           git -c safe.directory="$PWD" ls-files -z -- krystal plugins tests |
             while IFS= read -r -d '' file; do
               case "$file" in
-                *.php|*.json)
+                *.php|*.json|*.sql)
                   test -f "$file"
                   mkdir -p "$RUNNER_TEMP/bsc-php-source/$(dirname "$file")"
                   cp -- "$file" "$RUNNER_TEMP/bsc-php-source/$file"
@@ -88,6 +88,10 @@ jobs:
             sed -n '1,125p' php-source/krystal/test-synthetic-verifier.php
             echo "=== Portal adapter test source ==="
             sed -n '1,125p' php-source/krystal/test-portal-adapter-synthetic.php
+            echo "=== Database setup references ==="
+            grep -RInE 'CREATE TABLE|BSC_TEST_MYSQL|bsc_synthetic_|\.sql' php-source/krystal php-source/tests | head -n 95 || true
+            echo "=== Tracked SQL files ==="
+            find php-source -type f -name '*.sql' | sort
             echo "=== Tracked fixture file inventory ==="
             find php-source -type f | sort
           } > "$RUNNER_TEMP/bsc-php-prerequisites.txt"
