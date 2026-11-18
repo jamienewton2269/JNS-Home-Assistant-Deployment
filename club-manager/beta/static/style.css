@@ -15,3 +15,8 @@ td{color:#e1ebf0}
 .empty{color:#8daaba;font-style:italic}
 .data-footnote{font-size:.81rem;color:#a8c0c9}
 nav button[aria-pressed=true]{background:#0ba3ae;color:#071a22}
+
+.brand{display:inline-flex;align-items:center;gap:10px}.brand-mark{width:25px;height:25px;display:inline-block;object-fit:contain;flex-shrink:0}
+
+/* Static original sailing-uk.org outline from GIF, for dark UI. */
+.brand-mark{width:30px;height:30px;object-fit:contain;filter:invert(1);}
