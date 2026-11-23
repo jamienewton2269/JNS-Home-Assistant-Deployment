@@ -4,6 +4,8 @@ Never connect this test application to CT101 or a real membership database.
 Requires python3-psycopg2 and a disposable PostgreSQL database with migrations.
 """
 import html
+import base64
+import hmac
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs
@@ -20,15 +22,16 @@ class Handler(BaseHTTPRequestHandler):
     def respond(self, code, text):
         data=text.encode()
         self.send_response(code)
+        if code == 401:self.send_header("WWW-Authenticate", 'Basic realm="BSC isolated synthetic test"')
         for k,v in {"Content-Type":"text/html; charset=utf-8","Content-Length":str(len(data)),
                     "Cache-Control":"no-store","X-Content-Type-Options":"nosniff",
                     "Content-Security-Policy":"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'"}.items():
             self.send_header(k,v)
         self.end_headers();self.wfile.write(data)
     def authorized(self):
-        return self.headers.get("Authorization","") == "Bearer "+TOKEN
+        return hmac.compare_digest(self.headers.get("Authorization",""), "Basic "+base64.b64encode(("synthetic:"+TOKEN).encode()).decode())
     def do_GET(self):
-        if self.path!="/" or not self.authorized():return self.respond(403,"Access denied")
+        if self.path!="/" or not self.authorized():return self.respond(401,"Authentication required")
         with psycopg2.connect(DSN) as db:
             with db.cursor() as c:
                 c.execute("""SELECT m.id,m.joined_on,m.category,m.status,s.seniority_suspended
@@ -52,7 +55,7 @@ class Handler(BaseHTTPRequestHandler):
         self.respond(200,"<!doctype html><html lang=en><meta charset=utf-8><title>BSC Synthetic Test</title><body>"+body+"</body></html>")
     def do_POST(self):
         # A local synthetic test tool, not an officer-authenticated production API.
-        if not self.authorized() or self.headers.get("Origin") or self.headers.get("Sec-Fetch-Site") not in (None,"same-origin"):
+        if not self.authorized() or self.headers.get("Sec-Fetch-Site") not in (None,"same-origin"):
             return self.respond(403,"Access denied")
         try:
             n=int(self.headers.get("Content-Length","0"))
@@ -78,5 +81,5 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError,psycopg2.Error) as e:
             self.respond(400,"Invalid synthetic test operation; check record IDs, dates and database permissions")
 if __name__=="__main__":
-    print("Synthetic CRUD UI listening on 127.0.0.1:8877; requires Authorization bearer token")
+    print("Synthetic CRUD UI listening on 127.0.0.1:8877; browser Basic login user=synthetic, password=BSC_SYNTHETIC_TOKEN")
     ThreadingHTTPServer(("127.0.0.1",8877),Handler).serve_forever()
