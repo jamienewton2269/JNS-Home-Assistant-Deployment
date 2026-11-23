@@ -1,0 +1,43 @@
+name: BSC Node B test server inventory
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/bsc-nodeb-test-inventory.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: bsc-nodeb-test-inventory
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Inventory Node B without changes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          mkdir -p gateway/receipts
+          report=gateway/receipts/bsc-nodeb-test-inventory-latest.txt
+          {
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "runner=nodec"
+            echo "inventory=read_only"
+            if ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 root@nodeb 'hostname -s; command -v pct || true; pct list 2>/dev/null || true' 2>&1; then
+              echo "nodeb_ssh=success"
+            else
+              echo "nodeb_ssh=unavailable"
+            fi
+          } > "$report"
+          cat "$report"
+          git config user.name bsc-nodec-inventory
+          git config user.email bsc-nodec-inventory@users.noreply.github.com
+          git add "$report"
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "diagnostics: record Node B BSC test inventory"
+          git push origin HEAD:main
