@@ -1,0 +1,7 @@
+run_id=45161351191
+runner=nodec
+source_commit=7f9c7553cef37234e636178a216c9bbc9bc1e672
+python_syntax=pass
+migration_source_contract=pass
+database_execution=not_tested
+browser_acceptance=not_tested
