@@ -1,0 +1,58 @@
+name: BSC seniority source checks on Node C
+on:
+  push:
+    branches: [main]
+    paths:
+      - club-manager/migrations/023_mooring_seniority_working_parties.sql
+      - club-manager/migrations/024_configurable_seniority_sanctions.sql
+      - club-manager/beta/synthetic_seniority_editor.py
+      - .github/workflows/bsc-seniority-nodec-check.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: bsc-seniority-nodec-check
+  cancel-in-progress: false
+jobs:
+  source-check:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate source without accessing databases
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(hostname -s)" = nodec
+          mkdir -p gateway/receipts
+          report=gateway/receipts/bsc-seniority-check-latest.txt
+          {
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "runner=nodec"
+            echo "source_commit=$(git rev-parse HEAD)"
+            python3 - <<'PY'
+          import ast
+          from pathlib import Path
+          p=Path("club-manager/beta/synthetic_seniority_editor.py")
+          ast.parse(p.read_text())
+          print("python_syntax=pass")
+          a=Path("club-manager/migrations/023_mooring_seniority_working_parties.sql").read_text()
+          b=Path("club-manager/migrations/024_configurable_seniority_sanctions.sql").read_text()
+          for item in ("joined_on","working_parties","working_party_attendance","seniority_decisions"):
+              assert item in a, item
+          for item in ("default_sanction_months integer NOT NULL DEFAULT 6","effective_seniority_days","member_mooring_seniority"):
+              assert item in b, item
+          print("migration_source_contract=pass")
+          print("database_execution=not_tested")
+          print("browser_acceptance=not_tested")
+          PY
+          } > "$report" 2>&1
+          cat "$report"
+          git config user.name bsc-nodec-check
+          git config user.email bsc-nodec-check@users.noreply.github.com
+          git add "$report"
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "test: record Node C seniority source check"
+          git push origin HEAD:main
