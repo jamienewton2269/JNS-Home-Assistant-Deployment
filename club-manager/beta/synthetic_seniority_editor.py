@@ -38,12 +38,15 @@ class Handler(BaseHTTPRequestHandler):
                 FROM club.member_profiles m JOIN club.member_mooring_seniority s ON s.member_id=m.id
                 ORDER BY m.joined_on NULLS LAST,m.id LIMIT 200""")
                 members=c.fetchall()
+                c.execute("SELECT default_sanction_months FROM club.mooring_seniority_policy WHERE policy_id=1")
+                policy_months=c.fetchone()[0]
                 c.execute("SELECT id,title,held_on FROM club.working_parties ORDER BY held_on DESC LIMIT 50")
                 parties=c.fetchall()
                 c.execute("""SELECT a.member_id,p.title,a.status,a.recorded_at FROM club.working_party_attendance a
                 JOIN club.working_parties p ON p.id=a.party_id ORDER BY a.recorded_at DESC LIMIT 50""")
                 attendance=c.fetchall()
         body="<h1>BSC synthetic membership administration</h1><p>Isolated test database only. No real member records.</p>"
+        body+="<h2>Mooring seniority policy</h2><p>Default sanction: "+esc(policy_months)+" months</p><form method=post action=/policy><input type=number name=months min=1 max=36 value="+esc(policy_months)+" required><button>Update default duration</button></form>"
         body+="<h2>Members and seniority</h2><table border=1><tr><th>Member UUID</th><th>Joined</th><th>Category</th><th>Status</th><th>Seniority suspended</th></tr>"
         for row in members:body+="<tr>"+"".join("<td>"+esc(v)+"</td>" for v in row)+"</tr>"
         body+="</table><h2>Update joining date</h2><form method=post action=/join><input name=member_id placeholder='Member UUID' required><input type=date name=joined_on required><button>Save</button></form>"
@@ -64,7 +67,11 @@ class Handler(BaseHTTPRequestHandler):
             def val(k):return form.get(k,[""])[0].strip()
             with psycopg2.connect(DSN) as db:
                 with db.cursor() as c:
-                    if self.path=="/join":
+                    if self.path=="/policy":
+                        months=int(val("months"))
+                        if not 1<=months<=36:raise ValueError("Sanction duration outside policy range")
+                        c.execute("UPDATE club.mooring_seniority_policy SET default_sanction_months=%s,updated_at=clock_timestamp(),updated_by=%s WHERE policy_id=1",(months,"synthetic-test-officer"))
+                    elif self.path=="/join":
                         c.execute("UPDATE club.member_profiles SET joined_on=%s WHERE id=%s::uuid",(val("joined_on"),val("member_id")))
                         if c.rowcount!=1:raise ValueError("Member not found")
                     elif self.path=="/party":
