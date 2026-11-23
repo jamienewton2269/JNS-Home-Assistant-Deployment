@@ -7,14 +7,32 @@ import html
 import base64
 import hmac
 import os
+from urllib.parse import urlsplit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs
 import psycopg2
 
 DSN = os.environ.get("BSC_SYNTHETIC_DSN", "")
 TOKEN = os.environ.get("BSC_SYNTHETIC_TOKEN", "")
-if not DSN or len(TOKEN) < 24 or "club_manager" in DSN.lower():
-    raise SystemExit("Set BSC_SYNTHETIC_DSN for a disposable database and a >=24-character BSC_SYNTHETIC_TOKEN")
+# Fail closed: only a specifically named isolated test DB on local PostgreSQL.
+# A URL DSN must have a local host; libpq keyword DSNs are deliberately rejected.
+try:
+    parsed = urlsplit(DSN)
+    db_name = parsed.path.lstrip("/")
+    valid_dsn = (
+        parsed.scheme in ("postgres", "postgresql")
+        and parsed.hostname in ("localhost", "127.0.0.1", "::1")
+        and db_name.startswith("bsc_synthetic_")
+        and "/" not in db_name
+        and not parsed.username
+        and not parsed.password
+        and not parsed.query
+        and not parsed.fragment
+    )
+except ValueError:
+    valid_dsn = False
+if not valid_dsn or len(TOKEN) < 24:
+    raise SystemExit("Use a local postgresql://localhost/bsc_synthetic_* DB with peer/trust test authentication and a >=24-character token")
 def esc(v):
     return html.escape(str(v if v is not None else ""), quote=True)
 class Handler(BaseHTTPRequestHandler):
