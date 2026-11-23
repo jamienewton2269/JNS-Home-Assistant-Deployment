@@ -1,0 +1,21 @@
+run_id=45165415112
+runner=nodec
+inventory=read_only
+nodeb
+/usr/sbin/pct
+VMID       Status     Lock         Name                
+147        stopped                 jns-dns-nodea       
+201        running                 jns-zigbee-gateway  
+210        stopped                 jns-zigbee-gateway  
+212        running                 mqtt-infra-a        
+213        running                 jns-log-b           
+214        running                 zigbee2mqtt-a       
+216        running                 jns-time-b          
+220        running                 jns-mgmt-b          
+221        running                 house-audio-b       
+248        running                 jns-dns-nodeb       
+252        running                 auth-b              
+270        running                 bsc-race-test       
+272        running                 club-manager-playground
+273        running                 raceday-telemetry   
+nodeb_ssh=success
