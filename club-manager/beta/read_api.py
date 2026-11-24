@@ -10,6 +10,7 @@ import json
 
 # Explicit routes are immutable. No user-controlled SQL identifier.
 READ_ROUTES = {
+    "/api/v1/seniority": "SELECT club.api_seniority_for_officer(%s)",
     "/api/v1/dashboard": "SELECT club.api_dashboard_for_officer(%s)",
     "/api/v1/members": "SELECT club.api_members_for_officer(%s)",
     "/api/v1/moorings": "SELECT club.api_moorings_for_officer(%s)",
