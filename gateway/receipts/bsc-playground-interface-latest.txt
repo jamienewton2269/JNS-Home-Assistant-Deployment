@@ -1,0 +1,18 @@
+run_id=45470104633
+/opt/beta/server.py
+/opt/beta/read_api.py
+/opt/beta/static/browser.js
+/opt/beta/static/provision.html
+/opt/beta/static/enrol.html
+/opt/beta/static/login.html
+/opt/beta/static/beta.html
+/opt/beta/static/activate.js
+/opt/beta/static/activate.html
+/opt/beta/activation_handler.py
+/opt/beta/bootstrap_officer.py
+/opt/beta/officer_controller.py
+User=clubbeta
+Group=clubbeta
+sh: 1: curl: not found
+ listen 10.10.1.20:443 ssl;
+ server_name club-manager-playground.home.arpa;
