@@ -1,0 +1,54 @@
+run_id=45483524820
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+	LANGUAGE = (unset),
+	LC_ALL = (unset),
+	LC_CTYPE = (unset),
+	LC_NUMERIC = (unset),
+	LC_COLLATE = (unset),
+	LC_TIME = (unset),
+	LC_MESSAGES = (unset),
+	LC_MONETARY = (unset),
+	LC_ADDRESS = (unset),
+	LC_IDENTIFICATION = (unset),
+	LC_MEASUREMENT = (unset),
+	LC_PAPER = (unset),
+	LC_TELEPHONE = (unset),
+	LC_NAME = (unset),
+	LANG = "en_US.UTF-8"
+    are supported and installed on your system.
+perl: warning: Falling back to the standard locale ("C").
+ rolname  | rolcanlogin 
+----------+-------------
+ clubbeta | t
+(1 row)
+
+ nspname |             proname              |              pg_get_function_identity_arguments              
+---------+----------------------------------+--------------------------------------------------------------
+ club    | complete_verified_webauthn_login | p_account uuid, p_credential_id bytea, p_bearer_sha256 bytea
+ club    | has_privileged_access            | p_account uuid, p_permission text, p_mfa_session uuid
+ club    | issue_officer_api_session        | p_account uuid, p_mfa_session uuid, p_bearer_hash bytea
+ club    | officer_session_authorized       | p_bearer text, p_permission text
+(4 rows)
+
+           table_name           
+--------------------------------
+ committee_accounts
+ committee_permission_grants
+ committee_permissions
+ committee_role_grants
+ committee_roles
+ officer_action_events
+ officer_actions
+ officer_api_sessions
+ officer_authenticator_registry
+ officer_mfa_sessions
+ officer_totp_replay_state
+ officer_webauthn_challenges
+ officer_webauthn_credentials
+ security_change_approvals
+ security_change_requests
+ security_incidents
+ security_policy
+(17 rows)
+
