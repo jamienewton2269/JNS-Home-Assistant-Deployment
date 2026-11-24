@@ -1,0 +1,37 @@
+run_id=45468818512
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+	LANGUAGE = (unset),
+	LC_ALL = (unset),
+	LC_CTYPE = (unset),
+	LC_NUMERIC = (unset),
+	LC_COLLATE = (unset),
+	LC_TIME = (unset),
+	LC_MESSAGES = (unset),
+	LC_MONETARY = (unset),
+	LC_ADDRESS = (unset),
+	LC_IDENTIFICATION = (unset),
+	LC_MEASUREMENT = (unset),
+	LC_PAPER = (unset),
+	LC_TELEPHONE = (unset),
+	LC_NAME = (unset),
+	LANG = "en_US.UTF-8"
+    are supported and installed on your system.
+perl: warning: Falling back to the standard locale ("C").
+BEGIN
+DO
+ROLLBACK
+NOTICE:  PASS: joining date, attendance, zero seniority, reinstatement, expiry and policy write
+sql_test_exit=0
+WorkingDirectory=/opt/beta
+ActiveState=active
+FragmentPath=/etc/systemd/system/club-playground.service
+State  Recv-Q Send-Q Local Address:Port Peer Address:Port
+LISTEN 0      200        127.0.0.1:5432      0.0.0.0:*   
+LISTEN 0      511       10.10.1.20:443       0.0.0.0:*   
+LISTEN 0      100        127.0.0.1:25        0.0.0.0:*   
+LISTEN 0      5          127.0.0.1:8766      0.0.0.0:*   
+LISTEN 0      100            [::1]:25           [::]:*   
+LISTEN 0      200            [::1]:5432         [::]:*   
+LISTEN 0      4096               *:22              *:*   
+psycopg2=present
