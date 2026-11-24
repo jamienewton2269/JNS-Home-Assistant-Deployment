@@ -1,0 +1,5 @@
+expected 403 actual 403
+expected 401 actual 401
+expected 403 actual 403
+PASS: deployed editing assets and HTTP denial controls
+test_exit=0
