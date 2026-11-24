@@ -2,7 +2,7 @@
 const $=s=>document.querySelector(s);
 function b64u(bytes){let t='';for(const b of new Uint8Array(bytes))t+=String.fromCharCode(b);return btoa(t).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');}
 function from64(s){s=s.replace(/-/g,'+').replace(/_/g,'/');return Uint8Array.from(atob(s+'='.repeat((4-s.length%4)%4)),c=>c.charCodeAt(0));}
-async function post(path,body){let r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',cache:'no-store',body:JSON.stringify(body)});if(!r.ok)throw Error('Authentication unavailable ('+r.status+')');return r.json();}
+async function post(path,body){let r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',cache:'no-store',body:JSON.stringify(body)});if(!r.ok)throw Error('Request unsuccessful ('+r.status+')');return r.json();}
 async function login(e){
  e.preventDefault();const status=$('#status');status.textContent='Touch your security key or approve your passkey…';
  try{
@@ -73,6 +73,7 @@ function render(section,d){
   table(yard,['Year','Asset','Basis','Rate'],(d.yard_tariffs||[]).map(x=>[x.year,x.asset_type,x.basis,currency(x.pence_per_unit)]));
  }else if(section==='members'){
   metrics(out,[['Returned membership records',d.length]]);
+  seniorityForm(out,d);
   const p=panel(out,'Permitted member records (up to 100)');
   table(p,['Member','Email','Category','Version'],d.map(x=>[x.display_name,x.email,x.category,x.version]));
  }else if(section==='moorings'){
@@ -93,7 +94,7 @@ function render(section,d){
   const a=panel(out,'Security operations');
   a.appendChild(elem('p','Pending security approvals: '+d.pending_approval_requests+'. These actions cannot be approved from this read-only beta.'));
  }
- out.appendChild(elem('p','All values come from the permission-checked CT101 read API. Changes, payments and exports are disabled.','data-footnote'));
+ out.appendChild(elem('p','Records are permission-checked. Payments and exports remain disabled.','data-footnote'));
 }
 async function load(section){
  const status=$('#status');status.textContent='Loading permission-checked records…';
@@ -105,9 +106,27 @@ async function load(section){
   if(!r.ok)throw Error('Unavailable');
   const data=await r.json();render(section,data);
   for(const b of document.querySelectorAll('[data-section]'))b.setAttribute('aria-pressed',String(b.dataset.section===section));
-  status.textContent='Read-only · Current officer permissions enforced · 15-minute session';
+  status.textContent='Current officer permissions enforced · 15-minute session';
  }catch(e){status.textContent='Data unavailable. Nothing has changed.';}
 }
 if($('#login'))$('#login').addEventListener('submit',login);
 if($('#sections')){for(const b of document.querySelectorAll('[data-section]'))b.addEventListener('click',()=>load(b.dataset.section));load('dashboard');}
 if($('#logout'))$('#logout').addEventListener('click',async()=>{try{await post('/auth/logout',{});location.assign('/login');}catch(e){$('#status').textContent='Sign-out could not be confirmed. Please close this browser and contact the administrator.';}});
+
+function seniorityForm(out,members){
+ const p=panel(out,'Update membership joining date');
+ p.appendChild(elem('p','Use the original joining date. A sanction must never replace it.'));
+ const f=elem('form');const member=elem('select');member.required=true;
+ for(const m of members){const o=elem('option',m.display_name);o.value=m.member_id;member.appendChild(o);}
+ const date=elem('input');date.type='date';date.required=true;
+ const ml=elem('label','Member');ml.appendChild(member);
+ const dl=elem('label','Original joining date');dl.appendChild(date);
+ const save=elem('button','Save joining date');save.type='submit';save.disabled=!members.length;
+ const status=elem('p');status.setAttribute('role','status');
+ f.append(ml,dl,save,status);p.appendChild(f);
+ f.addEventListener('submit',async e=>{e.preventDefault();save.disabled=true;
+ try{const result=await post('/api/v1/seniority/write',{action:'join',data:{member_id:member.value,joined_on:date.value}});
+ if(result.saved!==true)throw Error('Not confirmed');status.textContent='Joining date saved.';
+ }catch(e){status.textContent='Save not confirmed. Check your permissions and session.';}
+ finally{save.disabled=false;}});
+}
