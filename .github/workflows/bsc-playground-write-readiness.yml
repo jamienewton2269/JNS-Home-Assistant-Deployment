@@ -1,0 +1,41 @@
+name: CT272 playground write readiness
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/bsc-playground-write-readiness.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  check:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          set -eu
+          test "$(hostname -s)" = nodec
+          python3 -m py_compile club-manager/beta/server.py club-manager/beta/write_api.py
+          if command -v node >/dev/null; then node --check club-manager/beta/static/browser.js; fi
+          mkdir -p gateway/receipts
+          report=gateway/receipts/bsc-playground-write-readiness-latest.txt
+          {
+            echo "run_id=$GITHUB_RUN_ID"
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodeb 'test "$(pct config 272 | sed -n "s/^hostname: //p")" = club-manager-playground && pct exec 272 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager' <<'SQL'
+          SELECT to_regclass('club.member_profiles') IS NOT NULL AS member_schema,
+          to_regclass('club.working_parties') IS NOT NULL AS parties,
+          to_regclass('club.mooring_seniority_policy') IS NOT NULL AS policy,
+          to_regprocedure('club.officer_session_authorized(text,text)') IS NOT NULL AS session_gate;
+          SELECT rolname,pg_has_role('clubbeta',oid,'MEMBER') AS beta_member FROM pg_roles WHERE rolname IN ('club_api_service','club_authn_service');
+          SELECT count(*) AS member_count FROM club.member_profiles;
+          SQL
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodeb 'pct exec 272 -- python3 -c "import urllib.request; print(urllib.request.urlopen(\"http://127.0.0.1:8766/healthz\",timeout=5).status)"'
+            echo source_syntax=passed
+          } > "$report" 2>&1
+          cat "$report"
+          git config user.name bsc-nodec-check
+          git config user.email bsc-nodec-check@users.noreply.github.com
+          git add "$report"
+          git commit -m "Record playground write deployment prerequisites"
+          git push origin HEAD:main
