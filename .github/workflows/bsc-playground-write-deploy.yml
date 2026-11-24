@@ -1,0 +1,56 @@
+name: CT272 playground write deployment
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/bsc-playground-write-deploy.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          set -eu
+          test "$(hostname -s)" = nodec
+          mkdir -p gateway/receipts
+          report=gateway/receipts/bsc-playground-write-deploy-latest.txt
+          (
+            set -eu
+            remote() { ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodeb "$@"; }
+            remote 'test "$(pct config 272 | sed -n "s/^hostname: //p")" = club-manager-playground'
+            remote 'pct exec 272 -- sh -c "umask 077; mkdir -p /root/bsc-write-backup; pg_dump -U postgres -Fc club_manager > /root/bsc-write-backup/club_manager.dump.tmp && mv /root/bsc-write-backup/club_manager.dump.tmp /root/bsc-write-backup/club_manager.dump && tar -czf /root/bsc-write-backup/beta.tar.gz -C /opt beta"'
+            echo backup=created
+            for migration in 023_mooring_seniority_working_parties 024_configurable_seniority_sanctions 025_authenticated_seniority_writes; do
+              remote 'pct exec 272 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager' < "club-manager/migrations/$migration.sql"
+            done
+            remote 'pct exec 272 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager' <<'SQL'
+          GRANT USAGE ON SCHEMA club TO club_api_service;
+          GRANT EXECUTE ON FUNCTION club.api_seniority_write(text,text,jsonb) TO clubbeta;
+          DO $$ BEGIN
+            BEGIN
+              PERFORM club.api_seniority_write('invalid','policy','{"months":12}'::jsonb);
+              RAISE EXCEPTION 'Unauthenticated write accepted';
+            EXCEPTION WHEN insufficient_privilege THEN
+              RAISE NOTICE 'PASS: unauthenticated write rejected';
+            END;
+          END $$;
+          SQL
+            # Patch the deployed server rather than overwrite its local provisioning routes.
+            remote 'pct exec 272 -- python3 -c "from pathlib import Path; p=Path(\"/opt/beta/server.py\"); s=p.read_text(); assert \"from read_api import ReadOnlyBetaAPI, READ_ROUTES\" in s; assert \"/api/v1/seniority/write\" not in s; assert s.count(\"            if self.path == \\\"/auth/logout\\\":\")==1; assert s.count(\"\\\"/auth/logout\\\"):\")==1"'
+            for file in write_api.py static/browser.js static/beta.html; do
+              remote "pct exec 272 -- sh -c 'cat > /opt/beta/$file.new && chmod 644 /opt/beta/$file.new && mv /opt/beta/$file.new /opt/beta/$file'" < "club-manager/beta/$file"
+            done
+            echo assets=installed
+            echo server_patch=pending
+          ) > "$report" 2>&1 || echo deployment_failed >> "$report"
+          cat "$report"
+          git config user.name bsc-nodec-check
+          git config user.email bsc-nodec-check@users.noreply.github.com
+          git add "$report"
+          git commit -m "Record playground scoped write deployment"
+          git push origin HEAD:main
+          ! grep -q deployment_failed "$report"
