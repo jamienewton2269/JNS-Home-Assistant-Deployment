@@ -21,6 +21,7 @@ from webauthn_flow import WebAuthnFlow
 from pg_webauthn_store import PostgreSQLWebAuthnStore
 from officer_controller import OfficerController
 from read_api import ReadOnlyBetaAPI, READ_ROUTES
+from write_api import write_seniority
 
 MAX_BODY = 16384
 
@@ -135,7 +136,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self.host_ok() or self.headers.get("Origin") != self.expected_origin:
             return self.deny(403, "Browser origin rejected")
-        if self.path not in ("/auth/webauthn/begin", "/auth/webauthn/complete", "/auth/webauthn/enrol/begin", "/auth/webauthn/enrol/complete", "/auth/logout"):
+        if self.path not in ("/auth/webauthn/begin", "/auth/webauthn/complete", "/auth/webauthn/enrol/begin", "/auth/webauthn/enrol/complete", "/auth/logout", "/api/v1/seniority/write"):
             return self.deny(404, "Unknown operation")
         if self.headers.get("Content-Type","").split(";")[0].strip().lower() != "application/json":
             return self.deny(415, "JSON required")
@@ -146,6 +147,20 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(count).decode("utf-8"))
             if not isinstance(body, dict):
                 raise ValueError("Bad format")
+            if self.path == "/api/v1/seniority/write":
+                try:
+                    result = write_seniority(self.controller.read_api.connect, self.headers.get("Cookie",""), body)
+                    return self.send_body(200, result)
+                except PermissionError:
+                    return self.deny(401, "Named officer session required")
+                except ValueError:
+                    return self.deny(400, "Invalid write request")
+                except Exception as exc:
+                    if getattr(exc, "pgcode", None) == "42501":
+                        return self.deny(403, "Permission denied")
+                    if str(getattr(exc, "pgcode", "")).startswith(("22", "23")):
+                        return self.deny(400, "Invalid or conflicting data")
+                    return self.deny(503, "Write unavailable")
             if self.path == "/auth/logout":
                 cleared = self.controller.logout(self.headers.get("Cookie",""))
                 return self.send_body(200, {"signed_out":True}, cookie=cleared)
