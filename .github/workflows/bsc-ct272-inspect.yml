@@ -1,0 +1,30 @@
+name: BSC CT272 database inspection
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/bsc-ct272-inspect.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          set -eu
+          test "$(hostname -s)" = nodec
+          mkdir -p gateway/receipts
+          report=gateway/receipts/bsc-ct272-inspect-latest.txt
+          {
+            echo "run_id=$GITHUB_RUN_ID"
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodeb 'test "$(pct config 272 | sed -n "s/^hostname: //p")" = club-manager-playground && pct exec 272 -- sh -c "hostname; command -v psql; pg_lsclusters; runuser -u postgres -- psql -Atc \"SELECT datname FROM pg_database WHERE NOT datistemplate\"; systemctl list-unit-files --type=service | grep -Ei \"club|bsc\" || true"'
+          } > "$report" 2>&1
+          cat "$report"
+          git config user.name bsc-nodec-check
+          git config user.email bsc-nodec-check@users.noreply.github.com
+          git add "$report"
+          git commit -m "Record CT272 database inventory"
+          git push origin HEAD:main
