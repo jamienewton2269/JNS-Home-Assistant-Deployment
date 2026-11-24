@@ -1,0 +1,51 @@
+name: CT272 live write endpoint acceptance
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/bsc-playground-write-http-test.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          set -eu
+          test "$(hostname -s)" = nodec
+          mkdir -p gateway/receipts
+          report=gateway/receipts/bsc-playground-write-http-test-latest.txt
+          rc=0
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodeb 'test "$(pct config 272 | sed -n "s/^hostname: //p")" = club-manager-playground && pct exec 272 -- python3 -' > "$report" 2>&1 <<'PY' || rc=$?
+          import urllib.request, urllib.error, json
+          host='club-manager-playground.home.arpa'
+          base='http://127.0.0.1:8766'
+          def check(origin, expected, cookie=None):
+              headers={'Host':host,'Origin':origin,'Content-Type':'application/json'}
+              if cookie: headers['Cookie']=cookie
+              req=urllib.request.Request(base+'/api/v1/seniority/write',data=json.dumps({'action':'policy','data':{'months':12}}).encode(),headers=headers)
+              try:
+                  with urllib.request.urlopen(req,timeout=5) as r: status=r.status
+              except urllib.error.HTTPError as e: status=e.code
+              print('expected',expected,'actual',status)
+              assert status==expected
+          check('https://invalid.example',403)
+          check('https://'+host,401)
+          check('https://'+host,403,'__Host-club_session='+'x'*48)
+          req=urllib.request.Request(base+'/assets/browser.js',headers={'Host':host})
+          with urllib.request.urlopen(req,timeout=5) as r:
+              source=r.read()
+              assert b'workingPartyForms' in source and b'/api/v1/seniority/write' in source
+          print('PASS: deployed editing assets and HTTP denial controls')
+          PY
+          echo "test_exit=$rc" >> "$report"
+          cat "$report"
+          git config user.name bsc-nodec-check
+          git config user.email bsc-nodec-check@users.noreply.github.com
+          git add "$report"
+          git commit -m "Record live playground HTTP write acceptance"
+          git push origin HEAD:main
+          exit "$rc"
