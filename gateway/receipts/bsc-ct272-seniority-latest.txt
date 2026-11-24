@@ -1,0 +1,89 @@
+run_id=45467898165
+Applying club-manager/migrations/023_mooring_seniority_working_parties.sql to synthetic fulltest only
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+	LANGUAGE = (unset),
+	LC_ALL = (unset),
+	LC_CTYPE = (unset),
+	LC_NUMERIC = (unset),
+	LC_COLLATE = (unset),
+	LC_TIME = (unset),
+	LC_MESSAGES = (unset),
+	LC_MONETARY = (unset),
+	LC_ADDRESS = (unset),
+	LC_IDENTIFICATION = (unset),
+	LC_MEASUREMENT = (unset),
+	LC_PAPER = (unset),
+	LC_TELEPHONE = (unset),
+	LC_NAME = (unset),
+	LANG = "en_US.UTF-8"
+    are supported and installed on your system.
+perl: warning: Falling back to the standard locale ("C").
+BEGIN
+ALTER TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE VIEW
+REVOKE
+REVOKE
+COMMIT
+Applying club-manager/migrations/024_configurable_seniority_sanctions.sql to synthetic fulltest only
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+	LANGUAGE = (unset),
+	LC_ALL = (unset),
+	LC_CTYPE = (unset),
+	LC_NUMERIC = (unset),
+	LC_COLLATE = (unset),
+	LC_TIME = (unset),
+	LC_MESSAGES = (unset),
+	LC_MONETARY = (unset),
+	LC_ADDRESS = (unset),
+	LC_IDENTIFICATION = (unset),
+	LC_MEASUREMENT = (unset),
+	LC_PAPER = (unset),
+	LC_TELEPHONE = (unset),
+	LC_NAME = (unset),
+	LANG = "en_US.UTF-8"
+    are supported and installed on your system.
+perl: warning: Falling back to the standard locale ("C").
+BEGIN
+CREATE TABLE
+INSERT 0 1
+CREATE VIEW
+CREATE VIEW
+REVOKE
+REVOKE
+COMMIT
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+	LANGUAGE = (unset),
+	LC_ALL = (unset),
+	LC_CTYPE = (unset),
+	LC_NUMERIC = (unset),
+	LC_COLLATE = (unset),
+	LC_TIME = (unset),
+	LC_MESSAGES = (unset),
+	LC_MONETARY = (unset),
+	LC_ADDRESS = (unset),
+	LC_IDENTIFICATION = (unset),
+	LC_MEASUREMENT = (unset),
+	LC_PAPER = (unset),
+	LC_TELEPHONE = (unset),
+	LC_NAME = (unset),
+	LANG = "en_US.UTF-8"
+    are supported and installed on your system.
+perl: warning: Falling back to the standard locale ("C").
+ default_sanction_months 
+-------------------------
+                       6
+(1 row)
+
+ count 
+-------
+     2
+(1 row)
+
+query_exit=0
+browser_acceptance=not_tested
