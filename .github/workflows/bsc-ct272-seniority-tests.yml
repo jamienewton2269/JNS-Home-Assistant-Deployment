@@ -1,0 +1,34 @@
+name: BSC CT272 seniority behavioural tests
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/bsc-ct272-seniority-tests.yml, club-manager/recovery/test-seniority.sql]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          set -eu
+          test "$(hostname -s)" = nodec
+          mkdir -p gateway/receipts
+          report=gateway/receipts/bsc-ct272-seniority-tests-latest.txt
+          rc=0
+          {
+            echo "run_id=$GITHUB_RUN_ID"
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodeb 'test "$(pct config 272 | sed -n "s/^hostname: //p")" = club-manager-playground && pct exec 272 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d bsc_synthetic_fulltest_20261121' < club-manager/recovery/test-seniority.sql || rc=$?
+            echo "sql_test_exit=$rc"
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodeb 'pct exec 272 -- systemctl show club-playground.service -p ActiveState -p FragmentPath -p WorkingDirectory; pct exec 272 -- ss -lnt; pct exec 272 -- python3 -c "import psycopg2; print(\"psycopg2=present\")"' || true
+          } > "$report" 2>&1
+          cat "$report"
+          git config user.name bsc-nodec-check
+          git config user.email bsc-nodec-check@users.noreply.github.com
+          git add "$report"
+          git commit -m "Record CT272 seniority behavioural tests"
+          git push origin HEAD:main
+          exit "$rc"
