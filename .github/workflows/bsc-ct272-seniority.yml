@@ -1,0 +1,41 @@
+name: BSC CT272 seniority acceptance
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/bsc-ct272-seniority.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          set -eu
+          test "$(hostname -s)" = nodec
+          mkdir -p gateway/receipts
+          report=gateway/receipts/bsc-ct272-seniority-latest.txt
+          set +e
+          {
+            echo "run_id=$GITHUB_RUN_ID"
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodeb 'test "$(pct config 272 | sed -n "s/^hostname: //p")" = club-manager-playground'
+            if [ $? -ne 0 ]; then exit 1; fi
+            for migration in club-manager/migrations/023_mooring_seniority_working_parties.sql club-manager/migrations/024_configurable_seniority_sanctions.sql; do
+              echo "Applying $migration to synthetic fulltest only"
+              ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodeb 'pct exec 272 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d bsc_synthetic_fulltest_20261121' < "$migration"
+              if [ $? -ne 0 ]; then echo migration_failed; break; fi
+            done
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodeb 'pct exec 272 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d bsc_synthetic_fulltest_20261121 -c "SELECT default_sanction_months FROM club.mooring_seniority_policy; SELECT count(*) FROM club.mooring_allocation_priority;"'
+            echo "query_exit=$?"
+            echo "browser_acceptance=not_tested"
+          } > "$report" 2>&1
+          set -e
+          cat "$report"
+          git config user.name bsc-nodec-check
+          git config user.email bsc-nodec-check@users.noreply.github.com
+          git add "$report"
+          git commit -m "Record CT272 synthetic seniority migration results"
+          git push origin HEAD:main
