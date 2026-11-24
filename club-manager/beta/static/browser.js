@@ -132,8 +132,17 @@ function seniorityForm(out,members){
  finally{save.disabled=false;}});
 }
 
-function workingPartyForms(out,members){
+async function workingPartyForms(out,members){
  const p=panel(out,'Working parties and seniority');
+ let current;
+ try {
+  const response=await fetch('/api/v1/seniority',{credentials:'same-origin',cache:'no-store'});
+  if(!response.ok)throw Error('Unavailable');
+  current=await response.json();
+ }catch(e){p.appendChild(elem('p','Working party records unavailable. Check permissions or sign in again.'));return;}
+ const partyOptions=current.parties.map(x=>[x.id,x.held_on+' — '+x.title]);
+ const names=new Map(members.map(m=>[m.member_id,m.display_name]));
+ table(p,['Member','Joined','Suspended','Effective days'],current.members.filter(m=>names.has(m.member_id)).map(m=>[names.get(m.member_id),m.joined_on,m.seniority_suspended?'Yes':'No',m.effective_seniority_days]));
  const memberOptions=members.map(m=>[m.member_id,m.display_name]);
  function form(title,action,fields){
   const f=elem('form');f.appendChild(elem('h3',title));const inputs={};
@@ -142,19 +151,19 @@ function workingPartyForms(out,members){
    if(options){for(const [value,text] of options){const o=elem('option',text);o.value=value;i.appendChild(o);}}
    else i.type=type;
    i.required=name!=='effective_until';if(type==='number'){i.min=1;i.max=36;}
-   inputs[name]=i;l.appendChild(i);f.appendChild(l);
+   if(name==='party_id')i.dataset.party='true';if(name==='months')i.value=current.default_months;inputs[name]=i;l.appendChild(i);f.appendChild(l);
   }
   const b=elem('button','Save');b.type='submit';const status=elem('p');status.setAttribute('role','status');f.append(b,status);p.appendChild(f);
   f.addEventListener('submit',async e=>{e.preventDefault();b.disabled=true;
    try{const data=Object.fromEntries(Object.entries(inputs).map(([k,v])=>[k,v.value]));
     const result=await post('/api/v1/seniority/write',{action,data});
     if(result.saved!==true)throw Error('Unconfirmed');
-    status.textContent='Saved.';if(action==='party'&&result.id){inputs.title.value='';status.textContent='Working party saved. Reference: '+result.id;}
+    status.textContent='Saved.';if(action==='party'&&result.id){partyOptions.unshift([result.id,data.held_on+' — '+data.title]); const select=p.querySelector('select[data-party]');if(select){const o=elem('option',partyOptions[0][1]);o.value=result.id;select.prepend(o);select.value=result.id;} inputs.title.value='';status.textContent='Working party saved.';}
    }catch(e){status.textContent='Save not confirmed: '+e.message;}finally{b.disabled=false;}
   });
  }
  form('Create working party','party',[['title','Title','text'],['held_on','Date','date']]);
- form('Record attendance','attendance',[['party_id','Working party reference','text'],['member_id','Member','',memberOptions],['status','Attendance','',[['attended','Attended'],['excused','Excused'],['absent','Absent'],['declined','Declined']]]]);
+ form('Record attendance','attendance',[['party_id','Working party','',partyOptions],['member_id','Member','',memberOptions],['status','Attendance','',[['attended','Attended'],['excused','Excused'],['absent','Absent'],['declined','Declined']]]]);
  form('Seniority decision','decision',[['member_id','Member','',memberOptions],['decision','Decision','',[['suspend','Suspend seniority'],['reinstate','Reinstate seniority']]],['effective_from','Effective date','date'],['effective_until','Last day (optional)','date'],['reason','Authorised reason','text']]);
  form('Default sanction duration','policy',[['months','Months','number']]);
 }
