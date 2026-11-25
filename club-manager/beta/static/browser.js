@@ -73,6 +73,7 @@ function render(section,d){
   table(yard,['Year','Asset','Basis','Rate'],(d.yard_tariffs||[]).map(x=>[x.year,x.asset_type,x.basis,currency(x.pence_per_unit)]));
  }else if(section==='members'){
   metrics(out,[['Returned membership records',d.length]]);
+  membershipEditor(out,d);
   seniorityForm(out,d);
   workingPartyForms(out,d);
   const p=panel(out,'Permitted member records (up to 100)');
@@ -166,4 +167,49 @@ async function workingPartyForms(out,members){
  form('Record attendance','attendance',[['party_id','Working party','',partyOptions],['member_id','Member','',memberOptions],['status','Attendance','',[['attended','Attended'],['excused','Excused'],['absent','Absent'],['declined','Declined']]]]);
  form('Seniority decision','decision',[['member_id','Member','',memberOptions],['decision','Decision','',[['suspend','Suspend seniority'],['reinstate','Reinstate seniority']]],['effective_from','Effective date','date'],['effective_until','Last day (optional)','date'],['reason','Authorised reason','text']]);
  form('Default sanction duration','policy',[['months','Months','number']]);
+}
+
+async function membershipEditor(out,members){
+ const p=panel(out,'Create or amend membership');
+ p.appendChild(elem('p','Submit details for independent officer approval. The register changes only after approval.'));
+ const f=elem('form'), member=elem('select'), name=elem('input'), email=elem('input'), category=elem('select');
+ const fresh=elem('option','New membership');fresh.value='';member.append(fresh);
+ for(const m of members){const o=elem('option',m.display_name);o.value=m.member_id;member.append(o);}
+ for(const c of ['Full','Family','Junior','Social','Honorary'])category.append(elem('option',c));
+ name.required=email.required=true;name.maxLength=120;email.maxLength=200;email.type='email';
+ for(const [label,input] of [['Membership',member],['Name',name],['Email',email],['Category',category]]){const l=elem('label',label);l.append(input);f.append(l);}
+ member.onchange=()=>{const m=members.find(x=>x.member_id===member.value);name.value=m?.display_name||'';email.value=m?.email||'';category.value=m?.category||'Full';};
+ const save=elem('button','Submit for approval'),status=elem('p');status.setAttribute('role','status');save.type='submit';f.append(save,status);p.append(f);
+ const queue=panel(out,'Pending membership requests');
+ async function refresh(){
+  queue.replaceChildren(elem('h2','Pending membership requests'));
+  try{
+   const r=await fetch('/api/v1/membership-queue',{credentials:'same-origin',cache:'no-store'});
+   if(!r.ok)throw Error('Unavailable');
+   const rows=await r.json();
+   if(!rows.length)queue.append(elem('p','No pending requests.'));
+   for(const q of rows){
+    const a=elem('section'),d=q.request_json;
+    a.append(elem('h3',d.operation+' — '+d.name),elem('p',d.email+' · '+d.category));
+    if(q.can_review){
+     const note=elem('input');note.placeholder='Review reason';note.setAttribute('aria-label','Review reason');
+     const yes=elem('button','Approve'),no=elem('button','Reject'),msg=elem('p');
+     for(const [b,approve] of [[yes,true],[no,false]])b.onclick=async()=>{
+      if(!confirm(approve?'Approve and apply this membership change?':'Reject this membership request?'))return;
+      yes.disabled=no.disabled=true;
+      try{const result=await post('/api/v1/seniority/write',{action:'membership_review',data:{request_id:q.id,approve,note:note.value}});if(result.reviewed!==true)throw Error('Unconfirmed');await load('members');}
+      catch(e){msg.textContent='Review not confirmed: '+e.message;yes.disabled=no.disabled=false;}
+     };
+     a.append(note,yes,no,msg);
+    }else a.append(elem('p','Awaiting independent review.'));
+    queue.append(a);
+   }
+  }catch(e){queue.append(elem('p','Approval queue unavailable or permission denied.'));}
+ }
+ f.onsubmit=async e=>{e.preventDefault();save.disabled=true;
+  const m=members.find(x=>x.member_id===member.value);
+  try{const result=await post('/api/v1/seniority/write',{action:'membership_request',data:{operation:m?'amend':'create',member_id:m?.member_id,version:m?.version,name:name.value,email:email.value,category:category.value}});if(result.submitted!==true)throw Error('Unconfirmed');status.textContent='Submitted for independent approval.';await refresh();}
+  catch(e){status.textContent='Submission not confirmed: '+e.message;}finally{save.disabled=false;}
+ };
+ await refresh();
 }
