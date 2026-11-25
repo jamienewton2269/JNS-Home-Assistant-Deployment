@@ -24,7 +24,7 @@ jobs:
           remote 'test "$(pct config 272 | sed -n "s/^hostname: //p")" = club-manager-playground'
           python3 -m py_compile club-manager/beta/read_api.py club-manager/beta/write_api.py
           node --check club-manager/beta/static/browser.js
-          remote 'pct exec 272 -- sh -ec "umask 077; mkdir -p /root/bsc-membership-backup; runuser -u postgres -- pg_dump -Fc club_manager > /root/bsc-membership-backup/db.dump; pg_restore -l /root/bsc-membership-backup/db.dump >/dev/null; cp -p /opt/beta/read_api.py /opt/beta/write_api.py /opt/beta/static/browser.js /root/bsc-membership-backup/"'
+          remote 'pct exec 272 -- sh -ec "umask 077; mkdir -p /root/bsc-membership-retry-backup; runuser -u postgres -- pg_dump -Fc club_manager > /root/bsc-membership-retry-backup/db.dump; pg_restore -l /root/bsc-membership-retry-backup/db.dump >/dev/null; cp -p /opt/beta/read_api.py /opt/beta/write_api.py /opt/beta/static/browser.js /root/bsc-membership-retry-backup/"'
           echo backup_verified
           for n in 026 027 028 029 030; do
             remote 'pct exec 272 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager' < club-manager/migrations/"$n"_*.sql
@@ -51,8 +51,19 @@ jobs:
           for file in read_api.py write_api.py static/browser.js; do
             remote "pct exec 272 -- sh -ec 'cat > /opt/beta/$file.new; chmod 644 /opt/beta/$file.new; mv /opt/beta/$file.new /opt/beta/$file'" < "club-manager/beta/$file"
           done
-          if ! remote 'pct exec 272 -- systemctl restart club-playground.service && pct exec 272 -- python3 -c "import time,urllib.request; time.sleep(2); print(urllib.request.urlopen(\"http://127.0.0.1:8766/healthz\",timeout=5).status)"'; then
-            remote 'pct exec 272 -- sh -ec "cp -p /root/bsc-membership-backup/read_api.py /root/bsc-membership-backup/write_api.py /opt/beta/; cp -p /root/bsc-membership-backup/browser.js /opt/beta/static/; systemctl restart club-playground.service"'
+          remote 'pct exec 272 -- systemctl restart club-playground.service'
+          ready=0
+          for attempt in $(seq 1 15); do
+            if remote 'pct exec 272 -- python3 -c "import urllib.request; print(urllib.request.urlopen(\"http://127.0.0.1:8766/healthz\",timeout=3).status)"'; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" -ne 1 ]; then
+            remote 'pct exec 272 -- systemctl is-active club-playground.service' || true
+            remote 'pct exec 272 -- journalctl -u club-playground.service -n 30 --no-pager' | grep -E 'Error|Exception|Traceback|File "/opt/beta|Failed' || true
+            remote 'pct exec 272 -- sh -ec "cp -p /root/bsc-membership-retry-backup/read_api.py /root/bsc-membership-retry-backup/write_api.py /opt/beta/; cp -p /root/bsc-membership-retry-backup/browser.js /opt/beta/static/; systemctl restart club-playground.service"'
             exit 1
           fi
           remote 'pct exec 272 -- python3 -' <<'PY'
