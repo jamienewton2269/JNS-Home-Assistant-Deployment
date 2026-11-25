@@ -87,6 +87,8 @@ NOTICE:  relation "seniority_write_audit" already exists, skipping
 REVOKE
 ALTER TABLE
 ALTER TABLE
+NOTICE:  column "previous_status" of relation "seniority_write_audit" already exists, skipping
+NOTICE:  column "new_status" of relation "seniority_write_audit" already exists, skipping
 CREATE FUNCTION
 REVOKE
 GRANT
@@ -226,8 +228,8 @@ During handling of the above exception, another exception occurred:
 
 Traceback (most recent call last):
   File "<string>", line 1, in <module>
-    import time,urllib.request; time.sleep(2); print(urllib.request.urlopen("http://127.0.0.1:8766/healthz",timeout=5).status)
-                                                     ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    import urllib.request; print(urllib.request.urlopen("http://127.0.0.1:8766/healthz",timeout=3).status)
+                                 ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "/usr/lib/python3.13/urllib/request.py", line 189, in urlopen
     return opener.open(url, data, timeout)
            ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
@@ -244,4 +246,6 @@ Traceback (most recent call last):
   File "/usr/lib/python3.13/urllib/request.py", line 1322, in do_open
     raise URLError(err)
 urllib.error.URLError: <urlopen error [Errno 111] Connection refused>
-deployment_exit=1
+200
+PASS: membership queue requires session
+deployment_exit=0
