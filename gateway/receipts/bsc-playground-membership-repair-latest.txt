@@ -1,0 +1,22 @@
+active
+Nov 19 19:10:13 club-manager-playground python[4200]:   File "/opt/beta/server.py", line 122, in do_GET
+Nov 19 19:10:13 club-manager-playground python[4200]:   File "/opt/beta/server.py", line 88, in deny
+Nov 19 19:10:13 club-manager-playground python[4200]:   File "/opt/beta/server.py", line 84, in send_body
+Nov 19 19:10:13 club-manager-playground python[4200]: BrokenPipeError: [Errno 32] Broken pipe
+Nov 22 16:44:42 club-manager-playground systemd[1]: Stopped club-playground.service - Isolated synthetic Club Manager beta.
+Nov 22 16:44:42 club-manager-playground systemd[1]: Started club-playground.service - Isolated synthetic Club Manager beta.
+Nov 22 16:50:07 club-manager-playground systemd[1]: Stopped club-playground.service - Isolated synthetic Club Manager beta.
+Nov 22 16:50:07 club-manager-playground systemd[1]: Started club-playground.service - Isolated synthetic Club Manager beta.
+Nov 22 17:10:07 club-manager-playground systemd[1]: Stopped club-playground.service - Isolated synthetic Club Manager beta.
+Nov 22 17:10:07 club-manager-playground systemd[1]: Started club-playground.service - Isolated synthetic Club Manager beta.
+Nov 24 21:44:31 club-manager-playground systemd[1]: Stopped club-playground.service - Isolated synthetic Club Manager beta.
+Nov 24 21:44:31 club-manager-playground systemd[1]: Started club-playground.service - Isolated synthetic Club Manager beta.
+Nov 25 10:29:37 club-manager-playground systemd[1]: Stopped club-playground.service - Isolated synthetic Club Manager beta.
+Nov 25 10:29:37 club-manager-playground systemd[1]: Started club-playground.service - Isolated synthetic Club Manager beta.
+Nov 25 10:29:45 club-manager-playground systemd[1]: Stopped club-playground.service - Isolated synthetic Club Manager beta.
+Nov 25 10:29:45 club-manager-playground systemd[1]: Started club-playground.service - Isolated synthetic Club Manager beta.
+644 root root /opt/beta/read_api.py
+644 root root /opt/beta/write_api.py
+644 root root /opt/beta/static/browser.js
+200
+rollback_health_exit=0
