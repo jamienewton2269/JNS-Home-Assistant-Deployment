@@ -1,0 +1,83 @@
+name: CT272 membership editor
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/bsc-playground-membership-editor.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          set -eu
+          test "$(hostname -s)" = nodec
+          mkdir -p gateway/receipts
+          report=gateway/receipts/bsc-playground-membership-editor-latest.txt
+          cat > /tmp/bsc-membership-deploy-$$.sh <<'DEPLOY'
+          set -euo pipefail
+          remote() { ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodeb "$@"; }
+          remote 'test "$(pct config 272 | sed -n "s/^hostname: //p")" = club-manager-playground'
+          python3 -m py_compile club-manager/beta/read_api.py club-manager/beta/write_api.py
+          node --check club-manager/beta/static/browser.js
+          remote 'pct exec 272 -- sh -ec "umask 077; mkdir -p /root/bsc-membership-backup; runuser -u postgres -- pg_dump -Fc club_manager > /root/bsc-membership-backup/db.dump; pg_restore -l /root/bsc-membership-backup/db.dump >/dev/null; cp -p /opt/beta/read_api.py /opt/beta/write_api.py /opt/beta/static/browser.js /root/bsc-membership-backup/"'
+          echo backup_verified
+          for n in 026 027 028 029 030; do
+            remote 'pct exec 272 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager' < club-manager/migrations/"$n"_*.sql
+            echo "migration_$n=applied"
+          done
+          remote 'pct exec 272 -- runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d club_manager' <<'SQL'
+          GRANT EXECUTE ON FUNCTION club.api_membership_request(text,jsonb),club.api_membership_review(text,uuid,boolean,text),club.api_membership_queue(text),club.api_seniority_for_officer(text) TO clubbeta;
+          DO $$ BEGIN
+            BEGIN
+              PERFORM club.api_membership_request('invalid','{}'::jsonb);
+              RAISE EXCEPTION 'Unauthorised submission accepted';
+            EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+            BEGIN
+              PERFORM club.api_membership_review('invalid',gen_random_uuid(),true,'test');
+              RAISE EXCEPTION 'Unauthorised review accepted';
+            EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+            BEGIN
+              PERFORM club.api_membership_queue('invalid');
+              RAISE EXCEPTION 'Unauthorised queue read accepted';
+            EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+          END $$;
+          SQL
+          echo sql_denial_tests_passed
+          for file in read_api.py write_api.py static/browser.js; do
+            remote "pct exec 272 -- sh -ec 'cat > /opt/beta/$file.new; chmod 644 /opt/beta/$file.new; mv /opt/beta/$file.new /opt/beta/$file'" < "club-manager/beta/$file"
+          done
+          if ! remote 'pct exec 272 -- systemctl restart club-playground.service && pct exec 272 -- python3 -c "import time,urllib.request; time.sleep(2); print(urllib.request.urlopen(\"http://127.0.0.1:8766/healthz\",timeout=5).status)"'; then
+            remote 'pct exec 272 -- sh -ec "cp -p /root/bsc-membership-backup/read_api.py /root/bsc-membership-backup/write_api.py /opt/beta/; cp -p /root/bsc-membership-backup/browser.js /opt/beta/static/; systemctl restart club-playground.service"'
+            exit 1
+          fi
+          remote 'pct exec 272 -- python3 -' <<'PY'
+          import urllib.request,urllib.error
+          base="http://127.0.0.1:8766"
+          headers={"Host":"club-manager-playground.home.arpa"}
+          try:
+              urllib.request.urlopen(urllib.request.Request(base+"/api/v1/membership-queue",headers=headers),timeout=5)
+          except urllib.error.HTTPError as e:
+              assert e.code==401,e.code
+          else:
+              raise RuntimeError("Unauthenticated queue accepted")
+          print("PASS: membership queue requires session")
+          PY
+          DEPLOY
+          set +e
+          bash /tmp/bsc-membership-deploy-$$.sh > "$report" 2>&1
+          rc=$?
+          set -e
+          rm -f /tmp/bsc-membership-deploy-$$.sh
+          echo "deployment_exit=$rc" >> "$report"
+          cat "$report"
+          git config user.name bsc-nodec-check
+          git config user.email bsc-nodec-check@users.noreply.github.com
+          git add "$report"
+          git commit -m "Record CT272 membership editor deployment"
+          git push origin HEAD:main
+          exit "$rc"
