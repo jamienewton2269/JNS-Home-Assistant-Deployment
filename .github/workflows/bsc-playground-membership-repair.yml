@@ -1,0 +1,39 @@
+name: CT272 membership startup repair
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/bsc-playground-membership-repair.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: [self-hosted, linux, x64, nodec]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          set -eu
+          test "$(hostname -s)" = nodec
+          mkdir -p gateway/receipts
+          report=gateway/receipts/bsc-playground-membership-repair-latest.txt
+          remote() { ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@nodeb "$@"; }
+          remote 'test "$(pct config 272 | sed -n "s/^hostname: //p")" = club-manager-playground'
+          set +e
+          (
+            remote 'pct exec 272 -- systemctl is-active club-playground.service'
+            remote 'pct exec 272 -- journalctl -u club-playground.service -n 60 --no-pager' | grep -E 'Error|Exception|Traceback|File "/opt/beta|Failed|Started|Stopped|ModuleNotFound' || true
+            remote 'pct exec 272 -- stat -c "%a %U %G %n" /opt/beta/read_api.py /opt/beta/write_api.py /opt/beta/static/browser.js'
+            remote 'pct exec 272 -- python3 -c "import urllib.request; print(urllib.request.urlopen(\"http://127.0.0.1:8766/healthz\",timeout=5).status)"'
+          ) > "$report" 2>&1
+          rc=$?
+          set -e
+          echo "rollback_health_exit=$rc" >> "$report"
+          cat "$report"
+          git config user.name bsc-nodec-check
+          git config user.email bsc-nodec-check@users.noreply.github.com
+          git add "$report"
+          git commit -m "Record CT272 startup diagnosis"
+          git push origin HEAD:main
+          exit "$rc"
