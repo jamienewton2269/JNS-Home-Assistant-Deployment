@@ -1,0 +1,26 @@
+run_id=45814185387
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+	LANGUAGE = (unset),
+	LC_ALL = (unset),
+	LC_CTYPE = (unset),
+	LC_NUMERIC = (unset),
+	LC_COLLATE = (unset),
+	LC_TIME = (unset),
+	LC_MESSAGES = (unset),
+	LC_MONETARY = (unset),
+	LC_ADDRESS = (unset),
+	LC_IDENTIFICATION = (unset),
+	LC_MEASUREMENT = (unset),
+	LC_PAPER = (unset),
+	LC_TELEPHONE = (unset),
+	LC_NAME = (unset),
+	LANG = "en_US.UTF-8"
+    are supported and installed on your system.
+perl: warning: Falling back to the standard locale ("C").
+BEGIN
+ERROR:  insert or update on table "committee_permission_grants" violates foreign key constraint "committee_permission_grants_permission_code_fkey"
+DETAIL:  Key (permission_code)=(members_amend) is not present in table "committee_permissions".
+CONTEXT:  SQL statement "INSERT INTO club.committee_permission_grants(account_id,permission_code,approved_by) SELECT x,p,'regression' FROM unnest(ARRAY[a,b]) x CROSS JOIN unnest(ARRAY['members_view','members_amend','members_approve']) p"
+PL/pgSQL function inline_code_block line 6 at SQL statement
+test_exit=3
